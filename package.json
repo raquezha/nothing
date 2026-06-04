@@ -1,0 +1,15 @@
+{
+  "name": "nothing-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unified dotfiles configuration and extensions monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1"
+  }
+}
