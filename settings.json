@@ -9,5 +9,11 @@
   "editorPaddingX": 2,
   "packages": [],
   "lastChangelogVersion": "0.74.1",
-  "transport": "auto"
+  "transport": "auto",
+  "mcpServers": {
+    "android-skills": {
+      "command": "npx",
+      "args": ["-y", "android-skills-mcp"]
+    }
+  }
 }
