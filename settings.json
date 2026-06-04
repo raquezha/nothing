@@ -1,0 +1,13 @@
+{
+  "defaultProvider": "github-copilot",
+  "defaultModel": "gpt-4.1",
+  "defaultThinkingLevel": "medium",
+  "showHardwareCursor": true,
+  "hideThinkingBlock": false,
+  "quietStartup": false,
+  "theme": "ghostly-pale",
+  "editorPaddingX": 2,
+  "packages": [],
+  "lastChangelogVersion": "0.74.1",
+  "transport": "auto"
+}

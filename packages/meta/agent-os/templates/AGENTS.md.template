@@ -1,0 +1,22 @@
+# ⚡️ AGENT BOOTSTRAP (READ FIRST)
+If this is your first turn in this repo, IMMEDIATELY:
+1. Read `CONTEXT.md` to understand the domain and tech stack.
+2. Check `.workflow/tasks/` for any `WORK.md` in progress.
+3. **Resume State**: If a task is in progress, read the last 3 entries of `[LOG]` to synchronize with previous agent steps.
+4. Run any discovery or health check scripts defined in `CONTEXT.md`.
+
+---
+
+# Agent Rules (pi-local)
+
+- **Security**: Do not read, display, or exfiltrate secrets or credentials (e.g. `.env`, `.secrets`, `.pem`, `id_rsa`, `auth.json`).
+- **Architecture**: Before implementing, always analyze the existing codebase for established patterns. Do not introduce new dependencies without justification.
+- **Workflow**: 
+  - Prefer a "Plan-First" approach.
+  - **Durable State**: Treat the `WORK.md` and `.workflow/` directory as the source of truth for the agent's memory. If the model or session changes, always resume from the last recorded state in `[LOG]` and `[PLAN]`.
+  - Use `read` to examine files instead of `cat`.
+  - Use `edit` for precise changes.
+- **Cleanliness**: Do not commit ephemeral task files. Use Conventional Commits.
+
+---
+*Never Trust AI. Always Manual Review. Verify Every Change.*

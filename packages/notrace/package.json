@@ -1,0 +1,23 @@
+{
+  "name": "notrace",
+  "version": "1.0.0",
+  "description": "Zero-dependency, local-first interactive HTML Trace Viewer for the Pi Coding Agent",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=0.70.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "pi-agent",
+    "observability",
+    "trace",
+    "telemetry"
+  ]
+}

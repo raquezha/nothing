@@ -1,0 +1,58 @@
+{
+  "mindsets": {
+    "android": {
+      "skills": ["android", "norpiv/triage", "norpiv/implement", "norpiv/verify"],
+      "extensions": []
+    },
+    "pm": {
+      "skills": ["search", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
+      "extensions": []
+    },
+    "dev": {
+      "skills": ["search", "norpiv/triage", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/cleanup"],
+      "extensions": ["notrace"]
+    },
+    "rpiv": {
+      "skills": ["search", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
+      "extensions": ["notrace"]
+    },
+    "meta": {
+      "skills": ["meta", "search"],
+      "extensions": ["noleaks"]
+    },
+    "write": {
+      "skills": ["search"],
+      "extensions": []
+    },
+    "antigravity": {
+      "skills": [],
+      "extensions": ["noantigravity"]
+    }
+  },
+  "default_models": {
+    "implement": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "grill-with-docs": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "android-compose": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "android-logcat-smart": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "android-agp9-migration": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "android-ci-component-adoption": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "norpiv": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "android": { "provider": "openai-codex", "model": "gpt-5.5", "priority": 5 },
+    "update-docs": { "provider": "openai-codex", "model": "gpt-5.4", "priority": 4 },
+    "pi-skill-creator": { "provider": "openai-codex", "model": "gpt-5.4", "priority": 4 },
+    "meta": { "provider": "openai-codex", "model": "gpt-5.4", "priority": 4 },
+    "frame": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "plan": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "agent-os": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "brave-search": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "firecrawl": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "android-adb": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "android-gradle": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "android-project-setup": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "search": { "provider": "github-copilot", "model": "gpt-4.1", "priority": 3 },
+    "cleanup": { "provider": "github-copilot", "model": "gpt-5-mini", "priority": 2 },
+    "triage": { "provider": "github-copilot", "model": "gpt-5-mini", "priority": 2 },
+    "verify": { "provider": "github-copilot", "model": "gpt-5-mini", "priority": 2 },
+    "sync": { "provider": "github-copilot", "model": "gpt-5-mini", "priority": 2 }
+  }
+}

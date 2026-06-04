@@ -1,0 +1,26 @@
+# Project Context: {{PROJECT_NAME}}
+
+## 🎯 Domain Logic
+- (Briefly describe what this project DOES for the user)
+- Key entities: 
+- Core business rules:
+
+## 💻 Tech Stack
+- **Language**: {{LANGUAGE}}
+- **Framework**: {{FRAMEWORK}}
+- **Agent Requirements**: (e.g., Tool-calling support, min. 128k context window, high reasoning for planning)
+- **Database**:
+- **Testing**: {{TESTER}}
+
+## 🛠 Workflow & Rules
+- **Branching**:
+- **Deployment**:
+- **Special Commands**:
+
+## 🗺 Map of the Land
+- `/src`:
+- `/docs`:
+- `/tests`:
+
+---
+*Last updated: {{DATE}} via pi agent-os*

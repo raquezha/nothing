@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Ephemeral agent work directories
+.workflow/
+active_task.json
