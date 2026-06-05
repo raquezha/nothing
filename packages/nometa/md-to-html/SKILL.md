@@ -1,72 +1,53 @@
 ---
 name: md-to-html
-description: Compile markdown planning/status files into interactive, premium HTML dashboard interfaces. Use when the user requests updating or generating an interactive HTML dashboard from a structured plan markdown file (such as PLAN.md).
+description: Compile any markdown (.md) document into a premium, interactive, and self-contained HTML file. Use when the user requests generating a web dashboard, an interactive plan, a readable documentation page, or a formatted report from one or more markdown files.
 ---
 
-# MD to HTML Plan Compiler
+# MD to HTML Compiler
 
-This skill handles translating structured markdown planning documents (like `PLAN.md`) into high-fidelity, interactive HTML dashboards (like `migration_plan.html`).
+This skill handles converting standard Markdown files (such as documentation, READMEs, plans, or problem briefs) into high-fidelity, interactive, and self-contained HTML files.
 
 ## Purpose
-Keeps plan documentation and interactive dashboards perfectly in sync without manual layout rewriting, ensuring that decision updates, checklist tasks, and progress metrics are compiled accurately.
+Enables turning static documentation or checklists into visually stunning, interactive web pages with responsive layout, persistent checkbox states, and copyable code blocks.
 
 ## When to Use
 Use when:
-- The user requests to sync `PLAN.md` updates to the interactive HTML dashboard (`migration_plan.html`).
-- A new task or phase is added/removed in the markdown checklist.
-- The structure of phases, tasks, or code blueprints changes.
+- The user wants to convert a markdown file (e.g., `PLAN.md`, `README.md`, `PROBLEM.md`) into a formatted HTML page.
+- You need to generate an interactive checklist/dashboard with progress tracking.
+- You want to publish a polished, self-contained report or manual from markdown sources.
 
 ## Workflow
 
-### 1. Extract Plan Metadata & Checklists
-1. Read the target plan markdown file (e.g., [PLAN.md](file:///Users/raquezha/RQZ/personal/pi.dev/PLAN.md)).
-2. Parse the Checklist items by phase:
-   - Identify phase headers (e.g., `### Phase N: ...`).
-   - Identify task IDs or create sequential IDs (e.g., `p1-1` for Phase 1 Task 1, `p3-5` for Phase 3 Task 5).
-   - Extract checkbox state (`[x]` = completed / `true`, `[ ]` = pending / `false`).
-   - Extract task title, short description, and details block.
+### 1. Read and Analyze Source Markdown
+1. Load the source markdown file(s).
+2. Scan the document structure:
+   - Identify headers (`#`, `##`, `###`) to establish hierarchy and optionally generate a Table of Contents (TOC).
+   - Locate task lists (`- [ ]`, `- [x]`) for interactive checkbox compilation.
+   - Detect code blocks (with language identifiers) for syntax highlighting wrapper and copy-to-clipboard elements.
 
-### 2. Compile HTML Checklist Markup
-For each checklist item, format it into the interactive `task-item` container template:
-```html
-<div class="task-item" id="task-p[X]-[Y]">
-  <div class="task-checkbox" onclick="toggleTask('p[X]-[Y]'); event.stopPropagation();"></div>
-  <div class="task-content" onclick="toggleDetails('p[X]-[Y]')">
-    <div class="task-text">Task Title</div>
-    <div class="task-desc">Short description of the task.</div>
-    <div class="task-details">
-      <p>Extra technical details, code command blocks, or links.</p>
-    </div>
-  </div>
-</div>
-```
+### 2. Map Markdown to Semantic HTML5
+Translate the AST/tokens into corresponding semantic elements:
+- `#` ➔ `<h1>` (exactly one per document for SEO best practices)
+- `##` / `###` ➔ `<h2>` / `<h3>`
+- Paragraphs ➔ `<p>`
+- Code blocks ➔ `<pre><code>` with copy utility wrapper
+- Task checklists ➔ `<div class="task-item">` with custom checkboxes
+- Lists ➔ `<ul>` / `<ol>`
+- Tables ➔ `<table>` with formatted alignment
 
-### 3. Update JavaScript Data Structures
-Locate the `<script>` block at the bottom of the HTML file and update:
-1. **The Tasks Map (`tasks`)**: Assign `true` for completed items (`[x]`) and `false` for pending items (`[ ]`).
-   ```javascript
-   const tasks = {
-     'p1-1': true,
-     ...
-     'p3-5': false
-   };
-   ```
-2. **The Group Totals (`groupTotals`)**: Update the total number of tasks in each phase:
-   ```javascript
-   const groupTotals = { p1: 5, p2: 4, p3: 5, p4: 3, p5: 3 };
-   ```
+### 3. Inject Styling & Theme System
+Use vanilla CSS inside a `<style>` block to provide a state-of-the-art visual presentation:
+- **Typography**: Import premium sans-serif (e.g., `Outfit`, `Inter`) and monospace fonts (e.g., `Source Code Pro`).
+- **Colors**: Sleek dark theme using tailored variable sets (e.g., deep purples, emerald greens, slate borders).
+- **Glassmorphism**: Subtle radial gradients and backdrops (`backdrop-filter`) for containers, tables, and sidebars.
+- **Interactions**: Smooth hover effects and transitions.
 
-### 4. Code Blueprint Sync
-If there are file blueprints (e.g., `### 6.1. Cross-Platform bootstrap.sh`) in the markdown file:
-- Ensure they are parsed and updated in the tab content sections of the HTML dashboard.
-- Keep tabs and copy buttons functional.
+### 4. Inject Interactive Features (JavaScript)
+Embed minimal, vanilla JS for user convenience:
+- **Clipboard Utility**: A copy-code button for each `<pre>` block.
+- **TOC Navigation**: Smooth-scroll routing for header anchors.
+- **Checklist Persistence**: Map checkbox toggles to `localStorage` key-value pairs so states persist across page reloads.
+- **Progress Tracking**: If checklists are present, update overall completion indicators dynamically.
 
-## Design Rules & Aesthetics
-- **No Browser Defaults**: Rely on curated font families (e.g., `Outfit`, `Source Code Pro`).
-- **Gradients & Glows**: Use subtle dark-theme radial gradients, borders with opacity transitions, and accent glow states.
-- **Glassmorphism**: Use backdrop filters for overlay panels and widgets to feel premium.
-
-## Validation Steps
-1. Open the HTML file or inspect the generated markup.
-2. Confirm there are no duplicate IDs or missing functions.
-3. Validate that the JavaScript tasks list count and totals exactly match the DOM list.
+## Output Contract
+Generate a single, self-contained `.html` file that operates completely offline without external JS dependencies (excluding Google Fonts or optional CDN icons).
