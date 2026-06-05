@@ -16,10 +16,6 @@ pi() {
   local EXTRA_SKILLS=()
   local EXTRA_EXTENSIONS=()
   local MINDSET=""
-  local AUTO_PROVIDER=""
-  local AUTO_MODEL=""
-  local AUTO_PRIORITY=0
-  local EXPLICIT_MODEL=0
 
   # Node-based helper to extract mindset config
   get_mindset_config() {
@@ -40,51 +36,6 @@ pi() {
     "
   }
 
-  get_auto_model_config() {
-    local skill_name="$1"
-    if [[ ! -f "$MINDSETS_JSON" ]]; then
-      return
-    fi
-    node -e "
-      const fs = require('fs');
-      try {
-        const data = JSON.parse(fs.readFileSync('$MINDSETS_JSON', 'utf8'));
-        const config = data.default_models['$skill_name'];
-        if (config) {
-          console.log(config.provider + ' ' + config.model + ' ' + config.priority);
-        }
-      } catch (e) {}
-    "
-  }
-
-  set_auto_model() {
-    local provider="$1"
-    local model="$2"
-    local priority="$3"
-
-    if [[ "$EXPLICIT_MODEL" -eq 1 ]]; then
-      return
-    fi
-
-    if (( priority > AUTO_PRIORITY )); then
-      AUTO_PROVIDER="$provider"
-      AUTO_MODEL="$model"
-      AUTO_PRIORITY="$priority"
-    fi
-  }
-
-  model_for_skill_path() {
-    local target="$1"
-    local skill_name
-    skill_name="$(basename "$target")"
-    
-    local config
-    config=$(get_auto_model_config "$skill_name")
-    if [[ -n "$config" ]]; then
-      set_auto_model $config
-    fi
-  }
-
   # Parse custom flags
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -98,7 +49,6 @@ pi() {
         skills=$(get_mindset_config "$flag_name" "skills")
         for sk in $skills; do
           EXTRA_SKILLS+=("--skill" "$NOTHING_DIR/packages/$sk")
-          model_for_skill_path "$NOTHING_DIR/packages/$sk"
         done
 
         # Load extensions from mindsets.json
@@ -110,62 +60,12 @@ pi() {
         
         shift
         ;;
-      --skill)
-        ARGS+=("$1")
-        if [[ $# -gt 1 ]]; then
-          model_for_skill_path "$2"
-          ARGS+=("$2")
-          shift 2
-        else
-          shift
-        fi
-        ;;
-      --skill=*)
-        ARGS+=("$1")
-        model_for_skill_path "${1#--skill=}"
-        shift
-        ;;
-      --model)
-        EXPLICIT_MODEL=1
-        ARGS+=("$1")
-        if [[ $# -gt 1 ]]; then
-          ARGS+=("$2")
-          shift 2
-        else
-          shift
-        fi
-        ;;
-      --model=*)
-        EXPLICIT_MODEL=1
-        ARGS+=("$1")
-        shift
-        ;;
-      --provider)
-        EXPLICIT_MODEL=1
-        ARGS+=("$1")
-        if [[ $# -gt 1 ]]; then
-          ARGS+=("$2")
-          shift 2
-        else
-          shift
-        fi
-        ;;
-      --provider=*)
-        EXPLICIT_MODEL=1
-        ARGS+=("$1")
-        shift
-        ;;
       *)
         ARGS+=("$1")
         shift
         ;;
     esac
   done
-
-  # Inject default provider/model if matched
-  if [[ -n "$AUTO_PROVIDER" && "$EXPLICIT_MODEL" -eq 0 ]]; then
-    ARGS+=("--provider" "$AUTO_PROVIDER" "--model" "$AUTO_MODEL")
-  fi
 
   # Call the global pi command with the computed skills/extensions
   if [[ -n "$MINDSET" ]]; then

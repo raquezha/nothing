@@ -1,7 +1,7 @@
 {
   "mindsets": {
     "nothing": {
-      "skills": ["meta/nothing"],
+      "skills": ["nometa/nothing"],
       "extensions": []
     },
     "android": {
@@ -9,23 +9,23 @@
       "extensions": []
     },
     "pm": {
-      "skills": ["search", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
+      "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
       "extensions": []
     },
     "dev": {
-      "skills": ["search", "norpiv/triage", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/cleanup"],
+      "skills": ["nosearch", "norpiv/triage", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/cleanup"],
       "extensions": ["notrace"]
     },
     "rpiv": {
-      "skills": ["search", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
+      "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
       "extensions": ["notrace"]
     },
     "meta": {
-      "skills": ["meta", "search"],
+      "skills": ["nometa", "nosearch"],
       "extensions": ["noleaks"]
     },
     "write": {
-      "skills": ["search"],
+      "skills": ["nosearch"],
       "extensions": []
     },
     "antigravity": {

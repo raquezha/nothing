@@ -1,10 +1,10 @@
-# meta (Pi System & Agent-OS Engineering)
+# nometa (Pi System & Agent-OS Engineering)
 
 System utilities, skill creation frameworks, and monorepo bootstrapping automations designed to manage and scale the coding agent infrastructure.
 
 ## 🛠 Skills Checklist
 
-This package exposes the following meta skills:
+This package exposes the following nometa skills:
 
 - **`pi-skill-creator`**: Automated generator that reads guidelines or examples to scaffold and compile new reusable Pi skills under `pi/skills/` (using standard structures, SKILL.md specs, and references).
 - **`agent-os`**: Dynamic bootstrapper to seed any empty or undocumented codebase with `AGENTS.md` and `CONTEXT.md`. Establishes immediate context-loading rules for incoming agents.
