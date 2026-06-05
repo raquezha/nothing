@@ -49,5 +49,15 @@ Embed minimal, vanilla JS for user convenience:
 - **Checklist Persistence**: Map checkbox toggles to `localStorage` key-value pairs so states persist across page reloads.
 - **Progress Tracking**: If checklists are present, update overall completion indicators dynamically.
 
+## HTML Living Standard (WHATWG) Compliance
+To comply with the [HTML Living Standard](https://html.spec.whatwg.org/), the compiler must enforce the following specification rules:
+- **Semantic Sectioning**: Use `<main>`, `<article>`, `<section>`, `<nav>`, and `<aside>` appropriately. Never use layout tables or generic `<div>` wrappers where semantic sectioning elements apply.
+- **Heading Hierarchy**: Ensure a single `<h1>` per page. Heading tags (`<h2>`-`<h6>`) must follow a logical nested order without skipping levels.
+- **Valid Custom Attributes**: Custom data must be stored using the standard `data-*` attribute prefix to ensure proper validation.
+- **Interactive Standards**: Use standard native elements for interactive controls, such as `<details>` and `<summary>` for toggles, and `<button>` for action triggers (never use `onclick` on generic `<div>` elements without appropriate `role="button"` and `tabindex` attributes).
+- **No Deprecated Elements**: Exclude deprecated styling or layout elements (e.g., `<center>`, `<font>`). Rely purely on CSS properties for layout.
+- **Valid Document Structure**: Ensure valid structural markup (properly closed tags, correct parent-child relationships like `<li>` inside `<ul>`/`<ol>`).
+
 ## Output Contract
 Generate a single, self-contained `.html` file that operates completely offline without external JS dependencies (excluding Google Fonts or optional CDN icons).
+
