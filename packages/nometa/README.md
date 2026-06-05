@@ -9,6 +9,7 @@ This package exposes the following nometa skills:
 - **`pi-skill-creator`**: Automated generator that reads guidelines or examples to scaffold and compile new reusable Pi skills under `pi/skills/` (using standard structures, SKILL.md specs, and references).
 - **`agent-os`**: Dynamic bootstrapper to seed any empty or undocumented codebase with `AGENTS.md` and `CONTEXT.md`. Establishes immediate context-loading rules for incoming agents.
 - **`nothing-bootstrap`**: Deploy, migrate, and verify the `nothing` monorepo configuration (NPM global packages, loader scripts, settings) on Zsh or Bash shells across macOS and Linux setups.
+- **`md-to-html`**: Translates plan markdown files (like `PLAN.md`) into premium interactive HTML dashboard interfaces (like `migration_plan.html`) keeping tasks and statuses in sync.
 
 ---
 
