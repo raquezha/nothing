@@ -1,8 +1,7 @@
 name: Publish Packages
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -12,15 +11,19 @@ on:
         type: boolean
 
 jobs:
-  publish:
-    name: Build and publish to NPM
+  release:
+    name: Version and publish
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write # for npm provenance
+      contents: write      # to push version bump commits + tags
+      pull-requests: write # to open the Version PR
+      id-token: write      # for npm provenance
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # changesets needs full history
 
       - name: Setup Node.js with NPM registry
         uses: actions/setup-node@v4
@@ -35,48 +38,28 @@ jobs:
       - name: Build all packages
         run: npm run build --workspaces --if-present
 
-      - name: Publish @raquezha/notrace
+      - name: Create Version PR or publish
         if: ${{ inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/notrace
+        uses: changesets/action@v1
+        with:
+          publish: npm run release
+          title: "chore: version packages"
+          commit: "chore: version packages"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @raquezha/noleaks
-        if: ${{ inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/noleaks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @raquezha/nosearch
-        if: ${{ inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/nosearch
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @raquezha/noagy
-        if: ${{ inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/noagy
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @raquezha/nofooter
-        if: ${{ inputs.dry_run != 'true' }}
-        run: npm publish --access public
-        working-directory: packages/nofooter
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry run summary
         if: ${{ inputs.dry_run == 'true' }}
         run: |
-          echo "🧪 Dry run complete — no packages were published."
-          echo "Packages that would have been published:"
+          echo "🧪 Dry run — no packages published."
+          echo ""
+          echo "Packages and current versions:"
           for pkg in packages/notrace packages/noleaks packages/nosearch packages/noagy packages/nofooter; do
             name=$(node -e "console.log(require('./$pkg/package.json').name)")
             version=$(node -e "console.log(require('./$pkg/package.json').version)")
             echo "  → $name@$version"
           done
+          echo ""
+          echo "Pending changesets:"
+          ls .changeset/*.md 2>/dev/null | grep -v README || echo "  (none)"

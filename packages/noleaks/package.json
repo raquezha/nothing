@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/noleaks",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Security credentials protector shield for the Pi Coding Agent — blocks LLM access to .env, keys, and secrets",
   "main": "index.ts",
   "type": "module",
