@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/../_worker.sh"
 
+# Used by ../_worker.sh via dynamic environment lookup.
+# shellcheck disable=SC2034
 SEARCH_WORKER_REQUIRED_ENV="BRAVE_SEARCH_API_KEY"
 
 usage() {
@@ -22,11 +24,16 @@ brave_search_main() {
 
   shift || true
 
+  # shellcheck disable=SC2034
   SUMMARIZE=false
   TABLE=false
   for arg in "$@"; do
     case "$arg" in
-      --summarize) SUMMARIZE=true ;;
+      --summarize)
+        # Reserved for future result summarization mode.
+        # shellcheck disable=SC2034
+        SUMMARIZE=true
+        ;;
       --table) TABLE=true ;;
     esac
   done

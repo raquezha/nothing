@@ -81,7 +81,7 @@ try:
         # If the Vertical Slices are identical, we are just updating progress 
         # on the same phase. Update the comment to avoid spam.
         if extract_slices(new_text) == extract_slices(latest_text):
-            print(f'UPDATE|{latest["id"]}')
+            print('UPDATE|{}'.format(latest.get('id', '')))
             sys.exit(0)
         
     # 3. If slices changed (new phase) or latest is NOT ours, CREATE a new one.

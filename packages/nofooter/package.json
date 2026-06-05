@@ -2,7 +2,7 @@
   "name": "@raquezha/nofooter",
   "version": "0.0.1",
   "description": "Powerline-style CLI footer theme and branch editor for the Pi Coding Agent",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -26,5 +26,6 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "types": "dist/index.d.ts"
 }

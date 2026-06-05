@@ -7,6 +7,8 @@ source "$SCRIPT_DIR/common.sh"
 # shellcheck source=/dev/null
 source "$SCRIPT_DIR/../_worker.sh"
 
+# Used by ../_worker.sh via dynamic environment lookup.
+# shellcheck disable=SC2034
 SEARCH_WORKER_REQUIRED_ENV="FIRECRAWL_API_TOKEN"
 
 usage() {

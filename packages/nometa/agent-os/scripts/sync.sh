@@ -27,7 +27,7 @@ check_drift() {
     local new_val=$3
     
     if ! grep -q "$new_val" CONTEXT.md; then
-        echo "⚠️  DRIFT DETECTED: $label has changed from what is in CONTEXT.md to '$new_val'."
+        echo "⚠️  DRIFT DETECTED: $label has changed from '$current_val' to '$new_val'."
         DRIFT_FOUND=1
     fi
 }
@@ -41,9 +41,9 @@ fi
 # 3. Check for structural changes (Map of the Land)
 # We can do a quick check of top-level directories vs what's in CONTEXT.md
 echo "🔍 Checking 'Map of the Land'..."
-DIRS=$(ls -d */ 2>/dev/null)
+DIRS=$(find . -maxdepth 1 -mindepth 1 -type d -print 2>/dev/null)
 for dir in $DIRS; do
-    dir_name=$(echo "$dir" | tr -d '/')
+    dir_name=$(basename "$dir")
     if ! grep -q "/$dir_name" CONTEXT.md; then
         echo "⚠️  NEW DIRECTORY: '/$dir_name' is not documented in 'Map of the Land'."
         DRIFT_FOUND=1

@@ -503,7 +503,7 @@ function noagyModels(): ProviderModelConfig[] {
 function asTextParts(content: unknown): any[] {
 	if (typeof content === "string") return [{ text: sanitizeText(content) }];
 	if (!Array.isArray(content)) return [];
-	return content.flatMap((item) => {
+	return content.flatMap<any>((item) => {
 		if (!item || typeof item !== "object") return [];
 		const block = item as any;
 		if (block.type === "text") return [{ text: sanitizeText(block.text) }];
@@ -728,7 +728,7 @@ async function streamResponse(response: Response, stream: AssistantMessageEventS
 				if (part.functionCall) {
 					hasContent = true;
 					finishCurrent();
-					const toolCall = { type: "toolCall", id: part.functionCall.id || `${part.functionCall.name || "tool"}_${Date.now()}_${blocks.length}`, name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
+					const toolCall = { type: "toolCall" as const, id: part.functionCall.id || `${part.functionCall.name || "tool"}_${Date.now()}_${blocks.length}`, name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
 					blocks.push(toolCall);
 					ensureStarted();
 					stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
