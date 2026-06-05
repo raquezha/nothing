@@ -1,0 +1,30 @@
+{
+  "name": "@raquezha/nofooter",
+  "version": "1.0.0",
+  "description": "Powerline-style CLI footer theme and branch editor for the Pi Coding Agent",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.74.0",
+    "@earendil-works/pi-ai": ">=0.74.0",
+    "@earendil-works/pi-tui": ">=0.74.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "pi-agent",
+    "powerline",
+    "footer",
+    "theme",
+    "terminal"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

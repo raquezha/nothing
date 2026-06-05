@@ -1,32 +1,41 @@
-# nosearch (Integrated Brave Search, Firecrawl Scraper, & Isolated Subagents)
+# nosearch
 
-A unified search and web-scraping package for the Pi agent. It exposes direct search skills and wraps them in a detached, resource-isolated background worker to conduct web research without context window bloating.
+Integrated Brave Search and Firecrawl subagent wrapper extension for the Pi Coding Agent. Spawns an isolated child `pi` process to delegate web search, site mapping, and page scraping — keeping the main agent session clean and the search context fully sandboxed.
 
-## 🛠️ Components Checklist
+## Tools registered
 
-1. **`brave-search`** (Skill)
-   * Direct integration with the Brave Search API.
-   * Query the web, extract page titles, snippets, and deep URLs.
-2. **`firecrawl`** (Skill)
-   * Converts any public HTML webpage or documentation URL into clean, structured Markdown.
-3. **`nosearch`** (Extension)
-   * Spawns a separate, lightweight `pi` subagent child process in the background.
-   * Delegates the search/scraping queries to the child process to compile findings.
-   * Feeds back a compact summary to the parent agent, keeping your main context window clean.
+### `search_subagent`
 
----
+Spawns a fresh pi child process and delegates search work to it.
 
-## 🚀 Commands & Usage
+| Parameter | Type | Description |
+|---|---|---|
+| `backend` | `brave` \| `firecrawl` | Which search backend to use |
+| `mode` | `search` \| `scrape` \| `map` | Firecrawl mode (ignored for Brave) |
+| `query` | `string` | Search query (required for `brave` and `firecrawl search`) |
+| `url` | `string` | Target URL (required for `firecrawl scrape` and `map`) |
+| `limit` | `integer` | Optional result limit |
 
-### Direct Scrapes & Searches
-```text
-/brave-search "react 19 concurrent features documentation"
-/firecrawl https://nextjs.org/docs/app/building-your-application/routing
+## Commands
+
+- `/nosearch.smoke` — Runs a deterministic child-pi smoke test to verify subagent wiring
+
+## Skills bundled
+
+The `brave-search/` and `firecrawl/` skill directories live inside this package and are resolved automatically at runtime — no hardcoded paths.
+
+## Usage
+
+```bash
+# Load directly
+pi --extension ./packages/nosearch
+
+# Via nothing mindsets (dev, rpiv, pm, meta)
+pi --rpiv
 ```
 
-### Subagent Delegation Smoke Test
-Runs a sanity check to verify subagent fork safety:
-```text
-/search-subagent.smoke
+## NPM
+
+```bash
+npm install -g @raquezha/nosearch
 ```
-*(Response: "Yes, my lord. I'm here to serve.")*

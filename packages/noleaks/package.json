@@ -1,9 +1,8 @@
 {
-  "name": "@raquezha/notrace",
+  "name": "@raquezha/noleaks",
   "version": "1.0.0",
-  "description": "Zero-dependency, local-first interactive HTML Trace Viewer for the Pi Coding Agent",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "description": "Security credentials protector shield for the Pi Coding Agent — blocks LLM access to .env, keys, and secrets",
+  "main": "index.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -17,9 +16,10 @@
   },
   "keywords": [
     "pi-agent",
-    "observability",
-    "trace",
-    "telemetry"
+    "security",
+    "secrets",
+    "credentials",
+    "protection"
   ],
   "license": "MIT",
   "publishConfig": {

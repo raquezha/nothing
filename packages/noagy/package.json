@@ -1,25 +1,26 @@
 {
-  "name": "@raquezha/notrace",
+  "name": "@raquezha/noagy",
   "version": "1.0.0",
-  "description": "Zero-dependency, local-first interactive HTML Trace Viewer for the Pi Coding Agent",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "description": "OAuth login provider extension for Google Antigravity models in the Pi Coding Agent",
+  "main": "index.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": ">=0.70.0"
+    "@earendil-works/pi-coding-agent": ">=0.74.0",
+    "@mariozechner/pi-ai": ">=0.70.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
   },
   "keywords": [
     "pi-agent",
-    "observability",
-    "trace",
-    "telemetry"
+    "antigravity",
+    "oauth",
+    "google",
+    "provider"
   ],
   "license": "MIT",
   "publishConfig": {

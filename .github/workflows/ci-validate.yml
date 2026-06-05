@@ -1,0 +1,59 @@
+name: CI Validate
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run shellcheck on shell scripts
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "."
+          ignore_paths: "node_modules"
+          severity: warning
+
+  lint-json:
+    name: Lint JSON configs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate settings.json
+        run: node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8')); console.log('settings.json ✓')"
+
+      - name: Validate mindsets.json
+        run: node -e "JSON.parse(require('fs').readFileSync('mindsets.json','utf8')); console.log('mindsets.json ✓')"
+
+      - name: Validate package.json files
+        run: |
+          for f in packages/*/package.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f ✓')"
+          done
+
+  build-packages:
+    name: Build TypeScript packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build all packages
+        run: npm run build --workspaces --if-present

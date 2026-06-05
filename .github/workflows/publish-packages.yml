@@ -1,0 +1,82 @@
+name: Publish Packages
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (skip actual publish)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  publish:
+    name: Build and publish to NPM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # for npm provenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js with NPM registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build all packages
+        run: npm run build --workspaces --if-present
+
+      - name: Publish @raquezha/notrace
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        working-directory: packages/notrace
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @raquezha/noleaks
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        working-directory: packages/noleaks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @raquezha/nosearch
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        working-directory: packages/nosearch
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @raquezha/noagy
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        working-directory: packages/noagy
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @raquezha/nofooter
+        if: ${{ inputs.dry_run != 'true' }}
+        run: npm publish --access public
+        working-directory: packages/nofooter
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run == 'true' }}
+        run: |
+          echo "🧪 Dry run complete — no packages were published."
+          echo "Packages that would have been published:"
+          for pkg in packages/notrace packages/noleaks packages/nosearch packages/noagy packages/nofooter; do
+            name=$(node -e "console.log(require('./$pkg/package.json').name)")
+            version=$(node -e "console.log(require('./$pkg/package.json').version)")
+            echo "  → $name@$version"
+          done

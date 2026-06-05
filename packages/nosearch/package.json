@@ -1,0 +1,32 @@
+{
+  "name": "@raquezha/nosearch",
+  "version": "1.0.0",
+  "description": "Integrated Brave Search and Firecrawl subagent wrapper extension for the Pi Coding Agent",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=0.70.0",
+    "@mariozechner/pi-ai": ">=0.70.0"
+  },
+  "dependencies": {
+    "typebox": "^0.32.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "pi-agent",
+    "search",
+    "brave",
+    "firecrawl",
+    "subagent"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}
