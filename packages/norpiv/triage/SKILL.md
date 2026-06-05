@@ -20,7 +20,9 @@ Start RPIV by creating or resuming a task workspace.
    - `github:42` -> `github-42`
    - `gitlab:42` -> `gitlab-42`
    - `local:name` -> `local-name`
-2. Use `pi/scripts/norpiv/triage_helper.sh` to fetch remote data and create/resume `.workflow/tasks/[source-id]/WORK.md`.
+2. Use the bundled helper script to fetch remote data and create/resume `.workflow/tasks/[source-id]/WORK.md`.
+   - Preferred absolute path: `<norpiv skill bundle>/scripts/triage_helper.sh`.
+   - If this skill is loaded from `packages/norpiv/triage`, the helper is at `../scripts/triage_helper.sh`.
 3. **Technical Pre-check (Repo Pulse)**:
    - Extract key filenames, classes, or keywords from the issue description.
    - Verify existence: Do these files exist on the current branch?
