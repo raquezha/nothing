@@ -1,0 +1,35 @@
+{
+  "name": "@raquezha/norpiv",
+  "version": "0.0.1",
+  "description": "Bundled RPIV workflow skills for Pi, Claude, and Codex-style coding agents",
+  "type": "commonjs",
+  "bin": {
+    "norpiv-install": "bin/norpiv-install.cjs"
+  },
+  "files": [
+    "bin",
+    "cleanup",
+    "frame",
+    "grill-with-docs",
+    "implement",
+    "plan",
+    "scripts",
+    "sync",
+    "triage",
+    "update-docs",
+    "verify",
+    "README.md"
+  ],
+  "keywords": [
+    "agent-skills",
+    "pi-agent",
+    "claude-skills",
+    "codex",
+    "workflow",
+    "rpiv"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

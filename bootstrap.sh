@@ -172,10 +172,9 @@ info "Installing config defaults..."
 copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 
-info "Mounting bundled skills for global discovery..."
-link_item "$SCRIPT_DIR/packages/norpiv/cleanup" "$AGENT_DIR/skills/cleanup" "skills/cleanup"
-link_item "$SCRIPT_DIR/packages/nosearch/brave-search" "$AGENT_DIR/skills/brave-search" "skills/brave-search"
-link_item "$SCRIPT_DIR/packages/nosearch/firecrawl" "$AGENT_DIR/skills/firecrawl" "skills/firecrawl"
+info "Installing bundled skills for global discovery..."
+run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
+run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
 
 info "Preparing bundled helper scripts..."
 run chmod +x "$SCRIPT_DIR/packages/norpiv/scripts/triage_helper.sh" "$SCRIPT_DIR/packages/norpiv/scripts/validate_active_task.sh"

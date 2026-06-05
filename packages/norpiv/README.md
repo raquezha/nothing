@@ -25,6 +25,29 @@ The RPIV engine splits task execution into separate, focused phases:
 - **One Source of Truth**: All task state belongs in `.workflow/tasks/[source-id]/WORK.md`. Avoid creating separate `PROBLEM.md` or `PLAN.md` files.
 - **Safe Branching**: Triage and planning happen on the main branch. Create the feature branch (`feat/*` or `fix/*`) only when starting `/implement`.
 
+## 📦 Install as a skill bundle
+
+```bash
+npm install -g @raquezha/norpiv
+```
+
+Install the bundled skills for your agent runtime:
+
+```bash
+# Pi default: ~/.pi/agent/skills/{triage,frame,plan,...}
+norpiv-install
+
+# Other adapters
+norpiv-install --target claude
+norpiv-install --target codex
+norpiv-install --target all
+```
+
+Targets:
+- `pi` links skills into `~/.pi/agent/skills`.
+- `claude` links skills into `~/.claude/skills`.
+- `codex` installs the skill docs under `~/.codex/skills/norpiv` and writes an `AGENTS.md` adapter because Codex-style environments do not universally auto-load `SKILL.md` bundles.
+
 ## 🚀 Quick Start Example
 
 1. **Activate the RPIV Hat**:

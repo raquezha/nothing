@@ -39,3 +39,20 @@ pi --rpiv
 ```bash
 npm install -g @raquezha/nosearch
 ```
+
+Install the bundled skills for your agent runtime:
+
+```bash
+# Pi default: ~/.pi/agent/skills/{brave-search,firecrawl}
+nosearch-install
+
+# Other adapters
+nosearch-install --target claude
+nosearch-install --target codex
+nosearch-install --target all
+```
+
+Targets:
+- `pi` links skills into `~/.pi/agent/skills`.
+- `claude` links skills into `~/.claude/skills`.
+- `codex` installs the skill docs under `~/.codex/skills/nosearch` and writes an `AGENTS.md` adapter because Codex-style environments do not universally auto-load `SKILL.md` bundles.

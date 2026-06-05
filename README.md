@@ -12,4 +12,23 @@ cd nothing
 ./bootstrap.sh
 ```
 
-The script automatically detects your operating system, configures your agent home directory, and links all declarative settings.
+The script automatically detects your operating system, configures your agent home directory, installs published extensions, links bundled skills, and wires the shell hats.
+
+## Shareable skill bundles
+
+Some folders can also be installed independently from npm:
+
+```bash
+npm install -g @raquezha/norpiv @raquezha/nosearch
+norpiv-install --target pi
+nosearch-install --target pi
+```
+
+Supported installer targets:
+
+```bash
+norpiv-install --target pi|claude|codex|all
+nosearch-install --target pi|claude|codex|all
+```
+
+`pi` and `claude` install native `SKILL.md` folders. `codex` installs the same docs plus an `AGENTS.md` adapter because Codex-style environments do not universally auto-load skill bundles.
