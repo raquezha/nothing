@@ -58,6 +58,11 @@ To comply with the [HTML Living Standard](https://html.spec.whatwg.org/), the co
 - **No Deprecated Elements**: Exclude deprecated styling or layout elements (e.g., `<center>`, `<font>`). Rely purely on CSS properties for layout.
 - **Valid Document Structure**: Ensure valid structural markup (properly closed tags, correct parent-child relationships like `<li>` inside `<ul>`/`<ol>`).
 
+## ⚠️ Critical Agent Warning / Guardrail
+- **DO NOT BYPASS PLANNING**: The agent is forbidden from prematurely implementing, testing, or committing compiler script files (`compile.js`) while in the planning phase. 
+- **LOGGED INCIDENT (2026-06-05)**: The agent bypassed this planning boundary and pushed implementation changes to remote branches on its own. Do not repeat this behavior. Always wait for human verification and sign-off.
+
 ## Output Contract
 Generate a single, self-contained `.html` file that operates completely offline without external JS dependencies (excluding Google Fonts or optional CDN icons).
+
 
