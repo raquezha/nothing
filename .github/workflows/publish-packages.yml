@@ -40,8 +40,36 @@ jobs:
       - name: Build all packages
         run: npm run build --workspaces --if-present
 
-      - name: Create Version PR or publish
+      - name: Detect whether release is needed
+        id: release-check
         if: ${{ inputs.dry_run != 'true' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          pending_changesets=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+          if [ "$pending_changesets" != "0" ]; then
+            echo "Changesets present; release action should run to create/update Version PR."
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          should_release=false
+          for pkg_json in packages/*/package.json; do
+            name=$(node -e "console.log(require('./$pkg_json').name)")
+            version=$(node -e "console.log(require('./$pkg_json').version)")
+            latest=$(npm dist-tag ls "$name" 2>/dev/null | awk '/^latest:/ {print $2}' || true)
+            echo "$name local=$version npm-latest=${latest:-missing}"
+            if [ "$latest" != "$version" ]; then
+              should_release=true
+            fi
+          done
+
+          echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+
+      - name: Create Version PR or publish
+        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release == 'true' }}
         uses: changesets/action@v1
         with:
           publish: npm run release
@@ -51,6 +79,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Skip publish summary
+        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release != 'true' }}
+        run: echo "All package versions already match npm latest dist-tags. Nothing to publish."
 
       - name: Dry run summary
         if: ${{ inputs.dry_run == 'true' }}
