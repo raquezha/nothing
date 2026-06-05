@@ -41,6 +41,20 @@ jobs:
             node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f ✓')"
           done
 
+  verify-bootstrap:
+    name: Verify bootstrap (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify bootstrap dry-run
+        run: ./bootstrap.sh --dry-run
+
   build-packages:
     name: Build TypeScript packages
     runs-on: ubuntu-latest
@@ -59,3 +73,6 @@ jobs:
 
       - name: Build all packages
         run: npm run build --workspaces --if-present
+
+      - name: Validate notrace HTML output generation
+        run: npm run verify:notrace
