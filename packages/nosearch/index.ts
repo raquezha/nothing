@@ -1,14 +1,13 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Type } from "typebox";
 
-const REPO_ROOT = path.join(homedir(), "Developer", "pi.dev");
-const BRAVE_SKILL = path.join(REPO_ROOT, "pi", "skills", "search", "brave-search");
-const FIRECRAWL_SKILL = path.join(REPO_ROOT, "pi", "skills", "search", "firecrawl");
+const NOSEARCH_PKG_ROOT = path.dirname(new URL(import.meta.url).pathname);
+const BRAVE_SKILL = path.join(NOSEARCH_PKG_ROOT, "brave-search");
+const FIRECRAWL_SKILL = path.join(NOSEARCH_PKG_ROOT, "firecrawl");
 const CHILD_FLAGS = [
   "--no-skills",
   "--no-extensions",

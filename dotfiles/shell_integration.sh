@@ -39,7 +39,7 @@ pi() {
   # Parse custom flags
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --android|--pm|--dev|--rpiv|--meta|--write|--antigravity)
+      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--antigravity)
         local flag_name="${1#--}"
         export PI_MINDSET="$flag_name"
         MINDSET="$flag_name"

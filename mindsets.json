@@ -6,31 +6,31 @@
     },
     "android": {
       "skills": ["norpiv/triage", "norpiv/implement", "norpiv/verify"],
-      "extensions": []
+      "extensions": ["noagy"]
     },
     "pm": {
       "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
-      "extensions": []
+      "extensions": ["noagy"]
     },
     "dev": {
       "skills": ["nosearch", "norpiv/triage", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/cleanup"],
-      "extensions": ["notrace"]
+      "extensions": ["notrace", "noagy"]
     },
     "rpiv": {
       "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
-      "extensions": ["notrace"]
+      "extensions": ["notrace", "noagy"]
     },
     "meta": {
       "skills": ["nometa", "nosearch"],
-      "extensions": ["noleaks"]
+      "extensions": ["noleaks", "noagy"]
     },
     "write": {
       "skills": ["nosearch"],
-      "extensions": []
+      "extensions": ["noagy"]
     },
     "antigravity": {
       "skills": [],
-      "extensions": ["noantigravity"]
+      "extensions": ["noagy"]
     }
   }
 }

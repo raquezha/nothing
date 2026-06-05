@@ -1,15 +1,8 @@
 {
-  "defaultProvider": "github-copilot",
-  "defaultModel": "gpt-4.1",
-  "defaultThinkingLevel": "medium",
-  "showHardwareCursor": true,
-  "hideThinkingBlock": false,
-  "quietStartup": false,
-  "theme": "ghostly-pale",
-  "editorPaddingX": 2,
+  "defaultProvider": "groq",
+  "theme": "dracula-vibrant",
   "packages": [],
-  "lastChangelogVersion": "0.74.1",
-  "transport": "auto",
+  "noleaks": true,
   "mcpServers": {
     "android-skills": {
       "command": "npx",
