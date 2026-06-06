@@ -348,7 +348,8 @@ reopen_task() {
 
 fresh_task() {
     if [[ -e "$TASK_DIR" ]]; then
-        local backup_dir="$TASK_DIR.archive.$(LC_TIME=C date -u +"%Y%m%dT%H%M%SZ")"
+        local backup_dir
+        backup_dir="$TASK_DIR.archive.$(LC_TIME=C date -u +"%Y%m%dT%H%M%SZ")"
         mv "$TASK_DIR" "$backup_dir"
         echo "Archived existing task workspace to $backup_dir"
     fi

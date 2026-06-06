@@ -50,8 +50,11 @@ jobs:
 
           pending_changesets=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
           if [ "$pending_changesets" != "0" ]; then
-            echo "Changesets present; release action should run to create/update Version PR."
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "Pending changesets detected on main."
+            echo "Changesets PR creation is blocked in this repo because GitHub Actions cannot open PRs."
+            echo "Skipping publish workflow until repo setting 'Allow GitHub Actions to create and approve pull requests' is enabled or release flow is redesigned."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "blocked_reason=pending_changesets_pr_permissions" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -67,6 +70,7 @@ jobs:
           done
 
           echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
+          echo "blocked_reason=none" >> "$GITHUB_OUTPUT"
 
       - name: Create Version PR or publish
         if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release == 'true' }}
@@ -81,8 +85,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Skip publish summary
-        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release != 'true' }}
+        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release != 'true' && steps.release-check.outputs.blocked_reason == 'none' }}
         run: echo "All package versions already match npm latest dist-tags. Nothing to publish."
+
+      - name: Blocked publish summary
+        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.blocked_reason == 'pending_changesets_pr_permissions' }}
+        run: |
+          echo "Publish skipped: pending changesets require a Version PR, but GitHub Actions PR creation is disabled for this repo."
+          echo "Enable: Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests."
 
       - name: Dry run summary
         if: ${{ inputs.dry_run == 'true' }}
