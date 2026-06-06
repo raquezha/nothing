@@ -1,11 +1,11 @@
 {
   "mindsets": {
     "nothing": {
-      "skills": ["nometa/nothing"],
+      "skills": [],
       "extensions": []
     },
     "android": {
-      "skills": ["norpiv/triage", "norpiv/implement", "norpiv/verify"],
+      "skills": ["norpiv/triage", "norpiv/implement", "norpiv/verify", "vendor/android-skills/devtools/android-cli"],
       "extensions": ["noagy"]
     },
     "pm": {

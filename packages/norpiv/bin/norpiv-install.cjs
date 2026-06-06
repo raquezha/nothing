@@ -5,11 +5,12 @@ const path = require("node:path");
 
 const packageRoot = path.resolve(__dirname, "..");
 const bundleName = "norpiv";
+const sharedDirCandidates = ["scripts"];
 
 function usage() {
   console.log(`Usage: norpiv-install [--target pi|claude|codex|all] [--dest PATH] [--copy] [--force] [--dry-run]
 
-Installs the bundled RPIV skill workflow for agent runtimes.
+Installs the bundled RPIV skill workflow and shared helper scripts for agent runtimes.
 
 Targets:
   pi      Link skills into ~/.pi/agent/skills (default)
@@ -63,6 +64,10 @@ function skillNames() {
     .sort();
 }
 
+function sharedDirNames() {
+  return sharedDirCandidates.filter((name) => fs.existsSync(path.join(packageRoot, name)));
+}
+
 function expandHome(p) {
   if (!p) return p;
   if (p === "~") return os.homedir();
@@ -98,7 +103,7 @@ function symlinkDir(src, dest, opts) {
 }
 
 function installOne(src, dest, opts) {
-  if (!fs.existsSync(src)) throw new Error(`Missing skill source: ${src}`);
+  if (!fs.existsSync(src)) throw new Error(`Missing source: ${src}`);
   log(opts, `install ${src} -> ${dest}${opts.copy ? " (copy)" : " (symlink)"}`);
   if (!opts.dryRun) fs.mkdirSync(path.dirname(dest), { recursive: true });
 
@@ -126,9 +131,12 @@ function installOne(src, dest, opts) {
   else symlinkDir(src, dest, opts);
 }
 
-function writeCodexAdapter(root, names, opts) {
+function writeCodexAdapter(root, names, sharedNames, opts) {
   const adapter = path.join(root, "AGENTS.md");
-  const body = `# norpiv RPIV skills for Codex\n\nCodex does not currently auto-load Pi/Claude SKILL.md bundles from npm.\n\nUse these installed skill instructions as a portable RPIV workflow reference:\n\n${names.map((name) => `- ${name}/SKILL.md`).join("\n")}\n\nCore lifecycle: triage → frame → grill-with-docs → plan → implement → verify → sync → cleanup.\n\nIf your Codex environment supports AGENTS.md discovery, copy or reference this file from your project.\n`;
+  const sharedLines = sharedNames.length
+    ? `\nShared helpers:\n\n${sharedNames.map((name) => `- ${name}/`).join("\n")}\n`
+    : "";
+  const body = `# norpiv RPIV skills for Codex\n\nCodex does not currently auto-load Pi/Claude SKILL.md bundles from npm.\n\nUse these installed skill instructions as a portable RPIV workflow reference:\n\n${names.map((name) => `- ${name}/SKILL.md`).join("\n")}\n${sharedLines}\nCore lifecycle: triage → frame → grill-with-docs → plan → implement → verify → sync → cleanup.\n\nIf your Codex environment supports AGENTS.md discovery, copy or reference this file from your project.\n`;
   log(opts, `write Codex adapter ${adapter}`);
   if (!opts.dryRun) fs.writeFileSync(adapter, body);
 }
@@ -136,6 +144,7 @@ function writeCodexAdapter(root, names, opts) {
 function installTarget(target, opts) {
   const root = targetRoot(target, opts.dest);
   const names = skillNames();
+  const sharedNames = sharedDirNames();
   if (!names.length) throw new Error(`No SKILL.md directories found in ${packageRoot}`);
   if (!opts.dryRun) fs.mkdirSync(root, { recursive: true });
   for (const name of names) {
@@ -143,7 +152,12 @@ function installTarget(target, opts) {
     const dest = path.join(root, name);
     installOne(src, dest, opts);
   }
-  if (target === "codex") writeCodexAdapter(root, names, opts);
+  for (const name of sharedNames) {
+    const src = path.join(packageRoot, name);
+    const dest = path.join(root, name);
+    installOne(src, dest, opts);
+  }
+  if (target === "codex") writeCodexAdapter(root, names, sharedNames, opts);
   console.log(`Installed ${bundleName} skills for ${target} at ${root}`);
 }
 

@@ -2,11 +2,5 @@
   "defaultProvider": "groq",
   "theme": "dracula-vibrant",
   "packages": [],
-  "noleaks": true,
-  "mcpServers": {
-    "android-skills": {
-      "command": "npx",
-      "args": ["-y", "android-skills-mcp"]
-    }
-  }
+  "noleaks": true
 }

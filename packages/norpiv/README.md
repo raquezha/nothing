@@ -8,7 +8,7 @@ The RPIV engine splits task execution into separate, focused phases:
 
 | Phase | Command | Purpose | Input / Output Files |
 | :--- | :--- | :--- | :--- |
-| **1. Ingest** | `/triage [source]:[id]` | Initial task verification and workspace setup. | Creates `.workflow/tasks/[id]/WORK.md` & `metadata.json` |
+| **1. Ingest** | `/triage [source]:[id]` | Initial task verification and workspace setup. | Creates `.workflow/tasks/[source-id]/WORK.md` & `metadata.json` |
 | **2. Scoping** | `/frame` | Author a clear, structured task brief. | Populates `WORK.md` ➔ `[BRIEF]` section |
 | **3. Interrogate**| `/grill-with-docs` | Stress-test brief against rules and docs. | Records decisions in `WORK.md` ➔ `[GRILL]` |
 | **4. Strategy** | `/plan` | Draft thin, independently testable slices. | Writes checkbox items in `WORK.md` ➔ `[PLAN]` |
@@ -47,6 +47,8 @@ Targets:
 - `pi` links skills into `~/.pi/agent/skills`.
 - `claude` links skills into `~/.claude/skills`.
 - `codex` installs the skill docs under `~/.codex/skills/norpiv` and writes an `AGENTS.md` adapter because Codex-style environments do not universally auto-load `SKILL.md` bundles.
+
+`norpiv-install` also installs the shared helper scripts under a sibling `scripts/` directory so skill references like `../scripts/triage_helper.sh` resolve after installation.
 
 ## 🚀 Quick Start Example
 
@@ -88,3 +90,39 @@ Targets:
    /sync
    /cleanup
    ```
+
+## 🧭 Shared helper scripts
+
+The bundle includes helper scripts used by the workflow skills:
+
+- `scripts/triage_helper.sh`
+- `scripts/validate_active_task.sh`
+- `scripts/reposcry-bootstrap.sh`
+- `scripts/reposcry-task-context.sh`
+- `scripts/reposcry-refresh.sh`
+
+When skills are loaded directly from this package, relative references like `../scripts/...` resolve against the package root. When skills are installed with `norpiv-install`, the same layout is recreated under the target runtime.
+
+## 🔎 Optional RepoScry integration
+
+RepoScry is an optional repo-memory layer for RPIV. norpiv does **not** require it.
+
+If `reposcry` is installed:
+
+```bash
+./scripts/reposcry-bootstrap.sh
+./scripts/reposcry-task-context.sh "fix dependency graph rebuild"
+# edit code
+./scripts/reposcry-refresh.sh main
+reposcry validate main HEAD
+```
+
+Typical usage by phase:
+
+- `/triage`: optionally seed `.reposcry/` with `scripts/reposcry-bootstrap.sh`
+- `/frame`: optionally generate `.reposcry/AI_CONTEXT.md` with `scripts/reposcry-task-context.sh`
+- `/grill-with-docs`: optionally use `reposcry query_graph`, `get_architecture_overview`, and `get_impact_radius`
+- `/implement`: optionally run `scripts/reposcry-refresh.sh` after edit batches
+- `/verify`: optionally add `reposcry validate main HEAD` and affected-flow output as extra evidence
+
+If RepoScry is absent, the helpers no-op and RPIV continues with normal repo reading, grep, and tests.

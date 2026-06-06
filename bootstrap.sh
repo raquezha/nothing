@@ -12,7 +12,7 @@ Usage: ./bootstrap.sh [--dry-run]
 Fresh-machine bootstrap for nothing:
 - installs baseline tools and Pi
 - installs published nothing extensions from npm
-- mounts nothing settings, mindsets, shell integration, and bundled skills
+- mounts nothing settings, mindsets, shell integration, and local skills
 - configures low-noise global git ignores and prints secrets/tooling guidance
 
 Options:
@@ -165,6 +165,9 @@ run npm install -g @earendil-works/pi-coding-agent
 info "Installing published nothing extensions globally..."
 run npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter
 
+info "Installing optional third-party skills via skills.sh..."
+run npx -y skills add JuliusBrussee/caveman -g -a pi -s caveman caveman-stats -y
+
 info "Creating Pi agent directories..."
 run mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/skills" "$AGENT_DIR/prompts" "$AGENT_DIR/themes" "$HOME/.pi-secrets"
 
@@ -172,7 +175,7 @@ info "Installing config defaults..."
 copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 
-info "Installing bundled skills for global discovery..."
+info "Linking bundled local skills for optional global discovery..."
 run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
 run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
 
@@ -206,5 +209,6 @@ printf '\n✅ Bootstrap complete! 🎉\n\n'
 printf 'Next steps:\n'
 printf '  1. Reload your shell or run: source %s/dotfiles/shell_integration.sh\n' "$SCRIPT_DIR"
 printf '  2. Start Pi normally: pi\n'
-printf '  3. Use hats: pi --pm, pi --dev, pi --rpiv, pi --meta, pi --antigravity\n'
-printf '  4. RPIV helper scripts live at: packages/norpiv/scripts/\n\n'
+printf '  3. Use hats: pi --nothing, pi --pm, pi --dev, pi --rpiv, pi --android, pi --meta, pi --antigravity\n'
+printf '  4. Use modifiers: pi --rpiv --caveman, pi --android --caveman, pi --android --rtk\n'
+printf '  5. RPIV helper scripts live at: packages/norpiv/scripts/\n\n'

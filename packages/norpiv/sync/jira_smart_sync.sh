@@ -1,113 +1,156 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # jira_smart_sync.sh - Hardened, Zero-Trust Sync for ACLI
 # Usage: cat body.txt | ./jira_smart_sync.sh <ISSUE_ID>
+#
+# Maintains one Pi-owned living status comment per Jira work item.
+# It finds an existing marker comment anywhere in the fetched window and updates it.
+# It creates a new comment only when no Pi marker comment exists.
 
-ISSUE_ID=$1
-SIGNATURE="🤖 *Synced by pi (AI assistant) on behalf of the developer."
+set -euo pipefail
+
+ISSUE_ID=${1:-}
+PI_SYNC_MARKER="<!-- pi-sync-marker -->"
+PI_SIGNATURE="🤖 *Synced by pi (AI assistant) on behalf of the developer.*"
+COMMENT_LIMIT=${PI_SYNC_COMMENT_LIMIT:-50}
 TMP_BODY=$(mktemp)
 TMP_JSON=$(mktemp)
 
-# Read body from stdin
+cleanup() {
+  rm -f "$TMP_BODY" "$TMP_JSON"
+}
+trap cleanup EXIT
+
 cat > "$TMP_BODY"
 
 if [[ -z "$ISSUE_ID" ]]; then
   echo "Usage: cat body.txt | $0 <ISSUE_ID>"
-  rm "$TMP_BODY" "$TMP_JSON"
   exit 1
 fi
 
-# 1. Fetch last 5 comments, newest first
-# We use --key explicitly to ensure the project context is derived from the issue ID
-acli jira workitem comment list --key "$ISSUE_ID" --json --limit 5 --order "-created" > "$TMP_JSON"
+# Fetch newest comments first. The marker search is not latest-comment-only;
+# the limit only bounds API cost/noise. Increase PI_SYNC_COMMENT_LIMIT if needed.
+acli jira workitem comment list --key "$ISSUE_ID" --json --limit "$COMMENT_LIMIT" --order "-created" > "$TMP_JSON"
 
-# 2. Smart Selection Logic
-# We pass both the current body and signature to Python for a robust check.
-export PI_SIGNATURE="$SIGNATURE"
+export PI_SYNC_MARKER
+export PI_SIGNATURE
 export NEW_BODY_FILE="$TMP_BODY"
+export COMMENTS_JSON_FILE="$TMP_JSON"
 
-MATCH_DATA=$(python3 -c "
-import sys, json, os, re
+MATCH_DATA=$(python3 <<'PY'
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+marker = os.environ.get("PI_SYNC_MARKER", "<!-- pi-sync-marker -->")
+signature = os.environ.get("PI_SIGNATURE", "")
+new_body_file = Path(os.environ["NEW_BODY_FILE"])
+comments_json_file = Path(os.environ["COMMENTS_JSON_FILE"])
+
 
 def get_text(obj):
-    if obj is None: return ""
-    if isinstance(obj, str): return obj
-    if isinstance(obj, list): return ' '.join(get_text(x) for x in obj)
+    if obj is None:
+        return ""
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, list):
+        return "\n".join(get_text(x) for x in obj)
     if isinstance(obj, dict):
-        # 1. Check common plain-text keys in acli flattened output
-        if 'renderedBody' in obj: return obj['renderedBody']
-        if 'body' in obj and isinstance(obj['body'], str): return obj['body']
-        # 2. Check ADF (Atlassian Document Format) structure
-        if obj.get('type') == 'text': return obj.get('text', '')
-        content = obj.get('content')
-        if content: return get_text(content)
-        # 3. Last resort: join all string values in the dict
-        return ' '.join(get_text(v) for v in obj.values() if isinstance(v, (dict, list, str)))
+        # Common flattened outputs first.
+        rendered = obj.get("renderedBody")
+        if isinstance(rendered, str):
+            return rendered
+        body = obj.get("body")
+        if isinstance(body, str):
+            return body
+        # Atlassian Document Format text nodes.
+        if obj.get("type") == "text":
+            return obj.get("text", "")
+        content = obj.get("content")
+        if content:
+            return get_text(content)
+        return "\n".join(get_text(v) for v in obj.values() if isinstance(v, (dict, list, str)))
     return str(obj)
 
-try:
-    sig = os.environ.get('PI_SIGNATURE', '')
-    with open('$TMP_BODY', 'r') as f:
-        new_text = f.read().strip()
-    
-    with open('$TMP_JSON', 'r') as f:
-        data = json.load(f)
-    
-    # zero-trust handling for any possible acli json wrapper
+
+def normalize(text):
+    # Jira/ACLI rendering can alter blank lines and trailing whitespace. Keep the
+    # comparison conservative: avoid duplicates when content is materially equal.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = [line.rstrip() for line in text.strip().split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def comment_id(comment):
+    for key in ("id", "commentId", "comment_id"):
+        value = comment.get(key) if isinstance(comment, dict) else None
+        if value is not None:
+            return str(value)
+    return ""
+
+
+def unwrap_comments(data):
     if isinstance(data, list):
-        comments = data
-    elif isinstance(data, dict):
-        # check common wrappers: 'comments', 'values', or just the dict itself if it has the fields
-        comments = data.get('comments', data.get('values', []))
-        if not comments and 'id' in data: # singular response case
-            comments = [data]
-    else:
-        comments = []
+        return data
+    if isinstance(data, dict):
+        for key in ("comments", "values", "results", "data"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+        if "id" in data:
+            return [data]
+    return []
+
+try:
+    new_text = new_body_file.read_text().strip()
+    data = json.loads(comments_json_file.read_text())
+    comments = unwrap_comments(data)
 
     if not comments:
-        sys.exit(1)
-    
-    # 1. Is the LATEST comment already our exact same content?
-    latest = comments[0]
-    latest_text = get_text(latest.get('body', '')).strip()
-    
-    # 2. Match logic: Should we UPDATE or CREATE?
-    def extract_slices(text):
-        # Look for the Vertical Slices list to determine if the task phase is the same
-        match = re.search(r'Vertical Slices:(.*?)(?:\n\n|Commit/MR|---)', text, re.S)
-        return match.group(1).strip() if match else text
+        print("CREATE|no existing comments")
+        raise SystemExit(0)
 
-    if sig in latest_text:
-        # If the Vertical Slices are identical, we are just updating progress 
-        # on the same phase. Update the comment to avoid spam.
-        if extract_slices(new_text) == extract_slices(latest_text):
-            print('UPDATE|{}'.format(latest.get('id', '')))
-            sys.exit(0)
-        
-    # 3. If slices changed (new phase) or latest is NOT ours, CREATE a new one.
-    print('CREATE|New thread')
-    sys.exit(0)
-    
-except Exception as e:
-    # Fallback to create if anything goes wrong with parsing
-    sys.exit(1)
-")
+    # Comments are fetched newest first. Pick the newest Pi-owned marker comment,
+    # not necessarily the absolute latest comment. Human comments remain untouched.
+    for comment in comments:
+        text = get_text(comment.get("body", comment)) if isinstance(comment, dict) else get_text(comment)
+        owns_comment = marker in text or (signature and signature in text)
+        if not owns_comment:
+            continue
+
+        cid = comment_id(comment)
+        if not cid:
+            print("CREATE|marker found without id")
+            raise SystemExit(0)
+
+        if normalize(new_text) == normalize(text):
+            print(f"NOOP|{cid}")
+        else:
+            print(f"UPDATE|{cid}")
+        raise SystemExit(0)
+
+    print("CREATE|no pi marker comment")
+except Exception as exc:
+    # Fail-open to create: better to keep stakeholder visibility than silently drop sync.
+    print(f"CREATE|parse fallback: {exc}")
+PY
+)
 
 ACTION_CODE=$(echo "$MATCH_DATA" | cut -d'|' -f1)
-TARGET_ID=$(echo "$MATCH_DATA" | cut -d'|' -f2)
+TARGET_ID=$(echo "$MATCH_DATA" | cut -d'|' -f2-)
 
 case "$ACTION_CODE" in
-    ABORT)
-        echo "SYNC: No changes detected in progress. Skipping update to avoid spam."
+    NOOP)
+        echo "SYNC: Existing Pi status is already current (ID: $TARGET_ID)."
         ;;
     UPDATE)
         echo "SYNC: Updating existing Pi status (ID: $TARGET_ID)."
         acli jira workitem comment update --key "$ISSUE_ID" --id "$TARGET_ID" --body-file "$TMP_BODY"
         ;;
     *)
-        echo "SYNC: Creating new status point (Last comment was human or ticket is new)."
+        echo "SYNC: Creating Pi status comment ($TARGET_ID)."
         acli jira workitem comment create --key "$ISSUE_ID" --body-file "$TMP_BODY"
         ;;
 esac
-
-rm "$TMP_BODY" "$TMP_JSON"

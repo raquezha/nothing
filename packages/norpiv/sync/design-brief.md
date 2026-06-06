@@ -1,36 +1,39 @@
-# Design Brief: Hardened Jira Sync (Zero-Trust)
+# Design Brief: Hardened Tracker Sync (Zero-Trust)
 
 ## Skill Type
-Workflow skill with supporting script for high-reliability interaction.
+Workflow skill with supporting scripts for high-reliability tracker interaction.
 
 ## Audience/Context
-Developers using `pi` for RPIV or task-based implementation, reporting progress to Jira Cloud via Atlassian's official CLI (`acli`).
+Developers using `pi` for RPIV or task-based implementation, reporting progress to Jira, GitHub, or GitLab.
 
 ## Trigger Conditions
-- Running `/sync` on a task where the source is `jira`.
+- Running `/sync` on a task with source `jira`, `github`, or `gitlab`.
 - Running `/verify` or manually requesting a tracker update.
 
 ## Inputs
-- `WORK.md`: For the factual state (Slices, Commits, Test results).
-- `acli jira workitem comment list`: For existing tracker state (JSON).
-- `PI_SIGNATURE`: The constant used to identify Pi-owned comments.
+- `WORK.md`: factual state for slices, commits, PR/MR links, and test results.
+- Tracker comments/notes API: existing remote status state.
+- `<!-- pi-sync-marker -->`: stable marker used to identify Pi-owned living status comments.
 
 ## Outputs
-- Updated existing comment via `acli jira workitem comment update` (if the latest comment is Pi's and content changed).
-- New comment via `acli jira workitem comment create` (if the latest comment is human-owned or no Pi comment exists).
-- No action (if progress is identical to the existing Pi comment).
+- Updated existing Pi marker comment/note when content changed.
+- Created new Pi marker comment/note only when no marker exists.
+- No action when the existing Pi marker comment/note already matches local state.
 
 ## Key Decisions & Heuristics
-1. **Always Check Absolute Latest**: Never update if a human has commented since the last sync. Overwriting conversation is "being a piece of shit."
-2. **Recursive ADF Parsing**: Jira Cloud uses Atlassian Document Format. The script must crawl the JSON recursively to find the signature.
-3. **Identity Comparison**: Convert new body to ADF (or plain text) and compare with existing to avoid "Notification Spam."
-4. **Shell Safety**: Use temporary files and `--body-file` to avoid shell length/escaping issues.
+1. **Marker Over Latest Actor**: Search for the newest comment/note containing `<!-- pi-sync-marker -->`; do not rely on the absolute latest comment. Human replies after Pi must not create infinite Pi comments.
+2. **Human Comment Safety**: Only marker-owned Pi comments are mutable. Never edit human-authored comments.
+3. **Recursive ADF Parsing**: Jira Cloud uses Atlassian Document Format. The Jira helper must crawl JSON recursively to find marker/signature text.
+4. **Identity Comparison**: Normalize whitespace before comparing remote and local bodies to avoid unnecessary updates.
+5. **Shell Safety**: Use temporary files and `--body-file`/API body file equivalents where possible to avoid shell length/escaping issues.
+6. **Bounded Search**: Jira helper defaults to the newest 50 comments via `PI_SYNC_COMMENT_LIMIT`; increase only when marker comments are older than the default window.
 
 ## File Structure
-- `pi/skills/norpiv/sync/SKILL.md`: Operational instructions.
-- `pi/skills/norpiv/sync/jira_smart_sync.sh`: Hardened implementation script.
+- `sync/SKILL.md`: operational instructions for Jira/GitHub/GitLab.
+- `sync/jira_smart_sync.sh`: Jira helper with ADF-aware marker search.
 
-## Success Metric
+## Success Metrics
 - Zero duplicate Pi comments when progress is static.
+- Zero new Pi comments when a human replies after an existing Pi status comment.
 - Zero overwritten human comments.
-- Reliable detection of Pi's "Living Progress" comment even after Jira ADF conversion.
+- Reliable detection of Pi's living status comment even after Jira ADF conversion.

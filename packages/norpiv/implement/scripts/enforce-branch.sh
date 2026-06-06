@@ -6,6 +6,42 @@
 
 set -euo pipefail
 
+json_read() {
+    local file="$1"
+    local expr="$2"
+    python3 - "$file" "$expr" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+expr = sys.argv[2]
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    print("")
+    raise SystemExit
+
+for part in [p.strip() for p in expr.split("//")]:
+    if part == "empty":
+        continue
+    match = re.fullmatch(r"\.([A-Za-z_][A-Za-z0-9_]*)", part)
+    if not match or not isinstance(data, dict):
+        continue
+    value = data.get(match.group(1))
+    if value not in (None, ""):
+        print(value)
+        raise SystemExit
+print("")
+PY
+}
+
+json_pretty() {
+    local file="$1"
+    python3 -m json.tool "$file"
+}
+
 # Find repo root to ensure paths are absolute and reliable
 REPO_ROOT=$(git rev-parse --show-toplevel)
 ACTIVE_TASK_FILE="$REPO_ROOT/.workflow/active_task.json"
@@ -17,9 +53,9 @@ if [[ ! -f "$ACTIVE_TASK_FILE" ]]; then
 fi
 
 # Read canonical active task fields
-TASK_SOURCE=$(jq -r '.source // empty' "$ACTIVE_TASK_FILE")
-TASK_ID=$(jq -r '.sourceId // .id // empty' "$ACTIVE_TASK_FILE")
-TASK_PATH=$(jq -r '.taskPath // .path // empty' "$ACTIVE_TASK_FILE")
+TASK_SOURCE=$(json_read "$ACTIVE_TASK_FILE" '.source // empty')
+TASK_ID=$(json_read "$ACTIVE_TASK_FILE" '.sourceId // .id // empty')
+TASK_PATH=$(json_read "$ACTIVE_TASK_FILE" '.taskPath // .path // empty')
 
 # Prefer explicit taskPath when available (most reliable)
 if [[ -n "$TASK_PATH" ]]; then
@@ -43,7 +79,7 @@ elif [[ -n "$TASK_ID" ]]; then
 else
     echo "ERROR: No 'sourceId' or 'taskPath' found in $ACTIVE_TASK_FILE."
     echo "Please run /triage [source]:[id] to initialize a task. Here are the file contents for debugging:" 
-    jq '.' "$ACTIVE_TASK_FILE" || true
+    json_pretty "$ACTIVE_TASK_FILE" || true
     exit 1
 fi
 
@@ -53,7 +89,7 @@ echo "DEBUG: Computed WORK.md path: $WORK_MD"
 if [[ ! -f "$WORK_MD" ]]; then
     echo "ERROR: WORK.md not found at $WORK_MD."
     echo "Checked active_task.json values:" 
-    jq -r '.active_task, .source, .id, .sourceId, .taskPath, .path, .branch' "$ACTIVE_TASK_FILE" || true
+    json_pretty "$ACTIVE_TASK_FILE" || true
     echo "Please ensure the task was initialized with /triage and that WORK.md exists." 
     exit 1
 fi
