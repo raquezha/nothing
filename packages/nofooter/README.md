@@ -12,16 +12,10 @@ Powerline-style CLI footer theme and branch editor for the Pi Coding Agent. Rend
 ## Usage
 
 ```bash
-# Load directly
+# Load directly from this checkout
 pi --extension ./packages/nofooter
 
-# Via nothing mindset (dev, rpiv)
-pi --dev
-```
-
-## NPM
-
-```bash
+# Or install from npm and add it to your Pi package/extension config
 npm install -g @raquezha/nofooter
 ```
 

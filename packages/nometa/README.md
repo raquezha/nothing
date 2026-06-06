@@ -1,32 +1,37 @@
 # nometa (Pi System & Agent-OS Engineering)
 
-System utilities, skill creation frameworks, and monorepo bootstrapping automations designed to manage and scale the coding agent infrastructure.
+Local meta-skill collection for maintaining the `nothing` Pi setup, creating skills, and bootstrapping agent-friendly repos.
 
-## 🛠 Skills Checklist
+This package is intentionally local-first inside `nothing`. For public handoff, install the individual skills with `npx skills add`.
 
-This package exposes the following nometa skills:
+## Skills
 
-- **`pi-skill-creator`**: Automated generator that reads guidelines or examples to scaffold and compile new reusable Pi skills under `pi/skills/` (using standard structures, SKILL.md specs, and references).
-- **`agent-os`**: Dynamic bootstrapper to seed any empty or undocumented codebase with `AGENTS.md` and `CONTEXT.md`. Establishes immediate context-loading rules for incoming agents.
-- **`nothing-bootstrap`**: Deploy, migrate, and verify the `nothing` monorepo configuration (NPM global packages, loader scripts, settings) on Zsh or Bash shells across macOS and Linux setups.
-- **`md-to-html`**: Translates plan markdown files (like `PLAN.md`) into premium interactive HTML dashboard interfaces (like `migration_plan.html`) keeping tasks and statuses in sync.
+| Skill | Purpose |
+|---|---|
+| `pi-skill-creator` | Create or improve Pi-native `SKILL.md` bundles with references/scripts. |
+| `agent-os` | Seed or sync `AGENTS.md` and `CONTEXT.md` in a repo. |
+| `nothing-bootstrap` | Bootstrap, migrate, or restore the `nothing` agent environment. |
+| `nohtml` | Convert markdown/transcripts/plain text into self-contained HTML pages. |
 
----
-
-## 🚀 Usage
-
-Load this toolkit dynamically by launching the agent with the Meta flag:
+## Use from the full nothing setup
 
 ```bash
 pi --meta
 ```
 
-Or target specific skills in your prompt:
+Then invoke skills by intent, e.g.:
+
 ```text
 /agent-os
+/pi-skill-creator
+/nothing-bootstrap
+/nohtml
 ```
 
-To configure a new machine with the `nothing` monorepo:
-```text
-/nothing-bootstrap
+## Skills-only handoff with `npx skills add`
+
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s agent-os pi-skill-creator nothing-bootstrap nohtml \
+  -y
 ```

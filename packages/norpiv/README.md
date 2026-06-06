@@ -15,7 +15,12 @@ The RPIV engine splits task execution into separate, focused phases:
 | **5. Coding** | `/implement` | Execute one approved plan slice (needs permission). | Modifies code; records updates in `WORK.md` ➔ `[LOG]` |
 | **6. Truth Test** | `/verify` | Run tests, lint, and verify quality. | Appends results to `[LOG]` |
 | **7. Close** | `/sync` | Bridge local progress with external trackers. | Posts summary updates to Jira, GitHub, or GitLab |
-| **8. Housekeep** | `/cleanup` | Declutter Git branches and active tasks. | Safely prunes finished task folders & resets pointer |
+
+Auxiliary hygiene:
+
+| Command | Purpose | Input / Output Files |
+| :--- | :--- | :--- |
+| `/cleanup` | Declutter Git branches and completed task folders after work is merged/closed. | Prunes finished task folders & resets pointer when safe |
 
 ---
 
@@ -26,6 +31,18 @@ The RPIV engine splits task execution into separate, focused phases:
 - **Safe Branching**: Triage and planning happen on the main branch. Create the feature branch (`feat/*` or `fix/*`) only when starting `/implement`.
 
 ## 📦 Install as a skill bundle
+
+### From GitHub with `npx skills add`
+
+Best for trying or handing off RPIV skills without installing the full `nothing` setup:
+
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs \
+  -y
+```
+
+### From npm
 
 ```bash
 npm install -g @raquezha/norpiv
@@ -52,10 +69,12 @@ Targets:
 
 ## 🚀 Quick Start Example
 
-1. **Activate the RPIV Hat**:
+1. **Activate the RPIV Hat** from the full `nothing` setup:
    ```bash
    pi --rpiv
    ```
+
+   If installed via `npx skills add` or `norpiv-install`, invoke the skills directly in your agent instead.
 
 2. **Triage an Issue**:
    ```text

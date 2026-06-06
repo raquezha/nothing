@@ -7,7 +7,11 @@ The extension folder is `noagy`, but the provider registered inside Pi is `antig
 ## Usage
 
 ```bash
-pi -e ./pi/extensions/noagy
+# From this checkout
+pi --extension ./packages/noagy
+
+# Or via nothing
+pi --antigravity
 ```
 
 Inside Pi:
@@ -19,6 +23,12 @@ Inside Pi:
 ```
 
 The extension uses a native `streamSimple` transport. It does **not** shell out to the official `agy` CLI.
+
+## NPM
+
+```bash
+npm install -g @raquezha/noagy
+```
 
 ## Provider
 

@@ -27,11 +27,21 @@ The `brave-search/` and `firecrawl/` skill directories live inside this package 
 ## Usage
 
 ```bash
-# Load directly
+# Load directly from this checkout
 pi --extension ./packages/nosearch
 
 # Via nothing mindsets (dev, rpiv, pm, meta)
 pi --rpiv
+```
+
+## Skills-only handoff with `npx skills add`
+
+Best for installing only the bundled search skills:
+
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s brave-search firecrawl \
+  -y
 ```
 
 ## NPM

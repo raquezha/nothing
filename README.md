@@ -1,10 +1,24 @@
 # nothing
 
-A minimal, cross-platform configuration and dotfiles bootstrapper for macOS and Linux. It installs the Pi Coding Agent, wires local-first mindsets, vendors official Android skills locally, and loads packaged shareable tools like `notrace` from NPM while keeping third-party optimizers optional.
+Personal Pi setup for local-first agentic development. It wires my Pi hats, local workflow skills, published Pi extensions, optional third-party compression, and vendored Android skills into one reproducible repo.
 
-## 🚀 Installation & Bootstrapping
+Core rule: **owned skills stay local**. Public handoff uses `npx skills add` or npm packages; my day-to-day workflow uses this checkout and shell hats.
 
-To set up your environment, clone this repository and run the bootstrapper:
+## What this repo contains
+
+| Area | Path / package | Purpose |
+|---|---|---|
+| Shell hats | `dotfiles/shell_integration.sh` | `pi --rpiv`, `--android`, `--dev`, `--pm`, etc. |
+| Mindsets | `mindsets.json` | Declarative local skill/extension sets. |
+| RPIV skills | `packages/norpiv/` | Triage → frame → grill → plan → implement → verify → sync. |
+| Meta skills | `packages/nometa/` | Skill creation, repo bootstrap, nothing maintenance. |
+| Search skills/ext | `packages/nosearch/` | Brave/Firecrawl subagent + bundled skills. |
+| Pi extensions | `packages/notrace`, `noleaks`, `noagy`, `nofooter` | Trace viewer, secret guard, Antigravity provider, footer UI. |
+| Android skills | `vendor/android-skills/` | Local snapshot of official `android/skills`; `--android` starts with `android-cli`. |
+
+## Install my full setup
+
+Fresh machine / my personal setup:
 
 ```bash
 git clone https://github.com/raquezha/nothing.git
@@ -12,19 +26,26 @@ cd nothing
 ./bootstrap.sh
 ```
 
-The script automatically detects your operating system, configures your agent home directory, installs published extensions, installs optional third-party skills like `caveman` via `npx skills`, links bundled local skills for discovery, and wires the shell hats.
+Bootstrap installs baseline tools, Pi, published extensions, optional third-party caveman skills, settings, local skill discovery links, and shell integration.
+
+Reload shell after bootstrap:
+
+```bash
+source ./dotfiles/shell_integration.sh
+```
 
 ## Hats and modifiers
 
-Base hats load local repo skills:
+Base hats load repo-local skills:
 
 ```bash
-pi --nothing
-pi --rpiv
-pi --android
-pi --pm
-pi --dev
-pi --meta
+pi --nothing     # clean escape hatch; no configured skills/extensions
+pi --rpiv        # full local RPIV workflow
+pi --android     # RPIV execution helpers + local android-cli skill
+pi --pm          # research/planning/sync persona
+pi --dev         # implementation/verification persona
+pi --meta        # skill/setup/meta engineering persona
+pi --write       # docs/writing helper persona
 ```
 
 Modifiers are additive experiments:
@@ -35,17 +56,50 @@ pi --android --caveman
 pi --android --rtk
 ```
 
-`--nothing` is the clean escape hatch and ignores additive modifiers. Android skills are vendored under `vendor/android-skills` and loaded locally by `pi --android`.
+Rules:
 
-Refresh the vendored Android skills when needed:
+- one base hat per invocation
+- modifiers never replace local first-party skill loading
+- `--nothing` wins and ignores modifiers
+- `--rtk` is currently experimental marker behavior only; no shell hook mutation
+
+## Try only the skills with `npx skills add`
+
+Use this when handing off skills to other people/agents. This does **not** install my full personal setup.
+
+RPIV workflow skills:
 
 ```bash
-./scripts/sync-android-skills.sh
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs \
+  -y
 ```
 
-## Shareable skill bundles
+Meta/setup skills:
 
-Some folders can also be installed independently from npm:
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s agent-os pi-skill-creator nothing-bootstrap nohtml \
+  -y
+```
+
+Search skills:
+
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi \
+  -s brave-search firecrawl \
+  -y
+```
+
+Everything discoverable in this repo:
+
+```bash
+npx -y skills add raquezha/nothing --full-depth -g -a pi -s '*' -y
+```
+
+## Install published npm packages
+
+Skill bundles:
 
 ```bash
 npm install -g @raquezha/norpiv @raquezha/nosearch
@@ -53,11 +107,53 @@ norpiv-install --target pi
 nosearch-install --target pi
 ```
 
-Supported installer targets:
+Pi extensions:
 
 ```bash
-norpiv-install --target pi|claude|codex|all
-nosearch-install --target pi|claude|codex|all
+npm install -g \
+  @raquezha/notrace \
+  @raquezha/noleaks \
+  @raquezha/noagy \
+  @raquezha/nofooter
 ```
 
-`pi` and `claude` install native `SKILL.md` folders. `codex` installs the same docs plus an `AGENTS.md` adapter because Codex-style environments do not universally auto-load skill bundles.
+| Package | Purpose |
+|---|---|
+| `@raquezha/norpiv` | RPIV skill bundle + installer |
+| `@raquezha/nosearch` | Search extension + Brave/Firecrawl skills + installer |
+| `@raquezha/notrace` | local HTML trace viewer |
+| `@raquezha/noleaks` | secret/credential guard |
+| `@raquezha/noagy` | Antigravity model provider |
+| `@raquezha/nofooter` | footer/theme/status UI |
+
+## Android skills snapshot
+
+No Android MCP. No global Android skill dependency.
+
+`vendor/android-skills/` is a local snapshot of official `android/skills`. Refresh manually when wanted:
+
+```bash
+./scripts/sync-android-skills.sh
+git diff -- vendor/android-skills
+git add vendor/android-skills
+git commit -m "chore: refresh android skills snapshot"
+```
+
+## Validate setup
+
+```bash
+./bootstrap.sh --dry-run
+npm install
+npm run build --workspaces --if-present
+npm run verify:notrace
+```
+
+CI should be green:
+
+```bash
+gh run list --limit 5
+```
+
+## Release notes
+
+This repo uses Changesets for npm package versioning. If pending changesets exist but GitHub Actions cannot create PRs, the publish workflow skips cleanly. To enable normal Version PR flow, allow GitHub Actions to create PRs in repo settings.
