@@ -34,11 +34,21 @@
     "search",
     "brave",
     "firecrawl",
-    "subagent"
+    "subagent",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ],
+    "skills": [
+      "brave-search",
+      "firecrawl"
+    ]
+  }
 }

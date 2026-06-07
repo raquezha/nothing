@@ -1,6 +1,6 @@
 # Pi Skill Checklist
 
-Use this checklist when creating or reviewing a skill for `pi.dev`.
+Use this checklist when creating or reviewing a skill for Pi and this `nothing` repo.
 
 ## Planning
 
@@ -9,11 +9,11 @@ Use this checklist when creating or reviewing a skill for `pi.dev`.
 - [ ] A short design brief exists for complex skills
 - [ ] The design brief was reviewed with the user when the task is non-trivial
 - [ ] The final structure matches the complexity of the task
-- [ ] The destination repo is explicit: `pi/skills/...` in `~/Developer/pi.dev` by default, project-local only if requested
+- [ ] The destination repo/path is explicit: a `packages/<bundle>/<skill-name>/` path in this repo by default, project-local only if requested
 
 ## Discovery and naming
 
-- [ ] The skill is placed under `~/Developer/pi.dev/pi/skills/<category>/<skill-name>/` by default, or under a project-local skill path only if requested
+- [ ] The skill is placed under the chosen repo/package skill path, or under a project-local skill path only if requested
 - [ ] The directory contains `SKILL.md`
 - [ ] `name` is lowercase, hyphenated, and matches the directory name exactly
 - [ ] `description` explains both capability and trigger conditions
@@ -32,10 +32,10 @@ Use this checklist when creating or reviewing a skill for `pi.dev`.
 - [ ] Repetitive deterministic work is moved into `scripts/` when useful
 - [ ] Examples are compatible with pi and this repository
 
-## pi.dev integration
+## nothing repo integration
 
-- [ ] The category fits the existing repository layout
-- [ ] `pi/skills/README.md` is updated when needed
+- [ ] The package/bundle fits the existing repository layout
+- [ ] Package README/docs are updated when needed
 - [ ] Paths and commands match this repo
 - [ ] External repos were treated as source context unless the user requested a project-local skill
 - [ ] The skill does not rely on non-pi-only commands unless clearly justified
@@ -60,7 +60,7 @@ Before wrapping up, summarize:
 1. what files were added or changed
 2. what context was used to shape the skill
 3. why the skill should trigger correctly
-4. whether the skill was created under `pi/skills/...` in `~/Developer/pi.dev` or project-local and why
+4. where the skill was created and why
 5. any follow-up validation the user should run
-6. whether they should run `./scripts/setup.sh` and `/reload`
-7. whether the user wants commit and push in `pi.dev`
+6. whether shell/package discovery needs refresh
+7. whether the user wants commit and push

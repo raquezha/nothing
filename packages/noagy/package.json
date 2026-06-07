@@ -20,11 +20,17 @@
     "antigravity",
     "oauth",
     "google",
-    "provider"
+    "provider",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  }
 }

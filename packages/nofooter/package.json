@@ -21,11 +21,17 @@
     "powerline",
     "footer",
     "theme",
-    "terminal"
+    "terminal",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  }
 }

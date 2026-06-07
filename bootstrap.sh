@@ -2,22 +2,33 @@
 set -euo pipefail
 
 DRY_RUN=false
+INSTALL_GLOBAL_SKILLS=false
+INSTALL_PUBLISHED_PACKAGES=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=true ;;
+    --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
+    --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
+    --install-third-party|--no-third-party) printf '⚠️  Third-party modifiers now lazy-install into ~/.local/share/nothing when used; %s is no longer needed.\n' "$arg" >&2 ;;
     --help|-h)
       cat <<'EOF'
-Usage: ./bootstrap.sh [--dry-run]
+Usage: ./bootstrap.sh [--dry-run] [--install-global-skills] [--install-published-packages]
 
 Fresh-machine bootstrap for nothing:
 - installs baseline tools and Pi
-- installs published nothing extensions from npm
-- mounts nothing settings, mindsets, shell integration, and local skills
+- builds repo-local nothing packages for hat loading
+- mounts nothing settings, mindsets, shell integration, and local hat wiring
 - configures low-noise global git ignores and prints secrets/tooling guidance
 
 Options:
-  --dry-run, -n  Print commands without executing mutating steps.
-  --help, -h     Show this help.
+  --dry-run, -n             Print commands without executing mutating steps.
+  --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
+                               Default is local-first: hats load repo-local skills only.
+  --install-published-packages Install published @raquezha packages globally with npm.
+                               Default uses this checkout's built packages instead.
+  --install-third-party        Deprecated no-op; third-party modifiers lazy-install locally.
+  --no-third-party             Deprecated no-op; third-party modifiers lazy-install locally.
+  --help, -h                Show this help.
 EOF
       exit 0
       ;;
@@ -92,16 +103,48 @@ copy_file() {
   ok "Installed $label"
 }
 
+merge_json_defaults() {
+  local src="$1" dest="$2" label="$3"
+  if [[ ! -f "$src" ]]; then
+    warn "Skipping $label (missing source: $src)"
+    return
+  fi
+  run mkdir -p "$(dirname "$dest")"
+  if [[ -e "$dest" && ! -L "$dest" ]]; then
+    run cp "$dest" "$dest.backup.$(date +%s)"
+    warn "Backed up existing $label"
+    if [[ "$DRY_RUN" == true ]]; then
+      printf '[dry-run] merge defaults from %s into %s preserving existing keys\n' "$src" "$dest"
+    else
+      node -e "
+        const fs = require('fs');
+        const [src, dest] = process.argv.slice(1);
+        const defaults = JSON.parse(fs.readFileSync(src, 'utf8'));
+        const existing = JSON.parse(fs.readFileSync(dest, 'utf8'));
+        fs.writeFileSync(dest, JSON.stringify({ ...defaults, ...existing }, null, 2) + '\n');
+      " "$src" "$dest"
+    fi
+  else
+    run cp "$src" "$dest"
+  fi
+  ok "Installed $label"
+}
+
 ensure_global_gitignore() {
-  local file="$HOME/.gitignore_global"
+  local file
+  file="$(git config --global --get core.excludesfile 2>/dev/null || true)"
+  if [[ -z "$file" ]]; then
+    file="$HOME/.gitignore_global"
+    run git config --global core.excludesfile "$file"
+  fi
+  file="${file/#\~/$HOME}"
   run touch "$file"
-  run git config --global core.excludesfile "$file"
   for entry in ".workflow/" ".reposcry/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
     if [[ "$DRY_RUN" == true ]]; then
       grep -qxF "$entry" "$file" 2>/dev/null || printf '[dry-run] append %s to %s\n' "$entry" "$file"
     elif ! grep -qxF "$entry" "$file" 2>/dev/null; then
       printf '\n%s\n' "$entry" >> "$file"
-      ok "Added $entry to ~/.gitignore_global"
+      ok "Added $entry to $file"
     fi
   done
 }
@@ -196,22 +239,29 @@ build_local_packages
 info "Installing Pi coding agent globally..."
 run npm install -g @earendil-works/pi-coding-agent
 
-info "Installing published nothing extensions globally..."
-run npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter
+if [[ "$INSTALL_PUBLISHED_PACKAGES" == true ]]; then
+  info "Installing published nothing packages globally..."
+  run npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter @raquezha/norpiv
+else
+  info "Skipping published @raquezha package install; hats use this checkout's built packages."
+fi
 
-info "Installing optional third-party skills via skills.sh..."
-run npx -y skills add JuliusBrussee/caveman -g -a pi -s caveman caveman-stats -y
+info "Skipping third-party global installs; --caveman and --rtk lazy-install local caches when used."
 
 info "Creating Pi agent directories..."
 run mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/skills" "$AGENT_DIR/prompts" "$AGENT_DIR/themes" "$HOME/.pi-secrets"
 
 info "Installing config defaults..."
-copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
+merge_json_defaults "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 
-info "Linking bundled local skills for optional global discovery..."
-run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
-run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
+if [[ "$INSTALL_GLOBAL_SKILLS" == true ]]; then
+  info "Linking bundled local skills for optional global discovery..."
+  run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
+  run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
+else
+  info "Skipping global skill links; hats load repo-local skills intentionally."
+fi
 
 chmod_bundled_scripts
 
@@ -224,8 +274,12 @@ install_shell_integration
 info "Checking secrets..."
 if [[ -f "$SECRETS_FILE" ]]; then
   ok "Found ~/.pi-secrets/.env"
-  grep -q "BRAVE_SEARCH_API_KEY" "$SECRETS_FILE" 2>/dev/null || warn "BRAVE_SEARCH_API_KEY missing from ~/.pi-secrets/.env"
-  grep -q "ANTIGRAVITY_CLIENT_SECRET" "$SECRETS_FILE" 2>/dev/null || warn "ANTIGRAVITY_CLIENT_SECRET missing from ~/.pi-secrets/.env"
+  for var in GROQ_API_KEY BRAVE_SEARCH_API_KEY FIRECRAWL_API_TOKEN; do
+    grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var}=" "$SECRETS_FILE" 2>/dev/null || warn "$var missing from ~/.pi-secrets/.env"
+  done
+  for var in NOAGY_CLIENT_ID NOAGY_CLIENT_SECRET NOAGY_PROJECT_ID; do
+    grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var}=" "$SECRETS_FILE" 2>/dev/null || warn "Optional $var missing from ~/.pi-secrets/.env"
+  done
 else
   warn "No ~/.pi-secrets/.env found"
   cat <<'EOF'
@@ -242,4 +296,5 @@ printf '  1. Reload your shell or run: source %s/dotfiles/shell_integration.sh\n
 printf '  2. Start Pi normally: pi\n'
 printf '  3. Use hats: pi --nothing, pi --pm, pi --dev, pi --rpiv, pi --android, pi --meta, pi --antigravity\n'
 printf '  4. Use modifiers: pi --rpiv --caveman, pi --android --caveman, pi --android --rtk\n'
+printf '     (--caveman and --rtk lazy-install local caches on first use.)\n'
 printf '  5. RPIV helper scripts live at: packages/norpiv/scripts/\n\n'

@@ -1,11 +1,13 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 
-const NOSEARCH_PKG_ROOT = path.dirname(new URL(import.meta.url).pathname);
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const NOSEARCH_PKG_ROOT = path.basename(moduleDir) === "dist" ? path.dirname(moduleDir) : moduleDir;
 const BRAVE_SKILL = path.join(NOSEARCH_PKG_ROOT, "brave-search");
 const FIRECRAWL_SKILL = path.join(NOSEARCH_PKG_ROOT, "firecrawl");
 const CHILD_FLAGS = [

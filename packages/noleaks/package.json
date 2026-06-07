@@ -1,7 +1,7 @@
 {
   "name": "@raquezha/noleaks",
   "version": "0.0.1",
-  "description": "Security credentials protector shield for the Pi Coding Agent \u2014 blocks LLM access to .env, keys, and secrets",
+  "description": "Security credentials protector shield for the Pi Coding Agent — blocks LLM access to .env, keys, and secrets",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -19,11 +19,17 @@
     "security",
     "secrets",
     "credentials",
-    "protection"
+    "protection",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/index.d.ts"
+  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
+  }
 }

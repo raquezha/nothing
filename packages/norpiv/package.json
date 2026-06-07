@@ -26,10 +26,24 @@
     "claude-skills",
     "codex",
     "workflow",
-    "rpiv"
+    "rpiv",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
+  },
+  "pi": {
+    "skills": [
+      "triage",
+      "frame",
+      "grill-with-docs",
+      "plan",
+      "implement",
+      "verify",
+      "sync",
+      "update-docs",
+      "cleanup"
+    ]
   }
 }

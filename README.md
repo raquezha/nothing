@@ -26,7 +26,7 @@ cd nothing
 ./bootstrap.sh
 ```
 
-Bootstrap installs baseline tools, Pi, published extensions, optional third-party caveman skills, settings, local skill discovery links, and shell integration.
+Bootstrap installs baseline tools, Pi, settings, builds this checkout's packages, and installs shell integration. It does not globally link first-party or third-party skills by default; hats load repo-local skills intentionally.
 
 Reload shell after bootstrap:
 
@@ -39,7 +39,7 @@ source ./dotfiles/shell_integration.sh
 Base hats load repo-local skills:
 
 ```bash
-pi --nothing     # clean escape hatch; no configured skills/extensions
+pi --nothing     # ultimate nothing: no skills, extensions, or context files
 pi --rpiv        # full local RPIV workflow
 pi --android     # RPIV execution helpers + local android-cli skill
 pi --pm          # research/planning/sync persona
@@ -51,17 +51,18 @@ pi --write       # docs/writing helper persona
 Modifiers are additive experiments:
 
 ```bash
-pi --rpiv --caveman
+pi --rpiv --caveman        # lazy-installs caveman skills into ~/.local/share/nothing on first use
 pi --android --caveman
-pi --android --rtk
+pi --android --rtk          # lazy-installs pi-rtk-optimizer into ~/.local/share/nothing on first use
+pi --rpiv --caveman --rtk
 ```
 
 Rules:
 
 - one base hat per invocation
 - modifiers never replace local first-party skill loading
-- `--nothing` wins and ignores modifiers
-- `--rtk` is currently experimental marker behavior only; no shell hook mutation
+- `--nothing` wins and runs with `--no-skills --no-extensions --no-context-files`
+- `--rtk` is experimental and explicit; it lazy-installs/loads the RTK optimizer only for that invocation
 
 ## Try only the skills with `npx skills add`
 
@@ -107,15 +108,16 @@ norpiv-install --target pi
 nosearch-install --target pi
 ```
 
-Pi extensions:
+Pi extensions/packages:
 
 ```bash
-npm install -g \
-  @raquezha/notrace \
-  @raquezha/noleaks \
-  @raquezha/noagy \
-  @raquezha/nofooter
+pi install npm:@raquezha/notrace
+pi install npm:@raquezha/noleaks
+pi install npm:@raquezha/noagy
+pi install npm:@raquezha/nofooter
 ```
+
+For this personal checkout, hats normally load the local built packages instead of installed npm copies.
 
 | Package | Purpose |
 |---|---|

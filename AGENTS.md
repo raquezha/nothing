@@ -87,7 +87,7 @@ pi --rpiv --caveman
 pi --android --rtk
 ```
 
-`--rtk` is experimental marker behavior only. Do not auto-wire RTK without explicit design and tests because command rewriting/compression can break pipes, exact reads, and edit anchors.
+`--rtk` is experimental and explicit. It lazy-installs/loads the RTK optimizer from a local nothing cache for that invocation only; keep tests around this because command rewriting/compression can break pipes, exact reads, and edit anchors.
 
 ## RepoScry policy
 

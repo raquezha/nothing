@@ -5,9 +5,11 @@ Choose the smallest structure that still makes the skill reliable.
 ## Start simple
 
 ```text
-~/Developer/pi.dev/pi/skills/<category>/<skill-name>/
+packages/<bundle>/<skill-name>/
 └── SKILL.md
 ```
+
+For project-local skills outside this repo, use that project's `.pi/skills/<skill-name>/` or `.agents/skills/<skill-name>/` convention.
 
 ## Add `references/` when
 

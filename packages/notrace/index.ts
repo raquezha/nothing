@@ -183,9 +183,22 @@ export default function (pi: ExtensionAPI) {
   });
 }
 
+function safeJsonForScript(value: any): string {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
+    switch (char) {
+      case "<": return "\\u003c";
+      case ">": return "\\u003e";
+      case "&": return "\\u0026";
+      case "\u2028": return "\\u2028";
+      case "\u2029": return "\\u2029";
+      default: return char;
+    }
+  });
+}
+
 // Returns a self-contained premium HTML template incorporating the design tokens
 function generateHtmlReport(data: any): string {
-  const serializedData = JSON.stringify(data);
+  const serializedData = safeJsonForScript(data);
 
   return `<!DOCTYPE html>
 <html lang="en">

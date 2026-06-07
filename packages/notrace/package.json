@@ -19,10 +19,16 @@
     "pi-agent",
     "observability",
     "trace",
-    "telemetry"
+    "telemetry",
+    "pi-package"
   ],
   "license": "MIT",
   "publishConfig": {
     "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "dist/index.js"
+    ]
   }
 }

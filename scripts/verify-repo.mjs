@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -145,6 +145,118 @@ function verifyReposcryGuardrails() {
   }
 }
 
+function verifyPackageManifests() {
+  const expected = {
+    "packages/noagy/package.json": { extensions: ["dist/index.js"] },
+    "packages/nofooter/package.json": { extensions: ["dist/index.js"] },
+    "packages/noleaks/package.json": { extensions: ["dist/index.js"] },
+    "packages/notrace/package.json": { extensions: ["dist/index.js"] },
+    "packages/nosearch/package.json": { extensions: ["dist/index.js"], skills: ["brave-search", "firecrawl"] },
+    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup"] },
+  };
+
+  for (const [file, piManifest] of Object.entries(expected)) {
+    const pkg = JSON.parse(readFileSync(path.join(root, file), "utf8"));
+    assert(pkg.keywords?.includes("pi-package"), `${file} is tagged as a pi package`);
+    assert(JSON.stringify(pkg.pi) === JSON.stringify(piManifest), `${file} declares expected pi resources`);
+  }
+
+  const nosearchSource = readFileSync(path.join(root, "packages/nosearch/index.ts"), "utf8");
+  assert(nosearchSource.includes('path.basename(moduleDir) === "dist"'), "nosearch resolves package root when loaded from dist");
+}
+
+function verifyShellIntegration() {
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-shell-"));
+  try {
+    const fakeBin = path.join(temp, "bin");
+    const fakePi = path.join(fakeBin, "pi");
+    const fakeGit = path.join(fakeBin, "git");
+    const fakeNpm = path.join(fakeBin, "npm");
+    const argsFile = path.join(temp, "args.txt");
+    const installLog = path.join(temp, "installs.txt");
+    const cacheDir = path.join(temp, "cache");
+    run("mkdir", ["-p", fakeBin], root);
+    writeFileSync(fakePi, '#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$PI_FAKE_ARGS_FILE"\n');
+    writeFileSync(fakeGit, `#!/usr/bin/env bash
+set -euo pipefail
+printf 'git %s\\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
+dest="\${@: -1}"
+mkdir -p "$dest/skills/caveman" "$dest/skills/caveman-stats"
+printf '%s\\n' '---' 'name: caveman' 'description: fake' '---' > "$dest/skills/caveman/SKILL.md"
+printf '%s\\n' '---' 'name: caveman-stats' 'description: fake' '---' > "$dest/skills/caveman-stats/SKILL.md"
+`);
+    writeFileSync(fakeNpm, `#!/usr/bin/env bash
+set -euo pipefail
+printf 'npm %s\\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
+prefix=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --prefix) prefix="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+mkdir -p "$prefix/node_modules/pi-rtk-optimizer"
+printf '{"name":"pi-rtk-optimizer","pi":{"extensions":["./index.ts"]}}\\n' > "$prefix/node_modules/pi-rtk-optimizer/package.json"
+printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer/index.ts"
+`);
+    chmodSync(fakePi, 0o755);
+    chmodSync(fakeGit, 0o755);
+    chmodSync(fakeNpm, 0o755);
+
+    const env = { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
+    let result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
+    assert(result.status === 0, "bash shell integration runs --nothing with fake pi");
+    let args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/) : [];
+    assert(args.includes("--no-skills") && args.includes("--no-extensions") && args.includes("--no-context-files"), "--nothing disables skills, extensions, and context files");
+    assert(!args.includes("--skill") && !args.includes("--extension"), "--nothing does not add local skills or extensions");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi hello`], root, { env });
+    assert(result.status === 0, "plain pi remains factory/default under shell integration");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(JSON.stringify(args) === JSON.stringify(["hello"]), "plain pi receives no nothing flags");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
+    assert(result.status === 0, "caveman and rtk modifiers lazy-install local caches");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.filter((arg) => arg === "--skill").length === 2, "--caveman explicitly loads two cached skills");
+    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--caveman loads cached caveman skill path");
+    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman-stats")), "--caveman loads cached caveman-stats skill path");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--rtk explicitly loads cached RTK optimizer extension");
+    const installs = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
+    assert(installs.includes("git clone") && installs.includes("npm install"), "modifiers install into local cache on first use");
+
+    writeFileSync(argsFile, "");
+    writeFileSync(installLog, "");
+    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rkt again`], root, { env });
+    assert(result.status === 0, "cached caveman and rkt alias run without reinstalling");
+    const secondInstalls = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
+    assert(secondInstalls.trim() === "", "modifiers skip install when local cache exists");
+
+    if (run("bash", ["-lc", "command -v zsh >/dev/null 2>&1"], root).status === 0) {
+      writeFileSync(argsFile, "");
+      result = run("zsh", ["-fc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
+      assert(result.status === 0, "zsh shell integration runs --nothing with fake pi");
+    }
+  } catch (error) {
+    fail(`shell integration verification failed: ${error.message}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function verifyBootstrapDryRun() {
+  const result = run("bash", [path.join(root, "bootstrap.sh"), "--dry-run", "--no-third-party"], root);
+  const output = `${result.stdout}${result.stderr}`;
+  assert(result.status === 0, "bootstrap dry-run succeeds with deprecated --no-third-party");
+  assert(output.includes("Skipping published @raquezha package install"), "bootstrap skips published package install by default");
+  assert(output.includes("Skipping global skill links"), "bootstrap skips global skill links by default");
+  assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
+  assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
+  assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
+}
+
 function verifyWorkflowFiles() {
   const android = readFileSync(path.join(root, ".github/workflows/sync-upstream-skills.yml"), "utf8");
   assert(android.includes("vendor/android-skills/"), "android sync workflow targets vendor/android-skills");
@@ -160,6 +272,9 @@ await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
 verifyReposcryGuardrails();
+verifyPackageManifests();
+verifyShellIntegration();
+verifyBootstrapDryRun();
 verifyWorkflowFiles();
 
 if (failures.length) {
