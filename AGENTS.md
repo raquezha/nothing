@@ -1,0 +1,169 @@
+# AGENTS.md
+
+## Project overview
+
+`nothing` is a personal Pi coding-agent setup and package monorepo. It contains:
+
+- local shell hats and mindsets for Pi (`bootstrap.sh`, `dotfiles/shell_integration.sh`, `mindsets.json`)
+- RPIV workflow skills (`packages/norpiv`)
+- meta/setup skills (`packages/nometa`)
+- search skills and extension (`packages/nosearch`)
+- Pi extensions (`packages/noagy`, `packages/noleaks`, `packages/notrace`, `packages/nofooter`)
+- vendored Android skills snapshot (`vendor/android-skills`)
+
+Core rule: owned skills stay local-first; public handoff uses npm packages or `npx skills add`.
+
+## Setup commands
+
+Use npm workspaces from the repo root.
+
+```bash
+npm install
+npm run build --workspaces --if-present
+npm test
+npm run verify:notrace
+./bootstrap.sh --dry-run
+```
+
+Fresh local setup:
+
+```bash
+./bootstrap.sh
+source ./dotfiles/shell_integration.sh
+```
+
+## Validation checklist
+
+Before finishing non-trivial changes, run the relevant subset and prefer the full set:
+
+```bash
+npm run build --workspaces --if-present
+npm test
+npm run verify:notrace
+./bootstrap.sh --dry-run
+```
+
+For shell changes, also run syntax checks:
+
+```bash
+bash -n bootstrap.sh scripts/*.sh packages/norpiv/scripts/*.sh packages/norpiv/implement/scripts/*.sh packages/norpiv/sync/*.sh packages/nosearch/*.sh packages/nosearch/*/*.sh
+```
+
+For publish/package changes, dry-run package contents:
+
+```bash
+npm pack --workspaces --dry-run --json
+```
+
+## Code style and repo conventions
+
+- TypeScript packages are ESM unless their package says otherwise.
+- Prefer `@earendil-works/*` Pi packages. Do not add deprecated `@mariozechner/pi-*` dependencies or imports.
+- Keep extension entrypoints at `index.ts`; package builds emit `dist/index.js`.
+- Root `package-lock.json` owns workspace dependency state. Do not add nested package lockfiles.
+- Use precise, minimal edits. Avoid rewriting large files without need.
+- Keep generated outputs (`dist/`, `node_modules/`, `.reposcry/`, `.workflow/`) out of git.
+
+## Pi hats and local workflow
+
+Shell hats are implemented in `dotfiles/shell_integration.sh` and configured by `mindsets.json`.
+
+Common hats:
+
+```bash
+pi --nothing
+pi --rpiv
+pi --dev
+pi --pm
+pi --meta
+pi --android
+pi --antigravity
+```
+
+Modifiers:
+
+```bash
+pi --rpiv --caveman
+pi --android --rtk
+```
+
+`--rtk` is experimental marker behavior only. Do not auto-wire RTK without explicit design and tests because command rewriting/compression can break pipes, exact reads, and edit anchors.
+
+## RepoScry policy
+
+RepoScry is optional support for RPIV repo-memory.
+
+- `.reposcry/` is generated local cache and must never be committed.
+- `.reposcry/` must be present in project `.gitignore` when RepoScry is initialized.
+- `.reposcryignore` is indexing policy and may be committed after review.
+- `packages/norpiv/scripts/reposcry-bootstrap.sh` enforces these guardrails.
+
+Useful commands:
+
+```bash
+./packages/norpiv/scripts/reposcry-bootstrap.sh --force
+./packages/norpiv/scripts/reposcry-task-context.sh "<task summary>"
+./packages/norpiv/scripts/reposcry-refresh.sh main
+reposcry --repo . stats
+```
+
+## Changesets and npm releases
+
+This repo uses Changesets. Do not manually bump package versions for normal releases.
+
+When package behavior changes, add a changeset:
+
+```bash
+npx changeset
+```
+
+If a PR intentionally has no package release, use:
+
+```bash
+npx changeset --empty
+```
+
+CI checks changeset status on pull requests:
+
+```bash
+npm run changeset:status
+```
+
+Release flow:
+
+1. code + changeset merge to `main`
+2. Changesets Action opens a Version PR
+3. merging Version PR publishes npm packages
+
+## Package maturity notes
+
+- `@raquezha/norpiv`: usable workflow skills; needs stronger state-machine enforcement later.
+- `@raquezha/nosearch`: usable search skill/extension bundle.
+- `@raquezha/noagy`: experimental provider; be careful with OAuth/provider internals.
+- `@raquezha/notrace`: Phase 0 / POC observability; generated reports may contain sensitive prompts/tool outputs.
+- `@raquezha/noleaks`: Phase 0 / POC guardrail; not a complete sandbox.
+- `@raquezha/nofooter`: UI/theme/status extension.
+
+## Security considerations
+
+- Never print, commit, or include secrets from `.env`, `.pi-secrets`, `.ssh`, auth files, keys, or tokens.
+- Treat `notrace.html` outputs as sensitive local artifacts.
+- `noleaks` is defense-in-depth only; do not rely on it as full exfiltration protection.
+- Do not commit `.workflow/`, `.reposcry/`, `dist/`, `node_modules/`, logs, or local auth/config files.
+
+## Android skills snapshot
+
+The Android skills snapshot lives at:
+
+```text
+vendor/android-skills/
+```
+
+The sync workflow must update `vendor/android-skills/`, not `packages/android/`.
+
+## PR and commit guidelines
+
+- Use Conventional Commits, e.g. `fix(norpiv): guard reposcry cache`.
+- Keep commits focused and reviewable.
+- Include verification evidence in the final response.
+- For AI-assisted commits in RPIV implementation work, follow the active `packages/norpiv/implement/SKILL.md` footer rules when applicable.
