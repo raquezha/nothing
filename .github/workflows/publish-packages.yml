@@ -40,40 +40,19 @@ jobs:
       - name: Build all packages
         run: npm run build --workspaces --if-present
 
-      - name: Detect whether release is needed
-        id: release-check
+      - name: Validate npm token
         if: ${{ inputs.dry_run != 'true' }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-
-          pending_changesets=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
-          if [ "$pending_changesets" != "0" ]; then
-            echo "Pending changesets detected on main."
-            echo "Changesets PR creation is blocked in this repo because GitHub Actions cannot open PRs."
-            echo "Skipping publish workflow until repo setting 'Allow GitHub Actions to create and approve pull requests' is enabled or release flow is redesigned."
-            echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "blocked_reason=pending_changesets_pr_permissions" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is required for real package publishing." >&2
+            exit 1
           fi
 
-          should_release=false
-          for pkg_json in packages/*/package.json; do
-            name=$(node -e "console.log(require('./$pkg_json').name)")
-            version=$(node -e "console.log(require('./$pkg_json').version)")
-            latest=$(npm dist-tag ls "$name" 2>/dev/null | awk '/^latest:/ {print $2}' || true)
-            echo "$name local=$version npm-latest=${latest:-missing}"
-            if [ "$latest" != "$version" ]; then
-              should_release=true
-            fi
-          done
-
-          echo "should_release=$should_release" >> "$GITHUB_OUTPUT"
-          echo "blocked_reason=none" >> "$GITHUB_OUTPUT"
-
       - name: Create Version PR or publish
-        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release == 'true' }}
+        if: ${{ inputs.dry_run != 'true' }}
         uses: changesets/action@v1
         with:
           publish: npm run release
@@ -83,16 +62,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Skip publish summary
-        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.should_release != 'true' && steps.release-check.outputs.blocked_reason == 'none' }}
-        run: echo "All package versions already match npm latest dist-tags. Nothing to publish."
-
-      - name: Blocked publish summary
-        if: ${{ inputs.dry_run != 'true' && steps.release-check.outputs.blocked_reason == 'pending_changesets_pr_permissions' }}
-        run: |
-          echo "Publish skipped: pending changesets require a Version PR, but GitHub Actions PR creation is disabled for this repo."
-          echo "Enable: Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests."
 
       - name: Dry run summary
         if: ${{ inputs.dry_run == 'true' }}

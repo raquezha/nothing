@@ -17,7 +17,7 @@ The final gate for a slice or task. Verify truth before reporting progress.
 ## Workflow
 1. Compare code changes against `[BRIEF]` and the current `[PLAN]` slice.
 2. Run stated verification commands and available quality gates.
-3. If RepoScry is available, optionally add graph-aware evidence with commands such as `reposcry validate main HEAD` and `reposcry --repo . get_affected_flows main HEAD`. Treat RepoScry as supplemental evidence, not a hard requirement.
+3. If RepoScry is available, optionally add graph-aware evidence with commands such as `reposcry validate main HEAD` and `reposcry --repo . get_affected_flows main HEAD`. Treat RepoScry as supplemental evidence, not a hard requirement. Verify `.reposcry/` is not staged or tracked before reporting review readiness.
 4. Check for AI artifacts: placeholder comments, fake APIs, dead code, inconsistent naming.
 5. Confirm commit messages include Conventional Commit format and `Assisted-by: [AGENT]:[MODEL] [tools]` when AI contributed.
 6. If passing, mark the slice checkbox complete in `[PLAN]` and append verification evidence to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).

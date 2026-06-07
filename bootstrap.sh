@@ -96,7 +96,7 @@ ensure_global_gitignore() {
   local file="$HOME/.gitignore_global"
   run touch "$file"
   run git config --global core.excludesfile "$file"
-  for entry in ".workflow/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
+  for entry in ".workflow/" ".reposcry/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
     if [[ "$DRY_RUN" == true ]]; then
       grep -qxF "$entry" "$file" 2>/dev/null || printf '[dry-run] append %s to %s\n' "$entry" "$file"
     elif ! grep -qxF "$entry" "$file" 2>/dev/null; then
@@ -153,11 +153,45 @@ install_tools() {
   esac
 }
 
+build_local_packages() {
+  info "Installing local workspace dependencies..."
+  run npm install --include=dev
+
+  info "Building local workspace packages..."
+  run npm run build --workspaces --if-present
+
+  if [[ "$DRY_RUN" == true ]]; then
+    for pkg in noagy nofooter noleaks nosearch notrace; do
+      printf '[dry-run] verify %s\n' "$SCRIPT_DIR/packages/$pkg/dist/index.js"
+    done
+    return
+  fi
+
+  local missing=()
+  for pkg in noagy nofooter noleaks nosearch notrace; do
+    if [[ ! -f "$SCRIPT_DIR/packages/$pkg/dist/index.js" ]]; then
+      missing+=("packages/$pkg/dist/index.js")
+    fi
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    printf 'Missing built extension outputs:\n' >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    exit 1
+  fi
+  ok "Local extension build outputs verified"
+}
+
+chmod_bundled_scripts() {
+  info "Preparing bundled helper scripts..."
+  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" -type f \( -name '*.sh' -o -name '*.cjs' \) -exec chmod +x {} \;
+}
+
 printf '\n╔══════════════════════════════════════╗\n'
 printf '║       nothing fresh bootstrap        ║\n'
 printf '╚══════════════════════════════════════╝\n\n'
 
 install_tools
+build_local_packages
 
 info "Installing Pi coding agent globally..."
 run npm install -g @earendil-works/pi-coding-agent
@@ -179,10 +213,7 @@ info "Linking bundled local skills for optional global discovery..."
 run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
 run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
 
-info "Preparing bundled helper scripts..."
-run chmod +x "$SCRIPT_DIR/packages/norpiv/scripts/triage_helper.sh" "$SCRIPT_DIR/packages/norpiv/scripts/validate_active_task.sh"
-run chmod +x "$SCRIPT_DIR/packages/norpiv/implement/scripts/enforce-branch.sh"
-run find "$SCRIPT_DIR/packages/nosearch" -name '*.sh' -exec chmod +x {} \;
+chmod_bundled_scripts
 
 info "Configuring global git ignore defaults..."
 ensure_global_gitignore

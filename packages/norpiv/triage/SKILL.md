@@ -73,7 +73,7 @@ Use when auto/resume mode targets a `done` or `archived` task.
    - Preferred absolute path: `<skill_dir>/../scripts/triage_helper.sh`.
 3. Read the resulting active pointer, metadata, and `WORK.md`.
 4. Determine action from helper output and task state: `created`, `resumed`, `reopened`, `refused`, or `fresh/reset`.
-5. Optional RepoScry bootstrap: if the bundled `../scripts/reposcry-bootstrap.sh` is available and `reposcry` is installed, run it to seed `.reposcry/` for later `/frame` and `/grill-with-docs`. Skip silently when unavailable.
+5. Optional RepoScry bootstrap: if the bundled `../scripts/reposcry-bootstrap.sh` is available, run it to seed `.reposcry/` for later `/frame` and `/grill-with-docs`. The helper must ensure `.reposcry/` is ignored, must stop if `.reposcry/` is tracked/staged, and should continue normally when RepoScry is unavailable.
 6. **Technical Pre-check (Repo Pulse)** for created/reopened/resumed tasks:
    - Extract key filenames, classes, commands, or keywords from the issue/task description.
    - Verify existence on the current branch when concrete files are named.

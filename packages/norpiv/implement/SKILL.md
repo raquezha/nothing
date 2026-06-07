@@ -27,7 +27,7 @@ Execute one functional vertical slice and hand it to the human for review.
    - If the script fails, STOP and ask the human for help. Do not proceed with code changes.
 4. Optional RepoScry blast-radius pass: if `reposcry` is available, inspect impact before wide edits (`reposcry --repo . get_impact_radius <symbol> --depth 4` or related graph queries). Continue normally when RepoScry is absent.
 5. Implement test-first where practical; otherwise document why not in `[LOG]`.
-6. After each edit batch, if the bundled `../scripts/reposcry-refresh.sh` helper is present and `reposcry-update` is installed, run it. RepoScry refresh failure should not block implementation.
+6. After each edit batch, if the bundled `../scripts/reposcry-refresh.sh` helper is present and `reposcry-update` is installed, run it. RepoScry refresh failure should not block implementation. Never stage or commit `.reposcry/`; it is generated cache. `.reposcryignore` may be committed only after review as indexing policy.
 7. Run the slice verification command and available quality gates.
 8. Commit with a Conventional Commit header and `Assisted-by: [AGENT]:[MODEL] [tools]` footer (populating the agent name and model ID from the current session context).
    - For Jira-tracked tasks, the header MUST include the Jira key in the scope position: `fix(PROJ-123): ...` or `feat(PROJ-123): ...`.

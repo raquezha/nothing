@@ -20,8 +20,8 @@
     "prepare": "npm run build"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": ">=0.70.0",
-    "@mariozechner/pi-ai": ">=0.70.0"
+    "@earendil-works/pi-coding-agent": ">=0.74.0",
+    "@earendil-works/pi-ai": ">=0.74.0"
   },
   "dependencies": {
     "typebox": "^1.2.1"

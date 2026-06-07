@@ -20,7 +20,7 @@ Challenge the brief before planning. This replaces passive ubiquitous-language c
    - Locate the files/lines mentioned in the brief.
    - Trace the data flow related to the problem/proposal.
    - Search for "Impact Surface": Who else uses or depends on these components?
-3. **Optional RepoScry graph pass**: if `reposcry` is available, use it to ground architecture and blast radius with commands such as:
+3. **Optional RepoScry graph pass**: if `reposcry` is available, use it to ground architecture and blast radius. Before relying on it, ensure the bundled bootstrap/context helper has kept `.reposcry/` ignored and untracked. Use commands such as:
    - `reposcry --repo . get_architecture_overview --format json`
    - `reposcry --repo . query_graph "callers_of <symbol>"`
    - `reposcry --repo . query_graph "tests_for <symbol>"`

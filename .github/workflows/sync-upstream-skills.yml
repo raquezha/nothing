@@ -10,6 +10,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Checkout nothing repository
         uses: actions/checkout@v5
@@ -18,11 +21,11 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/android/skills.git upstream_skills
 
-      - name: Synchronize guidelines to packages/android/
+      - name: Synchronize guidelines to vendor/android-skills/
         run: |
-          mkdir -p packages/android
+          mkdir -p vendor/android-skills
           # Synchronize files while retaining local exclusions or customizations
-          rsync -av --delete --exclude='.git' upstream_skills/ packages/android/
+          rsync -av --delete --exclude='.git' upstream_skills/ vendor/android-skills/
           rm -rf upstream_skills
 
       - name: Create reviewable Pull Request if modifications exist
@@ -32,7 +35,7 @@ jobs:
           commit-message: "chore(android): sync guidelines with official upstream repo"
           title: "🔄 Update Official Android Guidelines"
           body: |
-            This automated Pull Request syncs the local `packages/android/` guidelines
+            This automated Pull Request syncs the local `vendor/android-skills/` snapshot
             with the canonical upstream repository: https://github.com/android/skills.
             Please review the diff before merging to check for rules and prompts updates.
           branch: android-skills-sync

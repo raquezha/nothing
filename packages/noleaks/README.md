@@ -1,6 +1,8 @@
 # noleaks
 
-Security credentials protector shield for the Pi Coding Agent. Intercepts all tool calls and blocks the LLM from reading, writing, grepping, or listing sensitive files — `.env`, private keys, SSH keys, credential stores, and the `~/.pi-secrets` directory.
+Phase 0 / POC credentials guard for the Pi Coding Agent. It intercepts tool calls and blocks common direct attempts to read, write, grep, or list sensitive files — `.env`, private keys, SSH keys, credential stores, and the `~/.pi-secrets` directory.
+
+> **POC warning:** noleaks is a guardrail, not a sandbox. It blocks obvious sensitive-path access patterns but does not yet prevent every shell-level bypass or data exfiltration path. Treat it as defense-in-depth while stronger policy, redaction, and allowlist enforcement are developed.
 
 ## What it blocks
 

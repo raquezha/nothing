@@ -23,7 +23,7 @@ A meta-skill designed to orchestrate the installation, deployment, and health ve
    - Verify that the credential shield `"noleaks": true` is active globally.
 
 3. **Global Packages Setup**:
-   - Run the bootstrap script to install the `@mariozechner/pi-coding-agent` alongside packaged extensions (`notrace`, `noleaks`) globally via NPM.
+   - Run the bootstrap script to install the `@earendil-works/pi-coding-agent` alongside packaged extensions (`notrace`, `noleaks`) globally via NPM.
 
 4. **Shell Integration**:
    - Inspect the shell rc file. If missing, append the sourcing command pointing to the dynamic loader wrapper:

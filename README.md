@@ -145,6 +145,7 @@ git commit -m "chore: refresh android skills snapshot"
 ./bootstrap.sh --dry-run
 npm install
 npm run build --workspaces --if-present
+npm test
 npm run verify:notrace
 ```
 

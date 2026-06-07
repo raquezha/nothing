@@ -145,3 +145,10 @@ Typical usage by phase:
 - `/verify`: optionally add `reposcry validate main HEAD` and affected-flow output as extra evidence
 
 If RepoScry is absent, the helpers no-op and RPIV continues with normal repo reading, grep, and tests.
+
+RepoScry guardrails:
+
+- `.reposcry/` is generated local cache and must not be committed.
+- `scripts/reposcry-bootstrap.sh` automatically adds `.reposcry/` to the project `.gitignore` before initializing RepoScry.
+- If `.reposcry/` is already tracked or staged, bootstrap stops and tells you to remove it from the index.
+- `.reposcryignore` is indexing policy, not cache. Review and commit it when you want stable RepoScry behavior across machines.

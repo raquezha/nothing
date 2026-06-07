@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { createAssistantMessageEventStream, type AssistantMessageEventStream } from "@mariozechner/pi-ai";
+import { createAssistantMessageEventStream, type AssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ProviderModelConfig } from "@earendil-works/pi-coding-agent";
 
 type OAuthCredentials = {

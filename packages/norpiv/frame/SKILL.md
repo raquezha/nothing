@@ -16,7 +16,7 @@ Turn raw task context into the stable "what/why" brief.
 
 ## Workflow
 1. Read the active task and remote metadata.
-2. If RepoScry is available, run the bundled `../scripts/reposcry-task-context.sh "<task summary>"` helper to generate `.reposcry/AI_CONTEXT.md`, then use that file as supplemental repo context. Continue normally when unavailable.
+2. If RepoScry is available, run the bundled `../scripts/reposcry-task-context.sh "<task summary>"` helper to generate `.reposcry/AI_CONTEXT.md`, then use that file as supplemental repo context. The helper path must preserve RepoScry guardrails: `.reposcry/` ignored, cache never tracked, `.reposcryignore` treated as reviewable indexing policy. Continue normally when unavailable.
 3. Determine brief type:
    - **Problem** for bugs, regressions, crashes, broken behavior.
    - **Proposal** for features, enhancements, refactors, new behavior.
