@@ -9,6 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "node scripts/verify-repo.mjs",
+    "changeset:status": "changeset status --since=origin/main",
     "verify:notrace": "node scripts/verify-notrace.mjs",
     "version": "changeset version",
     "release": "changeset publish"

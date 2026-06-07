@@ -8,6 +8,28 @@ on:
     branches: [main]
 
 jobs:
+  changeset-status:
+    name: Changeset status
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Require changeset for package changes
+        run: npm run changeset:status
+
   shellcheck:
     name: Shellcheck
     runs-on: ubuntu-latest
