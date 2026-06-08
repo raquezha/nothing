@@ -4,15 +4,17 @@ set -euo pipefail
 DRY_RUN=false
 INSTALL_GLOBAL_SKILLS=false
 INSTALL_PUBLISHED_PACKAGES=false
+SKIP_TOOLS=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=true ;;
     --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
     --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
+    --skip-tools) SKIP_TOOLS=true ;;
     --install-third-party|--no-third-party) printf '⚠️  Third-party modifiers now lazy-install into ~/.local/share/nothing when used; %s is no longer needed.\n' "$arg" >&2 ;;
     --help|-h)
       cat <<'EOF'
-Usage: ./bootstrap.sh [--dry-run] [--install-global-skills] [--install-published-packages]
+Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--install-global-skills] [--install-published-packages]
 
 Fresh-machine bootstrap for nothing:
 - installs baseline tools and Pi
@@ -22,6 +24,7 @@ Fresh-machine bootstrap for nothing:
 
 Options:
   --dry-run, -n             Print commands without executing mutating steps.
+  --skip-tools              Do not install baseline system packages with sudo.
   --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
                                Default is local-first: hats load repo-local skills only.
   --install-published-packages Install published @raquezha packages globally with npm.
@@ -168,7 +171,41 @@ install_shell_integration() {
   fi
 }
 
+ensure_sudo() {
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] sudo -v # authenticate once for system package install\n'
+    return
+  fi
+  if sudo -n true 2>/dev/null; then
+    return
+  fi
+  info "Admin password required to install missing baseline tools."
+  if ! sudo -v; then
+    warn "sudo authentication failed. If you mistyped too many times, wait for the lockout to expire or check: faillock --user \"$USER\""
+    exit 1
+  fi
+}
+
 install_tools() {
+  local required=(node npm tmux git gh go rsync jq)
+  local missing=()
+  local cmd
+  for cmd in "${required[@]}"; do
+    command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+  done
+
+  if [[ ${#missing[@]} -eq 0 ]]; then
+    ok "Baseline tools already installed; skipping system package install"
+    return
+  fi
+
+  if [[ "$SKIP_TOOLS" == true ]]; then
+    warn "Skipping system package install; missing tools: ${missing[*]}"
+    return
+  fi
+
+  info "Missing baseline tools: ${missing[*]}"
+
   local os
   os="$(uname -s)"
   case "$os" in
@@ -182,9 +219,11 @@ install_tools() {
       ;;
     Linux)
       if [[ -f /etc/arch-release ]] || command -v pacman >/dev/null 2>&1; then
+        ensure_sudo
         info "Installing baseline tools via pacman..."
         run sudo pacman -S --needed --noconfirm nodejs npm tmux git github-cli go rsync jq
       elif command -v apt-get >/dev/null 2>&1; then
+        ensure_sudo
         info "Installing baseline tools via apt-get..."
         run sudo apt-get update
         run sudo apt-get install -y nodejs npm tmux git gh golang rsync jq
