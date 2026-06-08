@@ -217,6 +217,8 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     let result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
     assert(result.status === 0, "bash shell integration runs --nothing with fake pi");
     let args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/) : [];
+    assert(args.includes("--system-prompt"), "--nothing overrides the default system prompt");
+    assert(args.includes("--no-builtin-tools"), "--nothing disables built-in tools");
     assert(args.includes("--no-skills") && args.includes("--no-extensions") && args.includes("--no-context-files"), "--nothing disables skills, extensions, and context files");
     assert(!args.includes("--skill") && !args.includes("--extension"), "--nothing does not add local skills or extensions");
 

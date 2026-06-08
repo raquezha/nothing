@@ -258,7 +258,7 @@ pi() {
 
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    NOTHING_FLAGS+=("--no-skills" "--no-extensions" "--no-context-files")
+    NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-context-files")
   fi
 
   command pi "${NOTHING_FLAGS[@]}" "${EXTRA_SKILLS[@]}" "${EXTRA_EXTENSIONS[@]}" "${ARGS[@]}"
