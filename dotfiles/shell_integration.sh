@@ -8,7 +8,7 @@ _nothing_shell_source=""
 if [[ -n "${BASH_VERSION:-}" ]]; then
   _nothing_shell_source="${BASH_SOURCE[0]}"
 elif [[ -n "${ZSH_VERSION:-}" ]]; then
-  _nothing_shell_source="${(%):-%x}"
+  _nothing_shell_source="$(eval 'printf %s "${(%):-%x}"')"
 else
   _nothing_shell_source="$0"
 fi
