@@ -103,13 +103,16 @@ const MODEL_VARIANTS = [
 const DEFAULT_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
 const ENDPOINT_FALLBACKS = [DEFAULT_ENDPOINT];
 const REDIRECT_URI = "http://localhost:51121/oauth-callback";
-const CALLBACK_HOST = process.env.NOAGY_CALLBACK_HOST || "127.0.0.1";
-const DEFAULT_PROJECT_ID = process.env.NOAGY_PROJECT_ID || stableProjectId(process.cwd());
-const CLIENT_ID = process.env.NOAGY_CLIENT_ID || Buffer.from(
+function antigravityEnv(name: string): string | undefined {
+	return process.env[`ANTIGRAVITY_${name}`] || process.env[`NOAGY_${name}`];
+}
+const CALLBACK_HOST = antigravityEnv("CALLBACK_HOST") || "127.0.0.1";
+const DEFAULT_PROJECT_ID = antigravityEnv("PROJECT_ID") || stableProjectId(process.cwd());
+const CLIENT_ID = antigravityEnv("CLIENT_ID") || Buffer.from(
 	"MTA3MTAwNjA2MDU5MS10bWhzc2luMmgyMWxjcmUyMzV2dG9sb2poNGc0MDNlc" + "C5hcHBzLmdvb2dsZXVzZXJjb250ZW50LmNvbQ==",
 	"base64",
 ).toString("utf8");
-const CLIENT_SECRET = process.env.NOAGY_CLIENT_SECRET || Buffer.from(
+const CLIENT_SECRET = antigravityEnv("CLIENT_SECRET") || Buffer.from(
 	"R09DU1BYLUs1OEZXUjQ" + "4NkxkTEoxbUxCOHNYQzR6NnFEQWY=",
 	"base64",
 ).toString("utf8");
@@ -157,7 +160,7 @@ function generatePKCE(): { verifier: string; challenge: string } {
 }
 
 function endpointCandidates(): string[] {
-	const explicit = process.env.NOAGY_BASE_URL?.trim();
+	const explicit = antigravityEnv("BASE_URL")?.trim();
 	return explicit ? [explicit] : ENDPOINT_FALLBACKS;
 }
 
@@ -185,7 +188,7 @@ function antigravityHeaders(token: string): Record<string, string> {
 		Authorization: `Bearer ${token}`,
 		"Content-Type": "application/json",
 		Accept: "text/event-stream",
-		"User-Agent": process.env.NOAGY_USER_AGENT || "antigravity/1.0.5 darwin/arm64",
+		"User-Agent": antigravityEnv("USER_AGENT") || "antigravity/1.0.5 darwin/arm64",
 		"X-Goog-Api-Client": "google-api-nodejs-client/9.15.1",
 		"Client-Metadata": JSON.stringify({ ideType: "ANTIGRAVITY" }),
 	};
@@ -758,10 +761,10 @@ function streamNoagy(model: any, context: any, options?: any): any {
 		try {
 			const creds = parseApiKey(options?.apiKey);
 			const warmedProject = await loadCodeAssist(creds.token);
-			const projectId = process.env.NOAGY_PROJECT_ID?.trim() || warmedProject || creds.projectId || DEFAULT_PROJECT_ID;
+			const projectId = antigravityEnv("PROJECT_ID")?.trim() || warmedProject || creds.projectId || DEFAULT_PROJECT_ID;
 			lastProjectId = projectId;
 			await fetchAvailableRuntimeModel(creds.token, projectId);
-			const runtimeModel = process.env.NOAGY_RUNTIME_MODEL?.trim() || runtimeModelFor(model.id);
+			const runtimeModel = antigravityEnv("RUNTIME_MODEL")?.trim() || runtimeModelFor(model.id);
 			lastResolvedRuntimeModel = runtimeModel;
 			const body = JSON.stringify(buildRequest(model, context, projectId, options || {}, runtimeModel));
 			let response: Response | undefined;

@@ -296,9 +296,6 @@ if [[ -f "$SECRETS_FILE" ]]; then
   for var in GROQ_API_KEY BRAVE_SEARCH_API_KEY FIRECRAWL_API_TOKEN; do
     grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var}=" "$SECRETS_FILE" 2>/dev/null || warn "$var missing from ~/.pi-secrets/.env"
   done
-  for var in NOAGY_CLIENT_ID NOAGY_CLIENT_SECRET NOAGY_PROJECT_ID; do
-    grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var}=" "$SECRETS_FILE" 2>/dev/null || warn "Optional $var missing from ~/.pi-secrets/.env"
-  done
 else
   warn "No ~/.pi-secrets/.env found"
   cat <<'EOF'

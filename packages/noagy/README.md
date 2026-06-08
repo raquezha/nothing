@@ -50,8 +50,12 @@ npm install -g @raquezha/noagy
 
 ## Optional overrides
 
-- `NOAGY_BASE_URL` — override the Cloud Code/Antigravity endpoint for experiments.
-- `NOAGY_PROJECT_ID` — fallback project id if project discovery does not return one.
-- `NOAGY_CALLBACK_HOST` — OAuth callback bind host, default `127.0.0.1`.
-- `NOAGY_USER_AGENT` — override user agent for endpoint compatibility experiments.
-- `NOAGY_RUNTIME_MODEL` — force a runtime model id for endpoint experiments.
+Prefer the `ANTIGRAVITY_*` names for environment alignment. The older
+`NOAGY_*` names remain accepted as backwards-compatible aliases.
+
+- `ANTIGRAVITY_BASE_URL` — override the Cloud Code/Antigravity endpoint for experiments.
+- `ANTIGRAVITY_PROJECT_ID` — fallback project id if project discovery does not return one.
+- `ANTIGRAVITY_CALLBACK_HOST` — OAuth callback bind host, default `127.0.0.1`.
+- `ANTIGRAVITY_USER_AGENT` — override user agent for endpoint compatibility experiments.
+- `ANTIGRAVITY_RUNTIME_MODEL` — force a runtime model id for endpoint experiments.
+- `ANTIGRAVITY_CLIENT_ID` / `ANTIGRAVITY_CLIENT_SECRET` — advanced OAuth app overrides; normally not needed.
