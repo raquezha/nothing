@@ -5,6 +5,7 @@ DRY_RUN=false
 INSTALL_GLOBAL_SKILLS=false
 INSTALL_PUBLISHED_PACKAGES=false
 RESET_PI_GLOBALS=true
+ASSUME_YES=false
 SKIP_TOOLS=false
 for arg in "$@"; do
   case "$arg" in
@@ -12,11 +13,12 @@ for arg in "$@"; do
     --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
     --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
     --no-reset-pi) RESET_PI_GLOBALS=false ;;
+    --yes|-y) ASSUME_YES=true ;;
     --skip-tools) SKIP_TOOLS=true ;;
     --install-third-party|--no-third-party) printf '⚠️  Third-party modifiers now lazy-install into ~/.local/share/nothing when used; %s is no longer needed.\n' "$arg" >&2 ;;
     --help|-h)
       cat <<'EOF'
-Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--no-reset-pi] [--install-global-skills] [--install-published-packages]
+Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--no-reset-pi] [--yes] [--install-global-skills] [--install-published-packages]
 
 Fresh-machine bootstrap for nothing.
 
@@ -36,6 +38,7 @@ Options:
   --dry-run, -n             Print commands without executing mutating steps.
   --skip-tools              Do not install baseline system packages with sudo.
   --no-reset-pi             Do not archive/reset global Pi discovery directories.
+  --yes, -y                 Skip the destructive reset confirmation prompt.
   --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
                                Default is local-first: hats load repo-local skills only.
   --install-published-packages Install published @raquezha packages globally with npm.
@@ -340,11 +343,43 @@ reset_pi_global_discovery() {
   reset_global_dir "$HOME/.agents/skills" "agents-skills" "$backup_root"
 }
 
+confirm_personal_reset() {
+  if [[ "$DRY_RUN" == true || "$RESET_PI_GLOBALS" != true || "$ASSUME_YES" == true ]]; then
+    return
+  fi
+
+  printf '\n🚨🚨🚨 DESTRUCTIVE PERSONAL PI RESET 🚨🚨🚨\n' >&2
+  printf 'THIS WILL RESET YOUR GLOBAL PI ENVIRONMENT SETUP.\n' >&2
+  printf 'It will archive and recreate:\n' >&2
+  printf '  - %s/{skills,extensions,prompts,themes}\n' "$AGENT_DIR" >&2
+  printf '  - %s/.agents/skills\n' "$HOME" >&2
+  printf 'Plain `pi` will run like a fresh install after this.\n' >&2
+  printf 'Forkers/shared machines: STOP NOW. This setup is for raquezha only.\n\n' >&2
+
+  if [[ ! -t 0 ]]; then
+    printf 'Refusing to continue without an interactive Yes/No confirmation. Use --yes only if you really mean it.\n' >&2
+    exit 1
+  fi
+
+  local answer
+  printf 'Continue and reset the Pi environment? Type Yes or No: ' >&2
+  read -r answer
+  case "$answer" in
+    Yes|YES|yes) ;;
+    No|NO|no|*)
+      printf 'Aborted. Nothing was changed.\n' >&2
+      exit 1
+      ;;
+  esac
+}
+
 printf '\n╔══════════════════════════════════════╗\n'
 printf '║       nothing fresh bootstrap        ║\n'
 printf '╚══════════════════════════════════════╝\n\n'
 printf '⚠️  PERSONAL RESET: archives global Pi skills/extensions/prompts/themes and ~/.agents/skills.\n'
 printf '⚠️  Forkers/shared machines: do not run this unless you want your agent environment reset.\n\n'
+
+confirm_personal_reset
 
 install_tools
 build_local_packages

@@ -2,7 +2,7 @@
 
 Personal Pi setup for local-first agentic development. It wires my Pi hats, local workflow skills, published Pi extensions, optional third-party compression, and vendored Android skills into one reproducible repo.
 
-> ⚠️ **Personal reset warning:** do not run `./bootstrap.sh` from a fork/shared machine unless you want your agent environment reset. It archives/resets global Pi discovery dirs (`~/.pi/agent/{skills,extensions,prompts,themes}` and `~/.agents/skills`) so plain `pi` behaves like a fresh install for me.
+> ⚠️ **Personal reset warning:** do not run `./bootstrap.sh` from a fork/shared machine unless you want your agent environment reset. It asks for Yes/No confirmation, then archives/resets global Pi discovery dirs (`~/.pi/agent/{skills,extensions,prompts,themes}` and `~/.agents/skills`) so plain `pi` behaves like a fresh install for me.
 
 Core rule: **owned skills stay local**. Public handoff uses `npx skills add` or npm packages; my day-to-day workflow uses this checkout and shell hats.
 
@@ -28,7 +28,7 @@ cd nothing
 ./bootstrap.sh
 ```
 
-Bootstrap installs baseline tools, Pi, fresh settings, builds this checkout's packages, installs shell integration, and archives/resets existing global Pi skills/extensions/prompts/themes. It does not globally link first-party or third-party skills by default; hats load repo-local skills intentionally.
+Bootstrap installs baseline tools, Pi, fresh settings, builds this checkout's packages, installs shell integration, and archives/resets existing global Pi skills/extensions/prompts/themes after confirmation. It does not globally link first-party or third-party skills by default; hats load repo-local skills intentionally.
 
 Reload shell after bootstrap:
 

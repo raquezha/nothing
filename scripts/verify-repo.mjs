@@ -267,6 +267,12 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
+
+  const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
+  const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
+  assert(guarded.status !== 0, "bootstrap refuses non-interactive destructive reset without confirmation");
+  assert(guardedOutput.includes("DESTRUCTIVE PERSONAL PI RESET"), "bootstrap screams before destructive reset");
+  assert(guardedOutput.includes("Use --yes only if you really mean it"), "bootstrap documents explicit bypass for automation");
 }
 
 function verifyWorkflowFiles() {
