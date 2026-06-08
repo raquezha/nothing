@@ -145,6 +145,16 @@ function verifyReposcryGuardrails() {
   }
 }
 
+function verifyPackageLockWorkspaceVersions() {
+  const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
+  for (const pkgDir of ["noagy", "nofooter", "noleaks", "norpiv", "nosearch", "notrace"]) {
+    const workspace = `packages/${pkgDir}`;
+    const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
+    const lockPkg = lock.packages?.[workspace];
+    assert(lockPkg?.version === pkg.version, `package-lock matches ${pkg.name} version`);
+  }
+}
+
 function verifyPackageManifests() {
   const expected = {
     "packages/noagy/package.json": { extensions: ["dist/index.js"] },
@@ -272,6 +282,7 @@ await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
 verifyReposcryGuardrails();
+verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();
 verifyShellIntegration();
 verifyBootstrapDryRun();

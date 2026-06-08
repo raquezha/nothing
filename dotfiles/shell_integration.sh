@@ -15,6 +15,13 @@ fi
 _NOTHING_REPO_DIR="$(cd "$(dirname "$_nothing_shell_source")/.." && pwd)"
 unset _nothing_shell_source
 
+if [[ -d "$HOME/.local/bin" ]]; then
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+  esac
+fi
+
 pi() {
   local NOTHING_DIR="$_NOTHING_REPO_DIR"
   local MINDSETS_JSON="$NOTHING_DIR/mindsets.json"

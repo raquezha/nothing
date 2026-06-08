@@ -196,6 +196,24 @@ install_tools() {
   esac
 }
 
+ensure_npm_global_prefix() {
+  local prefix user_prefix
+  prefix="$(npm config get prefix 2>/dev/null || true)"
+  prefix="${prefix/#\~/$HOME}"
+  if [[ -z "$prefix" || "$prefix" == "undefined" || -w "$prefix" ]]; then
+    return
+  fi
+
+  user_prefix="$HOME/.local"
+  warn "npm global prefix is not writable ($prefix); using user prefix $user_prefix"
+  run mkdir -p "$user_prefix"
+  run npm config set prefix "$user_prefix"
+  case ":$PATH:" in
+    *":$user_prefix/bin:"*) ;;
+    *) warn "Ensure $user_prefix/bin is on PATH before running global npm commands." ;;
+  esac
+}
+
 build_local_packages() {
   info "Installing local workspace dependencies..."
   run npm install --include=dev
@@ -236,6 +254,7 @@ printf '╚═══════════════════════
 install_tools
 build_local_packages
 
+ensure_npm_global_prefix
 info "Installing Pi coding agent globally..."
 run npm install -g @earendil-works/pi-coding-agent
 
