@@ -219,6 +219,8 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     let args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/) : [];
     assert(args.includes("--system-prompt"), "--nothing overrides the default system prompt");
     assert(args.includes("--no-builtin-tools"), "--nothing disables built-in tools");
+    assert(args.includes("--no-prompt-templates"), "--nothing disables prompt templates");
+    assert(args.includes("--no-themes"), "--nothing disables themes");
     assert(args.includes("--no-skills") && args.includes("--no-extensions") && args.includes("--no-context-files"), "--nothing disables skills, extensions, and context files");
     assert(!args.includes("--skill") && !args.includes("--extension"), "--nothing does not add local skills or extensions");
 

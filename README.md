@@ -41,7 +41,7 @@ source ./dotfiles/shell_integration.sh
 Base hats load repo-local skills:
 
 ```bash
-pi --nothing     # ultimate nothing: blank system prompt; no built-in tools, skills, extensions, or context files
+pi --nothing     # ultimate nothing: blank system prompt; no built-in tools, skills, extensions, prompt templates, themes, or context files
 pi --rpiv        # full local RPIV workflow
 pi --android     # RPIV execution helpers + local android-cli skill
 pi --pm          # research/planning/sync persona
@@ -63,7 +63,7 @@ Rules:
 
 - one base hat per invocation
 - modifiers never replace local first-party skill loading
-- `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-context-files`
+- `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-prompt-templates --no-themes --no-context-files`
 - `--rtk` is experimental and explicit; it lazy-installs/loads the RTK optimizer only for that invocation
 
 ## Try only the skills with `npx skills add`
