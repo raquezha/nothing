@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nosearch",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Integrated Brave Search and Firecrawl subagent wrapper extension for the Pi Coding Agent",
   "main": "dist/index.js",
   "type": "module",
