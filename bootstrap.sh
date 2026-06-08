@@ -4,19 +4,29 @@ set -euo pipefail
 DRY_RUN=false
 INSTALL_GLOBAL_SKILLS=false
 INSTALL_PUBLISHED_PACKAGES=false
+RESET_PI_GLOBALS=true
 SKIP_TOOLS=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=true ;;
     --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
     --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
+    --no-reset-pi) RESET_PI_GLOBALS=false ;;
     --skip-tools) SKIP_TOOLS=true ;;
     --install-third-party|--no-third-party) printf '⚠️  Third-party modifiers now lazy-install into ~/.local/share/nothing when used; %s is no longer needed.\n' "$arg" >&2 ;;
     --help|-h)
       cat <<'EOF'
-Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--install-global-skills] [--install-published-packages]
+Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--no-reset-pi] [--install-global-skills] [--install-published-packages]
 
-Fresh-machine bootstrap for nothing:
+Fresh-machine bootstrap for nothing.
+
+WARNING: this is my personal environment reset, not a general fork setup.
+It archives/resets global Pi discovery dirs so plain `pi` starts factory-clean:
+  ~/.pi/agent/{skills,extensions,prompts,themes}
+  ~/.agents/skills
+Do not run this on a shared/forked environment unless you want that reset.
+
+Bootstrap also:
 - installs baseline tools and Pi
 - builds repo-local nothing packages for hat loading
 - mounts nothing settings, mindsets, shell integration, and local hat wiring
@@ -25,6 +35,7 @@ Fresh-machine bootstrap for nothing:
 Options:
   --dry-run, -n             Print commands without executing mutating steps.
   --skip-tools              Do not install baseline system packages with sudo.
+  --no-reset-pi             Do not archive/reset global Pi discovery directories.
   --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
                                Default is local-first: hats load repo-local skills only.
   --install-published-packages Install published @raquezha packages globally with npm.
@@ -286,9 +297,54 @@ chmod_bundled_scripts() {
   run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" -type f \( -name '*.sh' -o -name '*.cjs' \) -exec chmod +x {} \;
 }
 
+reset_global_dir() {
+  local target="$1" label="$2" backup_root="$3"
+  case "$target" in
+    "$AGENT_DIR/skills"|"$AGENT_DIR/extensions"|"$AGENT_DIR/prompts"|"$AGENT_DIR/themes"|"$HOME/.agents/skills") ;;
+    *) echo "Refusing unsafe reset path: $target" >&2; exit 1 ;;
+  esac
+
+  local should_archive=false
+  if [[ -L "$target" || -f "$target" ]]; then
+    should_archive=true
+  elif [[ -d "$target" ]]; then
+    local first_entry
+    first_entry="$(find "$target" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null || true)"
+    [[ -n "$first_entry" ]] && should_archive=true
+  elif [[ -e "$target" ]]; then
+    should_archive=true
+  fi
+
+  if [[ "$should_archive" == true ]]; then
+    local backup="$backup_root/$label"
+    run mkdir -p "$backup_root"
+    run mv "$target" "$backup"
+    warn "Archived existing $label from $target to $backup"
+  elif [[ -d "$target" ]]; then
+    ok "$label already empty"
+  fi
+
+  run mkdir -p "$target"
+}
+
+reset_pi_global_discovery() {
+  local stamp backup_root
+  stamp="$(date +%Y%m%d-%H%M%S)-$$"
+  backup_root="$HOME/.local/share/nothing/pi-reset-backups/$stamp"
+
+  info "Resetting Pi globals so plain 'pi' starts factory-clean..."
+  reset_global_dir "$AGENT_DIR/skills" "pi-skills" "$backup_root"
+  reset_global_dir "$AGENT_DIR/extensions" "pi-extensions" "$backup_root"
+  reset_global_dir "$AGENT_DIR/prompts" "pi-prompts" "$backup_root"
+  reset_global_dir "$AGENT_DIR/themes" "pi-themes" "$backup_root"
+  reset_global_dir "$HOME/.agents/skills" "agents-skills" "$backup_root"
+}
+
 printf '\n╔══════════════════════════════════════╗\n'
 printf '║       nothing fresh bootstrap        ║\n'
 printf '╚══════════════════════════════════════╝\n\n'
+printf '⚠️  PERSONAL RESET: archives global Pi skills/extensions/prompts/themes and ~/.agents/skills.\n'
+printf '⚠️  Forkers/shared machines: do not run this unless you want your agent environment reset.\n\n'
 
 install_tools
 build_local_packages
@@ -307,10 +363,16 @@ fi
 info "Skipping third-party global installs; --caveman and --rtk lazy-install local caches when used."
 
 info "Creating Pi agent directories..."
-run mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/skills" "$AGENT_DIR/prompts" "$AGENT_DIR/themes" "$HOME/.pi-secrets"
+run mkdir -p "$AGENT_DIR" "$HOME/.pi-secrets"
+if [[ "$RESET_PI_GLOBALS" == true ]]; then
+  reset_pi_global_discovery
+else
+  warn "Skipping Pi global reset; plain 'pi' may still load existing global resources."
+  run mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/skills" "$AGENT_DIR/prompts" "$AGENT_DIR/themes"
+fi
 
-info "Installing config defaults..."
-merge_json_defaults "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
+info "Installing fresh Pi config..."
+copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 
 if [[ "$INSTALL_GLOBAL_SKILLS" == true ]]; then

@@ -261,6 +261,8 @@ function verifyBootstrapDryRun() {
   const output = `${result.stdout}${result.stderr}`;
   assert(result.status === 0, "bootstrap dry-run succeeds with deprecated --no-third-party");
   assert(output.includes("Skipping published @raquezha package install"), "bootstrap skips published package install by default");
+  assert(output.includes("Resetting Pi globals so plain 'pi' starts factory-clean"), "bootstrap resets global Pi discovery by default");
+  assert(output.includes("~/.agents/skills") || output.includes("/.agents/skills"), "bootstrap warns that generic global skills are reset");
   assert(output.includes("Skipping global skill links"), "bootstrap skips global skill links by default");
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
