@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nofooter",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Powerline-style CLI footer theme and branch editor for the Pi Coding Agent",
   "main": "dist/nofooter.js",
   "type": "module",
