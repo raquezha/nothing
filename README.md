@@ -2,7 +2,7 @@
 
 Personal Pi setup for local-first agentic development. It wires my Pi hats, local workflow skills, published Pi extensions, optional third-party compression, and vendored Android skills into one reproducible repo.
 
-> ⚠️ **Personal reset warning:** do not run `./bootstrap.sh` from a fork/shared machine unless you want your agent environment reset. It asks for Yes/No confirmation, then archives/resets global Pi discovery dirs (`~/.pi/agent/{skills,extensions,prompts,themes}` and `~/.agents/skills`) so plain `pi` behaves like a fresh install for me.
+> ⚠️ **Personal reset warning:** do not run `./bootstrap.sh` from a fork/shared machine unless you want your agent environment reset. It asks for Yes/No confirmation, then archives/resets global Pi discovery dirs (`~/.pi/agent/{skills,extensions,prompts,themes}` and `~/.agents/skills`) so plain `pi` comes up clean except for the always-on `noleaks` guard.
 
 Core rule: **owned skills stay local**. Public handoff uses `npx skills add` or npm packages; my day-to-day workflow uses this checkout and shell hats.
 
@@ -41,7 +41,7 @@ source ./dotfiles/shell_integration.sh
 Base hats load repo-local skills:
 
 ```bash
-pi --nothing     # ultimate nothing: blank system prompt; no built-in tools, skills, extensions, prompt templates, themes, or context files
+pi --nothing     # ultimate nothing: blank system prompt; no built-in tools, skills, prompt templates, themes, or context files; still keeps noleaks on
 pi --rpiv        # full local RPIV workflow
 pi --android     # RPIV execution helpers + local android-cli skill
 pi --pm          # research/planning/sync persona
@@ -63,7 +63,7 @@ Rules:
 
 - one base hat per invocation
 - modifiers never replace local first-party skill loading
-- `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-prompt-templates --no-themes --no-context-files`
+- `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-prompt-templates --no-themes --no-context-files`, then re-adds the always-on `noleaks` extension
 - `--rtk` is experimental and explicit; it lazy-installs/loads the RTK optimizer only for that invocation
 
 ## Try only the skills with `npx skills add`

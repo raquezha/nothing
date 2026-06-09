@@ -127,11 +127,26 @@ EOF
     fi
   }
 
+  extension_is_loaded() {
+    local resolved="$1"
+    local i=0
+    while [[ $i -lt ${#EXTRA_EXTENSIONS[@]} ]]; do
+      if [[ "${EXTRA_EXTENSIONS[$i]}" == "--extension" && "${EXTRA_EXTENSIONS[$((i + 1))]}" == "$resolved" ]]; then
+        return 0
+      fi
+      i=$((i + 2))
+    done
+    return 1
+  }
+
   add_extension() {
     local spec="$1"
     local resolved
     resolved="$(resolve_extension_path "$spec")"
     if [[ -n "$resolved" ]]; then
+      if extension_is_loaded "$resolved"; then
+        return
+      fi
       EXTRA_EXTENSIONS+=("--extension" "$resolved")
     else
       nothing_warn "Skipping missing extension: $spec"
@@ -261,7 +276,9 @@ EOF
     fi
   fi
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true ]]; then
+  add_extension "noleaks"
+
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${BASE_MINDSET:-vanilla}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")

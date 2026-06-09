@@ -555,4 +555,5 @@ printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | pi --android --caveman | pi --android --rtk"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
-printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n\n'
+printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n'
+printf '   note: plain `pi` keeps the noleaks guard on by default, regardless of mindset.\n\n'
