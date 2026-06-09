@@ -57,9 +57,45 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_DIR="$HOME/.pi/agent"
 SECRETS_FILE="$HOME/.pi-secrets/.env"
 
-info() { printf '▸ %s\n' "$*"; }
-ok() { printf '✅ %s\n' "$*"; }
-warn() { printf '⚠️  %s\n' "$*"; }
+TOTAL_STEPS=12
+CURRENT_STEP=0
+
+print_logo() {
+  cat <<'EOF'
+⠀⠀⠀⠀⣠⣤⣶⣶⣶⣤⣄⡀⠀
+⠀⠀⣴⣾⣿⣿⣿⣿⣿⣧⡀⠈⠢
+⠀⣼⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀⠀
+⢰⡿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀
+⠘⣽⡿⠿⠿⣿⣿⣿⣿⣿⣦⣤⡀
+⠀⣟⠀⠀⠀⣸⣿⡏⠀⠀⠀⢹⠗  𝗡𝗢𝗧𝗛𝟭𝗡𝗚𝗡𝗘𝗦𝗦
+⠀⣿⣷⣶⣾⡿⠁⠙⣄⣀⣀⣠⡀
+⠀⠙⠙⢿⡿⣷⣶⣤⣿⣿⡿⠿⠃
+⠀⠀⠀⠺⡏⡏⡏⡏⡏⠉⠁⠀⠀
+⠀⠀⠀⠀⠀⠀⠁⠁⠀⠀⠀⠀⠀
+EOF
+}
+
+print_plan() {
+  printf ':: transaction summary\n'
+  printf '   reset pi globals      %s\n' "$([[ "$RESET_PI_GLOBALS" == true ]] && printf yes || printf no)"
+  printf '   published packages    %s\n' "$([[ "$INSTALL_PUBLISHED_PACKAGES" == true ]] && printf yes || printf no)"
+  printf '   global skill links    %s\n' "$([[ "$INSTALL_GLOBAL_SKILLS" == true ]] && printf yes || printf no)"
+  printf '   third-party modifiers lazy cache\n'
+  printf '   package source        checkout\n'
+}
+
+section() {
+  printf '\n==> %s\n' "$*"
+}
+
+step() {
+  CURRENT_STEP=$((CURRENT_STEP + 1))
+  printf '\n==> [%02d/%02d] %s\n' "$CURRENT_STEP" "$TOTAL_STEPS" "$*"
+}
+
+info() { printf '  -> %s\n' "$*"; }
+ok() { printf '  ✓ %s\n' "$*"; }
+warn() { printf '  ! %s\n' "$*"; }
 
 run() {
   if [[ "$DRY_RUN" == true ]]; then
@@ -76,6 +112,52 @@ run_shell() {
     printf '[dry-run] %s\n' "$*"
   else
     bash -c "$*"
+  fi
+}
+
+spin_run() {
+  local label="$1"
+  shift
+
+  if [[ "$DRY_RUN" == true ]]; then
+    run "$@"
+    return
+  fi
+
+  if [[ ! -t 1 || -n "${CI:-}" ]]; then
+    info "$label"
+    "$@"
+    return
+  fi
+
+  local tmp pid status frame i
+  local -a frames=("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+  tmp="$(mktemp)"
+
+  "$@" >"$tmp" 2>&1 &
+  pid=$!
+  i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    frame="${frames[$((i % ${#frames[@]}))]}"
+    printf '\r  %s %s' "$frame" "$label"
+    i=$((i + 1))
+    sleep 0.1
+  done
+
+  if wait "$pid"; then
+    status=0
+  else
+    status=$?
+  fi
+
+  if [[ $status -eq 0 ]]; then
+    printf '\r  ✓ %s\n' "$label"
+    rm -f "$tmp"
+  else
+    printf '\r  ✗ %s\n' "$label" >&2
+    cat "$tmp" >&2
+    rm -f "$tmp"
+    return "$status"
   fi
 }
 
@@ -226,7 +308,7 @@ install_tools() {
     Darwin)
       if command -v brew >/dev/null 2>&1; then
         info "Installing baseline tools via Homebrew..."
-        run brew install node tmux git gh go rsync jq
+        spin_run "Installing baseline tools with Homebrew" brew install node tmux git gh go rsync jq
       else
         warn "Homebrew not found. Install node, npm, git, gh, go, rsync, jq, and tmux manually."
       fi
@@ -235,12 +317,12 @@ install_tools() {
       if [[ -f /etc/arch-release ]] || command -v pacman >/dev/null 2>&1; then
         ensure_sudo
         info "Installing baseline tools via pacman..."
-        run sudo pacman -S --needed --noconfirm nodejs npm tmux git github-cli go rsync jq
+        spin_run "Installing baseline tools with pacman" sudo pacman -S --needed --noconfirm nodejs npm tmux git github-cli go rsync jq
       elif command -v apt-get >/dev/null 2>&1; then
         ensure_sudo
         info "Installing baseline tools via apt-get..."
-        run sudo apt-get update
-        run sudo apt-get install -y nodejs npm tmux git gh golang rsync jq
+        spin_run "Refreshing apt package indexes" sudo apt-get update
+        spin_run "Installing baseline tools with apt-get" sudo apt-get install -y nodejs npm tmux git gh golang rsync jq
       else
         warn "Unsupported Linux package manager. Install node, npm, tmux, git, gh, go, rsync, and jq manually."
       fi
@@ -269,22 +351,26 @@ ensure_npm_global_prefix() {
 
 build_local_packages() {
   info "Installing local workspace dependencies..."
-  run npm install --include=dev
+  if [[ -f "$SCRIPT_DIR/package-lock.json" ]]; then
+    spin_run "Installing workspace dependencies with npm ci" npm ci --include=dev
+  else
+    spin_run "Installing workspace dependencies with npm" npm install --include=dev
+  fi
 
   info "Building local workspace packages..."
-  run npm run build --workspaces --if-present
+  spin_run "Building workspace packages" npm run build --workspaces --if-present
 
   if [[ "$DRY_RUN" == true ]]; then
     for pkg in noagy nofooter noleaks nosearch notrace; do
-      printf '[dry-run] verify %s\n' "$SCRIPT_DIR/packages/$pkg/dist/index.js"
+      printf '[dry-run] verify %s\n' "$SCRIPT_DIR/packages/$pkg/dist/$pkg.js"
     done
     return
   fi
 
   local missing=()
   for pkg in noagy nofooter noleaks nosearch notrace; do
-    if [[ ! -f "$SCRIPT_DIR/packages/$pkg/dist/index.js" ]]; then
-      missing+=("packages/$pkg/dist/index.js")
+    if [[ ! -f "$SCRIPT_DIR/packages/$pkg/dist/$pkg.js" ]]; then
+      missing+=("packages/$pkg/dist/$pkg.js")
     fi
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
@@ -296,7 +382,6 @@ build_local_packages() {
 }
 
 chmod_bundled_scripts() {
-  info "Preparing bundled helper scripts..."
   run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" -type f \( -name '*.sh' -o -name '*.cjs' \) -exec chmod +x {} \;
 }
 
@@ -348,56 +433,70 @@ confirm_personal_reset() {
     return
   fi
 
-  printf '\n🚨🚨🚨 DESTRUCTIVE PERSONAL PI RESET 🚨🚨🚨\n' >&2
-  printf 'THIS WILL RESET YOUR GLOBAL PI ENVIRONMENT SETUP.\n' >&2
-  printf 'It will archive and recreate:\n' >&2
-  printf '  - %s/{skills,extensions,prompts,themes}\n' "$AGENT_DIR" >&2
-  printf '  - %s/.agents/skills\n' "$HOME" >&2
-  printf 'Plain `pi` will run like a fresh install after this.\n' >&2
-  printf 'Forkers/shared machines: STOP NOW. This setup is for raquezha only.\n\n' >&2
+  section "☠☣☢  𝗗𝗘𝗦𝗧𝗥𝗨𝗖𝗧𝟭𝗩𝗘 𝗣𝗜 𝗖𝗢𝗗𝟭𝗡𝗚 𝗔𝗚𝗘𝗡𝗧 𝗥𝗘𝗦𝗘𝗧 ☠☣☢ <=="
+  printf '\nThis will archive and recreate these global discovery directories:\n\n' >&2
+  printf '  %s/skills\n' "$AGENT_DIR" >&2
+  printf '  %s/extensions\n' "$AGENT_DIR" >&2
+  printf '  %s/prompts\n' "$AGENT_DIR" >&2
+  printf '  %s/themes\n' "$AGENT_DIR" >&2
+  printf '  %s/.agents/skills\n\n' "$HOME" >&2
+  printf 'Backups will be stored under:\n\n' >&2
+  printf '  %s/.local/share/nothing/pi-reset-backups/<timestamp>\n\n' "$HOME" >&2
+  printf 'Plain `pi` will start factory-clean after this.\n' >&2
+  printf 'Use --no-reset-pi to skip this step.\n\n' >&2
 
   if [[ ! -t 0 ]]; then
-    printf 'Refusing to continue without an interactive Yes/No confirmation. Use --yes only if you really mean it.\n' >&2
+    printf 'Refusing to continue without an interactive confirmation. Use --yes only if you really mean it.\n' >&2
     exit 1
   fi
 
   local answer
-  printf 'Continue and reset the Pi environment? Type Yes or No: ' >&2
+  printf 'Continue? [y/N]: ' >&2
   read -r answer
   case "$answer" in
-    Yes|YES|yes) ;;
-    No|NO|no|*)
+    y|Y|yes|YES|Yes)
+      ok "Confirmed reset"
+      ;;
+    *)
       printf 'Aborted. Nothing was changed.\n' >&2
       exit 1
       ;;
   esac
 }
 
-printf '\n╔══════════════════════════════════════╗\n'
-printf '║       nothing fresh bootstrap        ║\n'
-printf '╚══════════════════════════════════════╝\n\n'
-printf '⚠️  PERSONAL RESET: archives global Pi skills/extensions/prompts/themes and ~/.agents/skills.\n'
-printf '⚠️  Forkers/shared machines: do not run this unless you want your agent environment reset.\n\n'
+printf '\n'
+print_logo
+print_plan
+
+if [[ "$DRY_RUN" == true || "$RESET_PI_GLOBALS" != true || "$ASSUME_YES" == true ]]; then
+  printf '\n'
+  printf '  ! PERSONAL RESET: archives global Pi skills/extensions/prompts/themes and ~/.agents/skills.\n'
+  printf '  ! Forkers/shared machines: do not run this unless you want your agent environment reset.\n'
+fi
 
 confirm_personal_reset
 
+step "Resolve baseline system dependencies"
 install_tools
+
+step "Synchronize workspace dependencies and build packages"
 build_local_packages
 
+step "Validate npm global prefix"
 ensure_npm_global_prefix
-info "Installing Pi coding agent globally..."
-run npm install -g @earendil-works/pi-coding-agent
 
+step "Install Pi coding agent package"
+spin_run "Installing @earendil-works/pi-coding-agent" npm install -g @earendil-works/pi-coding-agent
+
+step "Process optional published @raquezha packages"
 if [[ "$INSTALL_PUBLISHED_PACKAGES" == true ]]; then
-  info "Installing published nothing packages globally..."
-  run npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter @raquezha/norpiv
+  spin_run "Installing published @raquezha packages" npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter @raquezha/norpiv
 else
-  info "Skipping published @raquezha package install; hats use this checkout's built packages."
+  info "Skipping published package install; hats use this checkout's built packages."
 fi
-
 info "Skipping third-party global installs; --caveman and --rtk lazy-install local caches when used."
 
-info "Creating Pi agent directories..."
+step "Prepare Pi agent filesystem"
 run mkdir -p "$AGENT_DIR" "$HOME/.pi-secrets"
 if [[ "$RESET_PI_GLOBALS" == true ]]; then
   reset_pi_global_discovery
@@ -406,27 +505,28 @@ else
   run mkdir -p "$AGENT_DIR/extensions" "$AGENT_DIR/skills" "$AGENT_DIR/prompts" "$AGENT_DIR/themes"
 fi
 
-info "Installing fresh Pi config..."
+step "Install Pi configuration files"
 copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 
+step "Process optional global skill links"
 if [[ "$INSTALL_GLOBAL_SKILLS" == true ]]; then
-  info "Linking bundled local skills for optional global discovery..."
   run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
   run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
 else
   info "Skipping global skill links; hats load repo-local skills intentionally."
 fi
 
+step "Set executable bits for bundled helper scripts"
 chmod_bundled_scripts
 
-info "Configuring global git ignore defaults..."
+step "Configure global git ignore defaults"
 ensure_global_gitignore
 
-info "Installing shell integration..."
+step "Install shell integration"
 install_shell_integration
 
-info "Checking secrets..."
+step "Check local secret environment"
 if [[ -f "$SECRETS_FILE" ]]; then
   ok "Found ~/.pi-secrets/.env"
   for var in GROQ_API_KEY BRAVE_SEARCH_API_KEY FIRECRAWL_API_TOKEN; do
@@ -442,11 +542,17 @@ Create it when ready:
 EOF
 fi
 
-printf '\n✅ Bootstrap complete! 🎉\n\n'
-printf 'Next steps:\n'
-printf '  1. Reload your shell or run: source %s/dotfiles/shell_integration.sh\n' "$SCRIPT_DIR"
-printf '  2. Start Pi normally: pi\n'
-printf '  3. Use hats: pi --nothing, pi --pm, pi --dev, pi --rpiv, pi --android, pi --meta, pi --antigravity\n'
-printf '  4. Use modifiers: pi --rpiv --caveman, pi --android --caveman, pi --android --rtk\n'
-printf '     (--caveman and --rtk lazy-install local caches on first use.)\n'
-printf '  5. RPIV helper scripts live at: packages/norpiv/scripts/\n\n'
+section "Transaction complete"
+ok "nothing setup finished"
+printf '\n:: next steps\n'
+printf '┌────────────┬──────────────────────────────────────────────────────────────────────────────┐\n'
+printf '│ %-10s │ %-76.76s │\n' "action" "command"
+printf '├────────────┼──────────────────────────────────────────────────────────────────────────────┤\n'
+printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shell_integration.sh"
+printf '│ %-10s │ %-76.76s │\n' "start" "pi"
+printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
+printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --antigravity"
+printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | pi --android --caveman | pi --android --rtk"
+printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
+printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
+printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n\n'

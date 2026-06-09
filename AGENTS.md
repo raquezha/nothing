@@ -59,7 +59,7 @@ npm pack --workspaces --dry-run --json
 
 - TypeScript packages are ESM unless their package says otherwise.
 - Prefer `@earendil-works/*` Pi packages. Do not add deprecated `@mariozechner/pi-*` dependencies or imports.
-- Keep extension entrypoints at `index.ts`; package builds emit `dist/index.js`.
+- Extension entrypoints should be located in an `extensions/` directory and match the package name (e.g., `extensions/noagy.ts`). This ensures Pi auto-discovers them and displays a clean label (e.g., `noagy`) instead of a filename or "dist" in the UI. Build outputs should still be generated in `dist/` for standard Node.js/npm compatibility.
 - Root `package-lock.json` owns workspace dependency state. Do not add nested package lockfiles.
 - Use precise, minimal edits. Avoid rewriting large files without need.
 - Keep generated outputs (`dist/`, `node_modules/`, `.reposcry/`, `.workflow/`) out of git.
@@ -111,23 +111,25 @@ reposcry --repo . stats
 
 This repo uses Changesets. Do not manually bump package versions for normal releases.
 
-When package behavior changes, add a changeset:
+When package behavior, entrypoints, or dependencies change, **you must add a changeset**. AI agents should prefer creating a non-empty changeset that lists the affected packages.
 
 ```bash
 npx changeset
 ```
 
-If a PR intentionally has no package release, use:
+If a PR intentionally has no package release (e.g., only internal scripts or docs changes), use:
 
 ```bash
 npx changeset --empty
 ```
 
-CI checks changeset status on pull requests:
+### AI Agent Instructions for Changesets
 
-```bash
-npm run changeset:status
-```
+When editing any package under `packages/no*`:
+1. **Identify affected packages**: Check which `package.json` files were modified.
+2. **Create/Update changeset**: Ensure a `.changeset/*.md` file exists that includes all modified packages with an appropriate version bump (usually `patch`).
+3. **Verify build**: Run `npm run build --workspaces` to ensure naming changes or dependency updates don't break the TypeScript compilation.
+
 
 Release flow:
 

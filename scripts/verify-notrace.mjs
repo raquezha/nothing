@@ -2,7 +2,7 @@
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import notrace from "../packages/notrace/dist/index.js";
+import notrace from "../packages/notrace/dist/notrace.js";
 
 const handlers = new Map();
 const pi = {

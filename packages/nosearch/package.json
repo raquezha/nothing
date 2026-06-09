@@ -2,7 +2,7 @@
   "name": "@raquezha/nosearch",
   "version": "0.0.2",
   "description": "Integrated Brave Search and Firecrawl subagent wrapper extension for the Pi Coding Agent",
-  "main": "dist/index.js",
+  "main": "dist/nosearch.js",
   "type": "module",
   "bin": {
     "nosearch-install": "bin/nosearch-install.cjs"
@@ -41,10 +41,10 @@
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/index.d.ts",
+  "types": "dist/nosearch.d.ts",
   "pi": {
     "extensions": [
-      "dist/index.js"
+      "extensions"
     ],
     "skills": [
       "brave-search",

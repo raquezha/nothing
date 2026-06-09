@@ -5,10 +5,11 @@
     "moduleResolution": "NodeNext",
     "declaration": true,
     "outDir": "./dist",
+    "rootDir": "extensions",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["index.ts"]
+  "include": ["extensions/noagy.ts"]
 }

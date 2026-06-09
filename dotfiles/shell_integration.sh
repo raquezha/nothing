@@ -102,6 +102,25 @@ pi() {
     local resolved
     resolved="$(resolve_skill_path "$spec")"
     if [[ -n "$resolved" ]]; then
+      # If the resolved path is a directory without a SKILL.md, but has subdirectories
+      # that DO have SKILL.md, we expand it to those subdirectories to avoid
+      # Pi scanning the parent directory and hitting non-skill markdown files.
+      if [[ -d "$resolved" && ! -f "$resolved/SKILL.md" ]]; then
+        local found_sub=false
+        local sub_skill_dir
+        # We look for SKILL.md exactly one level down (depth 2 relative to find root)
+        while IFS= read -r sub_skill_dir; do
+          if [[ -n "$sub_skill_dir" ]]; then
+            EXTRA_SKILLS+=("--skill" "$sub_skill_dir")
+            found_sub=true
+          fi
+        done <<EOF
+$(find "$resolved" -mindepth 2 -maxdepth 2 -name "SKILL.md" -exec dirname {} \;)
+EOF
+        if [[ "$found_sub" == true ]]; then
+          return
+        fi
+      fi
       EXTRA_SKILLS+=("--skill" "$resolved")
     else
       nothing_warn "Skipping missing skill: $spec"

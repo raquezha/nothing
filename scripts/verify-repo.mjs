@@ -84,7 +84,7 @@ async function verifyMindsets() {
       assert(Boolean(resolved), `mindset ${name} extension path resolves: ${extension}`);
       if (resolved) {
         assert(existsSync(path.join(resolved, "package.json")), `mindset ${name} extension has package.json: ${extension}`);
-        assert(existsSync(path.join(resolved, "dist", "index.js")), `mindset ${name} extension is built: ${extension}`);
+        assert(existsSync(path.join(resolved, "dist", `${path.basename(resolved)}.js`)), `mindset ${name} extension is built: ${extension}`);
       }
     }
   }
@@ -157,11 +157,11 @@ function verifyPackageLockWorkspaceVersions() {
 
 function verifyPackageManifests() {
   const expected = {
-    "packages/noagy/package.json": { extensions: ["dist/index.js"] },
-    "packages/nofooter/package.json": { extensions: ["dist/index.js"] },
-    "packages/noleaks/package.json": { extensions: ["dist/index.js"] },
-    "packages/notrace/package.json": { extensions: ["dist/index.js"] },
-    "packages/nosearch/package.json": { extensions: ["dist/index.js"], skills: ["brave-search", "firecrawl"] },
+    "packages/noagy/package.json": { extensions: ["extensions"] },
+    "packages/nofooter/package.json": { extensions: ["extensions"] },
+    "packages/noleaks/package.json": { extensions: ["extensions"] },
+    "packages/notrace/package.json": { extensions: ["extensions"] },
+    "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
     "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup"] },
   };
 
@@ -171,7 +171,7 @@ function verifyPackageManifests() {
     assert(JSON.stringify(pkg.pi) === JSON.stringify(piManifest), `${file} declares expected pi resources`);
   }
 
-  const nosearchSource = readFileSync(path.join(root, "packages/nosearch/index.ts"), "utf8");
+  const nosearchSource = readFileSync(path.join(root, "packages/nosearch/extensions/nosearch.ts"), "utf8");
   assert(nosearchSource.includes('path.basename(moduleDir) === "dist"'), "nosearch resolves package root when loaded from dist");
 }
 
@@ -214,7 +214,7 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     chmodSync(fakeNpm, 0o755);
 
     const env = { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
-    let result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
+    let result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
     assert(result.status === 0, "bash shell integration runs --nothing with fake pi");
     let args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/) : [];
     assert(args.includes("--system-prompt"), "--nothing overrides the default system prompt");
@@ -225,13 +225,13 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(!args.includes("--skill") && !args.includes("--extension"), "--nothing does not add local skills or extensions");
 
     writeFileSync(argsFile, "");
-    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi hello`], root, { env });
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi hello`], root, { env });
     assert(result.status === 0, "plain pi remains factory/default under shell integration");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(JSON.stringify(args) === JSON.stringify(["hello"]), "plain pi receives no nothing flags");
 
     writeFileSync(argsFile, "");
-    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
     assert(result.status === 0, "caveman and rtk modifiers lazy-install local caches");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.filter((arg) => arg === "--skill").length === 2, "--caveman explicitly loads two cached skills");
@@ -243,7 +243,7 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
 
     writeFileSync(argsFile, "");
     writeFileSync(installLog, "");
-    result = run("bash", ["-lc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rkt again`], root, { env });
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rkt again`], root, { env });
     assert(result.status === 0, "cached caveman and rkt alias run without reinstalling");
     const secondInstalls = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(secondInstalls.trim() === "", "modifiers skip install when local cache exists");
@@ -264,7 +264,7 @@ function verifyBootstrapDryRun() {
   const result = run("bash", [path.join(root, "bootstrap.sh"), "--dry-run", "--no-third-party"], root);
   const output = `${result.stdout}${result.stderr}`;
   assert(result.status === 0, "bootstrap dry-run succeeds with deprecated --no-third-party");
-  assert(output.includes("Skipping published @raquezha package install"), "bootstrap skips published package install by default");
+  assert(output.includes("Skipping published package install"), "bootstrap skips published package install by default");
   assert(output.includes("Resetting Pi globals so plain 'pi' starts factory-clean"), "bootstrap resets global Pi discovery by default");
   assert(output.includes("~/.agents/skills") || output.includes("/.agents/skills"), "bootstrap warns that generic global skills are reset");
   assert(output.includes("Skipping global skill links"), "bootstrap skips global skill links by default");
@@ -275,7 +275,7 @@ function verifyBootstrapDryRun() {
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
   assert(guarded.status !== 0, "bootstrap refuses non-interactive destructive reset without confirmation");
-  assert(guardedOutput.includes("DESTRUCTIVE PERSONAL PI RESET"), "bootstrap screams before destructive reset");
+  assert(guardedOutput.includes("𝗗𝗘𝗦𝗧𝗥𝗨𝗖𝗧𝟭𝗩𝗘 𝗣𝗜 𝗖𝗢𝗗𝟭𝗡𝗚 𝗔𝗚𝗘𝗡𝗧 𝗥𝗘𝗦𝗘𝗧"), "bootstrap warns before destructive reset");
   assert(guardedOutput.includes("Use --yes only if you really mean it"), "bootstrap documents explicit bypass for automation");
 }
 
