@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["extensions/noagy.ts"]
+  "include": ["extensions/noagy/index.ts"]
 }

@@ -59,7 +59,7 @@ npm pack --workspaces --dry-run --json
 
 - TypeScript packages are ESM unless their package says otherwise.
 - Prefer `@earendil-works/*` Pi packages. Do not add deprecated `@mariozechner/pi-*` dependencies or imports.
-- Extension entrypoints should be located in an `extensions/` directory and match the package name (e.g., `extensions/noagy.ts`). This ensures Pi auto-discovers them and displays a clean label (e.g., `noagy`) instead of a filename or "dist" in the UI. Build outputs should still be generated in `dist/` for standard Node.js/npm compatibility.
+- Extension entrypoints should be located in an `extensions/` directory and exposed as package-named directories with an `index.ts` entrypoint (e.g., `extensions/noagy/index.ts`). This ensures Pi auto-discovers them and displays a clean label (e.g., `noagy`) instead of a filename or "dist" in the UI. Build outputs should still be generated in `dist/` for standard Node.js/npm compatibility.
 - Root `package-lock.json` owns workspace dependency state. Do not add nested package lockfiles.
 - Use precise, minimal edits. Avoid rewriting large files without need.
 - Keep generated outputs (`dist/`, `node_modules/`, `.reposcry/`, `.workflow/`) out of git.

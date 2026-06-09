@@ -2,7 +2,7 @@
   "name": "@raquezha/noagy",
   "version": "0.0.3",
   "description": "OAuth login provider extension for Google Antigravity models in the Pi Coding Agent",
-  "main": "dist/noagy.js",
+  "main": "dist/noagy/index.js",
   "type": "module",
   "scripts": {
     "build": "tsc",
@@ -27,7 +27,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "types": "dist/noagy.d.ts",
+  "types": "dist/noagy/index.d.ts",
   "pi": {
     "extensions": [
       "extensions"

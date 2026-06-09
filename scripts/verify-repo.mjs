@@ -83,8 +83,13 @@ async function verifyMindsets() {
       const resolved = resolveExtension(extension);
       assert(Boolean(resolved), `mindset ${name} extension path resolves: ${extension}`);
       if (resolved) {
-        assert(existsSync(path.join(resolved, "package.json")), `mindset ${name} extension has package.json: ${extension}`);
-        assert(existsSync(path.join(resolved, "dist", `${path.basename(resolved)}.js`)), `mindset ${name} extension is built: ${extension}`);
+        const packageJsonPath = path.join(resolved, "package.json");
+        assert(existsSync(packageJsonPath), `mindset ${name} extension has package.json: ${extension}`);
+        if (existsSync(packageJsonPath)) {
+          const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+          const main = typeof pkg.main === "string" ? pkg.main : path.join("dist", `${path.basename(resolved)}.js`);
+          assert(existsSync(path.join(resolved, main)), `mindset ${name} extension is built: ${extension}`);
+        }
       }
     }
   }
@@ -221,14 +226,15 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(args.includes("--no-builtin-tools"), "--nothing disables built-in tools");
     assert(args.includes("--no-prompt-templates"), "--nothing disables prompt templates");
     assert(args.includes("--no-themes"), "--nothing disables themes");
-    assert(args.includes("--no-skills") && args.includes("--no-extensions") && args.includes("--no-context-files"), "--nothing disables skills, extensions, and context files");
-    assert(!args.includes("--skill") && !args.includes("--extension"), "--nothing does not add local skills or extensions");
+    assert(args.includes("--no-skills") && args.includes("--no-extensions") && args.includes("--no-context-files"), "--nothing disables discovered skills, extensions, and context files");
+    assert(!args.includes("--skill"), "--nothing does not add local skills");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/packages/noleaks")), "--nothing keeps the explicit noleaks guard loaded");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi hello`], root, { env });
     assert(result.status === 0, "plain pi remains factory/default under shell integration");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
-    assert(JSON.stringify(args) === JSON.stringify(["hello"]), "plain pi receives no nothing flags");
+    assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "hello"]), "plain pi receives only the explicit noleaks guard plus user args");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });

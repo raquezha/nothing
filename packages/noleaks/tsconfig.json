@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["extensions/noleaks.ts"]
+  "include": ["extensions/noleaks/index.ts"]
 }

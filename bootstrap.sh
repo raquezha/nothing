@@ -360,17 +360,30 @@ build_local_packages() {
   info "Building local workspace packages..."
   spin_run "Building workspace packages" npm run build --workspaces --if-present
 
+  local pkg output
+  local outputs=(
+    "noagy:dist/noagy/index.js"
+    "nofooter:dist/nofooter.js"
+    "noleaks:dist/noleaks/index.js"
+    "nosearch:dist/nosearch.js"
+    "notrace:dist/notrace.js"
+  )
+
   if [[ "$DRY_RUN" == true ]]; then
-    for pkg in noagy nofooter noleaks nosearch notrace; do
-      printf '[dry-run] verify %s\n' "$SCRIPT_DIR/packages/$pkg/dist/$pkg.js"
+    for entry in "${outputs[@]}"; do
+      pkg="${entry%%:*}"
+      output="${entry#*:}"
+      printf '[dry-run] verify %s\n' "$SCRIPT_DIR/packages/$pkg/$output"
     done
     return
   fi
 
   local missing=()
-  for pkg in noagy nofooter noleaks nosearch notrace; do
-    if [[ ! -f "$SCRIPT_DIR/packages/$pkg/dist/$pkg.js" ]]; then
-      missing+=("packages/$pkg/dist/$pkg.js")
+  for entry in "${outputs[@]}"; do
+    pkg="${entry%%:*}"
+    output="${entry#*:}"
+    if [[ ! -f "$SCRIPT_DIR/packages/$pkg/$output" ]]; then
+      missing+=("packages/$pkg/$output")
     fi
   done
   if [[ ${#missing[@]} -gt 0 ]]; then
