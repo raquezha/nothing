@@ -143,7 +143,7 @@ Release flow:
 - `@raquezha/nosearch`: usable search skill/extension bundle.
 - `@raquezha/noagy`: experimental provider; be careful with OAuth/provider internals.
 - `@raquezha/notrace`: Phase 0 / POC observability; generated reports may contain sensitive prompts/tool outputs.
-- `@raquezha/noleaks`: Phase 0 / POC guardrail; not a complete sandbox.
+- `@raquezha/noleaks`: Hardened credentials guard & DLP shield; supports /noleaks modes and output scrubbing.
 - `@raquezha/nofooter`: UI/theme/status extension.
 
 ## Security considerations

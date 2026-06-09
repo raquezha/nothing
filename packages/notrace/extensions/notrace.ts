@@ -2,6 +2,79 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import * as path from "node:path";
 
+const REDACTED = "[REDACTED by notrace]";
+const MAX_STRING_LENGTH = 20_000;
+const MAX_ARRAY_ITEMS = 200;
+const MAX_OBJECT_KEYS = 200;
+const MAX_DEPTH = 8;
+
+const SENSITIVE_KEY_RE = /(authorization|cookie|setcookie|password|passwd|pwd|secret|token|apikey|accesskey|accesskeyid|accessid|accesstoken|privatekey|session|credential|refreshtoken|idtoken)/i;
+const SENSITIVE_VALUE_RE = /(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{16,}|xox[baprs]-[a-z0-9-]{16,}|AKIA[0-9A-Z]{16})/gi;
+
+type CaptureMode = "metadata" | "redacted" | "full";
+
+function getCaptureMode(): CaptureMode {
+  const mode = process.env.NOTRACE_CAPTURE?.toLowerCase();
+  if (mode === "metadata" || mode === "full") return mode;
+  return "redacted";
+}
+
+function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEY_RE.test(key.replace(/[^a-z0-9]/gi, ""));
+}
+
+function redactString(value: string): string {
+  const redacted = value.replace(SENSITIVE_VALUE_RE, REDACTED);
+  if (redacted.length <= MAX_STRING_LENGTH) return redacted;
+  return `${redacted.slice(0, MAX_STRING_LENGTH)}\n…[truncated ${redacted.length - MAX_STRING_LENGTH} chars by notrace]`;
+}
+
+function sanitizeTraceValue(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+  if (getCaptureMode() === "full") return value;
+  if (value == null || typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "string") return redactString(value);
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "function" || typeof value === "symbol") return `[${typeof value}]`;
+  if (depth >= MAX_DEPTH) return "[Max depth reached by notrace]";
+  if (typeof value !== "object") return String(value);
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    const items = value.slice(0, MAX_ARRAY_ITEMS).map((item) => sanitizeTraceValue(item, depth + 1, seen));
+    if (value.length > MAX_ARRAY_ITEMS) items.push(`…[truncated ${value.length - MAX_ARRAY_ITEMS} items by notrace]`);
+    return items;
+  }
+
+  const output: Record<string, unknown> = {};
+  const entries = Object.entries(value as Record<string, unknown>);
+  for (const [key, item] of entries.slice(0, MAX_OBJECT_KEYS)) {
+    output[key] = isSensitiveKey(key) ? REDACTED : sanitizeTraceValue(item, depth + 1, seen);
+  }
+  if (entries.length > MAX_OBJECT_KEYS) output.__notrace_truncated__ = `${entries.length - MAX_OBJECT_KEYS} keys`;
+  return output;
+}
+
+function safeResolveUnder(baseDir: string, candidate: string): string | null {
+  const base = path.resolve(baseDir);
+  const resolved = path.resolve(base, candidate);
+  const relative = path.relative(base, resolved);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)) ? resolved : null;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value).replace(/[&<>'"]/g, (char) => {
+    switch (char) {
+      case "&": return "&amp;";
+      case "<": return "&lt;";
+      case ">": return "&gt;";
+      case "'": return "&#39;";
+      case '"': return "&quot;";
+      default: return char;
+    }
+  });
+}
+
 /**
  * html-observability extension
  *
@@ -17,26 +90,31 @@ export default function (pi: ExtensionAPI) {
   let llmStartTime = 0;
   const activeToolTimes: Record<string, number> = {};
 
-  // Helper to extract active task path from .workflow/active_task.json
+  // Helper to extract active task path from .workflow/active_task.json.
+  // Reports are constrained to cwd/.workflow to avoid task metadata causing writes elsewhere.
   function getActiveTaskDir(cwd: string): string {
+    const workflowDir = path.resolve(cwd, ".workflow");
     try {
-      const activeTaskJsonPath = path.join(cwd, ".workflow", "active_task.json");
+      const activeTaskJsonPath = path.join(workflowDir, "active_task.json");
       if (existsSync(activeTaskJsonPath)) {
         const content = JSON.parse(readFileSync(activeTaskJsonPath, "utf-8"));
-        if (content.taskPath) {
-          return path.resolve(cwd, content.taskPath);
-        } else if (content.active_task) {
-          return path.resolve(cwd, ".workflow", "tasks", content.active_task);
+        const candidate = typeof content.taskPath === "string"
+          ? safeResolveUnder(cwd, content.taskPath)
+          : typeof content.active_task === "string"
+            ? safeResolveUnder(workflowDir, path.join("tasks", content.active_task))
+            : null;
+
+        if (candidate && safeResolveUnder(workflowDir, path.relative(workflowDir, candidate))) {
+          return candidate;
         }
       }
     } catch {
       // fallback
     }
-    const defaultDir = path.join(cwd, ".workflow");
-    if (!existsSync(defaultDir)) {
-      try { mkdirSync(defaultDir, { recursive: true }); } catch {}
+    if (!existsSync(workflowDir)) {
+      try { mkdirSync(workflowDir, { recursive: true, mode: 0o700 }); } catch {}
     }
-    return defaultDir;
+    return workflowDir;
   }
 
   // 1. Session start
@@ -74,7 +152,7 @@ export default function (pi: ExtensionAPI) {
       type: "tool_start",
       toolCallId,
       toolName,
-      args,
+      args: getCaptureMode() === "metadata" ? "[metadata-only capture]" : sanitizeTraceValue(args),
       timestamp: Date.now()
     });
   });
@@ -89,7 +167,7 @@ export default function (pi: ExtensionAPI) {
       type: "tool_end",
       toolCallId,
       toolName,
-      result,
+      result: getCaptureMode() === "metadata" ? "[metadata-only capture]" : sanitizeTraceValue(result),
       isError,
       durationMs,
       timestamp: Date.now()
@@ -99,7 +177,7 @@ export default function (pi: ExtensionAPI) {
 
   // 6. LLM call start (capture payload)
   pi.on("before_provider_request", async (event, ctx) => {
-    activeLlmPayload = event.payload;
+    activeLlmPayload = getCaptureMode() === "metadata" ? null : sanitizeTraceValue(event.payload);
     llmStartTime = Date.now();
   });
 
@@ -115,8 +193,8 @@ export default function (pi: ExtensionAPI) {
       model: message.model || "unknown",
       provider: message.provider || "unknown",
       inputPayload: activeLlmPayload,
-      outputContent: message.content,
-      usage: message.usage,
+      outputContent: getCaptureMode() === "metadata" ? "[metadata-only capture]" : sanitizeTraceValue(message.content),
+      usage: sanitizeTraceValue(message.usage),
       durationMs,
       timestamp: Date.now()
     });
@@ -173,7 +251,8 @@ export default function (pi: ExtensionAPI) {
     });
 
     try {
-      writeFileSync(reportPath, htmlContent, "utf-8");
+      mkdirSync(taskDir, { recursive: true, mode: 0o700 });
+      writeFileSync(reportPath, htmlContent, { encoding: "utf-8", mode: 0o600 });
       // Output a nice clickable file:// link to the console for the user
       console.log(`\n📊 [notrace] Observability report generated:`);
       console.log(`👉 \x1b[36mfile://${reportPath}\x1b[0m\n`);
@@ -199,16 +278,16 @@ function safeJsonForScript(value: any): string {
 // Returns a self-contained premium HTML template incorporating the design tokens
 function generateHtmlReport(data: any): string {
   const serializedData = safeJsonForScript(data);
+  const escapedTraceId = escapeHtml(data.traceId);
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>notrace - ${data.traceId}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; connect-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>notrace - ${escapedTraceId}</title>
   <style>
     :root {
       --bg: #0b0b0e;
@@ -233,7 +312,7 @@ function generateHtmlReport(data: any): string {
     }
 
     body {
-      font-family: 'Outfit', sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background-color: var(--bg);
       color: var(--text);
       line-height: 1.5;
@@ -439,7 +518,7 @@ function generateHtmlReport(data: any): string {
     }
 
     .code-block {
-      font-family: 'Source Code Pro', monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
       font-size: 0.875rem;
       background: rgba(0, 0, 0, 0.35);
       border: 1px solid var(--border);
@@ -541,17 +620,33 @@ function generateHtmlReport(data: any): string {
   <script>
     const traceData = ${serializedData};
 
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;"
+      }[char]));
+    }
+
+    function safeClassName(value, fallback = "unknown") {
+      const normalized = String(value ?? fallback).toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+      return normalized || fallback;
+    }
+
+    function jsonText(value) {
+      return escapeHtml(typeof value === "string" ? value : JSON.stringify(value, null, 2));
+    }
+
     // Render Metrics
     document.getElementById("sess-id").textContent = traceData.traceId;
     document.getElementById("sess-time").textContent = new Date(traceData.startTime).toLocaleString();
     document.getElementById("val-duration").textContent = (traceData.durationMs / 1000).toFixed(2) + "s";
     document.getElementById("val-tokens").textContent = traceData.metrics.totalTokens.toLocaleString();
-    document.getElementById("val-llms").textContent = traceData.metrics.toolCallCount; // Wait, actually traceData.metrics.llmCallCount
+    document.getElementById("val-llms").textContent = traceData.metrics.llmCallCount;
     document.getElementById("val-tools").textContent = traceData.metrics.toolCallCount;
     document.getElementById("val-cost").textContent = "$" + traceData.metrics.totalCost;
-
-    // Correct the labels mapping if names swapped
-    document.getElementById("val-llms").textContent = traceData.metrics.llmCallCount;
 
     // Process & Render Timeline
     const container = document.getElementById("timeline-container");
@@ -612,19 +707,20 @@ function generateHtmlReport(data: any): string {
     // Render cards
     renderedEvents.forEach((ev, index) => {
       const evDiv = document.createElement("div");
-      evDiv.className = \`timeline-event \${ev.type}-start \${ev.isError ? "error" : ""}\`;
+      const eventType = safeClassName(ev.type);
+      evDiv.className = \`timeline-event \${eventType}-start \${ev.isError ? "error" : ""}\`;
 
       let cardHtml = \`
         <div class="timeline-dot"></div>
         <div class="card" id="card-\${index}">
           <div class="card-header" onclick="toggleCard(\${index})">
             <div class="card-title">
-              <span class="card-badge badge-\${ev.type} \${ev.isError ? "error" : ""}">\${ev.type.toUpperCase()}</span>
-              <span>\${ev.title}</span>
-              \${ev.durationMs ? \`<span class="duration-pill">\${(ev.durationMs / 1000).toFixed(2)}s</span>\` : ""}
+              <span class="card-badge badge-\${eventType} \${ev.isError ? "error" : ""}">\${escapeHtml(eventType.toUpperCase())}</span>
+              <span>\${escapeHtml(ev.title)}</span>
+              \${ev.durationMs ? \`<span class="duration-pill">\${escapeHtml((ev.durationMs / 1000).toFixed(2))}s</span>\` : ""}
             </div>
             <div class="card-time">
-              <span>\${ev.time}</span>
+              <span>\${escapeHtml(ev.time)}</span>
               <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
             </div>
           </div>
@@ -632,13 +728,13 @@ function generateHtmlReport(data: any): string {
       \`;
 
       if (ev.type === "session" || ev.type === "turn") {
-        cardHtml += \`<div class="code-block">\${ev.body}</div>\`;
+        cardHtml += \`<div class="code-block">\${escapeHtml(ev.body)}</div>\`;
       } else if (ev.type === "tool") {
         cardHtml += \`
           <strong>Arguments:</strong>
-          <div class="code-block">\${JSON.stringify(ev.args, null, 2)}</div>
+          <div class="code-block">\${jsonText(ev.args)}</div>
           <strong style="margin-top: 1rem; display: block;">Result (\${ev.isError ? "Error" : "Success"}):</strong>
-          <div class="code-block">\${typeof ev.result === "string" ? ev.result : JSON.stringify(ev.result, null, 2)}</div>
+          <div class="code-block">\${jsonText(ev.result)}</div>
         \`;
       } else if (ev.type === "llm") {
         // Render system prompt and input messages if present
@@ -651,17 +747,18 @@ function generateHtmlReport(data: any): string {
             messagesHtml += \`
               <div class="msg-row system">
                 <span class="msg-role">System Instruction</span>
-                <span class="msg-text">\${instr}</span>
+                <span class="msg-text">\${escapeHtml(instr)}</span>
               </div>
             \`;
           }
           if (ev.payload.messages && Array.isArray(ev.payload.messages)) {
             ev.payload.messages.forEach(m => {
               const contentText = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+              const role = safeClassName(m.role, "message");
               messagesHtml += \`
-                <div class="msg-row \${m.role}">
-                  <span class="msg-role">\${m.role}</span>
-                  <span class="msg-text">\${contentText}</span>
+                <div class="msg-row \${role}">
+                  <span class="msg-role">\${escapeHtml(m.role)}</span>
+                  <span class="msg-text">\${escapeHtml(contentText)}</span>
                 </div>
               \`;
             });
@@ -673,13 +770,13 @@ function generateHtmlReport(data: any): string {
           <strong>Context Messages:</strong>
           \${messagesHtml}
           <strong style="margin-top: 1.25rem; display: block;">Generated Response:</strong>
-          <div class="code-block">\${JSON.stringify(ev.output, null, 2)}</div>
+          <div class="code-block">\${jsonText(ev.output)}</div>
           \${ev.usage ? \`
             <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1.5rem;">
-              <span>Input Tokens: <strong>\${ev.usage.input}</strong></span>
-              <span>Output Tokens: <strong>\${ev.usage.output}</strong></span>
-              <span>Total Tokens: <strong>\${ev.usage.totalTokens}</strong></span>
-              <span>Cost: <strong>\$\${ev.usage.cost?.total.toFixed(5) || "0.00"}</strong></span>
+              <span>Input Tokens: <strong>\${escapeHtml(ev.usage.input ?? 0)}</strong></span>
+              <span>Output Tokens: <strong>\${escapeHtml(ev.usage.output ?? 0)}</strong></span>
+              <span>Total Tokens: <strong>\${escapeHtml(ev.usage.totalTokens ?? 0)}</strong></span>
+              <span>Cost: <strong>\$\${escapeHtml(ev.usage.cost?.total?.toFixed?.(5) || "0.00")}</strong></span>
             </div>
           \` : ""}
         \`;
@@ -697,7 +794,7 @@ function generateHtmlReport(data: any): string {
     // Expand/Collapse controller
     function toggleCard(index) {
       const card = document.getElementById(\`card-\${index}\`);
-      card.classList.toggle("expanded");
+      card?.classList.toggle("expanded");
     }
   </script>
 </body>
