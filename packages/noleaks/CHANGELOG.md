@@ -1,5 +1,13 @@
 # @raquezha/noleaks
 
+## 0.0.4
+
+### Patch Changes
+
+- b56dfd2: Restructure extension entrypoints into package-named index directories so Pi displays clean extension labels without `.ts` suffixes.
+- f2959b5: Hardened noleaks with a 3-tier security model (max, basic, off), output scrubbing (DLP), symlink resolution, and the /noleaks command for stats and mode switching.
+- f2959b5: Harden noleaks with broader protected credential locations, cwd-aware and home-expanded path checks, safer path containment, secret-looking write/edit payload blocking, environment dump blocking, sensitive shell variable detection, and network-exfiltration guardrails.
+
 ## 0.0.3
 
 ### Patch Changes
