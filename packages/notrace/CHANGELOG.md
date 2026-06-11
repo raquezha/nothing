@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.0.4
+
+### Patch Changes
+
+- f2959b5: Harden notrace reports with default redaction, metadata-only capture support, offline CSP-protected HTML, escaped rendering, private file permissions, and `.workflow`-confined report writes.
+
 ## 0.0.3
 
 ### Patch Changes

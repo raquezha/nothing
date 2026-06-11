@@ -1,5 +1,11 @@
 # @raquezha/noagy
 
+## 0.0.4
+
+### Patch Changes
+
+- b56dfd2: Restructure extension entrypoints into package-named index directories so Pi displays clean extension labels without `.ts` suffixes.
+
 ## 0.0.3
 
 ### Patch Changes
