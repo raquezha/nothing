@@ -59,9 +59,16 @@ pi --android --rtk          # lazy-installs pi-rtk-optimizer into ~/.local/share
 pi --rpiv --caveman --rtk
 ```
 
+Combo presets are aliases for base hats plus modifiers:
+
+```bash
+pi --tkmx                   # equivalent to: pi --antigravity --caveman --rtk
+```
+
 Rules:
 
 - one base hat per invocation
+- combo presets still count as their underlying base hat
 - modifiers never replace local first-party skill loading
 - `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-prompt-templates --no-themes --no-context-files`, then re-adds the always-on `noleaks` extension
 - `--rtk` is experimental and explicit; it lazy-installs/loads the RTK optimizer only for that invocation

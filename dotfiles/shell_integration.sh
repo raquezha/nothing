@@ -23,6 +23,16 @@ if [[ -d "$HOME/.local/bin" ]]; then
 fi
 
 pi() {
+  # Pi subcommands must remain the first argv token. If we inject extensions or
+  # skills before them, the CLI treats the subcommand as an initial chat prompt
+  # instead (for example: `pi update` opens Pi with "update" as input).
+  case "${1:-}" in
+    install|remove|uninstall|update|list|config)
+      command pi "$@"
+      return $?
+      ;;
+  esac
+
   local NOTHING_DIR="$_NOTHING_REPO_DIR"
   local MINDSETS_JSON="$NOTHING_DIR/mindsets.json"
   local NOTHING_CACHE_DIR="${NOTHING_CACHE_DIR:-$HOME/.local/share/nothing}"
@@ -33,6 +43,7 @@ pi() {
   local -a EXTRA_SKILLS=()
   local -a EXTRA_EXTENSIONS=()
   local BASE_MINDSET=""
+  local COMBO_PRESET=""
   local MOD_CAVEMAN=false
   local MOD_RTK=false
 
@@ -229,6 +240,17 @@ EOF
         BASE_MINDSET="$flag_name"
         shift
         ;;
+      --tkmx)
+        if [[ -n "$BASE_MINDSET" && "$BASE_MINDSET" != "antigravity" ]]; then
+          nothing_warn "Only one base hat allowed: --$BASE_MINDSET already set, got --tkmx (antigravity combo)"
+          return 2
+        fi
+        BASE_MINDSET="antigravity"
+        COMBO_PRESET="tkmx"
+        MOD_CAVEMAN=true
+        MOD_RTK=true
+        shift
+        ;;
       --caveman)
         MOD_CAVEMAN=true
         shift
@@ -279,7 +301,7 @@ EOF
   add_extension "noleaks"
 
   if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
-    local label="${BASE_MINDSET:-vanilla}"
+    local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")

@@ -1,6 +1,6 @@
 # norpiv (Lean RPIV Workflow Engine)
 
-A disciplined task execution lifecycle for the Pi coding agent designed to maximize accuracy, control, and traceability through a step-by-step Staff Engineer planning process.
+RPIV: a gated workflow for reliable AI coding agents.
 
 ## 🔁 The Lifecycle
 
