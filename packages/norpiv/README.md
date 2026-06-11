@@ -38,7 +38,7 @@ Best for trying or handing off RPIV skills without installing the full `nothing`
 
 ```bash
 npx -y skills add raquezha/nothing --full-depth -g -a pi \
-  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs \
+  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs distill \
   -y
 ```
 
@@ -66,6 +66,38 @@ Targets:
 - `codex` installs the skill docs under `~/.codex/skills/norpiv` and writes an `AGENTS.md` adapter because Codex-style environments do not universally auto-load `SKILL.md` bundles.
 
 `norpiv-install` also installs the shared helper scripts under a sibling `scripts/` directory so skill references like `../scripts/triage_helper.sh` resolve after installation.
+
+## 🧢 Hats
+
+| Hat | Purpose |
+| :--- | :--- |
+| `pi --rpiv` | Full RPIV workflow. Loads triage, frame, grill-with-docs, plan, implement, verify, sync, cleanup, and update-docs. |
+| `pi --notes` | Conversation distiller. Saves useful thinking to Obsidian without RPIV ceremony. |
+
+## 📝 Pre-RPIV note capture
+
+### distill
+
+Converts the current conversation into a durable Obsidian-ready markdown note.
+
+**Trigger:** `/distill`, "distill this", "save the useful parts", "save this as a note"
+
+**Output:** A single `.md` file written to `$OBSIDIAN_VAULT/distilled/` or `~/notes/distilled/`
+
+**Use when:** The conversation produced useful thinking that should survive outside chat — an idea, a research thread, a decision, a concept — but is not yet ready for RPIV or a PRD.
+
+**Does not:** Create PRDs, start RPIV, require a ticket, or ask the user to classify their idea.
+
+---
+
+**Relationship to RPIV:**
+
+```text
+conversation → /distill → Obsidian note    (pre-commitment)
+Obsidian note → /triage → RPIV             (only when ready to commit)
+```
+
+`distill` is the missing layer before RPIV. Use `pi --notes` to load it.
 
 ## 🚀 Quick Start Example
 

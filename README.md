@@ -10,7 +10,7 @@ Core rule: **owned skills stay local**. Public handoff uses `npx skills add` or 
 
 | Area | Path / package | Purpose |
 |---|---|---|
-| Shell hats | `dotfiles/shell_integration.sh` | `pi --rpiv`, `--android`, `--dev`, `--pm`, etc. |
+| Shell hats | `dotfiles/shell_integration.sh` | `pi --rpiv`, `--android`, `--dev`, `--pm`, `--notes`, etc. |
 | Mindsets | `mindsets.json` | Declarative local skill/extension sets. |
 | RPIV skills | `packages/norpiv/` | Triage → frame → grill → plan → implement → verify → sync. |
 | Meta skills | `packages/nometa/` | Skill creation, repo bootstrap, nothing maintenance. |
@@ -48,6 +48,7 @@ pi --pm          # research/planning/sync persona
 pi --dev         # implementation/verification persona
 pi --meta        # skill/setup/meta engineering persona
 pi --write       # docs/writing helper persona
+pi --notes       # conversation distiller; saves useful thinking to Obsidian without RPIV ceremony
 ```
 
 Modifiers are additive experiments:
@@ -81,7 +82,7 @@ RPIV workflow skills:
 
 ```bash
 npx -y skills add raquezha/nothing --full-depth -g -a pi \
-  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs \
+  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs distill \
   -y
 ```
 

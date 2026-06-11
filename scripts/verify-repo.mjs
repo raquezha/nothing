@@ -277,6 +277,7 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
+  assert(output.includes("--notes"), "bootstrap documents notes hat");
 
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;

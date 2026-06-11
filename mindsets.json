@@ -58,6 +58,10 @@
       "skills": ["nosearch"],
       "extensions": ["noagy"]
     },
+    "notes": {
+      "skills": ["norpiv/distill"],
+      "extensions": ["noleaks", "noagy"]
+    },
     "antigravity": {
       "skills": [],
       "extensions": ["noagy"]

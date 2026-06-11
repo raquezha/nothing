@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "cleanup",
+    "distill",
     "frame",
     "grill-with-docs",
     "implement",
@@ -43,7 +44,8 @@
       "verify",
       "sync",
       "update-docs",
-      "cleanup"
+      "cleanup",
+      "distill"
     ]
   }
 }
