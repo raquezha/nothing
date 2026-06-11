@@ -566,7 +566,7 @@ printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | pi --android --caveman | pi --android --rtk"
-printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx"
+printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (tokenmaxxing)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
 printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n'

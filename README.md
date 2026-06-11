@@ -62,7 +62,7 @@ pi --rpiv --caveman --rtk
 Combo presets are aliases for base hats plus modifiers:
 
 ```bash
-pi --tkmx                   # equivalent to: pi --antigravity --caveman --rtk
+pi --tkmx                   # tokenmaxxing; equivalent to: pi --antigravity --caveman --rtk
 ```
 
 Rules:

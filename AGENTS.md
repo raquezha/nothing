@@ -87,6 +87,12 @@ pi --rpiv --caveman
 pi --android --rtk
 ```
 
+Combo preset:
+
+```bash
+pi --tkmx   # tokenmaxxing = pi --antigravity --caveman --rtk
+```
+
 `--rtk` is experimental and explicit. It lazy-installs/loads the RTK optimizer from a local nothing cache for that invocation only; keep tests around this because command rewriting/compression can break pipes, exact reads, and edit anchors.
 
 ## RepoScry policy
