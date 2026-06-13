@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.0.3
+
+### Patch Changes
+
+- 00015e2: Add the distill skill for saving useful conversation residue as Obsidian-ready notes.
+
 ## 0.0.2
 
 ### Patch Changes
