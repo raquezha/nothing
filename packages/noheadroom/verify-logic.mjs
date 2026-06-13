@@ -173,11 +173,52 @@ async function testZeroSavings() {
   console.log("✓ Zero savings test passed\n");
 }
 
+async function testEdgeCases() {
+  console.log("Testing Edge Cases...");
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  // Case 1: Empty tool result
+  console.log(" - Case 1: Empty tool result...");
+  const msgEmpty = [{ role: "user", content: "hi" }, { role: "toolResult", toolCallId: "c", toolName:"t", content: "" }];
+  const resEmpty = await handleContextCompression(runtime, { messages: msgEmpty }, createMockCtx(msgEmpty));
+  assert(resEmpty === undefined, "Should skip empty content (no savings possible)");
+
+  // Case 2: Special characters
+  console.log(" - Case 2: Special characters...");
+  const msgSpec = [{ role: "user", content: "hi" }, { role: "toolResult", toolCallId: "c", toolName:"t", content: " Binary \x00 content \u1234".repeat(1000) }];
+  runtime.state.lastCompressionTime = 0; // reset throttle
+  const resSpec = await handleContextCompression(runtime, { messages: msgSpec }, createMockCtx(msgSpec));
+  assert(resSpec !== undefined, "Should handle special characters");
+
+  // Case 3: Mixed content blocks (Pi specific)
+  console.log(" - Case 3: Mixed content blocks (Text + Image)...");
+  const msgMixed = [
+    { role: "user", content: "what is this?" },
+    { role: "toolResult", toolCallId: "c", toolName:"t", content: [
+      { type: "text", text: "A".repeat(5000) },
+      { type: "image", data: "base64...", mimeType: "image/png" }
+    ]}
+  ];
+  runtime.state.lastCompressionTime = 0;
+  const resMixed = await handleContextCompression(runtime, { messages: msgMixed }, createMockCtx(msgMixed));
+  assert(resMixed !== undefined, "Should handle mixed content blocks");
+  assert(Array.isArray(resMixed.messages[1].content), "Should preserve content block array structure");
+  assert(resMixed.messages[1].content.some(c => c.type === 'image'), "Should NOT lose the image block");
+
+  console.log("✓ Edge cases passed\n");
+}
+
 async function runAll() {
   try {
     await testLoopPrevention();
     await testThrottle();
     await testZeroSavings();
+    await testEdgeCases();
     console.log("ALL LOGIC VERIFIED ✓");
   } catch (e) {
     console.error("TEST FAILED ✗");
