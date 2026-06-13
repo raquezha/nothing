@@ -38,8 +38,14 @@ docker run -d \
 
 ### Verify Health
 
+**Via script (`nothing` users):**
 ```bash
 ./scripts/headroom-health.sh
+```
+
+**Via curl (standalone):**
+```bash
+curl http://127.0.0.1:8788/health
 ```
 
 ## 🛠 Service Details
