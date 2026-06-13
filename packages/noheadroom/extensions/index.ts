@@ -566,4 +566,6 @@ function parseSubcommand(args: string): Subcommand {
 export const __test__ = {
 	isAbortOrTimeoutError,
 	renderFooterStatus,
+	generateFingerprint,
+	handleContextCompression,
 };
