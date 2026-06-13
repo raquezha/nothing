@@ -7,9 +7,11 @@ INSTALL_PUBLISHED_PACKAGES=false
 RESET_PI_GLOBALS=true
 ASSUME_YES=false
 SKIP_TOOLS=false
+INSTALL_HEADROOM=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=true ;;
+    --headroom) INSTALL_HEADROOM=true ;;
     --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
     --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
     --no-reset-pi) RESET_PI_GLOBALS=false ;;
@@ -18,7 +20,7 @@ for arg in "$@"; do
     --install-third-party|--no-third-party) printf '⚠️  Third-party modifiers now lazy-install into ~/.local/share/nothing when used; %s is no longer needed.\n' "$arg" >&2 ;;
     --help|-h)
       cat <<'EOF'
-Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--no-reset-pi] [--yes] [--install-global-skills] [--install-published-packages]
+Usage: ./bootstrap.sh [--dry-run] [--skip-tools] [--no-reset-pi] [--yes] [--headroom] [--install-global-skills] [--install-published-packages]
 
 Fresh-machine bootstrap for nothing.
 
@@ -37,6 +39,7 @@ Bootstrap also:
 Options:
   --dry-run, -n             Print commands without executing mutating steps.
   --skip-tools              Do not install baseline system packages with sudo.
+  --headroom                Configure local Headroom Docker backend and install proof-phase Pi extension.
   --no-reset-pi             Do not archive/reset global Pi discovery directories.
   --yes, -y                 Skip the destructive reset confirmation prompt.
   --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
@@ -81,6 +84,7 @@ print_plan() {
   printf '   published packages    %s\n' "$([[ "$INSTALL_PUBLISHED_PACKAGES" == true ]] && printf yes || printf no)"
   printf '   global skill links    %s\n' "$([[ "$INSTALL_GLOBAL_SKILLS" == true ]] && printf yes || printf no)"
   printf '   third-party modifiers lazy cache\n'
+  printf '   headroom backend     %s\n' "$([[ "$INSTALL_HEADROOM" == true ]] && printf yes || printf no)"
   printf '   package source        checkout\n'
 }
 
@@ -365,6 +369,7 @@ build_local_packages() {
     "noagy:dist/noagy/index.js"
     "nofooter:dist/nofooter.js"
     "noleaks:dist/noleaks/index.js"
+    "noheadroom:dist/index.js"
     "nosearch:dist/nosearch.js"
     "notrace:dist/notrace.js"
   )
@@ -396,6 +401,29 @@ build_local_packages() {
 
 chmod_bundled_scripts() {
   run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" -type f \( -name '*.sh' -o -name '*.cjs' \) -exec chmod +x {} \;
+}
+
+configure_headroom() {
+  local settings_dir="$AGENT_DIR/headroom"
+  local settings_file="$settings_dir/settings.json"
+
+  info "Configuring Headroom Docker backend and local noheadroom Pi extension..."
+  run mkdir -p "$settings_dir"
+  copy_file "$SCRIPT_DIR/headroom/settings.json.example" "$settings_file" "headroom/settings.json"
+
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] %s\n' "$SCRIPT_DIR/scripts/headroom-up.sh"
+    printf '[dry-run] local noheadroom extension will load through --headroom/--tkmx shell modifiers\n'
+    return
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    warn "Docker not found; Headroom backend not started. Install Docker or run scripts/headroom-up.sh later."
+  else
+    spin_run "Starting Headroom Docker backend" "$SCRIPT_DIR/scripts/headroom-up.sh"
+  fi
+
+  info "Using repo-local packages/noheadroom through --headroom/--tkmx shell modifiers."
 }
 
 reset_global_dir() {
@@ -521,6 +549,11 @@ fi
 step "Install Pi configuration files"
 copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
+if [[ "$INSTALL_HEADROOM" == true ]]; then
+  configure_headroom
+else
+  info "Skipping Headroom setup; use --headroom to configure Docker backend and proof-phase extension."
+fi
 
 step "Process optional global skill links"
 if [[ "$INSTALL_GLOBAL_SKILLS" == true ]]; then
@@ -565,9 +598,10 @@ printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shel
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --antigravity"
-printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | pi --android --caveman | pi --android --rtk"
-printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (tokenmaxxing)"
+printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom"
+printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
 printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n'
+printf '   note: --headroom starts the local Headroom Docker backend on demand.\n'
 printf '   note: plain `pi` keeps the noleaks guard on by default, regardless of mindset.\n\n'

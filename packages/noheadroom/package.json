@@ -1,0 +1,42 @@
+{
+  "name": "@raquezha/noheadroom",
+  "version": "0.0.1",
+  "description": "Personal Headroom compression bridge for Pi with Docker-first defaults and Pi tool-name adaptation",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "pi-package",
+    "headroom",
+    "context-compression"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "types": "dist/index.d.ts",
+  "pi": {
+    "extensions": [
+      "extensions"
+    ]
+  }
+}

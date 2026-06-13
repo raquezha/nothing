@@ -57,13 +57,14 @@ Modifiers are additive experiments:
 pi --rpiv --caveman        # lazy-installs caveman skills into ~/.local/share/nothing on first use
 pi --android --caveman
 pi --android --rtk          # lazy-installs pi-rtk-optimizer into ~/.local/share/nothing on first use
-pi --rpiv --caveman --rtk
+pi --rpiv --headroom        # starts local Headroom Docker backend for compression
+pi --rpiv --caveman --rtk --headroom
 ```
 
 Combo presets are aliases for base hats plus modifiers:
 
 ```bash
-pi --tkmx                   # tokenmaxxing; equivalent to: pi --antigravity --caveman --rtk
+pi --tkmx                   # tokenmaxxing; equivalent to: pi --antigravity --caveman --rtk --headroom
 ```
 
 Rules:
@@ -73,6 +74,7 @@ Rules:
 - modifiers never replace local first-party skill loading
 - `--nothing` wins and runs with `--system-prompt '' --no-builtin-tools --no-skills --no-extensions --no-prompt-templates --no-themes --no-context-files`, then re-adds the always-on `noleaks` extension
 - `--rtk` is experimental and explicit; it lazy-installs/loads the RTK optimizer only for that invocation
+- `--headroom` starts/uses the local Headroom Docker backend on `127.0.0.1:8788` and loads repo-local `packages/noheadroom`
 
 ## Try only the skills with `npx skills add`
 
@@ -137,6 +139,7 @@ For this personal checkout, hats normally load the local built packages instead 
 | `@raquezha/noleaks` | secret/credential guard |
 | `@raquezha/noagy` | Antigravity model provider |
 | `@raquezha/nofooter` | footer/theme/status UI |
+| `@raquezha/noheadroom` | Headroom compression bridge for Pi + local Docker backend |
 
 ## Android skills snapshot
 

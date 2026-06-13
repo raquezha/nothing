@@ -152,7 +152,7 @@ function verifyReposcryGuardrails() {
 
 function verifyPackageLockWorkspaceVersions() {
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  for (const pkgDir of ["noagy", "nofooter", "noleaks", "norpiv", "nosearch", "notrace"]) {
+  for (const pkgDir of ["noagy", "nofooter", "noheadroom", "noleaks", "norpiv", "nosearch", "notrace"]) {
     const workspace = `packages/${pkgDir}`;
     const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
     const lockPkg = lock.packages?.[workspace];
@@ -165,9 +165,10 @@ function verifyPackageManifests() {
     "packages/noagy/package.json": { extensions: ["extensions"] },
     "packages/nofooter/package.json": { extensions: ["extensions"] },
     "packages/noleaks/package.json": { extensions: ["extensions"] },
+    "packages/noheadroom/package.json": { extensions: ["extensions"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
-    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup"] },
+    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup", "distill"] },
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {
@@ -253,6 +254,21 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(result.status === 0, "cached caveman and rkt alias run without reinstalling");
     const secondInstalls = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(secondInstalls.trim() === "", "modifiers skip install when local cache exists");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --headroom hello`], root, { env });
+    assert(result.status === 0, "--headroom runs with backend start skipped in tests");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/packages/noheadroom")), "--headroom loads repo-local noheadroom extension");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/packages/noleaks")), "--headroom keeps noleaks guard loaded");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --tkmx hello`], root, { env });
+    assert(result.status === 0, "--tkmx includes headroom without starting backend in tests");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/noheadroom")), "--tkmx loads noheadroom extension");
+    assert(args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--tkmx loads RTK extension");
+    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--tkmx loads caveman skill");
 
     if (run("bash", ["-lc", "command -v zsh >/dev/null 2>&1"], root).status === 0) {
       writeFileSync(argsFile, "");

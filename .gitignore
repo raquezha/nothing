@@ -16,6 +16,7 @@ out/
 Thumbs.db
 
 # Ephemeral agent work directories
+.codex/
 .workflow/
 .reposcry/
 active_task.json

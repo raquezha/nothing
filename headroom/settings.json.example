@@ -1,0 +1,8 @@
+{
+  "enabled": true,
+  "baseUrl": "http://127.0.0.1:8788",
+  "autoStart": false,
+  "minContextTokens": 10000,
+  "minMessageChars": 2000,
+  "timeoutMs": 30000
+}

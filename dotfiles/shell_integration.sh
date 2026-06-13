@@ -46,6 +46,7 @@ pi() {
   local COMBO_PRESET=""
   local MOD_CAVEMAN=false
   local MOD_RTK=false
+  local MOD_HEADROOM=false
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -229,6 +230,28 @@ EOF
     export NOTHING_RTK="1"
   }
 
+  ensure_headroom_proxy() {
+    local up_script="$NOTHING_DIR/scripts/headroom-up.sh"
+    if [[ ! -f "$up_script" ]]; then
+      nothing_warn "--headroom requested but missing script: $up_script"
+      return 1
+    fi
+    if [[ "${NOTHING_HEADROOM_SKIP_START:-}" == "1" ]]; then
+      nothing_warn "--headroom requested; skipping backend start because NOTHING_HEADROOM_SKIP_START=1"
+    else
+      if ! command -v docker >/dev/null 2>&1; then
+        nothing_warn "--headroom requested but docker is unavailable"
+        return 1
+      fi
+      HEADROOM_HEALTH_SUMMARY=1 bash "$up_script" >&2 || {
+        nothing_warn "Headroom backend failed to start"
+        return 1
+      }
+    fi
+    export NOTHING_HEADROOM="1"
+    export PI_HEADROOM_URL="http://127.0.0.1:8788"
+  }
+
   if [[ $# -gt 0 ]]; then
     case "$1" in
       install|remove|uninstall|update|list|config)
@@ -258,6 +281,7 @@ EOF
         COMBO_PRESET="tkmx"
         MOD_CAVEMAN=true
         MOD_RTK=true
+        MOD_HEADROOM=true
         shift
         ;;
       --caveman)
@@ -266,6 +290,10 @@ EOF
         ;;
       --rtk|--rkt)
         MOD_RTK=true
+        shift
+        ;;
+      --headroom)
+        MOD_HEADROOM=true
         shift
         ;;
       *)
@@ -294,7 +322,7 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -305,15 +333,21 @@ EOF
     if [[ "$MOD_RTK" == true ]]; then
       add_rtk_extension
     fi
+
+    if [[ "$MOD_HEADROOM" == true ]]; then
+      ensure_headroom_proxy
+      add_extension "noheadroom"
+    fi
   fi
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
+    [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
     local mod_label="none"
     if [[ ${#mods[@]} -gt 0 ]]; then
       mod_label="${mods[*]}"
