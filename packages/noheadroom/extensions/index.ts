@@ -301,16 +301,8 @@ function announceAppliedCompression(
 	const summary = `compressed ${result.tokensBefore.toLocaleString()} → ${result.tokensAfter.toLocaleString()} tokens (-${pct}%, saved ${result.tokensSaved.toLocaleString()}, messages ${appliedMessages})`;
 	const line = `noheadroom: ${summary}`;
 	ctx.ui.notify(line, "info");
-	pi.appendEntry(COMPRESSION_ENTRY_TYPE, {
-		tokensBefore: result.tokensBefore,
-		tokensAfter: result.tokensAfter,
-		tokensSaved: result.tokensSaved,
-		compressionRatio: result.compressionRatio,
-		appliedMessages,
-		transformsApplied: result.transformsApplied,
-		timestamp: Date.now(),
-		summary,
-	} satisfies CompressionEntryDetails & { summary: string });
+	// Note: we no longer use pi.appendEntry or pi.sendMessage here because
+	// modifying the session history inside the context event triggers an infinite loop.
 	// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
 	process.stderr.write(`🗜 ${line}\n`);
 }
