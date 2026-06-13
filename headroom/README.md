@@ -13,7 +13,7 @@ This directory manages the **backend service** (the compressor). It is separate 
 
 ## 🚀 Quick Start
 
-### 1. Launch the Backend
+### For `nothing` Users
 
 ```bash
 ./scripts/headroom-up.sh
@@ -21,7 +21,22 @@ This directory manages the **backend service** (the compressor). It is separate 
 
 This starts the `nothing-headroom` container on `127.0.0.1:8788`.
 
-### 2. Verify Health
+### For Standalone Users
+
+If you just want the backend without cloning this whole repository:
+
+```bash
+docker run -d \
+  --name headroom-proxy \
+  -p 127.0.0.1:8788:8787 \
+  -v headroom-data:/data \
+  -e HEADROOM_TELEMETRY=off \
+  -e HEADROOM_SAVINGS_PATH=/data/proxy_savings.json \
+  ghcr.io/chopratejas/headroom:latest \
+  --host 0.0.0.0 --port 8787 --no-cache
+```
+
+### Verify Health
 
 ```bash
 ./scripts/headroom-health.sh
