@@ -1,3 +1,16 @@
+```text
+⠀⠀⠀⠀⣠⣤⣶⣶⣶⣤⣄⡀⠀
+⠀⠀⣴⣾⣿⣿⣿⣿⣿⣧⡀⠈⠢
+⠀⣼⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀⠀
+⢰⡿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀
+⠘⣽⡿⠿⠿⣿⣿⣿⣿⣿⣦⣤⡀
+⠀⣟⠀⠀⠀⣸⣿⡏⠀⠀⠀⢹⠗  𝗡𝗢𝗧𝗛𝟭𝗡𝗚𝗡𝗘𝗦𝗦
+⠀⣿⣷⣶⣾⡿⠁⠙⣄⣀⣀⣠⡀
+⠀⠙⠙⢿⡿⣷⣶⣤⣿⣿⡿⠿⠃
+⠀⠀⠀⠺⡏⡏⡏⡏⡏⠉⠁⠀⠀
+⠀⠀⠀⠀⠀⠀⠁⠁⠀⠀⠀⠀⠀
+```
+
 # nothing
 
 Personal Pi setup for local-first agentic development. It wires my Pi hats, local workflow skills, published Pi extensions, optional third-party compression, and vendored Android skills into one reproducible repo.
