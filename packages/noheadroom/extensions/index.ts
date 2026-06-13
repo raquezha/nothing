@@ -1,6 +1,11 @@
 import type { ContextEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Box, Text } from "@earendil-works/pi-tui";
-import { applyCompressionResult, buildCompressionPayload } from "./bridge.js";
+import {
+	applyCompressionResult,
+	buildCompressionPayload,
+	convertMessage,
+	extractOpenAIText,
+} from "./bridge.js";
 import { HeadroomHttpClient } from "./client.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
@@ -20,6 +25,7 @@ interface HeadroomRuntimeState {
 	offlineWarningShown: boolean;
 	processing: boolean;
 	lastCompressedHash: string | null;
+	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
 
@@ -97,6 +103,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		offlineWarningShown: false,
 		processing: false,
 		lastCompressedHash: null,
+		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
 
@@ -227,9 +234,18 @@ async function handleContextCompression(
 ): Promise<{ messages?: AgentMessage[] } | undefined> {
 	if (runtime.state.processing) return undefined;
 
-	// Content-based guard: only compress once per unique set of messages to prevent loops
-	const currentHash = JSON.stringify(event.messages).length.toString() + event.messages.length.toString();
-	if (runtime.state.lastCompressedHash === currentHash) {
+	// Throttle: max 1 compression attempt per 3 seconds to kill infinite loops
+	const now = Date.now();
+	if (now - runtime.state.lastCompressionTime < 3000) {
+		return undefined;
+	}
+
+	// Content-based guard: only compress once per unique set of messages to prevent loops.
+	// We use a stronger fingerprint than just length.
+	const currentFingerprint = event.messages
+		.map((m) => `${m.role}:${extractOpenAIText(convertMessage(m) || { role: "user", content: "" }).length}`)
+		.join(",");
+	if (runtime.state.lastCompressedHash === currentFingerprint) {
 		return undefined;
 	}
 
@@ -242,6 +258,7 @@ async function handleContextCompression(
 	}
 
 	runtime.state.processing = true;
+	runtime.state.lastCompressionTime = now;
 	runtime.state.stats.attempts++;
 	try {
 		const result = await runtime.client.compress(payload.messages, ctx.model?.id, ctx.signal);
@@ -261,7 +278,7 @@ async function handleContextCompression(
 			return undefined;
 		}
 
-		runtime.state.lastCompressedHash = currentHash;
+		runtime.state.lastCompressedHash = currentFingerprint;
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
 		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages);
 		runtime.refreshStatus(ctx);

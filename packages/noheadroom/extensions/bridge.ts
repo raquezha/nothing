@@ -87,7 +87,7 @@ export function applyCompressionResult(
 	return { ok: true, messages: nextMessages, appliedMessages };
 }
 
-function convertMessage(message: AnyMessage): OpenAIMessage | undefined {
+export function convertMessage(message: AnyMessage): OpenAIMessage | undefined {
 	if (!message.role || !STANDARD_COMPRESSIBLE_ROLES.has(message.role)) return undefined;
 	switch (message.role) {
 		case "user":
@@ -179,7 +179,7 @@ function validateAlignedMessage(
 	return { ok: true };
 }
 
-function extractOpenAIText(message: OpenAIMessage): string {
+export function extractOpenAIText(message: OpenAIMessage): string {
 	if (message.role === "assistant") return typeof message.content === "string" ? message.content : "";
 	if (message.role === "tool" || message.role === "system") return message.content;
 	if (typeof message.content === "string") return message.content;
