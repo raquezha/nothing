@@ -24,7 +24,8 @@ interface HeadroomRuntimeState {
 	remoteWarningShown: boolean;
 	offlineWarningShown: boolean;
 	processing: boolean;
-	lastCompressedHash: string | null;
+	lastInputFingerprint: string | null;
+	lastOutputFingerprint: string | null;
 	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
@@ -102,7 +103,8 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		remoteWarningShown: false,
 		offlineWarningShown: false,
 		processing: false,
-		lastCompressedHash: null,
+		lastInputFingerprint: null,
+		lastOutputFingerprint: null,
 		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
@@ -240,12 +242,16 @@ async function handleContextCompression(
 		return undefined;
 	}
 
-	// Content-based guard: only compress once per unique set of messages to prevent loops.
-	// We use a stronger fingerprint than just length.
-	const currentFingerprint = event.messages
-		.map((m) => `${m.role}:${extractOpenAIText(convertMessage(m) || { role: "user", content: "" }).length}`)
-		.join(",");
-	if (runtime.state.lastCompressedHash === currentFingerprint) {
+	// Content-based guards to prevent infinite recursion
+	const inputFingerprint = generateFingerprint(event.messages);
+
+	// 1. If this input matches our previous output, we already compressed it. Stop.
+	if (runtime.state.lastOutputFingerprint === inputFingerprint) {
+		return undefined;
+	}
+
+	// 2. If this input matches our previous input, it didn't change. Stop.
+	if (runtime.state.lastInputFingerprint === inputFingerprint) {
 		return undefined;
 	}
 
@@ -264,6 +270,8 @@ async function handleContextCompression(
 		const result = await runtime.client.compress(payload.messages, ctx.model?.id, ctx.signal);
 		runtime.state.proxyOnline = true;
 		if (!result.compressed || result.tokensSaved <= 0) {
+			// Even if no tokens saved, record the input so we don't keep trying
+			runtime.state.lastInputFingerprint = inputFingerprint;
 			runtime.refreshStatus(ctx);
 			return undefined;
 		}
@@ -278,7 +286,10 @@ async function handleContextCompression(
 			return undefined;
 		}
 
-		runtime.state.lastCompressedHash = currentFingerprint;
+		// Store fingerprints to break the feedback loop
+		runtime.state.lastInputFingerprint = inputFingerprint;
+		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
+
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
 		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages);
 		runtime.refreshStatus(ctx);
@@ -289,6 +300,16 @@ async function handleContextCompression(
 	} finally {
 		runtime.state.processing = false;
 	}
+}
+
+function generateFingerprint(messages: AgentMessage[]): string {
+	return messages
+		.map((m) => {
+			const converted = convertMessage(m);
+			const len = converted ? extractOpenAIText(converted).length : 0;
+			return `${m.role}:${len}`;
+		})
+		.join(",");
 }
 
 function shouldSkipBeforePayload(runtime: HeadroomRuntime, ctx: ExtensionContext): boolean {
