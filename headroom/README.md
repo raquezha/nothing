@@ -1,6 +1,6 @@
 # Headroom Backend 🗜
 
-> **Local context compression engine.** This directory contains the Docker and service configuration for the Headroom proxy used by the `nothing` setup.
+> **Local context compression engine.** This directory contains the Docker and service configuration for the Headroom proxy used by the `nothing` setup. Powered by the original [Headroom](https://github.com/headroom-ai/headroom) project.
 
 ## 🏗 Role
 
