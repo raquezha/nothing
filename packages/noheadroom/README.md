@@ -1,90 +1,69 @@
-# @raquezha/noheadroom
+# noheadroom 🗜
 
-Personal Pi extension for using a local Headroom Docker backend from `nothing`.
+> **Reclaim your Pi context window.** A local-first context compression bridge for the Pi Coding Agent, powered by [Headroom](https://github.com/headroom-ai/headroom).
 
-## Status
+`noheadroom` sits between Pi and your LLM, shrinking massive tool results and logs before they reach the model. Save tokens, keep more history, and prevent context-overflow in long sessions.
 
-Experimental but working.
+## 🚀 Why noheadroom?
 
-```text
-pi --headroom -p --tools read "Read big JSONL..."
--> 🗜 noheadroom: compressed 9,863 → 4,320 tokens (-56%, saved 5,543, messages 1)
-```
+Upstream Headroom protects common agent tool names like `read` and `bash` by default. In a standard Pi workflow, this means large file reads often bypass compression entirely.
 
-## Why this exists
+`noheadroom` adapts the compression payload to bypass these exclusions while **fully preserving your Pi session metadata**.
 
-The upstream Ryan extension (`@ryan_nookpi/pi-extension-headroom`) successfully connects Pi to Headroom, but my tests showed Pi built-in tool names such as `read` and `bash` can route as `excluded_tool` in Headroom and save 0 tokens.
+| Setup | Tool Name | Headroom Action | Savings |
+|---|---|---|---|
+| Vanilla | `read` | `excluded_tool` | 0% |
+| **noheadroom** | `read` | `smart_crusher` | **60-90%** |
 
-A direct A/B test proved that the Headroom proxy protects/skips these common agent tool names:
+## ✨ Features
 
-```text
-tool=read      -> saved=0, excluded_tool
-tool=bash      -> saved=0, excluded_tool
-tool=read_data -> saved=70,988, smart_crusher
-```
+- **Adaptive Payload Sanitization**: renames tool calls during compression to ensure Headroom actually shrinks them.
+- **Pi-Native Metadata Preservation**: original tool IDs and names are never modified in your real session.
+- **Deep Visibility**: compression results appear in your terminal, the Pi footer, and as persistent entries in your session history.
+- **Docker-First Architecture**: designed to work seamlessly with a local containerized backend.
+- **Local-First Privacy**: by default, context never leaves your machine.
 
-`@raquezha/noheadroom` adapts the compression payload to bypass these exclusions while preserving original Pi metadata locally.
+## 📦 Installation
 
-## How it works
+### Within the `nothing` Monorepo
 
-1. **Copy**: copies Pi messages into an OpenAI-shaped compression payload.
-2. **Sanitize**: renames assistant tool calls to a neutral name (`pi_tool_result`) in the copy.
-3. **Compress**: sends the sanitized payload to Headroom `/v1/compress`.
-4. **Restore**: applies only the compressed text back to the original Pi `toolResult` messages.
-
-**Result**: Pi's original tool IDs, names, details, and images stay preserved in your session history, but you get the token savings of Headroom compression.
-
-## Install
-
-### Inside `nothing` repo (Personal)
-
-Loaded automatically via shell modifiers:
+`noheadroom` is built-in. Start Pi with compression enabled:
 
 ```bash
 pi --headroom
+# OR full tokenmaxxing:
 pi --tkmx
 ```
 
-### Outside repo (NPM)
+### Standalone (NPM)
 
 ```bash
 pi install npm:@raquezha/noheadroom
 ```
 
-## Backend
+## 🛠 Usage
 
-Expected local backend on port `8788`. Use `nothing` repo scripts to manage the Docker service:
+### Backend Setup
+
+`noheadroom` requires a Headroom proxy running on `127.0.0.1:8788`. Use the provided scripts in the `nothing` repo:
 
 ```bash
-./scripts/headroom-up.sh      # Start Docker backend
-./scripts/headroom-health.sh  # Check status/stats
-./scripts/headroom-down.sh    # Stop backend
+./scripts/headroom-up.sh      # Launch Docker backend
+./scripts/headroom-health.sh  # Verify connection
 ```
 
-## Commands
+### Commands
 
-- `/headroom` — show current status and session stats.
-- `/headroom on` — enable compression.
-- `/headroom off` — disable compression for this session.
-- `/headroom health` — check if the backend proxy is online.
-- `/headroom stats` — print the backend's `/stats` JSON.
-- `/headroom-health` — shortcut for health check.
+Inside Pi, use the `/headroom` command:
 
-## Visible Indicators
+- `/headroom` — Session statistics and status summary.
+- `/headroom on` | `off` — Toggle compression live.
+- `/headroom health` — Check if the backend is alive.
+- `/headroom stats` — Inspect raw backend metrics.
 
-When compression is applied, `noheadroom` provides feedback in three places:
+## 🔧 Configuration
 
-1. **Terminal/Print-mode**: explicit `🗜 noheadroom: compressed ...` stderr line.
-2. **Pi UI**: notification and status footer showing token reduction percentage.
-3. **Session History**: persistent `custom_message` with `customType=noheadroom.compression`.
-
-## Privacy
-
-Compression is performed by sending context to a proxy. By default, `noheadroom` only allows `localhost`, `127.0.0.1`, and `::1`. Remote proxies are blocked unless `PI_HEADROOM_ALLOW_REMOTE=1` is set.
-
-## Settings
-
-Managed in `~/.pi/agent/headroom/settings.json`.
+Settings are stored in `~/.pi/agent/headroom/settings.json`:
 
 ```json
 {
@@ -92,22 +71,21 @@ Managed in `~/.pi/agent/headroom/settings.json`.
   "baseUrl": "http://127.0.0.1:8788",
   "autoStart": false,
   "minContextTokens": 10000,
-  "minMessageChars": 2000,
-  "timeoutMs": 30000
+  "minMessageChars": 2000
 }
 ```
 
-- `autoStart`: should be `false` if using the Docker setup.
-- `minContextTokens`: skip compression until context reaches this size.
-- `minMessageChars`: only compress tool results larger than this.
+- **`autoStart`**: Set to `false` when using the Docker backend.
+- **`minContextTokens`**: Compression kicks in once the context reaches this size.
 
-## Development
+## 🛡 Privacy & Security
 
-```bash
-npm install
-npm run build --workspace @raquezha/noheadroom
-```
+Context is sent only to `localhost` (`127.0.0.1`) by default. Remote proxies are strictly blocked unless `PI_HEADROOM_ALLOW_REMOTE=1` is explicitly set in your environment.
 
-## Attribution
+## 🤝 Attribution
 
-Derived from `@ryan_nookpi/pi-extension-headroom` by [Jonghakseo/pi-extension](https://github.com/Jonghakseo/pi-extension), MIT licensed. Upstream README snapshot in `UPSTREAM-README.md`.
+This project is a fork of [@ryan_nookpi/pi-extension-headroom](https://github.com/Jonghakseo/pi-extension/tree/main/packages/headroom) by [Ryan/Jonghakseo](https://github.com/Jonghakseo), modified to support Pi-specific tool-result adaptation. Licensed under MIT.
+
+---
+
+**[nothing](https://github.com/raquezha/nothing)** — Local-first agentic development setup.
