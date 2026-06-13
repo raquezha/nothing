@@ -19,6 +19,7 @@ interface HeadroomRuntimeState {
 	remoteWarningShown: boolean;
 	offlineWarningShown: boolean;
 	processing: boolean;
+	lastCompressedHash: string | null;
 	stats: HeadroomStats;
 }
 
@@ -95,6 +96,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		remoteWarningShown: false,
 		offlineWarningShown: false,
 		processing: false,
+		lastCompressedHash: null,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
 
@@ -224,6 +226,13 @@ async function handleContextCompression(
 	ctx: ExtensionContext,
 ): Promise<{ messages?: AgentMessage[] } | undefined> {
 	if (runtime.state.processing) return undefined;
+
+	// Content-based guard: only compress once per unique set of messages to prevent loops
+	const currentHash = JSON.stringify(event.messages).length.toString() + event.messages.length.toString();
+	if (runtime.state.lastCompressedHash === currentHash) {
+		return undefined;
+	}
+
 	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return undefined;
@@ -252,6 +261,7 @@ async function handleContextCompression(
 			return undefined;
 		}
 
+		runtime.state.lastCompressedHash = currentHash;
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
 		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages);
 		runtime.refreshStatus(ctx);
