@@ -229,6 +229,15 @@ EOF
     export NOTHING_RTK="1"
   }
 
+  if [[ $# -gt 0 ]]; then
+    case "$1" in
+      install|remove|uninstall|update|list|config)
+        command pi "$@"
+        return
+        ;;
+    esac
+  fi
+
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes|--antigravity)
