@@ -28,8 +28,11 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		if (!converted) continue;
 
 		const originalText = extractOpenAIText(converted);
-		const applyTo = source.role === "toolResult" && originalText.length >= minMessageChars ? "toolResult" : null;
-		if (applyTo) candidateCount++;
+		// Allow any toolResult to be a candidate for compression if Headroom decides to shrink it.
+		// The minMessageChars threshold is primarily to avoid overhead for tiny messages,
+		// but we shouldn't block Headroom if it finds savings in slightly smaller ones.
+		const applyTo = source.role === "toolResult" ? "toolResult" : null;
+		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
 		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
 	}
 
