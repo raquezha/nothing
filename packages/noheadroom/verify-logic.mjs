@@ -210,6 +210,35 @@ async function testEdgeCases() {
   assert(Array.isArray(resMixed.messages[1].content), "Should preserve content block array structure");
   assert(resMixed.messages[1].content.some(c => c.type === 'image'), "Should NOT lose the image block");
 
+  // Case 4: No compressible messages (System only)
+  console.log(" - Case 4: System only (no candidates)...");
+  const msgSystem = [{ role: "system", content: "You are an AI" }];
+  runtime.state.lastCompressionTime = 0;
+  const resSystem = await handleContextCompression(runtime, { messages: msgSystem }, createMockCtx(msgSystem));
+  assert(resSystem === undefined, "Should bail out if no messages are compressible");
+
+  // Case 5: Tool ID mismatch (Headroom renames a tool ID)
+  console.log(" - Case 5: Tool ID mismatch (Guard should catch it)...");
+  const msgMismatch = [
+    { role: "assistant", content: null, tool_calls: [{ id: "correct_id", type: "function", function: { name: "t", arguments: "{}" } }] },
+    { role: "toolResult", toolCallId: "correct_id", toolName: "t", content: "A".repeat(5000) }
+  ];
+  const maliciousClient = {
+    async compress(messages) {
+      return { 
+        compressed: true, 
+        messages: messages.map(m => m.role === 'tool' ? { ...m, tool_call_id: 'HACKED_ID' } : m),
+        tokensBefore: 1000, tokensAfter: 500, tokensSaved: 500, compressionRatio: 0.5, transformsApplied: [], ccrHashes: []
+      };
+    }
+  };
+  const runtimeMalicious = { 
+    ...runtime, client: maliciousClient,
+    state: { ...runtime.state, lastCompressionTime: 0 }
+  };
+  const resMismatch = await handleContextCompression(runtimeMalicious, { messages: msgMismatch }, createMockCtx(msgMismatch));
+  assert(resMismatch === undefined, "Guard should BLOCK Headroom if it modifies tool_call_id");
+
   console.log("✓ Edge cases passed\n");
 }
 
