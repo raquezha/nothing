@@ -200,8 +200,8 @@ function sleep(ms: number): Promise<void> {
 
 function registerCompressionRenderer(pi: ExtensionAPI): void {
 	pi.registerMessageRenderer(COMPRESSION_ENTRY_TYPE, (message, { expanded }, theme) => {
-		const details = message.details as CompressionEntryDetails | undefined;
-		const content = typeof message.content === "string" ? message.content : "noheadroom compression applied";
+		const details = message.details as (CompressionEntryDetails & { summary?: string }) | undefined;
+		const content = details?.summary ?? (typeof message.content === "string" ? message.content : "noheadroom compression applied");
 		const box = new Box(1, 1, (text) => theme.bg("customMessageBg", text));
 		let text = `${theme.fg("success", "🗜 noheadroom")} ${content}`;
 		if (expanded && details) {
@@ -295,20 +295,16 @@ function announceAppliedCompression(
 	const summary = `compressed ${result.tokensBefore.toLocaleString()} → ${result.tokensAfter.toLocaleString()} tokens (-${pct}%, saved ${result.tokensSaved.toLocaleString()}, messages ${appliedMessages})`;
 	const line = `noheadroom: ${summary}`;
 	ctx.ui.notify(line, "info");
-	pi.sendMessage({
-		customType: COMPRESSION_ENTRY_TYPE,
-		content: summary,
-		display: true,
-		details: {
-			tokensBefore: result.tokensBefore,
-			tokensAfter: result.tokensAfter,
-			tokensSaved: result.tokensSaved,
-			compressionRatio: result.compressionRatio,
-			appliedMessages,
-			transformsApplied: result.transformsApplied,
-			timestamp: Date.now(),
-		} satisfies CompressionEntryDetails,
-	});
+	pi.appendEntry(COMPRESSION_ENTRY_TYPE, {
+		tokensBefore: result.tokensBefore,
+		tokensAfter: result.tokensAfter,
+		tokensSaved: result.tokensSaved,
+		compressionRatio: result.compressionRatio,
+		appliedMessages,
+		transformsApplied: result.transformsApplied,
+		timestamp: Date.now(),
+		summary,
+	} satisfies CompressionEntryDetails & { summary: string });
 	// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
 	process.stderr.write(`🗜 ${line}\n`);
 }
