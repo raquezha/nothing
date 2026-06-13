@@ -18,6 +18,7 @@ interface HeadroomRuntimeState {
 	proxyStartAttempted: boolean;
 	remoteWarningShown: boolean;
 	offlineWarningShown: boolean;
+	processing: boolean;
 	stats: HeadroomStats;
 }
 
@@ -93,6 +94,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		proxyStartAttempted: false,
 		remoteWarningShown: false,
 		offlineWarningShown: false,
+		processing: false,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
 
@@ -221,6 +223,7 @@ async function handleContextCompression(
 	event: ContextEvent,
 	ctx: ExtensionContext,
 ): Promise<{ messages?: AgentMessage[] } | undefined> {
+	if (runtime.state.processing) return undefined;
 	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return undefined;
@@ -229,6 +232,7 @@ async function handleContextCompression(
 		return undefined;
 	}
 
+	runtime.state.processing = true;
 	runtime.state.stats.attempts++;
 	try {
 		const result = await runtime.client.compress(payload.messages, ctx.model?.id, ctx.signal);
@@ -255,6 +259,8 @@ async function handleContextCompression(
 	} catch (error) {
 		recordCompressionError(runtime, ctx, error);
 		return undefined;
+	} finally {
+		runtime.state.processing = false;
 	}
 }
 
