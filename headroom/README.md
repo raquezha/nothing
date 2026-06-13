@@ -1,47 +1,52 @@
-# Headroom backend
+# Headroom Backend 🗜
 
-Local Headroom proxy for the personal `nothing` Pi setup.
+> **Local context compression engine.** This directory contains the Docker and service configuration for the Headroom proxy used by the `nothing` setup.
 
-## Role
+## 🏗 Role
 
-This directory configures the Headroom backend runtime. It is not the Pi extension package.
+This directory manages the **backend service** (the compressor). It is separate from the **Pi extension** (`packages/noheadroom`), which handles the communication between Pi and this service.
 
-| Path | Role |
+| Component | Responsibility |
 |---|---|
-| `headroom/` | run/configure Headroom backend |
-| `packages/noheadroom/` | later Pi extension package |
+| `headroom/` | Manages the Docker container and proxy runtime. |
+| `packages/noheadroom/` | Adapts Pi context and sends it to the proxy. |
 
-## Phase 1 shape
+## 🚀 Quick Start
 
-```text
-Pi + @ryan_nookpi/pi-extension-headroom
-  -> http://127.0.0.1:8788/v1/compress
-  -> nothing-headroom Docker container
-```
-
-Normal Pi model routing stays unchanged during this phase.
-
-## Commands
+### 1. Launch the Backend
 
 ```bash
 ./scripts/headroom-up.sh
-./scripts/headroom-health.sh
-./scripts/headroom-down.sh
 ```
 
-## Pi extension settings
+This starts the `nothing-headroom` container on `127.0.0.1:8788`.
 
-Install to `~/.pi/agent/headroom/settings.json`:
+### 2. Verify Health
+
+```bash
+./scripts/headroom-health.sh
+```
+
+## 🛠 Service Details
+
+- **Image**: `ghcr.io/chopratejas/headroom:latest`
+- **Port**: `8788` (Internal `8787`)
+- **Data Persistence**: Stats are stored in `${HOME}/.local/share/headroom`.
+- **Mode**: `token` (optimized for maximum reduction).
+
+## 🔧 Configuration
+
+The proxy is configured via `headroom/compose.yml`. Environmental defaults are set to disable telemetry and point to a local data volume.
+
+Pi extension settings should point to this backend:
 
 ```json
 {
-  "enabled": true,
   "baseUrl": "http://127.0.0.1:8788",
-  "autoStart": false,
-  "minContextTokens": 10000,
-  "minMessageChars": 2000,
-  "timeoutMs": 30000
+  "autoStart": false
 }
 ```
 
-`autoStart=false` because Docker owns the backend.
+---
+
+**[nothing](https://github.com/raquezha/nothing)** — Local-first agentic development setup.

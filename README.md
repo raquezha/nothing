@@ -12,6 +12,7 @@ Core rule: **owned skills stay local**. Public handoff uses `npx skills add` or 
 |---|---|---|
 | Shell hats | `dotfiles/shell_integration.sh` | `pi --rpiv`, `--android`, `--dev`, `--pm`, `--notes`, etc. |
 | Mindsets | `mindsets.json` | Declarative local skill/extension sets. |
+| Headroom | `headroom/` | Local Docker backend for context compression. |
 | RPIV skills | `packages/norpiv/` | Triage → frame → grill → plan → implement → verify → sync. |
 | Meta skills | `packages/nometa/` | Skill creation, repo bootstrap, nothing maintenance. |
 | Search skills/ext | `packages/nosearch/` | Brave/Firecrawl subagent + bundled skills. |
