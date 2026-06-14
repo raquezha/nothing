@@ -133,17 +133,19 @@ Key fields in the public key creation options include:
   - `id`: The user's unique ID. This value must not include personally identifying information, for example, email addresses or usernames. You can use a random, 16-byte value.
   - `name`: A unique identifier for the account that the user will recognise, such as their email address or username. This will be displayed in the account selector. If using a username, use the same value as in password authentication.
   - `displayName`: An optional, user-friendly name for the account intended for display in the account selector.
-- `authenticatorSelection`: Details about the device that will be used for
-  authentication.
-
-  - `authenticatorAttachment`: Indicates the preferred [authenticator](https://www.w3.org/TR/webauthn/#authenticator). The possible values are as follows: - `platform`: This value is used for an authenticator built into the user's device, such as a fingerprint sensor. - `cross-platform`: This value is used for roaming devices such as security keys. It is not typically used in the passkey context. - Unspecified (recommended): Leaving this value unspecified provides users with the flexibility to create passkeys on their preferred devices. In most cases, leaving the parameter unspecified is the best option.
-    - `requireResidentKey`: To create a passkey, set the value of this `Boolean` field to `true`.
-    - `residentKey`: To create a passkey, set the value to `required`.
-    - `userVerification`: Used to specify the requirements for user verification during a passkey registration. The possible values are as follows: - `preferred`: Use this value if you prioritize user experience over protection, such as in environments where user verification causes more friction than protection. - `required`: Use this value if invoking a user verification method available on the device is required. - `discouraged`: Use this value if using a user verification method is discouraged.   
+- `authenticatorSelection`: Details about the device that will be used for authentication.
+  - `authenticatorAttachment`: Indicates the preferred [authenticator](https://www.w3.org/TR/webauthn/#authenticator). The possible values are as follows:
+    - `platform`: This value is used for an authenticator built into the user's device, such as a fingerprint sensor.
+    - `cross-platform`: This value is used for roaming devices such as security keys. It is not typically used in the passkey context.
+    - Unspecified (recommended): Leaving this value unspecified provides users with the flexibility to create passkeys on their preferred devices. In most cases, leaving the parameter unspecified is the best option.
+  - `requireResidentKey`: To create a passkey, set the value of this `Boolean` field to `true`.
+  - `residentKey`: To create a passkey, set the value to `required`.
+  - `userVerification`: Used to specify the requirements for user verification during a passkey registration. The possible values are as follows:
+    - `preferred`: Use this value if you prioritize user experience over protection, such as in environments where user verification causes more friction than protection.
+    - `required`: Use this value if invoking a user verification method available on the device is required.
+    - `discouraged`: Use this value if using a user verification method is discouraged.   
       To learn more about `userVerification`, see [userVerification deep dive](https://web.dev/articles/webauthn-user-verification).
-- `excludeCredentials`: List credential IDs in an [array](https://w3c.github.io/webauthn/#dom-publickeycredentialcreationoptions-excludecredentials) to
-  prevent the creation of a duplicate passkey if one already exists with the
-  same credential provider.
+- `excludeCredentials`: List credential IDs in an [array](https://w3c.github.io/webauthn/#dom-publickeycredentialcreationoptions-excludecredentials) to prevent the creation of a duplicate passkey if one already exists with the same credential provider.
 
 ## Create a passkey
 
@@ -171,12 +173,12 @@ automatically created.
 ### Automatically create a passkey
 
 You can automatically create a passkey for a user after a successful password
-login by setting the `isConditional` parameter to
-`true` in your `CreatePublicKeyCredentialRequest` while creating a passkey. If
-the user doesn't already have a passkey, your app will automatically attempt to
-create one in the background and store it in the user's credential provider,
-such as Google Password Manager. For an example of how this is implemented, see
-the [public sample](https://github.com/android/identity-samples/blob/main/Shrine/app/src/main/java/com/authentication/shrine/ui/AuthenticationScreen.kt#L98).
+login by setting the `isConditional` parameter to `true` in your
+`CreatePublicKeyCredentialRequest` while creating a passkey. If the user doesn't
+already have a passkey, your app will automatically attempt to create one in the
+background and store it in the user's credential provider, such as Google
+Password Manager. For an example of how this is implemented, see the [public
+sample](https://github.com/android/identity-samples/blob/main/Shrine/app/src/main/java/com/authentication/shrine/ui/AuthenticationScreen.kt#L98).
 ![An example of the notification Google Password Manager shows after passkey creation](https://developer.android.com/static/identity/passkeys/images/conditional-create-gpm.svg) **Figure 2:**Google Password Manager notification
 
 > [!NOTE]
