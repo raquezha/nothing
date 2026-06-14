@@ -8,7 +8,7 @@ description: Provides a complete workflow for implementing verified email retrie
 license: Complete terms in LICENSE.txt
 metadata:
   author: Google LLC
-  last-updated: '2026-05-22'
+  last-updated: '2026-06-09'
   keywords:
   - implementation
   - Android
@@ -96,7 +96,7 @@ Find the business logic handling user attributes and account creation, account
 recovery:
 
 - **Keywords** : `SignUpViewModel`, `AuthViewModel`, `RegistrationRepository`.
-- **Code Pattern** : Look for methods like `onCrea teAccount`, `onRecoverAccount`, or `validateEmail`.
+- **Code Pattern** : Look for methods like `onCreateAccount`, `onRecoverAccount`, or `validateEmail`.
 
 ### 3. Find instances of reauthentication for sensitive actions
 

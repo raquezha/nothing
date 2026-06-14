@@ -7,7 +7,7 @@ mobile, and tablet.
 ## Prerequisites
 
 > [!IMPORTANT]
-> **Important:** [Express interest in integrating with the Video Discovery API](http://g.co/tv/vda).
+> **Important:** [Express interest in developing with Engage](http://g.co/tv/vda).
 
 Onboarding the media actions feed is required before you can use the device
 entitlement API. If you haven't already done so, complete the [media actions
@@ -248,16 +248,16 @@ maintained.
    > [!NOTE]
    > **Note:** As Google TV automatically deletes historical data beyond 60 days to safeguard user privacy, publishing user subscription data at least once per month verify the validity of data. Unlike `publishContinuationCluster` for continue watching data, don't set `syncAcrossDevices` flag, as subscription information is by default used to provide content across all devices.
 
-3. To delete the Video discovery data, manually delete a user's data from the
+3. To delete the Engage data, manually delete a user's data from the
    Google TV server before the standard 60-day retention period, use the
-   `client.deleteClusters` method. This deletes all existing video discovery
+   `client.deleteClusters` method. This deletes all existing Engage
    data for the account profile, or for the entire account depending on the
    given [`DeleteReason`](https://developer.android.com/reference/com/google/android/engage/service/DeleteReason).
 
    The following code snippet shows how to remove a user subscription:
 
        // If the user logs out from your media app, you must make the following call
-       // to remove subscription and other video discovery data from the current
+       // to remove subscription and other Engage data from the current
        // google TV device.
        client.deleteClusters(
          new DeleteClustersRequest.Builder()
@@ -270,7 +270,7 @@ maintained.
    when user revokes the consent:
 
        // If the user revokes the consent to share across device, make the call
-       // to remove subscription and other video discovery data from all google
+       // to remove subscription and other Engage data from all google
        // TV devices.
        client.deleteClusters(
          new DeleteClustersRequest.Builder()
@@ -283,7 +283,7 @@ maintained.
    deletion.
 
        // If the user delete a specific profile, you must make the following call
-       // to remove subscription data and other video discovery data.
+       // to remove subscription data and other Engage data.
        client.deleteClusters(
          new DeleteClustersRequest.Builder()
          .setAccountProfile(accountProfile)

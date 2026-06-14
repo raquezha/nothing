@@ -8,7 +8,7 @@ description: Expert guidance for working with Wear OS Compose Material3. Use thi
 license: Complete terms in LICENSE.txt
 metadata:
   author: Google LLC
-  last-updated: '2026-05-23'
+  last-updated: '2026-06-06'
   keywords:
   - Wear OS
   - Compose
@@ -106,7 +106,7 @@ before proceeding.
 #### Step 4: Read samples and implement
 
 1. Read the relevant `.kt` sample files.
-2. Use these official, version-matched samples as the for:
+2. Use these official, version-matched samples as the source of truth for:
    - Required parameters and slot names.
    - Default styling and typography tokens.
    - Interactive behaviors (for example: `onClick`, `onLongClick`).
