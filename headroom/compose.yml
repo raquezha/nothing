@@ -4,7 +4,7 @@ services:
     container_name: nothing-headroom
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8788:8787"
+      - "${HOST_BIND:-127.0.0.1}:8788:8787"
     environment:
       HEADROOM_HOST: "0.0.0.0"
       HEADROOM_PORT: "8787"
