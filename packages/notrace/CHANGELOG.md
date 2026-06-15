@@ -1,5 +1,12 @@
 # @raquezha/notrace
 
+## 0.0.5
+
+### Patch Changes
+
+- 6eac69d: Relocate core configuration files (`mindsets.json`, `settings.json`, `AGENTS.md`) to a dedicated `config/` directory for better maintainability and a cleaner repository root. Updated `bootstrap.sh` and shell integration to support the new layout.
+- c19a93a: Add a machine-readable `notrace.json` run record alongside the existing HTML report to normalize captured session/task metadata, activity metrics, and evidence for future retrospective and comparison workflows.
+
 ## 0.0.4
 
 ### Patch Changes

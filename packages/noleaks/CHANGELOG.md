@@ -1,5 +1,12 @@
 # @raquezha/noleaks
 
+## 0.0.5
+
+### Patch Changes
+
+- 6eac69d: Relocate core configuration files (`mindsets.json`, `settings.json`, `AGENTS.md`) to a dedicated `config/` directory for better maintainability and a cleaner repository root. Updated `bootstrap.sh` and shell integration to support the new layout.
+- db48ab4: Allow normal shell whitespace in bash obfuscation checks while keeping Unicode normalization variance and hidden control-character detection blocked with clearer reasons.
+
 ## Unreleased
 
 ### Patch Changes

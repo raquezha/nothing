@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/notrace",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Zero-dependency, local-first interactive HTML Trace Viewer for the Pi Coding Agent",
   "main": "dist/notrace.js",
   "types": "dist/notrace.d.ts",
