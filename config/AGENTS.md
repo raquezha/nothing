@@ -1,21 +1,26 @@
-# AGENTS.md
+# AGENTS.md (MANDATORY PROTOCOL)
 
-## Tool invocation hygiene
+## Tool invocation hygiene (CRITICAL)
 
-- Prefer single-line ASCII-only bash.
-- Avoid heredocs, smart quotes, non-breaking spaces, and control chars in tool input.
-- Avoid multiline strings in python -c (use semicolons or a temp script).
-- Prefer python -c or a temp script file for structured logic.
-- Use simple probes first: curl, grep, head, awk, jq.
+The environment has aggressive security guardrails. To avoid being **BLOCKED**:
 
-Safe templates:
+- **BASH**:
+  - **NO** context flags in grep (`-A`, `-B`, `-C`). Use `read` with `limit` and `offset` instead.
+  - **NO** complex pipes (`a | b | c | d`). Keep it to `cmd | head` or `cmd | jq`.
+  - **NO** heredocs (`<<EOF`). Use `write` or temporary files.
+  - **NO** non-ASCII characters or control characters in strings.
+  - **PREFER**: `read` tool for examining files. It is faster and safer.
+- **PYTHON/NODE**: Use these for any logic, parsing, or data transformation. Use `python -c "..."` for simple one-liners or write a script for complex tasks.
+- **JQ**: Use `jq` for ALL JSON parsing. Do not try to `grep` JSON.
 
-```bash
-curl -fsS http://127.0.0.1:19998/api/v1/info | head -c 500
-curl -fsS 'http://127.0.0.1:19998/api/v1/data?chart=NAME&after=-3d&before=0&format=json' | head -c 800
-grep -n -i 'temp\|thermal\|temperature' file | head -n 50
-python -c "import json; print(json.load(open('file.json'))['key'])"
-```
+## TOKENMAXXING
+- **BATCH**: Use one `edit` call for multiple changes in a file.
+- **SCOPE**: Never `ls -R` `node_modules`. Use `find . -maxdepth 2`.
+- **PRECISE**: Use `read` with `limit` and `offset` to probe large files.
+
+## Monitoring (Netdata)
+
+{{NETDATA_INSTRUCTIONS}}
 
 ## Environment setup
 

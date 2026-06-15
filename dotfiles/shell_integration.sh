@@ -188,6 +188,7 @@ EOF
   }
 
   add_caveman_skills() {
+    local intensity="${1:-full}"
     local repo_dir
     repo_dir="$(ensure_caveman_cache)" || return 0
     for skill_name in caveman caveman-stats; do
@@ -198,6 +199,7 @@ EOF
       fi
     done
     export PI_CAVEMAN="1"
+    export PI_CAVEMAN_INTENSITY="$intensity"
   }
 
   ensure_rtk_cache() {
@@ -280,6 +282,7 @@ EOF
         BASE_MINDSET="antigravity"
         COMBO_PRESET="tkmx"
         MOD_CAVEMAN=true
+        MOD_CAVEMAN_INTENSITY="ultra"
         MOD_RTK=true
         MOD_HEADROOM=true
         shift
@@ -327,7 +330,7 @@ EOF
     fi
   else
     if [[ "$MOD_CAVEMAN" == true ]]; then
-      add_caveman_skills
+      add_caveman_skills "${MOD_CAVEMAN_INTENSITY:-full}"
     fi
 
     if [[ "$MOD_RTK" == true ]]; then
@@ -360,6 +363,8 @@ EOF
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
     NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-prompt-templates" "--no-themes" "--no-context-files")
+  elif [[ "$MOD_CAVEMAN" == true ]]; then
+    NOTHING_FLAGS+=("--system-prompt" "Caveman mode: ON. Intensity: ${MOD_CAVEMAN_INTENSITY:-full}. Speak like smart caveman immediately.")
   fi
 
   command pi "${NOTHING_FLAGS[@]}" "${EXTRA_SKILLS[@]}" "${EXTRA_EXTENSIONS[@]}" "${ARGS[@]}"

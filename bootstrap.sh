@@ -278,9 +278,9 @@ install_global_agents_md() {
   local backup
   if [[ "$DRY_RUN" == true ]]; then
     if [[ -e "$dest" ]]; then
-      printf '[dry-run] back up existing %s if needed and install global AGENTS guardrails\n' "$dest"
+      printf '[dry-run] back up existing %s if needed and install global AGENTS guardrails (with local discovery)\n' "$dest"
     else
-      printf '[dry-run] install global AGENTS guardrails at %s\n' "$dest"
+      printf '[dry-run] install global AGENTS guardrails at %s (with local discovery)\n' "$dest"
     fi
     return
   fi
@@ -288,6 +288,26 @@ install_global_agents_md() {
   if [[ ! -f "$src" ]]; then
     warn "Skipping global AGENTS.md (missing source: $src)"
     return
+  fi
+
+  # Discovery: Netdata
+  local netdata_port=""
+  local netdata_info=""
+  for p in 19998 19999; do
+    if curl -fsS "http://127.0.0.1:$p/api/v1/info" &>/dev/null; then
+      netdata_port="$p"
+      break
+    fi
+  done
+
+  if [[ -n "$netdata_port" ]]; then
+    netdata_info="Netdata is active on port $netdata_port. Use these templates:
+\`\`\`bash
+curl -fsS http://127.0.0.1:$netdata_port/api/v1/info | head -c 500
+curl -fsS 'http://127.0.0.1:$netdata_port/api/v1/data?chart=NAME&after=-3d&before=0&format=json' | head -c 800
+\`\`\`"
+  else
+    netdata_info="Netdata is not detected on this machine. Do not attempt to use Netdata tools."
   fi
 
   if [[ -L "$dest" ]]; then
@@ -299,8 +319,18 @@ install_global_agents_md() {
     warn "Backed up existing global AGENTS.md to $backup"
   fi
 
-  run cp "$src" "$dest"
-  ok "Installed global AGENTS.md guardrails"
+  # Use node for robust multiline replacement
+  node -e '
+    const fs = require("fs");
+    const src = process.argv[1];
+    const dest = process.argv[2];
+    const info = process.argv[3];
+    let content = fs.readFileSync(src, "utf8");
+    content = content.replace("{{NETDATA_INSTRUCTIONS}}", info);
+    fs.writeFileSync(dest, content);
+  ' "$src" "$dest" "$netdata_info"
+
+  ok "Installed global AGENTS.md guardrails with machine-specific discovery"
 }
 
 ensure_sudo() {
