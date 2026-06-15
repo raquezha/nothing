@@ -22,6 +22,12 @@ The environment has aggressive security guardrails. To avoid being **BLOCKED**:
 
 {{NETDATA_INSTRUCTIONS}}
 
+## Docker Recovery (Linux)
+If homelab services are down or laptop recently restarted:
+```bash
+find ~/homelab -name "docker-compose.yml" -exec docker compose -f {} up -d \;
+```
+
 ## Environment setup
 
 If `pi` is missing or outdated, reload the shell integration:

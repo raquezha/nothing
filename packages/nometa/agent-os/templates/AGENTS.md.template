@@ -4,6 +4,10 @@ If this is your first turn in this repo, IMMEDIATELY:
 2. Check `.workflow/tasks/` for any `WORK.md` in progress.
 3. **Resume State**: If a task is in progress, read the last 3 entries of `[LOG]` to synchronize with previous agent steps.
 4. Run any discovery or health check scripts defined in `CONTEXT.md`.
+5. **Docker Recovery (Linux)**: If homelab services are down or laptop recently restarted:
+   ```bash
+   find ~/homelab -name "docker-compose.yml" -exec docker compose -f {} up -d \;
+   ```
 
 ---
 
