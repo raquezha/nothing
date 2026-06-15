@@ -64,6 +64,15 @@ npm pack --workspaces --dry-run --json
 - Use precise, minimal edits. Avoid rewriting large files without need.
 - Keep generated outputs (`dist/`, `node_modules/`, `.reposcry/`, `.workflow/`) out of git.
 
+## Simple ops questions
+
+For machine/status/metric questions, do not inspect repo. Use one direct `bash` check and answer.
+
+- current temperature/fans: `sensors`
+- service state: `systemctl is-active NAME`
+- disk/memory/load: `df -h`, `free -h`, `uptime`
+- netdata named: `curl -fsS http://127.0.0.1:19999/api/v1/info`; if alive, query `/api/v1/charts` or `/api/v1/data`; if unavailable, say netdata cannot answer history and fall back to `sensors` only for current temp
+
 ## Pi hats and local workflow
 
 Shell hats are implemented in `dotfiles/shell_integration.sh` and configured by `mindsets.json`.
