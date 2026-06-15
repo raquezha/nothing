@@ -1,5 +1,11 @@
 # @raquezha/noleaks
 
+## Unreleased
+
+### Patch Changes
+
+- Split bash obfuscation checks into Unicode-normalization and hidden-control-character reasons, while allowing normal shell whitespace so harmless multi-line git workflows are not blocked as control-character obfuscation.
+
 ## 0.0.4
 
 ### Patch Changes

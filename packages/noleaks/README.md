@@ -9,7 +9,7 @@ Senior-grade credentials guard and Data Loss Prevention (DLP) shield for the Pi 
 - **3-Tier Security Modes**: Switch between `max`, `basic`, and `off` using the `/noleaks` command.
 - **Output Scrubbing (DLP)**: Automatically redacts tokens, keys, and secret assignments from any tool's `stdout` before the agent sees it.
 - **Symlink Guard**: Resolves paths to their "real" location on disk, preventing bypasses using symbolic links.
-- **Obfuscation Detection**: Normalized Unicode (NFKC) and character-stripping to detect homoglyph attacks and command obfuscation.
+- **Obfuscation Detection**: Normalized Unicode (NFKC) and hidden/control-character checks detect homoglyph attacks and command obfuscation while allowing normal shell whitespace in multi-line commands.
 - **Universal Word Scanning**: Scans every word in a bash command to catch dangerous utilities hidden as arguments (e.g., `sudo chmod`).
 
 ## Commands

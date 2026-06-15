@@ -138,12 +138,20 @@ export default function (pi: ExtensionAPI) {
   function checkBashCommand(command: unknown, cwd: string): string | undefined {
     if (typeof command !== "string" || command.trim() === "") return undefined;
 
-    // Unicode normalization & control character stripping (VTSTech-style)
-    const normalized = command.normalize("NFKC").replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\ufeff\u2060-\u2069]/g, "");
-    if (normalized !== command) {
-      return "command rejected: Unicode normalization variance or control characters detected (possible obfuscation)";
+    // Obfuscation checks are intentionally separate from action checks.
+    // Normal shell whitespace (space, tab, CR, LF) is allowed so multi-line
+    // commands are not treated as control-character obfuscation.
+    const nfkc = command.normalize("NFKC");
+    if (nfkc !== command) {
+      return "command rejected: Unicode normalization variance detected (possible obfuscation)";
     }
 
+    const suspiciousControls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\ufeff\u2060-\u2069]/;
+    if (suspiciousControls.test(command)) {
+      return "command rejected: hidden/control characters detected (possible obfuscation)";
+    }
+
+    const normalized = nfkc;
     const deobfuscated = normalized.replace(/\\(.)/g, "$1").replace(/['"]/g, "");
     const cmd = normalized.toLowerCase();
     const deobfuscatedLower = deobfuscated.toLowerCase();
