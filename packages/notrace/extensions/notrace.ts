@@ -20,7 +20,31 @@ function getCaptureMode(): CaptureMode {
 }
 
 function isSensitiveKey(key: string): boolean {
-  return SENSITIVE_KEY_RE.test(key.replace(/[^a-z0-9]/gi, ""));
+  const normalized = key.replace(/[^a-z0-9]/gi, "");
+  if (/^(inputtokens|outputtokens|totaltokens|prompttokens|completiontokens|reasoningtokens|cachedtokens|cachecreationinputtokens|cachereadinputtokens|cost|total|input|output|prompt|completion|reasoning|read|write)$/i.test(normalized)) {
+    return false;
+  }
+  return SENSITIVE_KEY_RE.test(normalized);
+}
+
+function sanitizeUsageValue(usage: unknown): unknown {
+  if (getCaptureMode() === "full") return usage;
+  if (!usage || typeof usage !== "object") return sanitizeTraceValue(usage);
+
+  const source = usage as Record<string, unknown>;
+  const output: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(source)) {
+    if (typeof value === "number" || typeof value === "boolean" || value == null) {
+      output[key] = value;
+    } else if (typeof value === "object" && value) {
+      output[key] = sanitizeUsageValue(value);
+    } else {
+      output[key] = sanitizeTraceValue(value);
+    }
+  }
+
+  return output;
 }
 
 function redactString(value: string): string {
@@ -75,6 +99,205 @@ function escapeHtml(value: unknown): string {
   });
 }
 
+type NotraceLocation = {
+  workflowDir: string;
+  notraceDir: string;
+  outputDir: string;
+  taskDir: string | null;
+  taskId: string | null;
+  taskPath: string | null;
+};
+
+type NotraceMetrics = {
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  toolCallCount: number;
+  toolErrorCount: number;
+  llmCallCount: number;
+  turnCount: number;
+  models: string[];
+  providers: string[];
+};
+
+function ensureWorkflowDir(workflowDir: string): void {
+  if (existsSync(workflowDir)) return;
+  try {
+    mkdirSync(workflowDir, { recursive: true, mode: 0o700 });
+  } catch {}
+}
+
+function safePathSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 160) || `session-${Date.now()}`;
+}
+
+function getNotraceLocation(cwd: string, sessionId: string): NotraceLocation {
+  const workflowDir = path.resolve(cwd, ".workflow");
+  const notraceDir = path.resolve(cwd, ".notrace");
+  const outputDir = path.join(notraceDir, "sessions", safePathSegment(sessionId));
+  ensureWorkflowDir(workflowDir);
+
+  try {
+    const activeTaskJsonPath = path.join(workflowDir, "active_task.json");
+    if (existsSync(activeTaskJsonPath)) {
+      const content = JSON.parse(readFileSync(activeTaskJsonPath, "utf-8"));
+      const candidate = typeof content.taskPath === "string"
+        ? safeResolveUnder(cwd, content.taskPath)
+        : typeof content.active_task === "string"
+          ? safeResolveUnder(workflowDir, path.join("tasks", content.active_task))
+          : null;
+
+      if (candidate && safeResolveUnder(workflowDir, path.relative(workflowDir, candidate))) {
+        return {
+          workflowDir,
+          notraceDir,
+          outputDir,
+          taskDir: candidate,
+          taskId: typeof content.active_task === "string" ? content.active_task : path.basename(candidate),
+          taskPath: path.relative(cwd, candidate)
+        };
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  return {
+    workflowDir,
+    notraceDir,
+    outputDir,
+    taskDir: null,
+    taskId: null,
+    taskPath: null
+  };
+}
+
+function updateNotraceIndex(cwd: string, location: NotraceLocation, entry: Record<string, unknown>): void {
+  const indexPath = path.join(location.notraceDir, "index.json");
+  const base = {
+    schemaVersion: 1,
+    kind: "notrace-index",
+    workdir: ".",
+    sessions: [] as Record<string, unknown>[]
+  };
+
+  try {
+    mkdirSync(location.notraceDir, { recursive: true, mode: 0o700 });
+    const existing = existsSync(indexPath)
+      ? JSON.parse(readFileSync(indexPath, "utf-8"))
+      : base;
+    const sessions = Array.isArray(existing.sessions) ? existing.sessions : [];
+    const sessionId = entry.sessionId;
+    const nextSessions = sessions.filter((item: any) => item?.sessionId !== sessionId);
+    nextSessions.push(entry);
+    const next = {
+      ...base,
+      ...existing,
+      schemaVersion: 1,
+      kind: "notrace-index",
+      workdir: ".",
+      sessions: nextSessions
+    };
+    writeFileSync(indexPath, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf-8", mode: 0o600 });
+  } catch {
+    // keep notrace non-fatal if index update fails
+  }
+}
+
+function appendWorkLogEntry(taskDir: string, message: string): void {
+  const workMd = path.join(taskDir, "WORK.md");
+  if (!existsSync(workMd)) return;
+
+  try {
+    const text = readFileSync(workMd, "utf-8");
+    const entry = `- ${new Date().toISOString()}: ${message}`;
+
+    if (!/^(## )?\[LOG\]\s*$/m.test(text)) {
+      writeFileSync(workMd, `${text.trimEnd()}\n\n## [LOG]\n${entry}\n`, { encoding: "utf-8" });
+      return;
+    }
+
+    const lines = text.split("\n");
+    const logIndex = lines.findIndex((line) => /^(## )?\[LOG\]\s*$/.test(line));
+    if (logIndex === -1) return;
+
+    let nextSectionIndex = lines.length;
+    for (let i = logIndex + 1; i < lines.length; i++) {
+      if (/^(## )?\[[A-Z0-9_-]+\]\s*$/.test(lines[i])) {
+        nextSectionIndex = i;
+        break;
+      }
+    }
+
+    const before = lines.slice(0, nextSectionIndex);
+    const after = lines.slice(nextSectionIndex);
+    while (before.length > logIndex + 1 && before[before.length - 1]?.trim() === "") {
+      before.pop();
+    }
+    before.push(entry);
+
+    writeFileSync(workMd, `${[...before, ...after].join("\n").replace(/\n*$/, "\n")}`, { encoding: "utf-8" });
+  } catch {
+    // keep notrace non-fatal if WORK.md append fails
+  }
+}
+
+function collectMetrics(events: any[]): NotraceMetrics {
+  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalCost = 0;
+  let toolCallCount = 0;
+  let toolErrorCount = 0;
+  let llmCallCount = 0;
+  let turnCount = 0;
+  const models = new Set<string>();
+  const providers = new Set<string>();
+
+  for (const event of events) {
+    if (event.type === "turn_start") {
+      turnCount++;
+      continue;
+    }
+
+    if (event.type === "tool_start") {
+      toolCallCount++;
+      continue;
+    }
+
+    if (event.type === "tool_end") {
+      if (event.isError) toolErrorCount++;
+      continue;
+    }
+
+    if (event.type === "llm_completion") {
+      llmCallCount++;
+      if (typeof event.model === "string" && event.model) models.add(event.model);
+      if (typeof event.provider === "string" && event.provider) providers.add(event.provider);
+      if (event.usage) {
+        inputTokens += event.usage.input || 0;
+        outputTokens += event.usage.output || 0;
+        totalTokens += event.usage.totalTokens || 0;
+        totalCost += event.usage.cost?.total || 0;
+      }
+    }
+  }
+
+  return {
+    totalTokens,
+    inputTokens,
+    outputTokens,
+    totalCost,
+    toolCallCount,
+    toolErrorCount,
+    llmCallCount,
+    turnCount,
+    models: [...models],
+    providers: [...providers]
+  };
+}
+
 /**
  * html-observability extension
  *
@@ -89,33 +312,6 @@ export default function (pi: ExtensionAPI) {
   let activeLlmPayload: any = null;
   let llmStartTime = 0;
   const activeToolTimes: Record<string, number> = {};
-
-  // Helper to extract active task path from .workflow/active_task.json.
-  // Reports are constrained to cwd/.workflow to avoid task metadata causing writes elsewhere.
-  function getActiveTaskDir(cwd: string): string {
-    const workflowDir = path.resolve(cwd, ".workflow");
-    try {
-      const activeTaskJsonPath = path.join(workflowDir, "active_task.json");
-      if (existsSync(activeTaskJsonPath)) {
-        const content = JSON.parse(readFileSync(activeTaskJsonPath, "utf-8"));
-        const candidate = typeof content.taskPath === "string"
-          ? safeResolveUnder(cwd, content.taskPath)
-          : typeof content.active_task === "string"
-            ? safeResolveUnder(workflowDir, path.join("tasks", content.active_task))
-            : null;
-
-        if (candidate && safeResolveUnder(workflowDir, path.relative(workflowDir, candidate))) {
-          return candidate;
-        }
-      }
-    } catch {
-      // fallback
-    }
-    if (!existsSync(workflowDir)) {
-      try { mkdirSync(workflowDir, { recursive: true, mode: 0o700 }); } catch {}
-    }
-    return workflowDir;
-  }
 
   // 1. Session start
   pi.on("session_start", async (event, ctx) => {
@@ -194,7 +390,7 @@ export default function (pi: ExtensionAPI) {
       provider: message.provider || "unknown",
       inputPayload: activeLlmPayload,
       outputContent: getCaptureMode() === "metadata" ? "[metadata-only capture]" : sanitizeTraceValue(message.content),
-      usage: sanitizeTraceValue(message.usage),
+      usage: sanitizeUsageValue(message.usage),
       durationMs,
       timestamp: Date.now()
     });
@@ -207,57 +403,103 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async (event, ctx) => {
     const sessionEndTime = Date.now();
     const totalDurationMs = sessionEndTime - sessionStartTime;
-
-    const taskDir = getActiveTaskDir(ctx.cwd);
-    const reportPath = path.join(taskDir, "notrace.html");
-
-    // Gather statistics
-    let totalTokens = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let totalCost = 0;
-    let toolCallCount = 0;
-    let llmCallCount = 0;
-
-    events.forEach((e) => {
-      if (e.type === "llm_completion") {
-        llmCallCount++;
-        if (e.usage) {
-          inputTokens += e.usage.input || 0;
-          outputTokens += e.usage.output || 0;
-          totalTokens += e.usage.totalTokens || 0;
-          totalCost += e.usage.cost?.total || 0;
-        }
-      } else if (e.type === "tool_start") {
-        toolCallCount++;
-      }
-    });
+    const projectName = process.env.PHOENIX_PROJECT_NAME || "pi-coding-agent";
+    const captureMode = getCaptureMode();
+    const location = getNotraceLocation(ctx.cwd, traceId);
+    const reportPath = path.join(location.outputDir, "notrace.html");
+    const recordPath = path.join(location.outputDir, "notrace.json");
+    const reviewPath = path.join(location.outputDir, "notrace.review.json");
+    const metrics = collectMetrics(events);
+    const sessionFile = ctx.sessionManager.getSessionFile() || null;
 
     const htmlContent = generateHtmlReport({
       traceId,
-      projectName: process.env.PHOENIX_PROJECT_NAME || "pi-coding-agent",
+      projectName,
       startTime: new Date(sessionStartTime).toISOString(),
       endTime: new Date(sessionEndTime).toISOString(),
       durationMs: totalDurationMs,
       metrics: {
-        totalTokens,
-        inputTokens,
-        outputTokens,
-        totalCost: totalCost.toFixed(5),
-        toolCallCount,
-        llmCallCount
+        totalTokens: metrics.totalTokens,
+        inputTokens: metrics.inputTokens,
+        outputTokens: metrics.outputTokens,
+        totalCost: metrics.totalCost.toFixed(5),
+        toolCallCount: metrics.toolCallCount,
+        llmCallCount: metrics.llmCallCount
       },
       events
     });
 
+    const runRecord = {
+      schemaVersion: 1,
+      kind: "notrace-run",
+      traceId,
+      runtime: "pi",
+      projectName,
+      captureMode,
+      session: {
+        id: traceId,
+        cwd: ctx.cwd,
+        file: sessionFile
+      },
+      task: location.taskId || location.taskPath
+        ? {
+            id: location.taskId,
+            path: location.taskPath
+          }
+        : null,
+      conditions: {
+        models: metrics.models,
+        providers: metrics.providers
+      },
+      activity: {
+        startTime: new Date(sessionStartTime).toISOString(),
+        endTime: new Date(sessionEndTime).toISOString(),
+        durationMs: totalDurationMs,
+        turnCount: metrics.turnCount,
+        llmCallCount: metrics.llmCallCount,
+        toolCallCount: metrics.toolCallCount,
+        toolErrorCount: metrics.toolErrorCount,
+        totals: {
+          totalTokens: metrics.totalTokens,
+          inputTokens: metrics.inputTokens,
+          outputTokens: metrics.outputTokens,
+          totalCostUsd: Number(metrics.totalCost.toFixed(5))
+        }
+      },
+      artifacts: {
+        htmlReportPath: path.relative(ctx.cwd, reportPath),
+        recordPath: path.relative(ctx.cwd, recordPath),
+        reviewPath: path.relative(ctx.cwd, reviewPath)
+      },
+      evidence: {
+        events
+      }
+    };
+
     try {
-      mkdirSync(taskDir, { recursive: true, mode: 0o700 });
+      mkdirSync(location.outputDir, { recursive: true, mode: 0o700 });
       writeFileSync(reportPath, htmlContent, { encoding: "utf-8", mode: 0o600 });
-      // Output a nice clickable file:// link to the console for the user
-      console.log(`\n📊 [notrace] Observability report generated:`);
-      console.log(`👉 \x1b[36mfile://${reportPath}\x1b[0m\n`);
+      writeFileSync(recordPath, `${JSON.stringify(runRecord, null, 2)}\n`, { encoding: "utf-8", mode: 0o600 });
+      updateNotraceIndex(ctx.cwd, location, {
+        sessionId: traceId,
+        startedAt: new Date(sessionStartTime).toISOString(),
+        endedAt: new Date(sessionEndTime).toISOString(),
+        taskId: location.taskId,
+        taskPath: location.taskPath,
+        artifacts: {
+          record: path.relative(ctx.cwd, recordPath),
+          html: path.relative(ctx.cwd, reportPath),
+          review: path.relative(ctx.cwd, reviewPath)
+        }
+      });
+      if (location.taskDir && (location.taskId || location.taskPath)) {
+        appendWorkLogEntry(location.taskDir, `notrace captured artifacts: ${path.relative(location.taskDir, reportPath)}, ${path.relative(location.taskDir, recordPath)}`);
+      }
+      console.log(`\n📊 [notrace] Observability artifacts generated:`);
+      console.log(`👉 \x1b[36mfile://${reportPath}\x1b[0m`);
+      console.log(`🧾 \x1b[36mfile://${recordPath}\x1b[0m\n`);
     } catch (err: any) {
-      console.warn(`[notrace] Failed to write HTML report: ${err?.message || err}`);
+      console.warn(`[notrace] Failed to write notrace artifacts: ${err?.message || err}`);
     }
   });
 }
@@ -290,301 +532,222 @@ function generateHtmlReport(data: any): string {
   <title>notrace - ${escapedTraceId}</title>
   <style>
     :root {
-      --bg: #0b0b0e;
-      --bg-panel: rgba(22, 22, 28, 0.45);
-      --bg-card: rgba(30, 30, 38, 0.6);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(255, 255, 255, 0.15);
-      --text: #e2e2e9;
-      --text-muted: #9f9fa9;
-      --accent: #8b5cf6;
-      --accent-gradient: linear-gradient(135deg, #a78bfa, #8b5cf6);
-      --success: #10b981;
-      --error: #ef4444;
-      --warning: #f59e0b;
-      --info: #3b82f6;
+      --bg: #191613;
+      --bg-glow: #2a221c;
+      --panel: rgba(244, 237, 228, 0.055);
+      --panel-strong: rgba(244, 237, 228, 0.075);
+      --paper: #f6efe7;
+      --paper-soft: #e7dbce;
+      --text: #f5eee7;
+      --text-soft: #ddd0c2;
+      --text-muted: #b9ab9d;
+      --border: rgba(255, 255, 255, 0.09);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --accent: #d88462;
+      --accent-soft: rgba(216, 132, 98, 0.14);
+      --session: #8ab7ff;
+      --turn: #e0b46b;
+      --tool: #86cca4;
+      --error: #f08e8e;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      --card-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background-color: var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(900px 420px at 50% -10%, rgba(216, 132, 98, 0.16), transparent 60%),
+        radial-gradient(680px 360px at 10% 0%, rgba(255, 255, 255, 0.03), transparent 60%),
+        linear-gradient(180deg, #171411 0%, #1b1714 100%);
       color: var(--text);
-      line-height: 1.5;
-      padding: 2rem;
+      line-height: 1.65;
+      padding: 14px 12px 40px;
       min-height: 100vh;
-      background-image: 
-        radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.06) 0%, transparent 40%);
-      background-attachment: fixed;
+      letter-spacing: 0.01em;
     }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
+    .container { max-width: 920px; margin: 0 auto; }
+    header { margin-bottom: 24px; }
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .brand h1 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand-tag {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: rgba(139, 92, 246, 0.15);
-      color: #c084fc;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      border: 1px solid rgba(167, 139, 250, 0.3);
-    }
-
-    .meta-time {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      text-align: right;
-    }
-
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .metric-card {
-      background: var(--bg-panel);
+    .hero {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.025));
       border: 1px solid var(--border);
-      padding: 1.25rem;
-      border-radius: 12px;
-      backdrop-filter: blur(12px);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 22px;
+      padding: 18px 16px 16px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
     }
 
-    .metric-card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    }
-
-    .metric-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 0.5rem;
-    }
-
-    .metric-value {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .timeline {
-      position: relative;
-      padding-left: 2rem;
-      border-left: 2px solid var(--border);
-      margin-left: 1rem;
-    }
-
-    .timeline-event {
-      position: relative;
-      margin-bottom: 2rem;
-      animation: slideIn 0.4s ease-out;
-    }
-
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-10px); }
-      to { opacity: 1; transform: translateX(0); }
-    }
-
-    .timeline-dot {
+    .hero::after {
+      content: "";
       position: absolute;
-      left: calc(-2rem - 6px);
-      top: 1.25rem;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      box-shadow: 0 0 0 4px var(--bg);
-      transition: all 0.3s ease;
+      inset: auto -10% -30% auto;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(216,132,98,0.14), transparent 70%);
+      pointer-events: none;
     }
 
-    /* Event color mappings */
-    .timeline-event.session-start .timeline-dot { background: var(--info); box-shadow: 0 0 0 4px var(--bg), 0 0 8px var(--info); }
-    .timeline-event.turn-start .timeline-dot { background: var(--accent); box-shadow: 0 0 0 4px var(--bg), 0 0 8px var(--accent); }
-    .timeline-event.tool-call .timeline-dot { background: var(--warning); box-shadow: 0 0 0 4px var(--bg); }
-    .timeline-event.tool-call.error .timeline-dot { background: var(--error); box-shadow: 0 0 0 4px var(--bg), 0 0 8px var(--error); }
-    .timeline-event.llm-call .timeline-dot { background: var(--success); box-shadow: 0 0 0 4px var(--bg), 0 0 8px var(--success); }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; position: relative; z-index: 1; }
+    .brand h1 { font-size: 2rem; line-height: 1; font-weight: 680; color: var(--text); letter-spacing: -0.03em; }
+    .brand-tag { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: #f4ccb9; background: var(--accent-soft); border: 1px solid rgba(216, 132, 98, 0.24); padding: 0.35rem 0.6rem; border-radius: 999px; }
+    .hero-subtitle { position: relative; z-index: 1; color: var(--text-soft); margin-bottom: 20px; max-width: 720px; font-size: 1rem; }
+    .hero-meta { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 10px; }
+    .meta-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 999px; padding: 0.48rem 0.82rem; font-size: 0.86rem; color: var(--text-muted); }
+    .meta-pill strong { color: var(--text); font-weight: 570; }
+
+    .metrics-grid { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 16px 0 24px; }
+    .metric-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.028));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px 16px;
+      box-shadow: var(--card-shadow);
+      transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+    }
+    .metric-card:hover { border-color: var(--border-strong); transform: translateY(-1px); background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.03)); }
+    .metric-label { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 7px; }
+    .metric-value { font-size: 1.42rem; font-weight: 640; color: var(--text); letter-spacing: -0.03em; }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 620;
+      color: var(--paper-soft);
+      margin-bottom: 16px;
+      padding-left: 2px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .timeline { display: flex; flex-direction: column; gap: 16px; }
+    .timeline-event { position: relative; animation: slideIn 0.28s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .timeline-dot { display: none; }
 
     .card {
-      background: var(--bg-panel);
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.024));
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem;
-      backdrop-filter: blur(12px);
-      transition: border-color 0.2s;
+      border-radius: 18px;
+      padding: 14px 14px 13px;
+      box-shadow: var(--card-shadow);
+      transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
     }
-
-    .card:hover {
-      border-color: var(--border-hover);
+    .card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: rgba(255,255,255,0.1);
     }
+    .timeline-event.session-start .card::before { background: var(--session); }
+    .timeline-event.turn-start .card::before { background: var(--turn); }
+    .timeline-event.tool-start .card::before { background: var(--tool); }
+    .timeline-event.tool-start.error .card::before { background: var(--error); }
+    .timeline-event.llm-start .card::before { background: var(--accent); }
+    .card:hover { border-color: var(--border-strong); background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.028)); transform: translateY(-1px); }
 
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      user-select: none;
-    }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none; }
+    .card-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; color: var(--text); }
+    .card-title span:last-child { font-size: 1rem; letter-spacing: -0.01em; }
+    .card-badge { font-size: 0.69rem; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.34rem 0.62rem; border-radius: 999px; border: 1px solid transparent; }
+    .badge-session { background: rgba(138, 183, 255, 0.14); color: var(--session); border-color: rgba(138, 183, 255, 0.24); }
+    .badge-turn { background: rgba(224, 180, 107, 0.14); color: var(--turn); border-color: rgba(224, 180, 107, 0.22); }
+    .badge-tool { background: rgba(134, 204, 164, 0.14); color: var(--tool); border-color: rgba(134, 204, 164, 0.22); }
+    .badge-tool.error { background: rgba(240, 142, 142, 0.15); color: var(--error); border-color: rgba(240, 142, 142, 0.24); }
+    .badge-llm { background: rgba(216, 132, 98, 0.14); color: #f2c2ae; border-color: rgba(216, 132, 98, 0.22); }
+    .card-time { flex-shrink: 0; font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; padding-top: 3px; }
+    .arrow-icon { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+    .expanded .arrow-icon { transform: rotate(90deg); }
+    .card-body { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: none; }
+    .expanded .card-body { display: block; }
 
-    .card-title {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-weight: 600;
-    }
-
-    .card-badge {
-      font-size: 0.75rem;
-      font-weight: 500;
-      padding: 0.15rem 0.5rem;
-      border-radius: 4px;
-    }
-
-    .badge-session { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    .badge-turn { background: rgba(139, 92, 246, 0.15); color: #c084fc; }
-    .badge-tool { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .badge-tool.error { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .badge-llm { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-
-    .card-time {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .arrow-icon {
-      width: 16px;
-      height: 16px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      transition: transform 0.2s;
-    }
-
-    .expanded .arrow-icon {
-      transform: rotate(90deg);
-    }
-
-    .card-body {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border);
-      display: none;
-    }
-
-    .expanded .card-body {
-      display: block;
-    }
-
+    .detail-label { font-size: 0.76rem; font-weight: 650; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 14px 0 8px; display: block; }
     .code-block {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 0.875rem;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border);
-      padding: 1rem;
-      border-radius: 8px;
+      font-size: 0.84rem;
+      line-height: 1.62;
+      background: rgba(16, 14, 12, 0.64);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 14px;
+      border-radius: 16px;
       overflow-x: auto;
-      margin-top: 0.5rem;
-      color: #e2e2e9;
+      margin-top: 0.35rem;
+      color: #f1e9df;
       white-space: pre-wrap;
     }
 
-    .messages-container {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
+    .messages-container { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
     .msg-row {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 6px;
-      border-left: 3px solid var(--border);
+      gap: 4px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.038);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
     }
+    .msg-row.user { background: rgba(138, 183, 255, 0.08); }
+    .msg-row.assistant { background: rgba(216, 132, 98, 0.08); }
+    .msg-row.system { background: rgba(224, 180, 107, 0.08); }
+    .msg-role { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .msg-text { font-size: 0.93rem; color: var(--text-soft); white-space: pre-wrap; }
 
-    .msg-row.user { border-left-color: var(--info); }
-    .msg-row.assistant { border-left-color: var(--success); }
-    .msg-row.system { border-left-color: var(--accent); }
-
-    .msg-role {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .msg-row.user .msg-role { color: #60a5fa; }
-    .msg-row.assistant .msg-role { color: #34d399; }
-    .msg-row.system .msg-role { color: #c084fc; }
-
-    .msg-text {
-      font-size: 0.9rem;
-      white-space: pre-wrap;
-    }
-
-    .duration-pill {
-      font-size: 0.75rem;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
+    .usage-row {
+      margin-top: 12px;
+      font-size: 0.84rem;
       color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .usage-row strong { color: var(--text); font-weight: 620; }
+    .duration-pill { font-size: 0.74rem; background: rgba(255,255,255,0.06); padding: 0.2rem 0.46rem; border-radius: 999px; color: var(--text-muted); border: 1px solid rgba(255,255,255,0.06); }
+
+    @media (min-width: 640px) {
+      body { padding: 28px 18px 56px; }
+      .hero { border-radius: 28px; padding: 28px 28px 24px; }
+      .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0 30px; }
+      .card { border-radius: 22px; padding: 18px 18px 16px; }
+    }
+
+    @media (max-width: 720px) {
+      .hero, .card, .metric-card { border-radius: 18px; }
+      .card-header { flex-direction: column; }
+      .card-time { width: 100%; justify-content: space-between; }
+      .brand { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .brand h1 { font-size: 1.8rem; }
+      .hero-meta { flex-direction: column; align-items: stretch; }
+      .meta-pill { width: 100%; justify-content: space-between; }
+      .usage-row { flex-direction: column; gap: 6px; }
+      .code-block { font-size: 0.8rem; padding: 12px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <div class="brand">
-        <h1>notrace</h1>
-        <span class="brand-tag">Local Observability</span>
-      </div>
-      <div class="meta-time">
-        <div>Session: <span id="sess-id"></span></div>
-        <div id="sess-time" style="font-size: 0.8rem;"></div>
+      <div class="hero">
+        <div class="brand">
+          <h1>notrace</h1>
+          <span class="brand-tag">retrospective</span>
+        </div>
+        <p class="hero-subtitle">A local evidence view of the run: messages, tools, model calls, timing, and token cost.</p>
+        <div class="hero-meta">
+          <span class="meta-pill">Session <strong id="sess-id"></strong></span>
+          <span class="meta-pill">Started <strong id="sess-time"></strong></span>
+        </div>
       </div>
     </header>
 
@@ -611,7 +774,7 @@ function generateHtmlReport(data: any): string {
       </div>
     </div>
 
-    <h2 style="margin-bottom: 1.5rem; font-weight: 600; font-size: 1.25rem; color: #fff;">Activity Flow</h2>
+    <h2 class="section-title">Activity flow</h2>
     <div class="timeline" id="timeline-container">
       <!-- Injected by JS -->
     </div>
@@ -731,9 +894,9 @@ function generateHtmlReport(data: any): string {
         cardHtml += \`<div class="code-block">\${escapeHtml(ev.body)}</div>\`;
       } else if (ev.type === "tool") {
         cardHtml += \`
-          <strong>Arguments:</strong>
+          <span class="detail-label">Arguments</span>
           <div class="code-block">\${jsonText(ev.args)}</div>
-          <strong style="margin-top: 1rem; display: block;">Result (\${ev.isError ? "Error" : "Success"}):</strong>
+          <span class="detail-label">Result (\${ev.isError ? "Error" : "Success"})</span>
           <div class="code-block">\${jsonText(ev.result)}</div>
         \`;
       } else if (ev.type === "llm") {
@@ -767,16 +930,16 @@ function generateHtmlReport(data: any): string {
         messagesHtml += '</div>';
 
         cardHtml += \`
-          <strong>Context Messages:</strong>
+          <span class="detail-label">Context messages</span>
           \${messagesHtml}
-          <strong style="margin-top: 1.25rem; display: block;">Generated Response:</strong>
+          <span class="detail-label">Generated response</span>
           <div class="code-block">\${jsonText(ev.output)}</div>
           \${ev.usage ? \`
-            <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1.5rem;">
-              <span>Input Tokens: <strong>\${escapeHtml(ev.usage.input ?? 0)}</strong></span>
-              <span>Output Tokens: <strong>\${escapeHtml(ev.usage.output ?? 0)}</strong></span>
-              <span>Total Tokens: <strong>\${escapeHtml(ev.usage.totalTokens ?? 0)}</strong></span>
-              <span>Cost: <strong>\$\${escapeHtml(ev.usage.cost?.total?.toFixed?.(5) || "0.00")}</strong></span>
+            <div class="usage-row">
+              <span>Input tokens <strong>\${escapeHtml(ev.usage.input ?? 0)}</strong></span>
+              <span>Output tokens <strong>\${escapeHtml(ev.usage.output ?? 0)}</strong></span>
+              <span>Total tokens <strong>\${escapeHtml(ev.usage.totalTokens ?? 0)}</strong></span>
+              <span>Cost <strong>\$\${escapeHtml(ev.usage.cost?.total?.toFixed?.(5) || "0.00")}</strong></span>
             </div>
           \` : ""}
         \`;

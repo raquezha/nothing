@@ -18,5 +18,6 @@ Thumbs.db
 # Ephemeral agent work directories
 .codex/
 .workflow/
+.notrace/
 .reposcry/
 active_task.json

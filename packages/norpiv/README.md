@@ -24,6 +24,19 @@ Auxiliary hygiene:
 
 ---
 
+## notrace relationship
+
+notrace is an optional retrospective layer around RPIV.
+
+Rules:
+
+- **RPIV must work without notrace**.
+- **notrace may attach to RPIV when task state exists**.
+- `WORK.md` remains the RPIV source of truth whether notrace is installed or not.
+- `.notrace/` owns notrace artifacts.
+- `.workflow/` owns RPIV task state.
+- notrace artifacts and reviews may be referenced from `WORK.md [LOG]`, but RPIV phases must not depend on those files being present.
+
 ## 🛡️ Critical Guardrails
 
 - **Measure Twice, Cut Once**: Never implement code during scoping or planning. The agent will wait for an explicit `EXECUTE` statement before modifying files.
