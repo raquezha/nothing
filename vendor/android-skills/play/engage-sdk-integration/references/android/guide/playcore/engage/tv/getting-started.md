@@ -4,7 +4,7 @@ This guide covers how to get started with Engage SDK integrations for TV. After
 you complete the pre-work on this page, you can integrate one or more
 of the TV features:
 
-- [Publish Continue Watching data](https://developer.android.com/guide/playcore/engage/tv/continue-watching)
+- [Publish continue watching data](https://developer.android.com/guide/playcore/engage/tv/continue-watching)
 - [Publish device entitlements](https://developer.android.com/guide/playcore/engage/tv/entitlements)
 - [Publish recommendations](https://developer.android.com/guide/playcore/engage/tv/recommendations)
 
@@ -12,7 +12,7 @@ of the TV features:
 
 Before you begin, complete the following steps:
 
-1. [Express interest in developing the Video Discovery API](http://g.co/tv/vda) to enroll in
+1. [Express interest in developing with Engage](http://g.co/tv/vda) to enroll in
    the program, if eligible.
 
 2. Verify that your app targets Android 4.4 (API level 19) or higher for this
@@ -82,6 +82,9 @@ optionally a profile ID and locale.
         .setProfileId("your_users_profile_id") // Optional
         .setLocale(Locale.US.toLanguageTag())  // Optional, e.g., "en-US"
         .build()
+
+An `AccountProfile` must be provided with an account ID in order for content to
+be synchronized between devices. See [Cross-device syncing](https://developer.android.com/guide/playcore/engage/tv/continue-watching/client#cross-device_syncing).
 
 ## Testing
 

@@ -10,7 +10,7 @@ can be a maximum **of 7** recommendation clusters per request.
 ## Pre-work
 
 > [!IMPORTANT]
-> **Important:** [Express interest in developing the Video Discovery API](http://g.co/tv/vda).
+> **Important:** [Express interest in developing with Engage](http://g.co/tv/vda).
 
 Complete the [Pre-work](https://developer.android.com/guide/playcore/engage/tv/getting-started#pre-work) instructions in the Getting Started guide.
 
@@ -96,11 +96,11 @@ preference once and apply it in `publishRecommendations` Request accordingly. To
 get the most out of cross-device feature, verify app obtains user
 consent and enables `SyncAcrossDevices` to `true`.
 
-### Delete the video discovery data
+### Delete the Engage data
 
 To manually delete a user's data from the Google TV server before the standard
 60-day retention period, use the `client.deleteClusters()` method. Upon
-receiving the request, the service deletes all existing video discovery
+receiving the request, the service deletes all existing Engage
 data for the account profile, or for the entire account.
 
 The [`DeleteReason`](https://developer.android.com/reference/com/google/android/engage/service/DeleteReason) enum defines the reason for data deletion.

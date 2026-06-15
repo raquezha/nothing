@@ -106,7 +106,7 @@ Credentials](https://developer.android.com/identity/digital-credentials#verified
 
 > [!NOTE]
 > **Note:** Apart from a user's email information, you can request other unverified fields, such as the user's given name, family name, name, and the profile picture of their Google Account. However, only the email is verified by Google.   
-> For phone number verification, see [Firebase Phone Number Verification](https://firebase.google.com/docs/phone-number-verification). Note that you can't request a phone number and email in the same invocation as these are separate capabilities.
+> For phone number verification, see [Verify phone numbers with digital credentials](https://developer.android.com/identity/digital-credentials/phone-number-verification). For a Firebase solution, see [Firebase Phone Number Verification](https://firebase.google.com/docs/phone-number-verification). Note that you can't verify a phone number and email in the same invocation as these are separate capabilities.
 
 ## Validity and freshness
 
