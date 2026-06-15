@@ -363,8 +363,6 @@ EOF
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
     NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-prompt-templates" "--no-themes" "--no-context-files")
-  elif [[ "$MOD_CAVEMAN" == true ]]; then
-    NOTHING_FLAGS+=("--system-prompt" "Caveman mode: ON. Intensity: ${MOD_CAVEMAN_INTENSITY:-full}. Speak like smart caveman immediately.")
   fi
 
   command pi "${NOTHING_FLAGS[@]}" "${EXTRA_SKILLS[@]}" "${EXTRA_EXTENSIONS[@]}" "${ARGS[@]}"
