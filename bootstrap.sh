@@ -86,6 +86,7 @@ print_plan() {
   printf '   third-party modifiers lazy cache\n'
   printf '   headroom backend     %s\n' "$([[ "$INSTALL_HEADROOM" == true ]] && printf yes || printf no)"
   printf '   package source        checkout\n'
+  printf '   global AGENTS.md      bootstrap-managed\n'
 }
 
 section() {
@@ -269,6 +270,49 @@ install_shell_integration() {
     printf '\n# nothing shell integration\n%s\n' "$line" >> "$rc"
     ok "Added nothing shell integration to $(basename "$rc")"
   fi
+}
+
+install_global_agents_md() {
+  local dest="$HOME/AGENTS.md"
+  local backup
+  if [[ "$DRY_RUN" == true ]]; then
+    if [[ -e "$dest" ]]; then
+      printf '[dry-run] back up existing %s if needed and install global AGENTS guardrails\n' "$dest"
+    else
+      printf '[dry-run] install global AGENTS guardrails at %s\n' "$dest"
+    fi
+    return
+  fi
+
+  if [[ -L "$dest" ]]; then
+    run rm "$dest"
+    warn "Replaced existing AGENTS.md symlink at $dest"
+  elif [[ -e "$dest" ]]; then
+    backup="$dest.backup.$(date +%s)"
+    run cp "$dest" "$backup"
+    warn "Backed up existing global AGENTS.md to $backup"
+  fi
+
+  cat > "$dest" <<'EOF'
+# AGENTS.md
+
+## Tool invocation hygiene
+
+- Prefer single-line ASCII-only bash.
+- Avoid heredocs, smart quotes, non-breaking spaces, and control chars in tool input.
+- Prefer python -c or a temp script file for structured logic.
+- Use simple probes first: curl, grep, head, awk, jq.
+
+Safe templates:
+
+```bash
+curl -fsS http://127.0.0.1:19998/api/v1/info | head -c 500
+curl -fsS 'http://127.0.0.1:19998/api/v1/data?chart=NAME&after=-3d&before=0&format=json' | head -c 800
+grep -n -i 'temp\|thermal\|temperature' file | head -n 50
+python -c "import json; print(json.load(open('file.json'))['key'])"
+```
+EOF
+  ok "Installed global AGENTS.md guardrails"
 }
 
 ensure_sudo() {
@@ -571,6 +615,9 @@ ensure_global_gitignore
 
 step "Install shell integration"
 install_shell_integration
+
+step "Install global AGENTS.md guardrails"
+install_global_agents_md
 
 step "Check local secret environment"
 if [[ -f "$SECRETS_FILE" ]]; then

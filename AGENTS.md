@@ -32,6 +32,10 @@ Fresh local setup:
 source ./dotfiles/shell_integration.sh
 ```
 
+## Tool invocation hygiene
+
+Reusable command-safety guardrails live in the bootstrap-installed global `~/AGENTS.md`.
+
 ## Validation checklist
 
 Before finishing non-trivial changes, run the relevant subset and prefer the full set:
@@ -71,7 +75,7 @@ For machine/status/metric questions, do not inspect repo. Use one direct `bash` 
 - current temperature/fans: `sensors`
 - service state: `systemctl is-active NAME`
 - disk/memory/load: `df -h`, `free -h`, `uptime`
-- netdata named: `curl -fsS http://127.0.0.1:19999/api/v1/info`; if alive, query `/api/v1/charts` or `/api/v1/data`; if unavailable, say netdata cannot answer history and fall back to `sensors` only for current temp
+- netdata named: `curl -fsS http://127.0.0.1:19998/api/v1/info`; if alive, query `/api/v1/charts` or `/api/v1/data`; if unavailable, say netdata cannot answer history and fall back to `sensors` only for current temp
 
 ## Pi hats and local workflow
 
