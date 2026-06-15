@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.0.4
+
+### Patch Changes
+
+- 6eac69d: Relocate core configuration files (`mindsets.json`, `settings.json`, `AGENTS.md`) to a dedicated `config/` directory for better maintainability and a cleaner repository root. Updated `bootstrap.sh` and shell integration to support the new layout.
+
 ## 0.0.3
 
 ### Patch Changes
