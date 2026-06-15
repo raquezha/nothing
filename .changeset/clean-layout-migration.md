@@ -3,7 +3,6 @@
 "@raquezha/nofooter": patch
 "@raquezha/noheadroom": patch
 "@raquezha/noleaks": patch
-"@raquezha/nometa": patch
 "@raquezha/norpiv": patch
 "@raquezha/nosearch": patch
 "@raquezha/notrace": patch
