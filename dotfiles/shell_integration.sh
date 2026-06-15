@@ -34,7 +34,7 @@ pi() {
   esac
 
   local NOTHING_DIR="$_NOTHING_REPO_DIR"
-  local MINDSETS_JSON="$NOTHING_DIR/mindsets.json"
+  local MINDSETS_JSON="$NOTHING_DIR/config/mindsets.json"
   local NOTHING_CACHE_DIR="${NOTHING_CACHE_DIR:-$HOME/.local/share/nothing}"
 
   export PI_MINDSET=""

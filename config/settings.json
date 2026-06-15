@@ -1,0 +1,6 @@
+{
+  "defaultProvider": "groq",
+  "theme": "dracula-vibrant",
+  "packages": [],
+  "noleaks": true
+}

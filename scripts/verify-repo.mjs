@@ -72,7 +72,7 @@ async function containsSkillMd(dir) {
 }
 
 async function verifyMindsets() {
-  const mindsets = JSON.parse(readFileSync(path.join(root, "mindsets.json"), "utf8")).mindsets;
+  const mindsets = JSON.parse(readFileSync(path.join(root, "config", "mindsets.json"), "utf8")).mindsets;
   for (const [name, config] of Object.entries(mindsets)) {
     for (const skill of config.skills ?? []) {
       const resolved = resolveSkill(skill);

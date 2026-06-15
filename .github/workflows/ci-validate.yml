@@ -52,10 +52,10 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Validate settings.json
-        run: node -e "JSON.parse(require('fs').readFileSync('settings.json','utf8')); console.log('settings.json ✓')"
+        run: node -e "JSON.parse(require('fs').readFileSync('config/settings.json','utf8')); console.log('settings.json ✓')"
 
       - name: Validate mindsets.json
-        run: node -e "JSON.parse(require('fs').readFileSync('mindsets.json','utf8')); console.log('mindsets.json ✓')"
+        run: node -e "JSON.parse(require('fs').readFileSync('config/mindsets.json','utf8')); console.log('mindsets.json ✓')"
 
       - name: Validate package.json files
         run: |

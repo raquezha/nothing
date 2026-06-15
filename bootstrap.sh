@@ -274,6 +274,7 @@ install_shell_integration() {
 
 install_global_agents_md() {
   local dest="$HOME/AGENTS.md"
+  local src="$SCRIPT_DIR/config/AGENTS.md"
   local backup
   if [[ "$DRY_RUN" == true ]]; then
     if [[ -e "$dest" ]]; then
@@ -281,6 +282,11 @@ install_global_agents_md() {
     else
       printf '[dry-run] install global AGENTS guardrails at %s\n' "$dest"
     fi
+    return
+  fi
+
+  if [[ ! -f "$src" ]]; then
+    warn "Skipping global AGENTS.md (missing source: $src)"
     return
   fi
 
@@ -293,25 +299,7 @@ install_global_agents_md() {
     warn "Backed up existing global AGENTS.md to $backup"
   fi
 
-  cat > "$dest" <<'EOF'
-# AGENTS.md
-
-## Tool invocation hygiene
-
-- Prefer single-line ASCII-only bash.
-- Avoid heredocs, smart quotes, non-breaking spaces, and control chars in tool input.
-- Prefer python -c or a temp script file for structured logic.
-- Use simple probes first: curl, grep, head, awk, jq.
-
-Safe templates:
-
-```bash
-curl -fsS http://127.0.0.1:19998/api/v1/info | head -c 500
-curl -fsS 'http://127.0.0.1:19998/api/v1/data?chart=NAME&after=-3d&before=0&format=json' | head -c 800
-grep -n -i 'temp\|thermal\|temperature' file | head -n 50
-python -c "import json; print(json.load(open('file.json'))['key'])"
-```
-EOF
+  run cp "$src" "$dest"
   ok "Installed global AGENTS.md guardrails"
 }
 
@@ -591,8 +579,8 @@ else
 fi
 
 step "Install Pi configuration files"
-copy_file "$SCRIPT_DIR/settings.json" "$AGENT_DIR/settings.json" "settings.json"
-copy_file "$SCRIPT_DIR/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
+copy_file "$SCRIPT_DIR/config/settings.json" "$AGENT_DIR/settings.json" "settings.json"
+copy_file "$SCRIPT_DIR/config/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 if [[ "$INSTALL_HEADROOM" == true ]]; then
   configure_headroom
 else
