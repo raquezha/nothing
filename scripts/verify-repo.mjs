@@ -269,6 +269,13 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(args.some((arg) => arg.endsWith("/packages/noheadroom")), "--tkmx loads noheadroom extension");
     assert(args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--tkmx loads RTK extension");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--tkmx loads caveman skill");
+    assert(args.some((arg) => arg.endsWith("/packages/antigravity")), "--tkmx loads antigravity extension");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --meta --tkmx hello`], root, { env });
+    assert(result.status === 0, "--meta --tkmx is a valid combination");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/antigravity")), "--meta --tkmx loads antigravity extension");
 
     if (run("bash", ["-lc", "command -v zsh >/dev/null 2>&1"], root).status === 0) {
       writeFileSync(argsFile, "");

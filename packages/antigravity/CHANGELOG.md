@@ -1,4 +1,4 @@
-# @raquezha/noagy
+# @raquezha/antigravity
 
 ## 0.0.5
 

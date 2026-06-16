@@ -459,7 +459,7 @@ async function loginAntigravity(callbacks: OAuthCallbacks): Promise<OAuthCredent
 	}
 }
 
-async function refreshNoagyToken(credentials: OAuthCredentials): Promise<OAuthCredentials> {
+async function refreshAntigravityToken(credentials: OAuthCredentials): Promise<OAuthCredentials> {
 	const response = await fetch(TOKEN_URL, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -754,7 +754,7 @@ async function streamResponse(response: Response, stream: AssistantMessageEventS
 	return hasContent;
 }
 
-function streamNoagy(model: any, context: any, options?: any): any {
+function streamAntigravity(model: any, context: any, options?: any): any {
 	const stream = createAssistantMessageEventStream();
 	void (async () => {
 		const output = createOutput(model);
@@ -807,10 +807,10 @@ export default function (pi: ExtensionAPI) {
 		oauth: {
 			name: PROVIDER_NAME,
 			login: loginAntigravity as any,
-			refreshToken: refreshNoagyToken as any,
+			refreshToken: refreshAntigravityToken as any,
 			getApiKey: getApiKey as any,
 		},
-		streamSimple: streamNoagy,
+		streamSimple: streamAntigravity,
 	} as any);
 
 	pi.registerCommand("antigravity.doctor", {
