@@ -36,7 +36,7 @@
 | **Workflow** | [`@raquezha/norpiv`](./packages/norpiv) | the core RPIV agentic process |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
 | **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | HTML trace viewer & powerline footer |
-| **Providers** | [`@raquezha/noagy`](./packages/noagy) | Google Antigravity model support |
+| **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
 
 ## 🚀 Getting Started
 

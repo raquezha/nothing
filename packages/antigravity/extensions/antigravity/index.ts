@@ -410,7 +410,7 @@ function startCallbackServer(): Promise<CallbackServer> {
 	});
 }
 
-async function loginNoagy(callbacks: OAuthCallbacks): Promise<OAuthCredentials> {
+async function loginAntigravity(callbacks: OAuthCallbacks): Promise<OAuthCredentials> {
 	const { verifier, challenge } = generatePKCE();
 	const { server, waitForCode } = await startCallbackServer();
 	try {
@@ -490,7 +490,7 @@ function runtimeModelFor(modelId: string): string {
 	return MODEL_VARIANTS.find((variant) => variant.id === modelId)?.runtimeModel || DEFAULT_RUNTIME_MODEL_ID;
 }
 
-function noagyModels(): ProviderModelConfig[] {
+function antigravityModels(): ProviderModelConfig[] {
 	return MODEL_VARIANTS.map((variant) => ({
 		id: variant.id,
 		name: variant.name,
@@ -803,10 +803,10 @@ export default function (pi: ExtensionAPI) {
 		name: PROVIDER_NAME,
 		baseUrl: DEFAULT_ENDPOINT,
 		api: "antigravity-api" as any,
-		models: noagyModels(),
+		models: antigravityModels(),
 		oauth: {
 			name: PROVIDER_NAME,
-			login: loginNoagy as any,
+			login: loginAntigravity as any,
 			refreshToken: refreshNoagyToken as any,
 			getApiKey: getApiKey as any,
 		},

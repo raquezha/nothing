@@ -152,7 +152,7 @@ function verifyReposcryGuardrails() {
 
 function verifyPackageLockWorkspaceVersions() {
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  for (const pkgDir of ["noagy", "nofooter", "noheadroom", "noleaks", "norpiv", "nosearch", "notrace"]) {
+  for (const pkgDir of ["antigravity", "nofooter", "noheadroom", "noleaks", "norpiv", "nosearch", "notrace"]) {
     const workspace = `packages/${pkgDir}`;
     const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
     const lockPkg = lock.packages?.[workspace];
@@ -162,7 +162,7 @@ function verifyPackageLockWorkspaceVersions() {
 
 function verifyPackageManifests() {
   const expected = {
-    "packages/noagy/package.json": { extensions: ["extensions"] },
+    "packages/antigravity/package.json": { extensions: ["extensions"] },
     "packages/nofooter/package.json": { extensions: ["extensions"] },
     "packages/noleaks/package.json": { extensions: ["extensions"] },
     "packages/noheadroom/package.json": { extensions: ["extensions"] },

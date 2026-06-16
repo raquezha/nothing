@@ -6,11 +6,11 @@
     },
     "android": {
       "skills": ["norpiv/triage", "norpiv/implement", "norpiv/verify", "vendor/android-skills/devtools/android-cli"],
-      "extensions": ["noagy"]
+      "extensions": ["antigravity"]
     },
     "pm": {
       "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
-      "extensions": ["noagy"]
+      "extensions": ["antigravity"]
     },
     "dev": {
       "skills": [
@@ -44,27 +44,28 @@
         "vendor/android-skills/wear/jetpack-compose-m3",
         "vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer"
       ],
-      "extensions": ["notrace", "noagy"]
+      "extensions": ["notrace", "antigravity"]
     },
     "rpiv": {
       "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
-      "extensions": ["notrace", "noagy"]
+      "extensions": ["notrace", "antigravity"]
     },
     "meta": {
       "skills": ["nometa", "nosearch"],
-      "extensions": ["noleaks", "noagy"]
+      "extensions": ["noleaks", "antigravity"]
     },
     "write": {
       "skills": ["nosearch"],
-      "extensions": ["noagy"]
+      "extensions": ["antigravity"]
     },
     "notes": {
       "skills": ["norpiv/distill"],
-      "extensions": ["noleaks", "noagy"]
+      "extensions": ["noleaks", "antigravity"]
     },
     "antigravity": {
       "skills": [],
-      "extensions": ["noagy"]
+      "extensions": ["antigravity"]
     }
   }
 }
+

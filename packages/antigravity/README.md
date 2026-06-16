@@ -1,14 +1,14 @@
-# Antigravity (noagy extension)
+# Antigravity (antigravity extension)
 
 Independent native Pi provider for Google Antigravity-compatible model access.
 
-The extension folder is `noagy`, but the provider registered inside Pi is `antigravity`.
+The extension folder is `antigravity`, and the provider registered inside Pi is `antigravity`.
 
 ## Usage
 
 ```bash
 # From this checkout
-pi --extension ./packages/noagy
+pi --extension ./packages/antigravity
 
 # Or via nothing
 pi --antigravity
@@ -27,7 +27,7 @@ The extension uses a native `streamSimple` transport. It does **not** shell out 
 ## NPM
 
 ```bash
-npm install -g @raquezha/noagy
+npm install -g @raquezha/antigravity
 ```
 
 ## Provider

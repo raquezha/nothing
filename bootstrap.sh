@@ -428,7 +428,7 @@ build_local_packages() {
 
   local pkg output
   local outputs=(
-    "noagy:dist/noagy/index.js"
+    "antigravity:dist/antigravity/index.js"
     "nofooter:dist/nofooter.js"
     "noleaks:dist/noleaks/index.js"
     "noheadroom:dist/index.js"
@@ -593,7 +593,7 @@ spin_run "Installing @earendil-works/pi-coding-agent" npm install -g @earendil-w
 
 step "Process optional published @raquezha packages"
 if [[ "$INSTALL_PUBLISHED_PACKAGES" == true ]]; then
-  spin_run "Installing published @raquezha packages" npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/noagy @raquezha/nofooter @raquezha/norpiv
+  spin_run "Installing published @raquezha packages" npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/antigravity @raquezha/nofooter @raquezha/norpiv
 else
   info "Skipping published package install; hats use this checkout's built packages."
 fi

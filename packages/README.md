@@ -6,7 +6,7 @@ This folder contains the local package and skill bundles that make up the `nothi
 
 | Folder | Package | Type | Status | What it provides |
 |---|---|---|---|---|
-| `noagy/` | `@raquezha/noagy` | Pi extension | Experimental | Google Antigravity-compatible provider with OAuth login and `/antigravity.doctor`. |
+| `antigravity/` | `@raquezha/antigravity` | Pi extension | Experimental | Google Antigravity-compatible provider with OAuth login and `/antigravity.doctor`. |
 | `nofooter/` | `@raquezha/nofooter` | Pi extension | Usable | Powerline-style Pi footer/theme with token, cost, context, model, provider, and Git branch status. |
 | `noleaks/` | `@raquezha/noleaks` | Pi extension | Usable defense-in-depth | Credentials guard and DLP shield that blocks sensitive files and redacts secret-looking output. |
 | `nometa/` | Local skill bundle | Skills | Local-first | Meta/setup skills for maintaining `nothing`, creating skills, bootstrapping repos, and converting content to HTML. |

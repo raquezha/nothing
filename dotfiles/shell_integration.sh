@@ -47,6 +47,7 @@ pi() {
   local MOD_CAVEMAN=false
   local MOD_RTK=false
   local MOD_HEADROOM=false
+  local MOD_ANTIGRAVITY=false
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -265,7 +266,7 @@ EOF
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes|--antigravity)
+      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes)
         local flag_name="${1#--}"
         if [[ -n "$BASE_MINDSET" && "$BASE_MINDSET" != "$flag_name" ]]; then
           nothing_warn "Only one base hat allowed: --$BASE_MINDSET already set, got --$flag_name"
@@ -274,13 +275,13 @@ EOF
         BASE_MINDSET="$flag_name"
         shift
         ;;
+      --antigravity)
+        MOD_ANTIGRAVITY=true
+        shift
+        ;;
       --tkmx)
-        if [[ -n "$BASE_MINDSET" && "$BASE_MINDSET" != "antigravity" ]]; then
-          nothing_warn "Only one base hat allowed: --$BASE_MINDSET already set, got --tkmx (antigravity combo)"
-          return 2
-        fi
-        BASE_MINDSET="antigravity"
         COMBO_PRESET="tkmx"
+        MOD_ANTIGRAVITY=true
         MOD_CAVEMAN=true
         MOD_CAVEMAN_INTENSITY="ultra"
         MOD_RTK=true
@@ -341,6 +342,10 @@ EOF
       ensure_headroom_proxy
       add_extension "noheadroom"
     fi
+
+    if [[ "$MOD_ANTIGRAVITY" == true ]]; then
+      add_extension "antigravity"
+    fi
   fi
 
   add_extension "noleaks"
@@ -351,6 +356,7 @@ EOF
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
+    [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")
     local mod_label="none"
     if [[ ${#mods[@]} -gt 0 ]]; then
       mod_label="${mods[*]}"
