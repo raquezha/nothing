@@ -4,7 +4,8 @@
   "private": true,
   "description": "Unified dotfiles configuration and extensions monorepo",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/workflows/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

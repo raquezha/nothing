@@ -52,6 +52,7 @@ async function fileContainsDeprecatedPiNamespace() {
 function resolveSkill(spec) {
   const candidates = [
     path.join(root, "packages", spec),
+    path.join(root, "packages", "workflows", spec),
     path.join(root, spec),
   ];
   return candidates.find((candidate) => existsSync(candidate));
@@ -60,6 +61,7 @@ function resolveSkill(spec) {
 function resolveExtension(spec) {
   const candidates = [
     path.join(root, "packages", spec),
+    path.join(root, "packages", "workflows", spec),
     path.join(root, spec),
   ];
   return candidates.find((candidate) => existsSync(candidate));
@@ -99,8 +101,9 @@ function verifyInstallers() {
   const temp = mkdtempSync(path.join(tmpdir(), "nothing-installers-"));
   try {
     const norpivDest = path.join(temp, "norpiv");
-    execFileSync("node", [path.join(root, "packages/norpiv/bin/norpiv-install.cjs"), "--dest", norpivDest, "--copy"], { cwd: root, stdio: "pipe" });
+    execFileSync("node", [path.join(root, "packages/workflows/norpiv/bin/norpiv-install.cjs"), "--dest", norpivDest, "--copy"], { cwd: root, stdio: "pipe" });
     assert(existsSync(path.join(norpivDest, "triage", "SKILL.md")), "norpiv installer copies triage skill");
+    assert(!existsSync(path.join(norpivDest, "research", "SKILL.md")), "norpiv installer does not copy local noresearch skill");
     assert(existsSync(path.join(norpivDest, "scripts", "triage_helper.sh")), "norpiv installer copies shared scripts");
 
     const nosearchDest = path.join(temp, "nosearch");
@@ -119,7 +122,7 @@ function run(cmd, args, cwd, options = {}) {
 }
 
 function verifyReposcryGuardrails() {
-  const script = path.join(root, "packages/norpiv/scripts/reposcry-bootstrap.sh");
+  const script = path.join(root, "packages/workflows/norpiv/scripts/reposcry-bootstrap.sh");
   const temp = mkdtempSync(path.join(tmpdir(), "nothing-reposcry-"));
   try {
     run("git", ["init", "-q"], temp);
@@ -150,10 +153,85 @@ function verifyReposcryGuardrails() {
   }
 }
 
+function verifyRpivWorkflowPointer() {
+  const script = path.join(root, "packages/workflows/norpiv/scripts/triage_helper.sh");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-rpiv-workflow-"));
+  try {
+    run("git", ["init", "-q"], temp);
+    run("git", ["config", "user.email", "test@example.com"], temp);
+    run("git", ["config", "user.name", "Test"], temp);
+    writeFileSync(path.join(temp, "README.md"), "# smoke\n");
+    run("git", ["add", "README.md"], temp);
+    run("git", ["commit", "-q", "-m", "init"], temp);
+    const result = run("bash", [script, "local", "smoke"], temp);
+    assert(result.status === 0, "rpiv triage helper creates local task");
+
+    const activeTaskPath = path.join(temp, ".workflow", "active_task.json");
+    const activeWorkflowPath = path.join(temp, ".workflow", "active_workflow.json");
+    assert(existsSync(activeTaskPath), "rpiv writes compatibility active_task.json");
+    assert(existsSync(activeWorkflowPath), "rpiv writes generic active_workflow.json");
+
+    const activeTask = JSON.parse(readFileSync(activeTaskPath, "utf8"));
+    const activeWorkflow = JSON.parse(readFileSync(activeWorkflowPath, "utf8"));
+    assert(activeTask.active_task === "local-smoke", "active_task pointer uses source-id task folder");
+    assert(activeWorkflow.workflow === "rpiv", "active_workflow identifies rpiv workflow");
+    assert(activeWorkflow.id === "local-smoke", "active_workflow id matches task folder");
+    assert(activeWorkflow.stateFile === ".workflow/tasks/local-smoke/WORK.md", "active_workflow points to WORK.md state file");
+    assert(activeWorkflow.compatPointer === ".workflow/active_task.json", "active_workflow records legacy compatibility pointer");
+  } catch (error) {
+    fail(`rpiv workflow pointer test failed: ${error.message}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function verifyResearchWorkflowHelper() {
+  const script = path.join(root, "packages/workflows/noresearch/scripts/research_helper.sh");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-research-workflow-"));
+  try {
+    run("git", ["init", "-q"], temp);
+    run("git", ["config", "user.email", "test@example.com"], temp);
+    run("git", ["config", "user.name", "Test"], temp);
+    writeFileSync(path.join(temp, "README.md"), "# smoke\n");
+    run("git", ["add", "README.md"], temp);
+    run("git", ["commit", "-q", "-m", "init"], temp);
+
+    let result = run("bash", [script, "start", "Understand Notrace Storage"], temp);
+    assert(result.status === 0, "research helper starts workflow");
+
+    const activeWorkflowPath = path.join(temp, ".workflow", "active_workflow.json");
+    assert(existsSync(activeWorkflowPath), "research writes generic active_workflow.json");
+    const activeWorkflow = JSON.parse(readFileSync(activeWorkflowPath, "utf8"));
+    assert(activeWorkflow.workflow === "research", "research active_workflow identifies research workflow");
+    assert(activeWorkflow.id === "understand-notrace-storage", "research id is derived from topic");
+    assert(activeWorkflow.stateFile === ".workflow/research/understand-notrace-storage/RESEARCH.md", "research active_workflow points to RESEARCH.md");
+
+    const researchMdPath = path.join(temp, ".workflow", "research", "understand-notrace-storage", "RESEARCH.md");
+    assert(existsSync(researchMdPath), "research creates RESEARCH.md state file");
+    const researchMd = readFileSync(researchMdPath, "utf8");
+    assert(researchMd.includes("## [QUESTION]") && researchMd.includes("## [TRACE]"), "research state file has required sections");
+
+    result = run("bash", [script, "log", "Found first useful source"], temp);
+    assert(result.status === 0, "research helper logs updates");
+    assert(readFileSync(researchMdPath, "utf8").includes("Found first useful source"), "research log entry persisted");
+
+    result = run("bash", [script, "close", "notes/ai/example.md"], temp);
+    assert(result.status === 0, "research helper closes workflow");
+    assert(!existsSync(activeWorkflowPath), "research close clears active_workflow pointer");
+    assert(readFileSync(researchMdPath, "utf8").includes("Artifact: notes/ai/example.md"), "research close links artifact");
+    const metadata = JSON.parse(readFileSync(path.join(temp, ".workflow", "research", "understand-notrace-storage", "metadata.json"), "utf8"));
+    assert(metadata.status === "closed", "research metadata marked closed");
+  } catch (error) {
+    fail(`research workflow helper test failed: ${error.message}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
 function verifyPackageLockWorkspaceVersions() {
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  for (const pkgDir of ["antigravity", "nofooter", "noheadroom", "noleaks", "norpiv", "nosearch", "notrace"]) {
-    const workspace = `packages/${pkgDir}`;
+  const workspaces = ["packages/antigravity", "packages/nofooter", "packages/noheadroom", "packages/noleaks", "packages/workflows/norpiv", "packages/nosearch", "packages/notrace"];
+  for (const workspace of workspaces) {
     const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
     const lockPkg = lock.packages?.[workspace];
     assert(lockPkg?.version === pkg.version, `package-lock matches ${pkg.name} version`);
@@ -168,7 +246,7 @@ function verifyPackageManifests() {
     "packages/noheadroom/package.json": { extensions: ["extensions"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
-    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup", "distill"] },
+    "packages/workflows/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup", "distill"] },
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {
@@ -272,6 +350,23 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(args.some((arg) => arg.endsWith("/packages/antigravity")), "--tkmx loads antigravity extension");
 
     writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --research hello`], root, { env });
+    assert(result.status === 0, "--research runs with fake pi");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/workflows/noresearch/research")), "--research loads research skill");
+    assert(args.some((arg) => arg.endsWith("/packages/workflows/norpiv/distill")), "--research loads distill skill");
+    assert(args.some((arg) => arg.endsWith("/packages/nosearch/brave-search")), "--research loads brave-search skill");
+    assert(args.some((arg) => arg.endsWith("/packages/nosearch/firecrawl")), "--research loads firecrawl skill");
+    assert(args.some((arg) => arg.endsWith("/packages/notrace")), "--research loads notrace extension");
+    assert(args.includes("/research.start hello"), "--research topic rewrites to research.start prompt");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --research "/research.log found source"`], root, { env });
+    assert(result.status === 0, "--research explicit slash command runs with fake pi");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.includes("/research.log found source"), "--research preserves explicit slash command");
+
+    writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --meta --tkmx hello`], root, { env });
     assert(result.status === 0, "--meta --tkmx is a valid combination");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
@@ -301,6 +396,7 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
+  assert(output.includes("--research"), "bootstrap documents research hat");
 
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
@@ -324,6 +420,8 @@ await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
 verifyReposcryGuardrails();
+verifyRpivWorkflowPointer();
+verifyResearchWorkflowHelper();
 verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();
 verifyShellIntegration();

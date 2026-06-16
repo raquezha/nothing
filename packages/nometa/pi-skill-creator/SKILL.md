@@ -22,7 +22,7 @@ Do not jump straight into writing `SKILL.md`. First understand the requested ski
 
 For this repo, owned reusable skills usually live under one of:
 
-- `packages/norpiv/<skill-name>/`
+- `packages/workflows/norpiv/<skill-name>/`
 - `packages/nometa/<skill-name>/`
 - `packages/nosearch/<skill-name>/`
 - another explicit package path chosen with the user

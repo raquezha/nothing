@@ -1,5 +1,7 @@
 ---
 name: sync
+workflow: rpiv
+workflowPhase: sync
 description: Synchronizes local RPIV task state (WORK.md) to external trackers (Jira, GitHub, GitLab). Use this to publish progress, update implementation status, and maintain a durable audit trail between local development and remote project management tools.
 ---
 
@@ -8,7 +10,7 @@ description: Synchronizes local RPIV task state (WORK.md) to external trackers (
 Maintains consistency between local `.workflow` state and the remote source of truth using a single Pi-owned living status comment per task.
 
 ## Guardrails
-- **Pre-flight**: Always read `.workflow/active_task.json` and the active `WORK.md` before executing.
+- **Pre-flight**: Always read `.workflow/active_workflow.json` / `.workflow/active_task.json` and the active `WORK.md` before executing.
 - **Privacy**: NEVER sync secrets, environment variables, or private notes not intended for stakeholders.
 - **Integrity**: Do not modify `[BRIEF]` or `[GRILL]` sections.
 - **Idempotency**: If the remote Pi status already reflects the current local state, do not post or update.
@@ -44,7 +46,7 @@ Do **not** use latest-comment ownership as the primary decision. Latest-comment-
 ## Workflow
 
 ### 1. Discovery & State Loading
-- Identify the platform and ID from `.workflow/active_task.json`.
+- Identify the platform and ID from `.workflow/active_workflow.json` or compatibility `.workflow/active_task.json`.
 - Extract **Slices** from `[PLAN]`, **Status** from `[LOG]`, and **Artifacts** such as PR/MR links, commit hashes, and verification output.
 
 ### 2. Payload Preparation
