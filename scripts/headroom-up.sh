@@ -8,7 +8,7 @@ URL="${HEADROOM_URL:-http://127.0.0.1:8788}"
 
 mkdir -p "$DATA_DIR"
 
-docker compose -f "$COMPOSE_FILE" up -d
+docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 
 for _ in {1..45}; do
   if curl -fsS "$URL/health" >/dev/null 2>&1; then

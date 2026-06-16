@@ -28,12 +28,16 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		if (!converted) continue;
 
 		const originalText = extractOpenAIText(converted);
-		// Allow any toolResult to be a candidate for compression if Headroom decides to shrink it.
-		// The minMessageChars threshold is primarily to avoid overhead for tiny messages,
-		// but we shouldn't block Headroom if it finds savings in slightly smaller ones.
-		const applyTo = source.role === "toolResult" ? "toolResult" : null;
+		// Mark candidates for compression.
+		// toolResults are always candidates.
+		// user/assistant messages are candidates unless they are the most recent turn.
+		const isRecent = sourceIndex >= messages.length - 2;
+		const applyTo = (source.role === "toolResult" || (!isRecent && (source.role === "user" || source.role === "assistant"))) 
+			? source.role 
+			: null;
+		
 		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
-		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
+		mappings.push({ sourceIndex, message: converted, applyTo: applyTo as any, originalText });
 	}
 
 	return {
@@ -62,19 +66,18 @@ export function applyCompressionResult(
 		const validation = validateAlignedMessage(mapping.message, compressed);
 		if (!validation.ok) return validation;
 
-		const nextText = extractOpenAIText(compressed);
+		let nextText = extractOpenAIText(compressed);
+
+		// If this is a protected message (not a candidate), and Headroom changed it,
+		// we FORCE it back to the original text to preserve accuracy.
+		if (!mapping.applyTo && nextText !== mapping.originalText) {
+			nextText = mapping.originalText;
+		}
+
 		if (nextText === mapping.originalText) continue;
 
-		if (mapping.applyTo !== "toolResult") {
-			return { ok: false, reason: `non-candidate-changed:${mapping.message.role}` };
-		}
-
 		const target = nextMessages[mapping.sourceIndex] as AnyMessage;
-		if (target.role !== "toolResult") {
-			return { ok: false, reason: "source-role-mismatch" };
-		}
-
-		if (!replaceTextContent(target, nextText)) {
+		if (!hasContent(target) || !replaceTextContent(target, nextText)) {
 			return { ok: false, reason: "target-content-unreplaceable" };
 		}
 		appliedMessages++;

@@ -22,6 +22,32 @@ The environment has aggressive security guardrails. To avoid being **BLOCKED**:
 
 {{NETDATA_INSTRUCTIONS}}
 
+## Standard Repository Patterns
+
+### AGENTS.md Management
+- **Source of Truth**: `config/AGENTS.md` (symlinked as `./AGENTS.md` in repo root).
+- **Deployment**: `~/AGENTS.md` is auto-generated and overwritten by `bootstrap.sh`.
+- **Edit Rule**: Always edit the version in the repository. Direct edits to `~/AGENTS.md` will be lost on bootstrap.
+
+### Extension & Skill Structure (Pi)
+Always use the nested directory pattern to ensure correct discovery and naming:
+- **Extensions Source**: `packages/<name>/extensions/<name>/index.ts`
+- **Extensions Build**: `packages/<name>/dist/<name>/index.js`
+- **Skills**: Use `packages/<name>/SKILL.md` (or `packages/<name>/<sub-skill>/SKILL.md` for multi-skill packages).
+- **package.json**: Set `"pi": { "extensions": ["extensions"] }` and `"main": "dist/<name>/index.js"`.
+- This avoids extensions appearing with `.ts` suffixes or generic "extensions" names.
+
+### Adding Hats & Modifiers
+When adding a new Pi "hat" or modifier:
+1. **Logic**: Add flag parsing and extension/skill loading to `dotfiles/shell_integration.sh`.
+2. **Help**: Update the `printf` tables in `bootstrap.sh` to include the new flag in the `hats`, `modifiers`, or `combo` sections.
+3. **Mindsets**: If it's a base hat, add its default skills/extensions to `config/mindsets.json`.
+
+### Retrospective & Workflow
+- **.notrace/**: Owns all retrospective artifacts (`notrace.json`, `notrace.html`, `notrace.review.json`).
+- **.workflow/**: Owns active task state and RPIV context.
+- **WORK.md**: Should only *reference* notrace artifacts via relative links, never own them.
+
 ## Docker Recovery (Linux)
 If homelab services are down or laptop recently restarted:
 ```bash

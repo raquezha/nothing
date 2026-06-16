@@ -48,6 +48,7 @@ pi() {
   local MOD_RTK=false
   local MOD_HEADROOM=false
   local MOD_ANTIGRAVITY=false
+  local MOD_NOTRACE=false
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -279,9 +280,14 @@ EOF
         MOD_ANTIGRAVITY=true
         shift
         ;;
+      --notrace)
+        MOD_NOTRACE=true
+        shift
+        ;;
       --tkmx)
         COMBO_PRESET="tkmx"
         MOD_ANTIGRAVITY=true
+        MOD_NOTRACE=true
         MOD_CAVEMAN=true
         MOD_CAVEMAN_INTENSITY="ultra"
         MOD_RTK=true
@@ -346,6 +352,10 @@ EOF
     if [[ "$MOD_ANTIGRAVITY" == true ]]; then
       add_extension "antigravity"
     fi
+
+    if [[ "$MOD_NOTRACE" == true ]]; then
+      add_extension "notrace"
+    fi
   fi
 
   add_extension "noleaks"
@@ -357,6 +367,7 @@ EOF
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
     [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")
+    [[ "$MOD_NOTRACE" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("notrace")
     local mod_label="none"
     if [[ ${#mods[@]} -gt 0 ]]; then
       mod_label="${mods[*]}"

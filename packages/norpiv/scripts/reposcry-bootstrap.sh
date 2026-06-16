@@ -42,6 +42,30 @@ reposcry_indexed_files() {
   reposcry stats 2>/dev/null | awk '/Files indexed:/ {print $3; exit}'
 }
 
+# Quick health check for Pulse info
+check_pulse() {
+  if ! command -v reposcry >/dev/null 2>&1; then
+    echo "PULSE: Missing (Not installed)"
+    return
+  fi
+  if [[ ! -d .reposcry ]]; then
+    echo "PULSE: Cold (No cache)"
+    return
+  fi
+  local files
+  files=$(reposcry_indexed_files || echo "0")
+  if [[ "$files" == "0" ]]; then
+    echo "PULSE: Cold (Zero files)"
+  else
+    echo "PULSE: Warm ($files files)"
+  fi
+}
+
+if [[ "${1:-}" == "--pulse" ]]; then
+  check_pulse
+  exit 0
+fi
+
 ensure_reposcry_gitignore
 refuse_tracked_reposcry_cache
 

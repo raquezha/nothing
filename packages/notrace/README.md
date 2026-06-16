@@ -1,37 +1,37 @@
 # notrace
 
-Phase 0 / POC local-first trace capture for the Pi Coding Agent. It captures execution traces for workflow debugging — LLM calls, tool executions, token usage, costs — and writes both an interactive HTML report and a machine-readable `notrace.json` run record to your active task workspace at session end.
+Local-first retrospective engine for the Pi Coding Agent.
 
-> **Security warning:** notrace is local-first and now redacts common secrets by default, escapes report rendering, blocks network access in generated reports, and writes private report files. Reports can still contain sensitive prompts, tool payloads, outputs, and local paths. Do not publish generated reports.
+**Traces in, lessons out.**
 
-## Boundary with RPIV
+notrace captures execution traces — LLM calls, tool executions, token usage, costs — and transforms them into evidence for improvement. It writes an interactive HTML report, a machine-readable `notrace.json` run record, and supports human review sidecars for durable learning.
 
-The relationship is intentionally optional both ways:
+> **Security warning:** notrace is local-first and redacts common secrets by default, escapes report rendering, blocks network access in generated reports, and writes private report files. Reports can still contain sensitive prompts, tool payloads, outputs, and local paths. Do not publish generated reports.
 
-- **notrace without RPIV**: should work; notrace-owned artifacts belong under `.notrace/`
-- **RPIV without notrace**: should work; `WORK.md` remains the source of truth without any notrace dependency
-- **together**: RPIV `WORK.md [LOG]` may reference notrace artifacts, but `.workflow/` should not own them
+## Retrospective Spine
 
-Neither package should require the other to function.
+The goal is not just a trace viewer, but a feedback loop for workflow engineering:
+
+1. **Capture evidence**: `notrace.json` (automatic)
+2. **Review outcome**: `notrace.review.json` (human-in-the-loop)
+3. **Compare attempts**: `compare:notrace` (measurable improvement)
+
+## Storage & Workflow Boundary
+
+- **Uniform Storage**: All artifacts live under `.notrace/sessions/<session-id>/`.
+- **Workflow Agnostic**: Works in any directory; detects RPIV tasks automatically if present.
+- **Optional Attachment**: When RPIV is active, notrace appends artifact references to `WORK.md [LOG]`.
+- **Ownership**: `.notrace/` owns evidence; `.workflow/` owns task state.
 
 ## Features
 
-- **Session timeline**: Every turn, tool call, and LLM completion rendered as an expandable card
-- **Metrics dashboard**: Total tokens, input/output split, cache reads, cost (USD), duration
-- **Machine-readable run record**: Normalized `notrace.json` sidecar for future retrospective/compare flows
-- **Clickable `file://` links**: Artifact paths printed to console at session end for instant browser access
-- **Workdir aware**: notrace-owned artifacts are planned to live under `.notrace/` for the root execution directory
-- **RPIV attachment**: When a task has a `WORK.md`, notrace appends artifact/review references into `[LOG]`
-- **HTML report**: Self-contained/offline report with a restrictive CSP and no remote font/network loads
-- **Safer defaults**: Secret-key/value redaction, bounded payload sizes, metadata-only mode, private file permissions, and `.workflow`-confined artifact writes
-
-## Output
-
-```
-🔍 [notrace] Observability artifacts generated:
-📂 file:///path/to/.notrace/sessions/<session-id>/notrace.html
-📂 file:///path/to/.notrace/sessions/<session-id>/notrace.json
-```
+- **Session Timeline**: Every turn, tool call, and LLM completion rendered as an expandable card.
+- **Metrics Dashboard**: Total tokens, input/output split, cost (USD), duration, and success rates.
+- **Machine-Readable Run Record**: Normalized JSON for future automated retrospective flows.
+- **Clickable `file://` Links**: Artifact paths printed to console at session end for instant access.
+- **Human Review Flow**: CLI for recording outcomes, friction levels, and reusable lessons.
+- **Comparison Engine**: Diffs two runs to see if a workflow change (e.g., Headroom, caveman) actually improved efficiency.
+- **Safer Defaults**: Secret-key/value redaction and bounded payload sizes by default.
 
 ## Usage
 
@@ -39,63 +39,37 @@ Neither package should require the other to function.
 # Load directly
 pi --extension ./packages/notrace
 
-# Via nothing mindset (dev, rpiv)
+# Via nothing mindset
 pi --dev
 ```
 
-## NPM
+## Review & Compare
 
+### Add a human review
 ```bash
-npm install -g @raquezha/notrace
-```
-
-## Add a human review
-
-```bash
-npm run review:notrace -- path/to/notrace.json \
+npm run review:notrace -- .notrace/sessions/<id>/notrace.json \
   --outcome partial \
   --friction high \
   --lesson "Headroom reduced tokens but needed manual steering." \
   --next-change "Try same task with RepoScry enabled."
 ```
 
-This writes an adjacent review sidecar. For normal runs that means `notrace.review.json` next to `notrace.json`.
+Review fields: `outcome` (`success`, `partial`, `failed`, `abandoned`, `inconclusive`), `friction` (`low`, `medium`, `high`), `lesson`, `nextChange`.
 
-If the run is attached to an RPIV task folder with `WORK.md`, the review is also logged into that task's `[LOG]` section as a reference to the notrace artifact.
-
-Review fields:
-
-- `outcome`: `success`, `partial`, `failed`, `abandoned`, `inconclusive`
-- `friction`: `low`, `medium`, `high`
-- `lesson`: short human conclusion
-- `nextChange`: what to try next run
-
-## Compare two runs
-
+### Compare two runs
 ```bash
 npm run compare:notrace -- \
-  path/to/baseline/notrace.json \
-  path/to/candidate/notrace.json
+  .notrace/sessions/<baseline-id>/notrace.json \
+  .notrace/sessions/<candidate-id>/notrace.json
 ```
 
-This prints a small retrospective diff for:
+## Capture Controls
 
-- total/input/output tokens
-- duration
-- LLM calls
-- tool calls
-- tool errors
-- total cost
-- model/provider mix
-- review sidecar outcome/friction/lesson when present
-
-## Capture controls
-
-By default, notrace uses `NOTRACE_CAPTURE=redacted`: it captures useful payloads but redacts common secret keys/values and truncates very large values.
+By default, notrace uses `NOTRACE_CAPTURE=redacted`.
 
 ```bash
-NOTRACE_CAPTURE=metadata pi --dev   # no prompt/tool payload bodies
-NOTRACE_CAPTURE=full pi --dev       # unsafe: raw payloads for local debugging only
+NOTRACE_CAPTURE=metadata pi --dev   # no prompt/tool bodies
+NOTRACE_CAPTURE=full pi --dev       # unsafe: raw payloads for debugging only
 ```
 
 ## Build

@@ -5,12 +5,29 @@
       "extensions": []
     },
     "android": {
-      "skills": ["norpiv/triage", "norpiv/implement", "norpiv/verify", "vendor/android-skills/devtools/android-cli"],
-      "extensions": ["antigravity"]
+      "skills": [
+        "norpiv/triage",
+        "norpiv/implement",
+        "norpiv/verify",
+        "vendor/android-skills/devtools/android-cli"
+      ],
+      "extensions": [
+        "antigravity"
+      ]
     },
     "pm": {
-      "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/sync"],
-      "extensions": ["antigravity"]
+      "skills": [
+        "nosearch",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/sync",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "antigravity"
+      ]
     },
     "dev": {
       "skills": [
@@ -42,30 +59,65 @@
         "vendor/android-skills/system/edge-to-edge",
         "vendor/android-skills/testing/testing-setup",
         "vendor/android-skills/wear/jetpack-compose-m3",
-        "vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer"
+        "vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer",
+        "nometa/pulse"
       ],
-      "extensions": ["notrace", "antigravity"]
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
     },
     "rpiv": {
-      "skills": ["nosearch", "norpiv/triage", "norpiv/frame", "norpiv/grill-with-docs", "norpiv/plan", "norpiv/implement", "norpiv/verify", "norpiv/sync", "norpiv/update-docs", "norpiv/cleanup"],
-      "extensions": ["notrace", "antigravity"]
+      "skills": [
+        "nosearch",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/cleanup",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
     },
     "meta": {
-      "skills": ["nometa", "nosearch"],
-      "extensions": ["noleaks", "antigravity"]
+      "skills": [
+        "nometa",
+        "nosearch"
+      ],
+      "extensions": [
+        "noleaks",
+        "antigravity"
+      ]
     },
     "write": {
-      "skills": ["nosearch"],
-      "extensions": ["antigravity"]
+      "skills": [
+        "nosearch"
+      ],
+      "extensions": [
+        "antigravity"
+      ]
     },
     "notes": {
-      "skills": ["norpiv/distill"],
-      "extensions": ["noleaks", "antigravity"]
+      "skills": [
+        "norpiv/distill"
+      ],
+      "extensions": [
+        "noleaks",
+        "antigravity"
+      ]
     },
     "antigravity": {
       "skills": [],
-      "extensions": ["antigravity"]
+      "extensions": [
+        "antigravity"
+      ]
     }
   }
 }
-

@@ -2,7 +2,7 @@
 import { mkdtempSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import notrace from "../packages/notrace/dist/notrace.js";
+import notrace from "../packages/notrace/dist/notrace/index.js";
 
 async function runSession({ cwd, withActiveTask }) {
   const handlers = new Map();

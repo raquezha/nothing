@@ -12,6 +12,7 @@ This package is intentionally local-first inside `nothing`. For public handoff, 
 | `agent-os` | Seed or sync `AGENTS.md` and `CONTEXT.md` in a repo. |
 | `nothing-bootstrap` | Bootstrap, migrate, or restore the `nothing` agent environment. |
 | `nohtml` | Convert markdown/transcripts/plain text into self-contained HTML pages. |
+| `pulse` | Quick health check of the agentic environment (RepoScry, Headroom, notrace). |
 
 ## Use from the full nothing setup
 
@@ -26,12 +27,13 @@ Then invoke skills by intent, e.g.:
 /pi-skill-creator
 /nothing-bootstrap
 /nohtml
+/pulse
 ```
 
 ## Skills-only handoff with `npx skills add`
 
 ```bash
 npx -y skills add raquezha/nothing --full-depth -g -a pi \
-  -s agent-os pi-skill-creator nothing-bootstrap nohtml \
+  -s agent-os pi-skill-creator nothing-bootstrap nohtml pulse \
   -y
 ```
