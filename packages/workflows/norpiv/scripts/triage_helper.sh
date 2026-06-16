@@ -120,13 +120,13 @@ PY
 
 write_active_pointer() {
     mkdir -p ".workflow"
-    python3 - ".workflow/active_task.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$BRANCH_NAME" <<'PY'
+    python3 - ".workflow/active_task.json" ".workflow/active_workflow.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-path, active_task, source, raw_id, task_path, branch = sys.argv[1:]
-data = {
+active_task_path, active_workflow_path, active_task, source, raw_id, task_path, state_file, branch, now = sys.argv[1:]
+legacy_data = {
     "active_task": active_task,
     "source": source,
     "id": raw_id,
@@ -135,7 +135,22 @@ data = {
     "path": task_path,
     "branch": branch,
 }
-Path(path).write_text(json.dumps(data, indent=2) + "\n")
+workflow_data = {
+    "workflow": "rpiv",
+    "id": active_task,
+    "taskId": active_task,
+    "source": source,
+    "sourceId": raw_id,
+    "stateFile": state_file,
+    "taskPath": task_path,
+    "path": task_path,
+    "branch": branch,
+    "startedAt": now,
+    "updatedAt": now,
+    "compatPointer": ".workflow/active_task.json",
+}
+Path(active_task_path).write_text(json.dumps(legacy_data, indent=2) + "\n")
+Path(active_workflow_path).write_text(json.dumps(workflow_data, indent=2) + "\n")
 PY
 }
 

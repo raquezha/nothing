@@ -1,5 +1,7 @@
 ---
 name: triage
+workflow: rpiv
+workflowPhase: triage
 description: "Ingest or resume a tracked/local task in the RPIV workspace. Use when starting or returning to jira:, github:, gitlab:, or local: work and you need canonical WORK.md state without duplicating scaffold."
 ---
 
@@ -8,10 +10,10 @@ description: "Ingest or resume a tracked/local task in the RPIV workspace. Use w
 Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 
 ## Guardrails
-- READ: user argument, `.workflow/active_task.json` when present, target `metadata.json`, and target `WORK.md` when resuming.
-- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active_task.json`; optional `.reposcry/` cache files only when RepoScry is installed.
+- READ: user argument, `.workflow/active_workflow.json` / `.workflow/active_task.json` when present, target `metadata.json`, and target `WORK.md` when resuming.
+- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active_workflow.json`, `.workflow/active_task.json`; optional `.reposcry/` cache files only when RepoScry is installed.
 - On **create**, initialize required guarded sections only if absent: `[BRIEF]`, `[GRILL]`, `[PLAN]`, `[LOG]`, `[META]`.
-- On **resume**, only update `.workflow/active_task.json`, metadata timestamps/state as needed, `[META]`, and append one concise `[LOG]` entry.
+- On **resume**, only update `.workflow/active_workflow.json`, `.workflow/active_task.json`, metadata timestamps/state as needed, `[META]`, and append one concise `[LOG]` entry.
 - NEVER: duplicate guarded sections.
 - NEVER: overwrite existing `[BRIEF]`, `[GRILL]`, or `[PLAN]` during triage.
 - NEVER: create `PROBLEM.md`, `PRD.md`, `PLAN.md`, or `EVIDENCE.md`.
@@ -35,7 +37,7 @@ Use when the target task folder does not exist.
 - Create `.workflow/tasks/[source-id]/metadata.json` with at least `id`, `source`, `taskFolder`, `branch`, `status`, `phase`, `createdAt`, `updatedAt`.
 - Create `.workflow/tasks/[source-id]/WORK.md` with guarded RPIV sections.
 - Set `status=active` and `phase=triaged`.
-- Write canonical `.workflow/active_task.json`.
+- Write canonical `.workflow/active_workflow.json` and compatibility `.workflow/active_task.json`.
 
 ### Resume
 Use when the task exists and `status` is `active`, `blocked`, or missing/legacy.

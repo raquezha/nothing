@@ -1,5 +1,7 @@
 ---
 name: frame
+workflow: rpiv
+workflowPhase: frame
 description: Define the task brief inside the active WORK.md. Use after /triage to convert issue data into a clear Problem or Proposal brief without creating separate PROBLEM.md or PRD.md files.
 ---
 
@@ -8,7 +10,7 @@ description: Define the task brief inside the active WORK.md. Use after /triage 
 Turn raw task context into the stable "what/why" brief.
 
 ## Guardrails
-- READ: `.workflow/active_task.json`, `.workflow/tasks/[active_task]/WORK.md`, and `.reposcry/AI_CONTEXT.md` when present.
+- READ: `.workflow/active_workflow.json` / `.workflow/active_task.json`, active `WORK.md`, and `.reposcry/AI_CONTEXT.md` when present.
 - WRITE: `WORK.md` -> `[BRIEF]` section and append to `[LOG]` only; optional `.reposcry/AI_CONTEXT.md` when RepoScry is installed.
 - NEVER: create `PROBLEM.md`, `PRD.md`, or extra planning files.
 - NEVER: overwrite `[PLAN]` or `[GRILL]`.

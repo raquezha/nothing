@@ -619,7 +619,7 @@ fi
 
 step "Process optional global skill links"
 if [[ "$INSTALL_GLOBAL_SKILLS" == true ]]; then
-  run node "$SCRIPT_DIR/packages/norpiv/bin/norpiv-install.cjs" --target pi
+  run node "$SCRIPT_DIR/packages/workflows/norpiv/bin/norpiv-install.cjs" --target pi
   run node "$SCRIPT_DIR/packages/nosearch/bin/nosearch-install.cjs" --target pi
 else
   info "Skipping global skill links; hats load repo-local skills intentionally."
@@ -662,10 +662,10 @@ printf '├────────────┼──────────
 printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shell_integration.sh"
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
-printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --antigravity"
+printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom"
 printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom)"
-printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
+printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/workflows/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
 printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n'
 printf '   note: --headroom starts the local Headroom Docker backend on demand.\n'

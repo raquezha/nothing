@@ -2,6 +2,10 @@
 
 RPIV: a gated workflow for reliable AI coding agents.
 
+RPIV is one implementation of the broader `nothing` Workflow Contract. The contract defines the generic shape for workflows such as RPIV and Research.
+
+Standalone package usage still works: `@raquezha/norpiv` includes the RPIV skills, `distill`, and helper scripts needed for handoff. The local Research workflow lives separately under `packages/workflows/noresearch`. The platform-level contract lives in the source repo at <https://github.com/raquezha/nothing/blob/main/docs/workflow.md>.
+
 ## 🔁 The Lifecycle
 
 The RPIV engine splits task execution into separate, focused phases:
@@ -111,6 +115,8 @@ Obsidian note → /triage → RPIV             (only when ready to commit)
 ```
 
 `distill` is the missing layer before RPIV. Use `pi --notes` to load it.
+
+Research is a separate local workflow bundle in `packages/workflows/noresearch` and is loaded by the full `nothing` setup with `pi --research`.
 
 ## 🚀 Quick Start Example
 

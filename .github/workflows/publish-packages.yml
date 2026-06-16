@@ -69,7 +69,7 @@ jobs:
           echo "🧪 Dry run — no packages published."
           echo ""
           echo "Packages and current versions:"
-          for pkg in packages/notrace packages/noleaks packages/nosearch packages/antigravity packages/nofooter packages/noheadroom; do
+          for pkg in packages/notrace packages/noleaks packages/nosearch packages/antigravity packages/nofooter packages/noheadroom packages/workflows/norpiv; do
             name=$(node -e "console.log(require('./$pkg/package.json').name)")
             version=$(node -e "console.log(require('./$pkg/package.json').version)")
             echo "  → $name@$version"

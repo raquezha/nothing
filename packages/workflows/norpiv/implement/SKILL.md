@@ -1,5 +1,7 @@
 ---
 name: implement
+workflow: rpiv
+workflowPhase: implement
 description: Implement the next approved vertical slice from the active WORK.md and prepare a Draft PR/MR. Use when the plan is approved and the user explicitly asks to implement.
 ---
 
@@ -8,7 +10,7 @@ description: Implement the next approved vertical slice from the active WORK.md 
 Execute one functional vertical slice and hand it to the human for review.
 
 ## Guardrails
-- READ: `.workflow/active_task.json` then active `WORK.md` `[PLAN]`, `[BRIEF]`, and relevant `[LOG]` evidence.
+- READ: `.workflow/active_workflow.json` / `.workflow/active_task.json` then active `WORK.md` `[PLAN]`, `[BRIEF]`, and relevant `[LOG]` evidence.
 - WRITE: code changes and `WORK.md` -> append to `[LOG]` only; optional `.reposcry/` cache refresh when RepoScry is installed.
 - NEVER: edit `[BRIEF]` or `[GRILL]`.
 - NEVER: implement without explicit user instruction.

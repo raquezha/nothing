@@ -62,6 +62,10 @@
       "skills": ["norpiv/distill"],
       "extensions": ["noleaks", "antigravity"]
     },
+    "research": {
+      "skills": ["nosearch", "noresearch/research", "norpiv/distill"],
+      "extensions": ["notrace", "noleaks", "antigravity"]
+    },
     "antigravity": {
       "skills": [],
       "extensions": ["antigravity"]

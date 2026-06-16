@@ -24,7 +24,7 @@
 - **🛡️ Privacy First**: Always-on credential and secret guard via `@raquezha/noleaks`.
 - **🎩 Persona "Hats"**: Instant switching between Triage, PM, Dev, and Meta engineering modes.
 - **🗜️ Context Optimization**: Integrated local [Headroom](https://github.com/headroom-ai/headroom) compression via `@raquezha/noheadroom`.
-- **🔄 RPIV Workflow**: A formal Frame → Plan → Implement → Verify → Sync cycle for reliable agentic output.
+- **🔄 Workflow Platform**: A generic [Workflow Contract](./docs/workflow.md) with RPIV for execution and Research for discovery.
 - **🚀 One-Command Bootstrap**: reproducible environment setup across home and work machines.
 
 ## 📦 What's Inside
@@ -33,7 +33,7 @@
 |---|---|---|
 | **Privacy** | [`@raquezha/noleaks`](./packages/noleaks) | credential & secret protection |
 | **Optimization** | [`headroom/`](./headroom), [`@raquezha/noheadroom`](./packages/noheadroom) | local context compression |
-| **Workflow** | [`@raquezha/norpiv`](./packages/norpiv) | the core RPIV agentic process |
+| **Workflow** | [`@raquezha/norpiv`](./packages/workflows/norpiv), [`noresearch`](./packages/workflows/noresearch), [`docs/workflow.md`](./docs/workflow.md) | RPIV execution workflow, local Research workflow, and platform workflow contract |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
 | **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | HTML trace viewer & powerline footer |
 | **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
@@ -64,6 +64,7 @@ Base hats load repo-local skills and personas:
 
 ```bash
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
+pi --research    # intentional research workflow (or: pi --research "topic")
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
 pi --meta        # skill engineering and nothing maintenance

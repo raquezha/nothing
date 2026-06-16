@@ -1,5 +1,7 @@
 ---
 name: plan
+workflow: rpiv
+workflowPhase: plan
 description: Create or revise vertical implementation slices in the active WORK.md. Use after /grill-with-docs to produce a concise, reviewable plan for implementation.
 ---
 
@@ -8,7 +10,7 @@ description: Create or revise vertical implementation slices in the active WORK.
 Map the "how" into tracer-bullet vertical slices.
 
 ## Guardrails
-- READ: `.workflow/active_task.json` then active `WORK.md` `[BRIEF]` and `[GRILL]`.
+- READ: `.workflow/active_workflow.json` / `.workflow/active_task.json` then active `WORK.md` `[BRIEF]` and `[GRILL]`.
 - WRITE: `WORK.md` -> `[PLAN]` and append to `[LOG]` only.
 - NEVER: implement code during planning.
 - NEVER: create standalone `PLAN.md`.
