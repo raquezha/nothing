@@ -27,6 +27,7 @@ interface HeadroomRuntimeState {
 	processing: boolean;
 	lastInputFingerprint: string | null;
 	lastOutputFingerprint: string | null;
+	lastGuardSkipCandidateFingerprint: string | null;
 	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
@@ -108,6 +109,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		processing: false,
 		lastInputFingerprint: null,
 		lastOutputFingerprint: null,
+		lastGuardSkipCandidateFingerprint: null,
 		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
@@ -258,6 +260,12 @@ async function handleContextCompression(
 		return undefined;
 	}
 
+	// 3. If the candidates haven't changed since the last guard skip, don't try again.
+	const candidateFingerprint = generateCandidateFingerprint(event.messages);
+	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
+		return undefined;
+	}
+
 	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return undefined;
@@ -286,6 +294,7 @@ async function handleContextCompression(
 			// Record the input even on guard skips to prevent looping retries for this context
 			runtime.state.lastInputFingerprint = inputFingerprint;
 			runtime.state.lastOutputFingerprint = null;
+			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
 
 			recordGuardSkip(runtime.state.stats, applied.reason);
 			emitNotraceTelemetry(runtime);
@@ -297,6 +306,7 @@ async function handleContextCompression(
 		// Store fingerprints to break the feedback loop
 		runtime.state.lastInputFingerprint = inputFingerprint;
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
+		runtime.state.lastGuardSkipCandidateFingerprint = null;
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
 		emitNotraceTelemetry(runtime);
@@ -309,6 +319,17 @@ async function handleContextCompression(
 	} finally {
 		runtime.state.processing = false;
 	}
+}
+
+function generateCandidateFingerprint(messages: AgentMessage[]): string {
+	return messages
+		.filter((m) => m.role === "toolResult")
+		.map((m) => {
+			const converted = convertMessage(m);
+			const len = converted ? extractOpenAIText(converted).length : 0;
+			return `toolResult:${len}`;
+		})
+		.join(",");
 }
 
 function generateFingerprint(messages: AgentMessage[]): string {
