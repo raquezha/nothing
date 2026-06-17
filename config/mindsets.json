@@ -1,1 +1,149 @@
-{"mindsets":{"nothing":{"skills":[],"extensions":[]},"android":{"skills":["nosearch","norpiv/triage","norpiv/frame","norpiv/grill-with-docs","norpiv/plan","norpiv/implement","norpiv/verify","norpiv/sync","norpiv/update-docs","norpiv/cleanup","nometa/pulse","vendor/android-skills/build/agp/agp-9-upgrade","vendor/android-skills/camera/camera1-to-camerax","vendor/android-skills/device-ai/appfunctions","vendor/android-skills/devtools/android-cli","vendor/android-skills/identity/verified-email","vendor/android-skills/jetpack-compose/adaptive","vendor/android-skills/jetpack-compose/migration/migrate-xml-views-to-jetpack-compose","vendor/android-skills/jetpack-compose/theming/styles","vendor/android-skills/navigation/navigation-3","vendor/android-skills/performance/r8-analyzer","vendor/android-skills/play/engage-sdk-integration","vendor/android-skills/play/play-billing-library-version-upgrade","vendor/android-skills/profilers/perfetto-sql","vendor/android-skills/profilers/perfetto-trace-analysis","vendor/android-skills/system/edge-to-edge","vendor/android-skills/testing/testing-setup","vendor/android-skills/wear/jetpack-compose-m3","vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer"],"extensions":["notrace","antigravity"]},"pm":{"skills":["nosearch","norpiv/triage","norpiv/frame","norpiv/grill-with-docs","norpiv/plan","norpiv/sync","nometa/pulse"],"extensions":["antigravity"]},"dev":{"skills":["nosearch","nometa/agent-os","norpiv/triage","norpiv/frame","norpiv/grill-with-docs","norpiv/plan","norpiv/implement","norpiv/verify","norpiv/sync","norpiv/update-docs","norpiv/cleanup","vendor/android-skills/build/agp/agp-9-upgrade","vendor/android-skills/camera/camera1-to-camerax","vendor/android-skills/device-ai/appfunctions","vendor/android-skills/devtools/android-cli","vendor/android-skills/identity/verified-email","vendor/android-skills/jetpack-compose/adaptive","vendor/android-skills/jetpack-compose/migration/migrate-xml-views-to-jetpack-compose","vendor/android-skills/jetpack-compose/theming/styles","vendor/android-skills/navigation/navigation-3","vendor/android-skills/performance/r8-analyzer","vendor/android-skills/play/engage-sdk-integration","vendor/android-skills/play/play-billing-library-version-upgrade","vendor/android-skills/profilers/perfetto-sql","vendor/android-skills/profilers/perfetto-trace-analysis","vendor/android-skills/system/edge-to-edge","vendor/android-skills/testing/testing-setup","vendor/android-skills/wear/jetpack-compose-m3","vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer","nometa/pulse"],"extensions":["notrace","antigravity"]},"rpiv":{"skills":["nosearch","norpiv/triage","norpiv/frame","norpiv/grill-with-docs","norpiv/plan","norpiv/implement","norpiv/verify","norpiv/sync","norpiv/update-docs","norpiv/cleanup","nometa/pulse"],"extensions":["notrace","antigravity"]},"meta":{"skills":["nometa","nosearch"],"extensions":["noleaks","antigravity"]},"write":{"skills":["nosearch"],"extensions":["antigravity"]},"notes":{"skills":["norpiv/distill"],"extensions":["noleaks","antigravity"]},"antigravity":{"skills":[],"extensions":["antigravity"]}}}
+{
+  "mindsets": {
+    "nothing": {
+      "skills": [],
+      "extensions": []
+    },
+    "android": {
+      "skills": [
+        "nosearch",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/cleanup",
+        "nometa/pulse",
+        "vendor/android-skills/build/agp/agp-9-upgrade",
+        "vendor/android-skills/camera/camera1-to-camerax",
+        "vendor/android-skills/device-ai/appfunctions",
+        "vendor/android-skills/devtools/android-cli",
+        "vendor/android-skills/identity/verified-email",
+        "vendor/android-skills/jetpack-compose/adaptive",
+        "vendor/android-skills/jetpack-compose/migration/migrate-xml-views-to-jetpack-compose",
+        "vendor/android-skills/jetpack-compose/theming/styles",
+        "vendor/android-skills/navigation/navigation-3",
+        "vendor/android-skills/performance/r8-analyzer",
+        "vendor/android-skills/play/engage-sdk-integration",
+        "vendor/android-skills/play/play-billing-library-version-upgrade",
+        "vendor/android-skills/profilers/perfetto-sql",
+        "vendor/android-skills/profilers/perfetto-trace-analysis",
+        "vendor/android-skills/system/edge-to-edge",
+        "vendor/android-skills/testing/testing-setup",
+        "vendor/android-skills/wear/jetpack-compose-m3",
+        "vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer"
+      ],
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
+    },
+    "pm": {
+      "skills": [
+        "nosearch",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/sync",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "antigravity"
+      ]
+    },
+    "dev": {
+      "skills": [
+        "nosearch",
+        "nometa/agent-os",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/cleanup",
+        "vendor/android-skills/build/agp/agp-9-upgrade",
+        "vendor/android-skills/camera/camera1-to-camerax",
+        "vendor/android-skills/device-ai/appfunctions",
+        "vendor/android-skills/devtools/android-cli",
+        "vendor/android-skills/identity/verified-email",
+        "vendor/android-skills/jetpack-compose/adaptive",
+        "vendor/android-skills/jetpack-compose/migration/migrate-xml-views-to-jetpack-compose",
+        "vendor/android-skills/jetpack-compose/theming/styles",
+        "vendor/android-skills/navigation/navigation-3",
+        "vendor/android-skills/performance/r8-analyzer",
+        "vendor/android-skills/play/engage-sdk-integration",
+        "vendor/android-skills/play/play-billing-library-version-upgrade",
+        "vendor/android-skills/profilers/perfetto-sql",
+        "vendor/android-skills/profilers/perfetto-trace-analysis",
+        "vendor/android-skills/system/edge-to-edge",
+        "vendor/android-skills/testing/testing-setup",
+        "vendor/android-skills/wear/jetpack-compose-m3",
+        "vendor/android-skills/xr/display-glasses-with-jetpack-compose-glimmer",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
+    },
+    "rpiv": {
+      "skills": [
+        "nosearch",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/cleanup",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
+    },
+    "meta": {
+      "skills": [
+        "nometa",
+        "nosearch"
+      ],
+      "extensions": [
+        "noleaks",
+        "antigravity"
+      ]
+    },
+    "write": {
+      "skills": [
+        "nosearch"
+      ],
+      "extensions": [
+        "antigravity"
+      ]
+    },
+    "notes": {
+      "skills": [
+        "norpiv/distill"
+      ],
+      "extensions": [
+        "noleaks",
+        "antigravity"
+      ]
+    },
+    "antigravity": {
+      "skills": [],
+      "extensions": [
+        "antigravity"
+      ]
+    }
+  }
+}
