@@ -279,6 +279,7 @@ export default function (pi: ExtensionAPI) {
 
     let mergedEvents = events;
     let originalStartedAt = startTime;
+    let originalTask: any = null;
     if (existsSync(recordPath)) {
       try {
         const oldRecord = JSON.parse(readFileSync(recordPath, "utf-8"));
@@ -287,6 +288,9 @@ export default function (pi: ExtensionAPI) {
         }
         if (oldRecord.session?.startedAt) {
           originalStartedAt = new Date(oldRecord.session.startedAt).getTime();
+        }
+        if (oldRecord.task) {
+          originalTask = oldRecord.task;
         }
       } catch (err) {
         // ignore parse errors
@@ -315,7 +319,7 @@ export default function (pi: ExtensionAPI) {
         durationMs: activity.durationMs,
         shutdownReason,
       },
-      task: toTaskInfo(context),
+      task: toTaskInfo(context) || originalTask,
       captureMode: currentMode,
       conditions: buildConditions(mergedEvents, telemetry),
       activity,
