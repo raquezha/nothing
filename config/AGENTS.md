@@ -43,10 +43,16 @@ When adding a new Pi "hat" or modifier:
 2. **Help**: Update the `printf` tables in `bootstrap.sh` to include the new flag in the `hats`, `modifiers`, or `combo` sections.
 3. **Mindsets**: If it's a base hat, add its default skills/extensions to `config/mindsets.json`.
 
+### AI Commit Attribution
+- **Deterministic Identity**: Never guess or hallucinate the active model when writing `Assisted-by` trailers in git commits.
+- **Enforcement**: Run `packages/norpiv/scripts/get-pi-model.sh` to deterministically extract the true active model from the harness logs and inject its exact output.
+
 ### Retrospective & Workflow
 - **.notrace/**: Owns all retrospective artifacts (`notrace.json`, `notrace.html`, `notrace.review.json`).
 - **.workflow/**: Owns active task state and RPIV context.
 - **WORK.md**: Should only *reference* notrace artifacts via relative links, never own them.
+- **notrace Ownership**: Treat `notrace` as the durable retrospective layer, not the live Pi footer or resume UX.
+- **Telemetry Rule**: Keep consumed session usage metrics separate from optimization metrics such as Headroom tokens saved; do not merge them into one ambiguous total.
 
 ## Docker Recovery (Linux)
 If homelab services are down or laptop recently restarted:
