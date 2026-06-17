@@ -137,7 +137,13 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 
 async function updateHealthState(runtime: HeadroomRuntime, signal?: AbortSignal): Promise<boolean> {
 	if (isRemoteBlocked(runtime.config)) return false;
-	runtime.state.proxyOnline = await runtime.client.health(signal);
+	// ponytail: /health may be unhealthy when upstream is unreachable even though
+	// /v1/compress (the only endpoint we use) works fine. Fall back to probing.
+	if (await runtime.client.health(signal)) {
+		runtime.state.proxyOnline = true;
+	} else {
+		runtime.state.proxyOnline = await runtime.client.probe(signal);
+	}
 	return runtime.state.proxyOnline;
 }
 
