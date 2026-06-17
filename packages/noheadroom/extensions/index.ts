@@ -291,7 +291,7 @@ async function handleContextCompression(
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
-		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages);
+		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages, runtime.config.silent);
 		runtime.refreshStatus(ctx);
 		return { messages: applied.messages };
 	} catch (error) {
@@ -344,15 +344,19 @@ function announceAppliedCompression(
 	ctx: ExtensionContext,
 	result: CompressResult,
 	appliedMessages: number,
+	silent: boolean = false
 ): void {
 	const pct = Math.round((1 - result.compressionRatio) * 100);
 	const summary = `compressed ${result.tokensBefore.toLocaleString()} → ${result.tokensAfter.toLocaleString()} tokens (-${pct}%, saved ${result.tokensSaved.toLocaleString()}, messages ${appliedMessages})`;
 	const line = `noheadroom: ${summary}`;
-	ctx.ui.notify(line, "info");
-	// Note: we no longer use pi.appendEntry or pi.sendMessage here because
-	// modifying the session history inside the context event triggers an infinite loop.
-	// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
-	process.stderr.write(`🗜 ${line}\n`);
+	
+	if (!silent) {
+		ctx.ui.notify(line, "info");
+		// Note: we no longer use pi.appendEntry or pi.sendMessage here because
+		// modifying the session history inside the context event triggers an infinite loop.
+		// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
+		process.stderr.write(`🗜 ${line}\n`);
+	}
 }
 
 function announceGuardSkip(ctx: ExtensionContext, reason: string, result: CompressResult): void {

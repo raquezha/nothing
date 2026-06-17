@@ -63,6 +63,7 @@ export interface HeadroomConfig {
 	baseUrl: string;
 	allowRemote: boolean;
 	autoStart: boolean;
+	silent?: boolean;
 	command: string;
 	minContextTokens: number;
 	minMessageChars: number;
