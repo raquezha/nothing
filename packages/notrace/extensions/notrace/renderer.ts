@@ -91,7 +91,9 @@ function resolveRepoName(data: any): string {
 }
 
 function formatUsd(value: number | undefined): string {
-  return `$${Number(value || 0).toFixed(5)}`;
+  const num = Number(value || 0);
+  if (num === 0) return "$0";
+  return `$${num.toFixed(5)}`;
 }
 
 function formatTelemetryStatus(value: string | undefined): string {
@@ -245,6 +247,7 @@ function shell(title: string, body: string, script = ""): string {
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; }
+    .num-cell { text-align: right; }
     tr:last-child td { border-bottom: 0; }
     .col-index { width: 64px; }
     .sortable-head { padding: 10px 18px; }
@@ -477,7 +480,7 @@ function dashboardSortScript(): string {
     }
 
     function compare(a, b, key) {
-      if (key === 'index' || key === 'started') {
+      if (key === 'index' || key === 'started' || key === 'tokens' || key === 'cost') {
         return Number(a.dataset[key] || 0) - Number(b.dataset[key] || 0);
       }
       return String(a.dataset[key] || '').localeCompare(String(b.dataset[key] || ''));
@@ -534,12 +537,14 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
     </section>
     <section class="panel">
       <h2 class="section-title">Session Reports</h2>
-      ${reversed.length ? `<table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th></tr></thead><tbody>
+      ${reversed.length ? `<table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
       ${reversed.map((s, index) => {
         const link = s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html;
         const workflow = s.task?.workflow || "generic";
         const workflowLabel = workflowDisplayName(workflow);
-        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td></tr>`;
+        const tokens = Number(s.activity?.totals?.totalTokens || 0);
+        const cost = Number(s.activity?.totals?.totalCostUsd || 0);
+        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}" data-tokens="${tokens}" data-cost="${cost}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td><td class="num-cell">${tokens.toLocaleString()}</td><td class="num-cell">${formatUsd(cost)}</td></tr>`;
       }).join("")}
       </tbody></table>` : `<div class="empty">No sessions yet. Run Pi with notrace enabled. New reports appear here.</div>`}
     </section>
