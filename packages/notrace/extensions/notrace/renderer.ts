@@ -71,9 +71,10 @@ function workflowClassName(workflow: string | null | undefined): string {
   }
 }
 
-function taskDisplay(session: any): string {
-  const workflow = session?.workflow || "generic";
-  const taskId = session?.taskId;
+function taskDisplay(taskish: any): string {
+  const task = taskish?.task || taskish;
+  const workflow = task?.workflow || taskish?.workflow || "generic";
+  const taskId = task?.id ?? taskish?.taskId;
   if (taskId) {
     if (workflow === "research" && String(taskId).startsWith("branch:")) {
       return `Branch ${String(taskId).slice(7)}`;
@@ -86,7 +87,29 @@ function taskDisplay(session: any): string {
 }
 
 function resolveRepoName(data: any): string {
-  return data?.repositoryName || data?.repoName || "Repository";
+  return data?.repository?.name || data?.repositoryName || data?.repoName || "Repository";
+}
+
+function formatUsd(value: number | undefined): string {
+  return `$${Number(value || 0).toFixed(5)}`;
+}
+
+function formatTelemetryStatus(value: string | undefined): string {
+  switch (value) {
+    case "active": return "Active";
+    case "loaded-disabled": return "Loaded disabled";
+    case "loaded-inactive": return "Loaded inactive";
+    case "absent": return "Absent";
+    case "unknown":
+    default:
+      return "Unknown";
+  }
+}
+
+function summarizeEventCount(data: any): number {
+  return Array.isArray(data?.events)
+    ? data.events.filter((ev: any) => ev?.type !== "session_start" && ev?.type !== "turn_start").length
+    : 0;
 }
 
 function wordmarkSvg(className = "wordmark"): string {
@@ -488,8 +511,8 @@ function dashboardSortScript(): string {
 
 export function generateDashboardHtml(sessions: any[], options: any = {}): string {
   const reversed = sessions.slice().reverse();
-  const totalCost = sessions.reduce((sum, s) => sum + Number(s.metrics?.totalCost || 0), 0);
-  const totalTokens = sessions.reduce((sum, s) => sum + Number(s.metrics?.totalTokens || 0), 0);
+  const totalCost = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalCostUsd || 0), 0);
+  const totalTokens = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalTokens || 0), 0);
   const repositoryName = resolveRepoName(options);
   const homeHref = options?.indexHref || "index.html";
   const body = `<div class="container">
@@ -506,7 +529,7 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
       <div class="metrics">
         <div class="metric-card"><small>Sessions</small><strong>${sessions.length}</strong></div>
         <div class="metric-card"><small>Total Tokens</small><strong>${totalTokens.toLocaleString()}</strong></div>
-        <div class="metric-card"><small>Total Cost</small><strong>$${totalCost.toFixed(5)}</strong></div>
+        <div class="metric-card"><small>Total Cost</small><strong>${formatUsd(totalCost)}</strong></div>
       </div>
     </section>
     <section class="panel">
@@ -514,8 +537,9 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
       ${reversed.length ? `<table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th></tr></thead><tbody>
       ${reversed.map((s, index) => {
         const link = s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html;
-        const workflowLabel = workflowDisplayName(s.workflow);
-        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="workflow-pill ${workflowClassName(s.workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td></tr>`;
+        const workflow = s.task?.workflow || "generic";
+        const workflowLabel = workflowDisplayName(workflow);
+        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td></tr>`;
       }).join("")}
       </tbody></table>` : `<div class="empty">No sessions yet. Run Pi with notrace enabled. New reports appear here.</div>`}
     </section>
@@ -528,6 +552,7 @@ export function generateHtmlReport(data: any): string {
   const visibleEvents = (data.events || []).filter((ev: any) => ev.type !== "session_start" && ev.type !== "turn_start");
   const indexHref = data?.navigation?.indexHref || "../../index.html";
   const repositoryName = resolveRepoName(data);
+  const task = data.task;
   const body = `<div class="container">
     <section class="hero">
       <div class="hero-top">
@@ -536,19 +561,35 @@ export function generateHtmlReport(data: any): string {
         </div>
         <div class="meta">
           <span class="pill">${escapeHtml(repositoryName)}</span>
-          <span class="pill">Started ${formatDateLong(data.startTime)}</span>
+          <span class="pill">Started ${formatDateLong(data.session?.startedAt)}</span>
+          <span class="pill">Capture ${escapeHtml(data.captureMode || "full")}</span>
         </div>
       </div>
       <div class="metrics">
-        <div class="metric-card"><small>Cost</small><strong>$${Number(data.metrics?.totalCost || 0).toFixed(5)}</strong></div>
-        <div class="metric-card"><small>Tokens</small><strong>${Number(data.metrics?.totalTokens || 0).toLocaleString()}</strong></div>
-        <div class="metric-card"><small>Turns</small><strong>${Number(data.metrics?.turnCount || 0)}</strong></div>
-        <div class="metric-card"><small>Tool Calls</small><strong>${Number(data.metrics?.toolCallCount || 0)}</strong></div>
-        <div class="metric-card"><small>Tool Errors</small><strong>${Number(data.metrics?.toolErrorCount || 0)}</strong></div>
+        <div class="metric-card"><small>Total Cost</small><strong>${formatUsd(data.activity?.totals?.totalCostUsd)}</strong></div>
+        <div class="metric-card"><small>Total Tokens</small><strong>${Number(data.activity?.totals?.totalTokens || 0).toLocaleString()}</strong></div>
+        <div class="metric-card"><small>Input Tokens</small><strong>${Number(data.activity?.totals?.inputTokens || 0).toLocaleString()}</strong></div>
+        <div class="metric-card"><small>Output Tokens</small><strong>${Number(data.activity?.totals?.outputTokens || 0).toLocaleString()}</strong></div>
+        <div class="metric-card"><small>Tool Calls</small><strong>${Number(data.activity?.toolCallCount || 0)}</strong></div>
         <div class="metric-card"><small>Events</small><strong>${visibleEvents.length}</strong></div>
       </div>
     </section>
     <section class="panel">
+      <h2 class="section-title">Run Summary</h2>
+      <div style="padding: 16px;" class="stack">
+        ${renderJsonBlock("Session", data.session || {})}
+        ${renderJsonBlock("Task", task || { workflow: "generic", id: null })}
+        ${renderJsonBlock("Conditions", data.conditions || {})}
+        ${renderJsonBlock("Activity", data.activity || {})}
+      </div>
+    </section>
+    <section class="panel" style="margin-top: 24px;">
+      <h2 class="section-title">Dynamic Extension Telemetry</h2>
+      <div style="padding: 16px;" class="stack">
+        ${Object.entries(data.telemetry?.extensions || {}).length ? Object.entries(data.telemetry.extensions).map(([name, ext]: [string, any]) => renderJsonBlock(`${name} (${formatTelemetryStatus(ext?.status)})`, { summary: ext?.summary || null, ...ext?.details })).join("") : `<div class="empty">No extension telemetry captured for this run.</div>`}
+      </div>
+    </section>
+    <section class="panel" style="margin-top: 24px;">
       <h2 class="section-title">Timeline</h2>
       <div style="padding: 16px;">
         <div class="timeline">${visibleEvents.map(renderEventCard).join("") || `<div class="empty">No visible events captured.</div>`}</div>
