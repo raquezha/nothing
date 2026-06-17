@@ -283,6 +283,10 @@ async function handleContextCompression(
 			minMessageChars: runtime.config.minMessageChars,
 		});
 		if (!applied.ok) {
+			// Record the input even on guard skips to prevent looping retries for this context
+			runtime.state.lastInputFingerprint = inputFingerprint;
+			runtime.state.lastOutputFingerprint = null;
+
 			recordGuardSkip(runtime.state.stats, applied.reason);
 			emitNotraceTelemetry(runtime);
 			announceGuardSkip(ctx, applied.reason, result);
