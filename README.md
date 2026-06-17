@@ -24,6 +24,7 @@
 - **🛡️ Privacy First**: Always-on credential and secret guard via `@raquezha/noleaks`.
 - **🎩 Persona "Hats"**: Instant switching between Triage, PM, Dev, and Meta engineering modes.
 - **🗜️ Context Optimization**: Integrated local [Headroom](https://github.com/headroom-ai/headroom) compression via `@raquezha/noheadroom`.
+- **🧾 Retrospective Memory**: Versioned `notrace.json` session evidence plus HTML reports via `@raquezha/notrace`, with optional extension telemetry.
 - **🔄 RPIV Workflow**: A formal Frame → Plan → Implement → Verify → Sync cycle for reliable agentic output.
 - **🚀 One-Command Bootstrap**: reproducible environment setup across home and work machines.
 
@@ -35,7 +36,7 @@
 | **Optimization** | [`headroom/`](./headroom), [`@raquezha/noheadroom`](./packages/noheadroom) | local context compression |
 | **Workflow** | [`@raquezha/norpiv`](./packages/norpiv) | the core RPIV agentic process |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
-| **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | HTML trace viewer & powerline footer |
+| **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | retrospective run records, HTML reports, and powerline footer |
 | **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
 
 ## 🚀 Getting Started
@@ -100,7 +101,7 @@ pi install npm:@raquezha/norpiv
 
 - **Build packages**: `npm run build --workspaces`
 - **Verify repo**: `npm test`
-- **Sync Android skills**: `./scripts/sync-android-skills.sh`
+- **Install Android CLI + sync Android skills**: `./scripts/sync-android-skills.sh` (uses `android skills add --all`)
 
 ## 🤝 Attribution
 

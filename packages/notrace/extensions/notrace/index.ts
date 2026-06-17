@@ -272,46 +272,76 @@ export default function (pi: ExtensionAPI) {
     const adapter = getActiveAdapter(ctx.cwd);
     const context = adapter.getContext(ctx.cwd);
     const notraceDir = path.resolve(ctx.cwd, ".notrace");
-    const outputDir = path.join(notraceDir, "sessions", traceId.replace(/[^a-z0-9]/gi, "-"));
+    const finalTraceId = ctx.sessionManager?.getSessionId?.() || traceId;
+    const outputDir = path.join(notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
     const repositoryName = path.basename(ctx.cwd);
-    const activity = collectActivity(events, startTime, endedAt);
+    const recordPath = path.join(outputDir, "notrace.json");
+
+    let mergedEvents = events;
+    let originalStartedAt = startTime;
+    let originalTask: any = null;
+    if (existsSync(recordPath)) {
+      try {
+        const oldRecord = JSON.parse(readFileSync(recordPath, "utf-8"));
+        if (Array.isArray(oldRecord.events)) {
+          mergedEvents = [...oldRecord.events, ...events];
+        }
+        if (oldRecord.session?.startedAt) {
+          originalStartedAt = new Date(oldRecord.session.startedAt).getTime();
+        }
+        if (oldRecord.task) {
+          originalTask = oldRecord.task;
+        }
+      } catch (err) {
+        // ignore parse errors
+      }
+    }
+
+    const activity = collectActivity(mergedEvents, originalStartedAt, endedAt);
+    
+    // Do not index purely empty ghost sessions
+    const isGhostSession = activity.llmCallCount === 0 && activity.toolCallCount === 0 && activity.totals.totalTokens === 0;
+
     const telemetry = Object.fromEntries([...extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
 
     const record: NotraceRunRecord = {
       kind: "notrace-run",
       schemaVersion: SCHEMA_VERSION,
-      traceId,
+      traceId: finalTraceId,
       repository: {
         name: repositoryName,
         cwd: ctx.cwd,
       },
       session: {
-        id: traceId,
-        startedAt: new Date(startTime).toISOString(),
+        id: finalTraceId,
+        startedAt: new Date(originalStartedAt).toISOString(),
         endedAt: new Date(endedAt).toISOString(),
         durationMs: activity.durationMs,
         shutdownReason,
       },
-      task: toTaskInfo(context),
+      task: toTaskInfo(context) || originalTask,
       captureMode: currentMode,
-      conditions: buildConditions(events, telemetry),
+      conditions: buildConditions(mergedEvents, telemetry),
       activity,
       telemetry: { extensions: telemetry },
-      events,
+      events: mergedEvents,
     };
 
     const html = generateHtmlReport(record);
 
     mkdirSync(outputDir, { recursive: true });
     const htmlPath = path.join(outputDir, "notrace.html");
-    const recordPath = path.join(outputDir, "notrace.json");
     writeFileSync(htmlPath, html);
     writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`);
 
     const indexPath = path.join(notraceDir, "index.json");
     const existing = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf-8")) : { repositoryName, sessions: [] };
-    const sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== traceId) : [];
-    sessions.push(createIndexEntry(record, ctx.cwd, htmlPath, recordPath));
+    let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
+    
+    if (!isGhostSession) {
+      sessions.push(createIndexEntry(record, ctx.cwd, htmlPath, recordPath));
+    }
+    
     writeFileSync(indexPath, `${JSON.stringify({ repositoryName, sessions }, null, 2)}\n`);
     writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
 
