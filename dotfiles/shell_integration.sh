@@ -256,10 +256,51 @@ EOF
     export PI_HEADROOM_URL="http://127.0.0.1:8788"
   }
 
+  add_android_skills() {
+    local cache_dir="${ANDROID_SKILLS_CACHE_DIR:-$NOTHING_CACHE_DIR/android-skills}"
+    local skills_dir="$cache_dir/skills"
+    local stamp="$cache_dir/.refreshed-at"
+    local stale_days="${ANDROID_SKILLS_STALE_DAYS:-14}"
+    local found_skill=false
+    local skill_file
+    local stale_hit
+
+    if [[ ! -d "$skills_dir" ]]; then
+      nothing_warn "Android skills cache missing; run: pi --android-update"
+      return 0
+    fi
+
+    if [[ -f "$stamp" ]]; then
+      stale_hit="$(find "$stamp" -mtime +"$stale_days" -print -quit 2>/dev/null)"
+      if [[ -n "$stale_hit" ]]; then
+        nothing_warn "Android skills cache may be stale; run: pi --android-update"
+      fi
+    fi
+
+    while IFS= read -r skill_file; do
+      if [[ -n "$skill_file" ]]; then
+        EXTRA_SKILLS+=("--skill" "$(dirname "$skill_file")")
+        found_skill=true
+      fi
+    done <<EOF
+$(find "$skills_dir" -mindepth 2 -maxdepth 2 -name "SKILL.md" 2>/dev/null)
+EOF
+
+    if [[ "$found_skill" != true ]]; then
+      nothing_warn "Android skills cache has no skills; run: pi --android-update"
+    fi
+    export NOTHING_ANDROID_SKILLS_CACHE="$cache_dir"
+  }
+
   if [[ $# -gt 0 ]]; then
     case "$1" in
       install|remove|uninstall|update|list|config)
         command pi "$@"
+        return
+        ;;
+      --android-update)
+        shift
+        bash "$NOTHING_DIR/scripts/android-skills-refresh.sh" "$@"
         return
         ;;
     esac
@@ -328,6 +369,10 @@ EOF
       while IFS= read -r ext; do
         [[ -n "$ext" ]] && add_extension "$ext"
       done <<< "$extensions"
+
+      if [[ "$BASE_MINDSET" == "android" ]]; then
+        add_android_skills
+      fi
     fi
   fi
 
