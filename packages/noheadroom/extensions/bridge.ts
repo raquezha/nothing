@@ -213,8 +213,26 @@ function replaceTextContent(message: MessageWithContent, text: string): boolean 
 		return true;
 	}
 	if (!Array.isArray(message.content)) return false;
-	const imageParts = message.content.filter((part): part is ImageContent => isImageContent(part));
-	message.content = [{ type: "text", text }, ...imageParts];
+
+	const nextContent: unknown[] = [];
+	let replacedText = false;
+
+	for (const part of message.content) {
+		if (isTextContent(part)) {
+			if (!replacedText) {
+				nextContent.push({ type: "text", text });
+				replacedText = true;
+			}
+			continue;
+		}
+		nextContent.push(part);
+	}
+
+	if (!replacedText && text.length > 0) {
+		nextContent.unshift({ type: "text", text });
+	}
+
+	message.content = nextContent as typeof message.content;
 	return true;
 }
 
