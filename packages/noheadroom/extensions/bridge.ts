@@ -32,9 +32,15 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		// toolResults are always candidates.
 		// user/assistant messages are candidates unless they are the most recent turn.
 		const isRecent = sourceIndex >= messages.length - 2;
-		const applyTo = (source.role === "toolResult" || (!isRecent && (source.role === "user" || source.role === "assistant"))) 
+		let applyTo = (source.role === "toolResult" || (!isRecent && (source.role === "user" || source.role === "assistant"))) 
 			? source.role 
 			: null;
+
+		// Headroom Bypass Rules (Android Hat)
+		// We never want to compress `android layout` JSON dumps or critical adb dumps.
+		if (source.role === "toolResult" && originalText.trim().startsWith("[") && originalText.includes('"resource-id"')) {
+			applyTo = null;
+		}
 		
 		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
 		mappings.push({ sourceIndex, message: converted, applyTo: applyTo as any, originalText });

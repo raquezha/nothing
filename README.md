@@ -67,6 +67,7 @@ Base hats load repo-local skills and personas:
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
+pi --android     # Android development expert; loads local Android CLI skill cache only
 pi --meta        # skill engineering and nothing maintenance
 pi --nothing     # ultimate "clean" mode: zero built-in tools/context
 ```
@@ -101,7 +102,15 @@ pi install npm:@raquezha/norpiv
 
 - **Build packages**: `npm run build --workspaces`
 - **Verify repo**: `npm test`
-- **Install Android CLI + sync Android skills**: `./scripts/sync-android-skills.sh` (uses `android skills add --all`)
+- **Refresh Android CLI skills**: `pi --android-update` or `./scripts/android-skills-refresh.sh`
+
+### Android CLI skills cache
+
+`pi --android` never installs, updates, or checks the network. It only loads the local cache at `$NOTHING_CACHE_DIR/android-skills` (default: `~/.local/share/nothing/android-skills`). If the cache is missing or locally stamped stale, it warns and continues safely.
+
+Run `pi --android-update` when you explicitly want network work. The refresh script runs `android update`, installs skills with `android skills add --all --project=<temp project>`, verifies `skills/android-cli/SKILL.md`, and atomically swaps the cache.
+
+If the Android CLI is missing, the script prints the Linux/macOS install command. It only runs the installer when you pass `--install-cli`.
 
 ## 🤝 Attribution
 
