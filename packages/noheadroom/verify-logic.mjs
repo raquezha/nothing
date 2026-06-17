@@ -175,7 +175,7 @@ async function testZeroSavings() {
 }
 
 function testAssistantToolCallPreservation() {
-  console.log("Testing Assistant Tool Call Preservation...");
+  console.log("Testing Assistant Tool Call Protection (New Policy)...");
 
   const messages = [
     { role: "user", content: "summarize this" },
@@ -186,32 +186,47 @@ function testAssistantToolCallPreservation() {
         { type: "toolCall", id: "call_123", name: "edit", arguments: { path: "WORK.md", edits: [] } }
       ]
     },
-    { role: "toolResult", toolCallId: "call_123", toolName: "edit", content: "Successfully replaced 1 block." },
+    { role: "toolResult", toolCallId: "call_123", toolName: "edit", content: "Successfully replaced 1 block. ".repeat(100) },
     { role: "user", content: "what changed?" }
   ];
 
   const payload = buildCompressionPayload(messages, 1);
   const assistantMappingIndex = payload.mappings.findIndex((m) => m.sourceIndex === 1);
+  const toolResultMappingIndex = payload.mappings.findIndex((m) => m.sourceIndex === 2);
+  
   assert(assistantMappingIndex >= 0, "Assistant tool-call message should be mapped");
+  assert(payload.mappings[assistantMappingIndex].applyTo === null, "Assistant message should NOT be a candidate for mutation");
 
   const compressedMessages = payload.mappings.map((mapping, index) => {
-    if (index !== assistantMappingIndex) return mapping.message;
-    return {
-      ...mapping.message,
-      content: "Shorter plan update summary.",
-      tool_calls: mapping.message.role === "assistant" ? mapping.message.tool_calls : undefined
-    };
+    if (index === assistantMappingIndex) {
+      // Headroom aggressively modifies both text AND tool calls of the assistant message!
+      return {
+        role: "assistant",
+        content: "Shorter plan update summary.",
+        // Oh no, Headroom stripped the tool calls entirely!
+        tool_calls: undefined 
+      };
+    }
+    if (index === toolResultMappingIndex) {
+      // Headroom successfully compresses the toolResult
+      return {
+        ...mapping.message,
+        content: "Replaced."
+      };
+    }
+    return mapping.message;
   });
 
   const applied = applyCompressionResult(messages, payload.mappings, compressedMessages, { minMessageChars: 1 });
-  assert(applied.ok === true, "Compression result should apply cleanly");
+  assert(applied.ok === true, "Compression result should apply cleanly despite Headroom mangling the assistant message");
+  assert(applied.appliedMessages === 1, "Should only apply 1 message (the toolResult)");
 
   const assistant = applied.messages[1];
-  assert(Array.isArray(assistant.content), "Assistant content should remain a block array");
-  assert(assistant.content.some((part) => part.type === "toolCall" && part.id === "call_123"), "Assistant toolCall block must be preserved");
-  assert(assistant.content.some((part) => part.type === "text" && part.text === "Shorter plan update summary."), "Assistant text block should be updated");
+  assert(Array.isArray(assistant.content), "Assistant content should remain unchanged (block array)");
+  assert(assistant.content.some((part) => part.type === "toolCall" && part.id === "call_123"), "Assistant toolCall must be preserved");
+  assert(assistant.content.some((part) => part.type === "text" && part.text === "I will update the plan and write the change."), "Assistant text MUST NOT be updated because it's a non-candidate");
 
-  console.log("✓ Assistant tool-call preservation passed\n");
+  console.log("✓ Assistant tool-call protection passed\n");
 }
 
 async function testEdgeCases() {
