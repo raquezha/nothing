@@ -1,5 +1,6 @@
 import assert from "node:assert";
 import { __test__ } from "./dist/index.js";
+import { applyCompressionResult, buildCompressionPayload } from "./dist/bridge.js";
 
 const { handleContextCompression, generateFingerprint } = __test__;
 
@@ -173,6 +174,46 @@ async function testZeroSavings() {
   console.log("✓ Zero savings test passed\n");
 }
 
+function testAssistantToolCallPreservation() {
+  console.log("Testing Assistant Tool Call Preservation...");
+
+  const messages = [
+    { role: "user", content: "summarize this" },
+    {
+      role: "assistant",
+      content: [
+        { type: "text", text: "I will update the plan and write the change." },
+        { type: "toolCall", id: "call_123", name: "edit", arguments: { path: "WORK.md", edits: [] } }
+      ]
+    },
+    { role: "toolResult", toolCallId: "call_123", toolName: "edit", content: "Successfully replaced 1 block." },
+    { role: "user", content: "what changed?" }
+  ];
+
+  const payload = buildCompressionPayload(messages, 1);
+  const assistantMappingIndex = payload.mappings.findIndex((m) => m.sourceIndex === 1);
+  assert(assistantMappingIndex >= 0, "Assistant tool-call message should be mapped");
+
+  const compressedMessages = payload.mappings.map((mapping, index) => {
+    if (index !== assistantMappingIndex) return mapping.message;
+    return {
+      ...mapping.message,
+      content: "Shorter plan update summary.",
+      tool_calls: mapping.message.role === "assistant" ? mapping.message.tool_calls : undefined
+    };
+  });
+
+  const applied = applyCompressionResult(messages, payload.mappings, compressedMessages, { minMessageChars: 1 });
+  assert(applied.ok === true, "Compression result should apply cleanly");
+
+  const assistant = applied.messages[1];
+  assert(Array.isArray(assistant.content), "Assistant content should remain a block array");
+  assert(assistant.content.some((part) => part.type === "toolCall" && part.id === "call_123"), "Assistant toolCall block must be preserved");
+  assert(assistant.content.some((part) => part.type === "text" && part.text === "Shorter plan update summary."), "Assistant text block should be updated");
+
+  console.log("✓ Assistant tool-call preservation passed\n");
+}
+
 async function testEdgeCases() {
   console.log("Testing Edge Cases...");
   const client = new MockClient();
@@ -247,6 +288,7 @@ async function runAll() {
     await testLoopPrevention();
     await testThrottle();
     await testZeroSavings();
+    testAssistantToolCallPreservation();
     await testEdgeCases();
     console.log("ALL LOGIC VERIFIED ✓");
   } catch (e) {

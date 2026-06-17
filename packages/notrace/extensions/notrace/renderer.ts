@@ -434,6 +434,12 @@ function renderEventCard(ev: any): string {
   const sections: string[] = [];
   if (ev.type === "llm_completion") {
     sections.push(renderMessages(ev.inputPayload?.messages));
+    if (ev.stopReason && ev.stopReason !== "stop" && ev.stopReason !== "toolUse") {
+      sections.push(renderJsonBlock("Stop Reason", ev.stopReason));
+    }
+    if (ev.errorMessage) {
+      sections.push(renderJsonBlock("Error Message", ev.errorMessage));
+    }
     sections.push(renderJsonBlock("Output", ev.outputContent));
     if (ev.usage) sections.push(renderJsonBlock("Usage", ev.usage));
   } else if (ev.type === "tool_start") {

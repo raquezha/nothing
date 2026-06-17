@@ -260,6 +260,8 @@ export default function (pi: ExtensionAPI) {
         inputPayload: activeLlmPayload,
         outputContent: sanitizeTraceValue(e.message.content),
         usage: e.message.usage,
+        stopReason: typeof e.message.stopReason === "string" ? e.message.stopReason : undefined,
+        errorMessage: typeof e.message.errorMessage === "string" ? sanitizeTraceValue(e.message.errorMessage) : undefined,
         timestamp: Date.now(),
       });
       activeLlmPayload = null;
