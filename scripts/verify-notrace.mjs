@@ -4,11 +4,30 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import notrace from "../packages/notrace/dist/notrace/index.js";
 
+function createEventBus() {
+  const listeners = new Map();
+  return {
+    emit(channel, data) {
+      for (const handler of listeners.get(channel) || []) handler(data);
+    },
+    on(channel, handler) {
+      const current = listeners.get(channel) || [];
+      current.push(handler);
+      listeners.set(channel, current);
+      return () => listeners.set(channel, (listeners.get(channel) || []).filter((entry) => entry !== handler));
+    },
+  };
+}
+
 async function runSession({ cwd, withActiveTask }) {
   const handlers = new Map();
   const pi = {
+    events: createEventBus(),
     on(event, handler) {
       handlers.set(event, handler);
+    },
+    registerCommand() {
+      // no-op for smoke verification
     },
   };
 
@@ -41,6 +60,21 @@ async function runSession({ cwd, withActiveTask }) {
     await handler(payload, ctx);
   }
 
+  pi.events.emit("notrace.telemetry.extension", {
+    extension: "noheadroom",
+    loaded: true,
+    enabled: true,
+    active: true,
+    status: "active",
+    summary: "compressed 15 to 10 tokens; saved 5 tokens across 1 tool results",
+    details: {
+      attempts: 1,
+      applied: 1,
+      guardSkips: 0,
+      tokensSaved: 5,
+    },
+  });
+
   await emit("session_start", { reason: withActiveTask ? "task-smoke" : "plain-smoke" });
   await emit("turn_start", {});
   await emit("tool_execution_start", {
@@ -63,13 +97,14 @@ async function runSession({ cwd, withActiveTask }) {
       usage: {
         input: 10,
         output: 5,
+        cacheRead: 0,
+        cacheWrite: 0,
         totalTokens: 15,
         cost: { total: 0.001 },
       },
     },
   });
-  await emit("turn_end", {});
-  await emit("session_shutdown", {});
+  await emit("session_shutdown", { reason: "quit" });
 
   const outputDir = join(cwd, ".notrace", "sessions", withActiveTask ? "notrace-task-session" : "notrace-plain-session");
   const reportPath = join(outputDir, "notrace.html");
@@ -93,10 +128,16 @@ async function runSession({ cwd, withActiveTask }) {
   if (record.activity?.llmCallCount !== 1 || record.activity?.toolCallCount !== 1) {
     throw new Error("Generated notrace record is missing expected activity counts.");
   }
+  if (record.activity?.totals?.inputTokens !== 10 || record.activity?.totals?.outputTokens !== 5) {
+    throw new Error("Generated notrace record is missing normalized token totals.");
+  }
+  if (record.telemetry?.extensions?.noheadroom?.status !== "active") {
+    throw new Error("Generated notrace record is missing extension telemetry.");
+  }
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");
-    if (!work.includes("notrace captured artifacts") || !work.includes(".notrace/sessions/notrace-task-session")) {
+    if (!work.includes("notrace retrospective") || !work.includes(".notrace/sessions/notrace-task-session")) {
       throw new Error("Expected WORK.md log to include notrace artifact attachment.");
     }
   }

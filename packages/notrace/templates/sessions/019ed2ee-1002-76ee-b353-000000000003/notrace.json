@@ -1,12 +1,78 @@
 {
+  "kind": "notrace-run",
+  "schemaVersion": 2,
   "traceId": "019ed2ee-1002-76ee-b353-000000000003",
-  "startTime": "2026-06-17T10:14:00.000Z",
-  "metrics": {
-    "totalTokens": 6462,
-    "totalCost": 0.0334,
+  "repository": {
+    "name": "nothing",
+    "cwd": "/Users/raquezha/RQZ/personal/nothing"
+  },
+  "session": {
+    "id": "019ed2ee-1002-76ee-b353-000000000003",
+    "startedAt": "2026-06-17T10:14:00.000Z",
+    "endedAt": "2026-06-17T10:44:00.000Z",
+    "durationMs": 1800000,
+    "shutdownReason": "quit"
+  },
+  "task": {
+    "workflow": "generic",
+    "id": null,
+    "path": null,
+    "dir": null
+  },
+  "captureMode": "metadata",
+  "conditions": {
+    "models": [
+      "gemini-3.5-flash-high"
+    ],
+    "providers": [
+      "google"
+    ],
+    "extensions": [
+      "notrace",
+      "noheadroom"
+    ]
+  },
+  "activity": {
     "turnCount": 6,
+    "llmCallCount": 6,
     "toolCallCount": 5,
-    "toolErrorCount": 2
+    "toolErrorCount": 2,
+    "durationMs": 1800000,
+    "totals": {
+      "inputTokens": 5100,
+      "outputTokens": 810,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 5910,
+      "totalCostUsd": 0.0334
+    }
+  },
+  "telemetry": {
+    "extensions": {
+      "noheadroom": {
+        "loaded": true,
+        "enabled": true,
+        "active": true,
+        "status": "active",
+        "summary": "compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results",
+        "details": {
+          "attempts": 2,
+          "applied": 1,
+          "guardSkips": 0,
+          "tokensSaved": 5778,
+          "last": {
+            "tokensBefore": 24110,
+            "tokensAfter": 18332,
+            "tokensSaved": 5778,
+            "compressionRatio": 0.7603,
+            "appliedMessages": 3,
+            "transformsApplied": [
+              "tool-result-compression"
+            ]
+          }
+        }
+      }
+    }
   },
   "events": [
     {
@@ -39,6 +105,7 @@
     {
       "type": "llm_completion",
       "model": "claude-sonnet-4",
+      "provider": "anthropic",
       "inputPayload": {
         "messages": [
           {
@@ -49,82 +116,19 @@
       },
       "outputContent": "Found renderer split. Will move both pages to one shared shell and standardize styles.",
       "usage": {
-        "inputTokens": 2140,
-        "outputTokens": 116,
+        "input": 2140,
+        "output": 116,
+        "cacheRead": 0,
+        "cacheWrite": 0,
         "totalTokens": 2256,
         "cost": {
           "total": 0.01451
         }
       },
       "timestamp": 1781705111000
-    },
-    {
-      "type": "tool_start",
-      "toolName": "functions.edit",
-      "args": {
-        "path": "packages/notrace/extensions/notrace/renderer.ts",
-        "edits": [
-          {
-            "oldText": "old renderer",
-            "newText": "new renderer"
-          }
-        ]
-      },
-      "timestamp": 1781705120000
-    },
-    {
-      "type": "tool_end",
-      "toolName": "functions.edit",
-      "result": {
-        "message": "Successfully replaced 1 block(s)"
-      },
-      "isError": false,
-      "timestamp": 1781705120800
-    },
-    {
-      "type": "tool_start",
-      "toolName": "functions.bash",
-      "args": {
-        "command": "cd packages/notrace && npm run build"
-      },
-      "timestamp": 1781705130000
-    },
-    {
-      "type": "tool_end",
-      "toolName": "functions.bash",
-      "result": {
-        "stdout": "\n> @raquezha/notrace@0.0.5 build\n> tsc\n",
-        "stderr": "src/renderer.ts:12:4 - error TS1005: ';' expected.",
-        "exitCode": 2
-      },
-      "isError": true,
-      "timestamp": 1781705134100
-    },
-    {
-      "type": "llm_completion",
-      "model": "claude-sonnet-4",
-      "inputPayload": {
-        "messages": [
-          {
-            "role": "user",
-            "content": "Build failed. Find syntax bug and re-run."
-          }
-        ]
-      },
-      "outputContent": "TS syntax bug in arrow fn body. Fixing renderer and rebuilding.",
-      "usage": {
-        "inputTokens": 980,
-        "outputTokens": 63,
-        "totalTokens": 1043,
-        "cost": {
-          "total": 0.00613
-        }
-      },
-      "timestamp": 1781705140000
     }
   ],
   "navigation": {
     "indexHref": "../../dashboard.sample.html"
-  },
-  "repositoryName": "nothing"
+  }
 }

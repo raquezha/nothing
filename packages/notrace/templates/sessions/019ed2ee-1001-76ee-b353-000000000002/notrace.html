@@ -289,18 +289,85 @@
         <div class="meta">
           <span class="pill">nothing</span>
           <span class="pill">Started 2026-06-17 17:37</span>
+          <span class="pill">Capture redacted</span>
         </div>
       </div>
       <div class="metrics">
-        <div class="metric-card"><small>Cost</small><strong>$0.02670</strong></div>
-        <div class="metric-card"><small>Tokens</small><strong>5,731</strong></div>
-        <div class="metric-card"><small>Turns</small><strong>5</strong></div>
+        <div class="metric-card"><small>Total Cost</small><strong>$0.02670</strong></div>
+        <div class="metric-card"><small>Total Tokens</small><strong>5,754</strong></div>
+        <div class="metric-card"><small>Input Tokens</small><strong>4,200</strong></div>
+        <div class="metric-card"><small>Output Tokens</small><strong>530</strong></div>
         <div class="metric-card"><small>Tool Calls</small><strong>4</strong></div>
-        <div class="metric-card"><small>Tool Errors</small><strong>1</strong></div>
-        <div class="metric-card"><small>Events</small><strong>8</strong></div>
+        <div class="metric-card"><small>Events</small><strong>3</strong></div>
       </div>
     </section>
     <section class="panel">
+      <h2 class="section-title">Run Summary</h2>
+      <div style="padding: 16px;" class="stack">
+        <section class="block"><h4>Session</h4><pre>{
+  &quot;id&quot;: &quot;019ed2ee-1001-76ee-b353-000000000002&quot;,
+  &quot;startedAt&quot;: &quot;2026-06-17T09:37:00.000Z&quot;,
+  &quot;endedAt&quot;: &quot;2026-06-17T09:59:00.000Z&quot;,
+  &quot;durationMs&quot;: 1320000,
+  &quot;shutdownReason&quot;: &quot;quit&quot;
+}</pre></section>
+        <section class="block"><h4>Task</h4><pre>{
+  &quot;workflow&quot;: &quot;research&quot;,
+  &quot;id&quot;: &quot;branch:topic-02&quot;,
+  &quot;path&quot;: null,
+  &quot;dir&quot;: null
+}</pre></section>
+        <section class="block"><h4>Conditions</h4><pre>{
+  &quot;models&quot;: [
+    &quot;claude-sonnet-4&quot;
+  ],
+  &quot;providers&quot;: [
+    &quot;anthropic&quot;
+  ],
+  &quot;extensions&quot;: [
+    &quot;notrace&quot;
+  ]
+}</pre></section>
+        <section class="block"><h4>Activity</h4><pre>{
+  &quot;turnCount&quot;: 5,
+  &quot;llmCallCount&quot;: 5,
+  &quot;toolCallCount&quot;: 4,
+  &quot;toolErrorCount&quot;: 1,
+  &quot;durationMs&quot;: 1320000,
+  &quot;totals&quot;: {
+    &quot;inputTokens&quot;: 4200,
+    &quot;outputTokens&quot;: 530,
+    &quot;cacheReadTokens&quot;: 1024,
+    &quot;cacheWriteTokens&quot;: 0,
+    &quot;totalTokens&quot;: 5754,
+    &quot;totalCostUsd&quot;: 0.0267
+  }
+}</pre></section>
+      </div>
+    </section>
+    <section class="panel" style="margin-top: 24px;">
+      <h2 class="section-title">Dynamic Extension Telemetry</h2>
+      <div style="padding: 16px;" class="stack">
+        <section class="block"><h4>noheadroom (Active)</h4><pre>{
+  &quot;summary&quot;: &quot;compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results&quot;,
+  &quot;attempts&quot;: 2,
+  &quot;applied&quot;: 1,
+  &quot;guardSkips&quot;: 0,
+  &quot;tokensSaved&quot;: 5778,
+  &quot;last&quot;: {
+    &quot;tokensBefore&quot;: 24110,
+    &quot;tokensAfter&quot;: 18332,
+    &quot;tokensSaved&quot;: 5778,
+    &quot;compressionRatio&quot;: 0.7603,
+    &quot;appliedMessages&quot;: 3,
+    &quot;transformsApplied&quot;: [
+      &quot;tool-result-compression&quot;
+    ]
+  }
+}</pre></section>
+      </div>
+    </section>
+    <section class="panel" style="margin-top: 24px;">
       <h2 class="section-title">Timeline</h2>
       <div style="padding: 16px;">
         <div class="timeline"><details class="event">
@@ -336,79 +403,13 @@
       <span class="event-time">22:05:11</span>
     </summary>
     <div class="event-body"><div class="stack"><section class="block"><h4>Input Messages</h4><div class="msg user"><div class="msg-head"><span class="msg-role">user</span></div><div class="msg-content">Polish notrace HTML output and unify dashboard/session design.</div></div></section><section class="block"><h4>Output</h4><pre>Found renderer split. Will move both pages to one shared shell and standardize styles.</pre></section><section class="block"><h4>Usage</h4><pre>{
-  &quot;inputTokens&quot;: 2140,
-  &quot;outputTokens&quot;: 116,
+  &quot;input&quot;: 2140,
+  &quot;output&quot;: 116,
+  &quot;cacheRead&quot;: 0,
+  &quot;cacheWrite&quot;: 0,
   &quot;totalTokens&quot;: 2256,
   &quot;cost&quot;: {
     &quot;total&quot;: 0.01451
-  }
-}</pre></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-tool">tool_start</span>
-        <span class="event-title">functions.edit</span>
-      </div>
-      <span class="event-time">22:05:20</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Arguments</h4><pre>{
-  &quot;path&quot;: &quot;packages/notrace/extensions/notrace/renderer.ts&quot;,
-  &quot;edits&quot;: [
-    {
-      &quot;oldText&quot;: &quot;old renderer&quot;,
-      &quot;newText&quot;: &quot;new renderer&quot;
-    }
-  ]
-}</pre></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-tool">tool_end</span>
-        <span class="event-title">functions.edit</span>
-      </div>
-      <span class="event-time">22:05:20</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Result</h4><pre>{
-  &quot;message&quot;: &quot;Successfully replaced 1 block(s)&quot;
-}</pre></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-tool">tool_start</span>
-        <span class="event-title">functions.bash</span>
-      </div>
-      <span class="event-time">22:05:30</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Arguments</h4><pre>{
-  &quot;command&quot;: &quot;cd packages/notrace &amp;&amp; npm run build&quot;
-}</pre></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-error">tool_end</span>
-        <span class="event-title">functions.bash</span>
-      </div>
-      <span class="event-time">22:05:34</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Error Result</h4><pre>{
-  &quot;stdout&quot;: &quot;\n&gt; @raquezha/notrace@0.0.5 build\n&gt; tsc\n&quot;,
-  &quot;stderr&quot;: &quot;src/renderer.ts:12:4 - error TS1005: &#39;;&#39; expected.&quot;,
-  &quot;exitCode&quot;: 2
-}</pre></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-llm">llm_completion</span>
-        <span class="event-title">claude-sonnet-4</span>
-      </div>
-      <span class="event-time">22:05:40</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Input Messages</h4><div class="msg user"><div class="msg-head"><span class="msg-role">user</span></div><div class="msg-content">Build failed. Find syntax bug and re-run.</div></div></section><section class="block"><h4>Output</h4><pre>TS syntax bug in arrow fn body. Fixing renderer and rebuilding.</pre></section><section class="block"><h4>Usage</h4><pre>{
-  &quot;inputTokens&quot;: 980,
-  &quot;outputTokens&quot;: 63,
-  &quot;totalTokens&quot;: 1043,
-  &quot;cost&quot;: {
-    &quot;total&quot;: 0.00613
   }
 }</pre></section></div></div>
   </details></div>

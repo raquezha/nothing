@@ -13,6 +13,7 @@ import type { AgentMessage, CompressResult, HeadroomConfig, HeadroomStats } from
 
 const STATUS_KEY = "headroom";
 const SUBCOMMANDS = ["status", "on", "off", "health", "stats"] as const;
+const NOTRACE_TELEMETRY_CHANNEL = "notrace.telemetry.extension";
 
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
@@ -59,6 +60,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		if (isRemoteBlocked(runtime.config)) {
 			runtime.refreshStatus(ctx);
+			emitNotraceTelemetry(runtime);
 			ctx.ui.notify(
 				`Headroom remote URL is blocked by default: ${runtime.config.baseUrl}\nSet PI_HEADROOM_ALLOW_REMOTE=1 only if you trust that proxy with full context.`,
 				"warning",
@@ -66,6 +68,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
 			return;
 		}
 		runtime.refreshStatus(ctx);
+		emitNotraceTelemetry(runtime);
 		if (!runtime.state.enabled) return;
 		void ensureProxyInBackground(runtime, ctx);
 	});
@@ -281,6 +284,7 @@ async function handleContextCompression(
 		});
 		if (!applied.ok) {
 			recordGuardSkip(runtime.state.stats, applied.reason);
+			emitNotraceTelemetry(runtime);
 			announceGuardSkip(ctx, applied.reason, result);
 			runtime.refreshStatus(ctx);
 			return undefined;
@@ -291,6 +295,7 @@ async function handleContextCompression(
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
+		emitNotraceTelemetry(runtime);
 		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages);
 		runtime.refreshStatus(ctx);
 		return { messages: applied.messages };
@@ -339,6 +344,52 @@ function recordAppliedCompression(stats: HeadroomStats, result: CompressResult, 
 	stats.last = { ...result, appliedMessages };
 }
 
+function summarizeTelemetry(state: HeadroomRuntimeState): string | null {
+	if (state.stats.last) {
+		const pct = Math.round((1 - state.stats.last.compressionRatio) * 100);
+		return `compressed ${state.stats.last.tokensBefore.toLocaleString()} to ${state.stats.last.tokensAfter.toLocaleString()} tokens; saved ${state.stats.last.tokensSaved.toLocaleString()} tokens across ${state.stats.last.appliedMessages} tool results (-${pct}%)`;
+	}
+	if (!state.enabled) return "headroom loaded but disabled for this session";
+	if (state.stats.lastSkipReason) return `compression not applied; last guard skip: ${state.stats.lastSkipReason}`;
+	if (state.stats.lastError) return `compression unavailable; last error: ${state.stats.lastError}`;
+	if (state.proxyOnline === false) return "proxy unavailable";
+	if (state.proxyStarting) return "proxy starting";
+	return "headroom loaded; no compression applied yet";
+}
+
+function emitNotraceTelemetry(runtime: HeadroomRuntime): void {
+	const state = runtime.state;
+	const status = !state.enabled
+		? "loaded-disabled"
+		: state.stats.last
+			? "active"
+			: "loaded-inactive";
+	const details: Record<string, unknown> = {
+		attempts: state.stats.attempts,
+		applied: state.stats.applied,
+		guardSkips: state.stats.guardSkips,
+		tokensSaved: state.stats.tokensSaved,
+		proxyOnline: state.proxyOnline,
+		proxyStarting: state.proxyStarting,
+		lastSkipReason: state.stats.lastSkipReason,
+		lastError: state.stats.lastError,
+	};
+	if (state.stats.last) details.last = { ...state.stats.last };
+	try {
+		runtime.pi.events.emit(NOTRACE_TELEMETRY_CHANNEL, {
+			extension: "noheadroom",
+			loaded: true,
+			enabled: state.enabled,
+			active: Boolean(state.stats.last),
+			status,
+			summary: summarizeTelemetry(state),
+			details,
+		});
+	} catch {
+		// Telemetry should never break compression behavior.
+	}
+}
+
 function announceAppliedCompression(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -364,6 +415,7 @@ function announceGuardSkip(ctx: ExtensionContext, reason: string, result: Compre
 function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext, error: unknown): void {
 	runtime.state.stats.lastError = getErrorMessage(error);
 	if (isAbortOrTimeoutError(error)) {
+		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
 		return;
 	}
@@ -376,6 +428,7 @@ function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext,
 			"warning",
 		);
 	}
+	emitNotraceTelemetry(runtime);
 	runtime.refreshStatus(ctx);
 }
 
@@ -402,6 +455,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 		runtime.state.offlineWarningShown = false;
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
+		emitNotraceTelemetry(runtime);
 		ctx.ui.notify(
 			healthy
 				? "Headroom compression enabled. Proxy will keep running after Pi exits."
@@ -412,6 +466,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 	}
 	if (command === "off") {
 		runtime.state.enabled = false;
+		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
 		ctx.ui.notify("Headroom compression disabled for this Pi session. The proxy process is left running.", "info");
 		return;
@@ -419,6 +474,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 	if (command === "health") {
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
+		emitNotraceTelemetry(runtime);
 		ctx.ui.notify(
 			healthy ? `Headroom proxy online: ${runtime.config.baseUrl}` : proxyStartHint(runtime.config),
 			healthy ? "info" : "warning",
