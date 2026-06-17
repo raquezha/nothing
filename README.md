@@ -66,6 +66,7 @@ Base hats load repo-local skills and personas:
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
+pi --android     # android development expert (RPIV + vendor skills)
 pi --meta        # skill engineering and nothing maintenance
 pi --nothing     # ultimate "clean" mode: zero built-in tools/context
 ```
