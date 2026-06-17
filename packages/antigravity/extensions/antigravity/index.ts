@@ -747,19 +747,6 @@ async function streamResponse(response: Response, stream: AssistantMessageEventS
 				output.usage.output = (responseData.usageMetadata.candidatesTokenCount || 0) + (responseData.usageMetadata.thoughtsTokenCount || 0);
 				output.usage.cacheRead = cacheRead;
 				output.usage.totalTokens = responseData.usageMetadata.totalTokenCount || 0;
-
-				let inCost = 0, outCost = 0, cacheCost = 0;
-				const m = (output.model || "").toLowerCase();
-				if (m.includes("pro")) {
-					inCost = 1.25; outCost = 5.0; cacheCost = 0.31;
-				} else {
-					inCost = 0.075; outCost = 0.3; cacheCost = 0.018;
-				}
-				output.usage.cost.input = output.usage.input * inCost / 1000000;
-				output.usage.cost.output = output.usage.output * outCost / 1000000;
-				output.usage.cost.cacheRead = output.usage.cacheRead * cacheCost / 1000000;
-				output.usage.cost.cacheWrite = 0;
-				output.usage.cost.total = output.usage.cost.input + output.usage.cost.output + output.usage.cost.cacheRead;
 			}
 		}
 	}
