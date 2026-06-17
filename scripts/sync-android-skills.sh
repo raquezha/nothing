@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL="${ANDROID_SKILLS_REPO:-https://github.com/android/skills.git}"
-REF="${ANDROID_SKILLS_REF:-main}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 DEST="$ROOT_DIR/vendor/android-skills"
@@ -13,12 +11,30 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '▸ Syncing Android skills from %s (%s)\n' "$REPO_URL" "$REF"
-git clone --depth 1 --branch "$REF" "$REPO_URL" "$TMP/android-skills" >/dev/null
-rm -rf "$TMP/android-skills/.git"
-rm -rf "$DEST"
-mkdir -p "$(dirname "$DEST")"
-cp -R "$TMP/android-skills" "$DEST"
+# Ensure android-cli is installed
+if ! command -v android &> /dev/null; then
+  printf '▸ Android CLI not found. Installing...\n'
+  OS="$(uname -s)"
+  ARCH="$(uname -m)"
+  if [[ "$OS" == "Darwin" && "$ARCH" == "arm64" ]]; then
+    curl -fsSL https://dl.google.com/android/cli/latest/darwin_arm64/install.sh | bash
+  elif [[ "$OS" == "Darwin" && "$ARCH" == "x86_64" ]]; then
+    curl -fsSL https://dl.google.com/android/cli/latest/darwin_x86_64/install.sh | bash
+  elif [[ "$OS" == "Linux" ]]; then
+    curl -fsSL https://dl.google.com/android/cli/latest/linux_x86_64/install.sh | bash
+  else
+    echo "Unsupported OS/Arch: $OS $ARCH"
+    exit 1
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+fi
 
-count="$(find "$DEST" -name SKILL.md | wc -l | tr -d ' ')"
+printf '▸ Extracting Android skills via android-cli...\n'
+android skills add --all --project="$TMP" >/dev/null
+
+rm -rf "$DEST"
+mkdir -p "$DEST"
+cp -R "$TMP/skills/"* "$DEST/"
+
+count="$(find "$DEST" -name "SKILL.md" | wc -l | tr -d ' ')"
 printf '✅ Synced %s Android skills into %s\n' "$count" "$DEST"
