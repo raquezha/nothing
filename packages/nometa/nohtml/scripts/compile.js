@@ -54,7 +54,6 @@ function detectFormat(content, filePath) {
     const parsed = JSON.parse(trimmed);
     if (Array.isArray(parsed) && parsed[0]?.role) return "conversation";
     if (parsed.messages && Array.isArray(parsed.messages)) return "conversation";
-    if (parsed.kind === "notrace-run") return "conversation";
   } catch {}
 
   // Markdown heuristic — has # headers or - [ ] task lists
@@ -243,20 +242,6 @@ function renderConversation(raw) {
     }
   }
 
-  if (messages.length === 0) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (parsed.kind === "notrace-run" && parsed.evidence && Array.isArray(parsed.evidence.events)) {
-        messages = parsed.evidence.events
-          .filter(e => e.type === "llm_completion" || e.type === "user_message")
-          .map(e => {
-            if (e.type === "llm_completion") return { role: "assistant", content: e.outputContent };
-            if (e.type === "user_message") return { role: "user", content: e.content };
-            return null;
-          }).filter(Boolean);
-      }
-    } catch {}
-  }
 
   if (!messages.length) return null;
 
@@ -478,13 +463,6 @@ const html = `<!DOCTYPE html>
 
     /* Header Nav & Stats */
     .header-main { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
-    .home-link {
-      display: flex; align-items: center; justify-content: center;
-      width: 32px; height: 32px; border-radius: 8px;
-      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-      color: var(--muted); transition: all 0.2s;
-    }
-    .home-link:hover { background: rgba(139,92,246,0.15); border-color: var(--accent); color: var(--text); }
     .header-stats { display: flex; gap: 1.25rem; }
     .stat-item { display: flex; flex-direction: column; align-items: flex-end; }
     .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
@@ -508,9 +486,6 @@ const html = `<!DOCTYPE html>
   <div class="wrap">
     <header class="page-header">
       <div class="header-main">
-        <a href="../../index.html" class="home-link" title="Back to Dashboard">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-        </a>
         <span class="page-badge">${esc(format)}</span>
         <h1>${esc(pageTitle)}</h1>
       </div>

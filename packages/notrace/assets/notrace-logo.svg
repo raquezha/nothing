@@ -1,0 +1,20 @@
+<svg viewBox="0 0 420 138" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="notrace">
+  <title>notrace logo</title>
+  <desc>Signal icon above and slightly overlapping the notrace wordmark.</desc>
+  <defs>
+    <linearGradient id="fadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E2754A"/>
+      <stop offset="100%" stop-color="#EDE2D2"/>
+    </linearGradient>
+  </defs>
+  <g id="trace-icon" transform="translate(1 -5) scale(0.93)">
+    <path d="M6,50 C16,18 26,18 36,50 C46,82 54,82 60,50 C64,30 68,30 71,50"
+      fill="none" stroke="url(#fadeGrad)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="74" y1="50" x2="79" y2="50" stroke="#D9C9B5" stroke-width="4" stroke-linecap="round" stroke-opacity="0.6"/>
+    <circle cx="85" cy="50" r="2.2" fill="#D9C9B5" opacity="0.5"/>
+    <circle cx="90" cy="50" r="1.4" fill="#EDE2D2" opacity="0.32"/>
+    <circle cx="94" cy="50" r="0.9" fill="#EDE2D2" opacity="0.15"/>
+  </g>
+  <text x="0" y="114" fill="#ECE3DA" style="fill:#ECE3DA" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">no</text>
+  <text x="82" y="114" fill="#D88462" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">trace</text>
+</svg>

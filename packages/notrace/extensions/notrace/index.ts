@@ -103,9 +103,10 @@ export default function (pi: ExtensionAPI) {
     const notraceDir = path.resolve(ctx.cwd, ".notrace");
     const outputDir = path.join(notraceDir, "sessions", traceId.replace(/[^a-z0-9]/gi, "-"));
     const metrics = collectMetrics(events);
+    const repositoryName = path.basename(ctx.cwd);
     
-    const html = generateHtmlReport({ traceId, startTime: new Date(startTime).toISOString(), metrics, events });
-    const record = { traceId, metrics, events, context };
+    const html = generateHtmlReport({ traceId, startTime: new Date(startTime).toISOString(), metrics, events, repositoryName });
+    const record = { traceId, metrics, events, context, repositoryName };
 
     mkdirSync(outputDir, { recursive: true });
     writeFileSync(path.join(outputDir, "notrace.html"), html);
@@ -114,9 +115,9 @@ export default function (pi: ExtensionAPI) {
     const indexPath = path.join(notraceDir, "index.json");
     const existing = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf-8")) : { sessions: [] };
     const sessions = existing.sessions.filter((s: any) => s.sessionId !== traceId);
-    sessions.push({ sessionId: traceId, startedAt: new Date(startTime).toISOString(), workflow: context?.workflow, taskId: context?.taskId, artifacts: { html: path.relative(ctx.cwd, path.join(outputDir, "notrace.html")), record: path.relative(ctx.cwd, path.join(outputDir, "notrace.json")) } });
-    writeFileSync(indexPath, JSON.stringify({ ...existing, sessions }, null, 2));
-    writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions));
+    sessions.push({ sessionId: traceId, startedAt: new Date(startTime).toISOString(), workflow: context?.workflow, taskId: context?.taskId, metrics, artifacts: { html: path.relative(ctx.cwd, path.join(outputDir, "notrace.html")), record: path.relative(ctx.cwd, path.join(outputDir, "notrace.json")) } });
+    writeFileSync(indexPath, JSON.stringify({ ...existing, repositoryName, sessions }, null, 2));
+    writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
 
     if (context) {
       adapter.attach(context, {

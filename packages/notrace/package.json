@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "render:samples": "npm run build && node ./templates/render-samples.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {
