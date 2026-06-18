@@ -87,7 +87,9 @@ function taskDisplay(taskish: any): string {
 }
 
 function resolveRepoName(data: any): string {
-  return data?.repository?.name || data?.repositoryName || data?.repoName || "Repository";
+  const name = data?.repository?.name || data?.repositoryName || data?.repoName || "Repository";
+  const branch = data?.repository?.branch;
+  return branch ? `${name} @ ${branch}` : name;
 }
 
 function formatUsd(value: number | undefined): string {
@@ -647,9 +649,9 @@ export function generateHtmlReport(data: any): string {
           <div class="brand"><a class="brand-link" href="${escapeHtml(indexHref)}" onclick="if (window.history.length > 1) { window.history.back(); return false; }">${wordmarkSvg()}</a><p class="subtitle session-subtitle"><span>Session retrospective</span><span class="session-id-chip"><span>${escapeHtml(data.traceId)}</span>${copyButton(String(data.traceId || ""), "session ID")}</span></p></div>
         </div>
         <div class="meta">
-          <span class="pill">${escapeHtml(repositoryName)}</span>
+          <span class="pill">${escapeHtml(resolveRepoName(data))}</span>
           <span class="pill">Started ${formatDateLong(data.session?.startedAt)}</span>
-          <span class="pill">Capture ${escapeHtml(data.captureMode || "full")}</span>
+          <span class="pill">Mode: ${escapeHtml(data.captureMode || "full")}</span>
         </div>
       </div>
       <div class="metrics">
