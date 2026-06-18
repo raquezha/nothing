@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const body = process.env.PR_BODY ?? "";
 const baseRef = process.env.GITHUB_BASE_REF || "main";
@@ -33,7 +33,9 @@ if (autoClosePattern.test(body)) {
 const prIssueRefs = issueRefs(body);
 if (prIssueRefs.length === 0) process.exit(0);
 
-const changesetFiles = files.filter((file) => /^\.changeset\/[^/]+\.md$/.test(file) && file !== ".changeset/README.md");
+const changesetFiles = files.filter(
+  (file) => /^\.changeset\/[^/]+\.md$/.test(file) && file !== ".changeset/README.md" && existsSync(file),
+);
 const changesetText = changesetFiles.map((file) => readFileSync(file, "utf8")).join("\n");
 const changesetIssueRefs = new Set(issueRefs(changesetText));
 const missing = prIssueRefs.filter((issue) => !changesetIssueRefs.has(issue));
