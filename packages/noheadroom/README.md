@@ -20,7 +20,7 @@ Upstream Headroom protects common agent tool names like `read` and `bash` by def
 - **Headroom Bridge, Pi Policy**: Headroom can optimize broad prompt/context payloads; `noheadroom` intentionally narrows what gets applied back to Pi so only `toolResult` content mutates.
 - **Adaptive Payload Sanitization**: renames tool calls during compression to ensure Headroom actually shrinks them.
 - **Strict Candidate Isolation**: limits applied mutations strictly to `toolResult` messages, safely ignoring upstream proxy mangling of user/assistant history to prevent false-positive guard skips.
-- **Turn-by-Turn Loop Prevention**: caches candidate-specific fingerprints to block useless proxy retries across new conversational turns if previous attempts yielded zero savings or skipped.
+- **Turn-by-Turn Loop Prevention**: caches eligible `toolResult` candidate fingerprints using tool identity, content shape, length, and stable content hashes to block useless proxy retries across new conversational turns while still retrying when actual tool output changes.
 - **Pi-Native Metadata Preservation**: original tool IDs and names are never modified in your real session.
 - **Deep Visibility**: compression results appear in your terminal, the Pi footer, and as persistent entries in your session history.
 - **Docker-First Architecture**: designed to work seamlessly with a local containerized backend.
