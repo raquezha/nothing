@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.0.5
+
+### Patch Changes
+
+- 7afa746: Package updates for antigravity, norpiv, and notrace.
+
 ## 0.0.4
 
 ### Patch Changes

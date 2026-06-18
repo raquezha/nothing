@@ -1,5 +1,16 @@
 # @raquezha/noheadroom
 
+## 0.2.2
+
+### Patch Changes
+
+- 51fda83: fix: preserve assistant toolCall blocks in noheadroom compression and expose notrace failure metadata
+- 3b54a3e: Restrict Pi-applied Headroom mutations to `toolResult` content and suppress repeated guard-skip retries using eligible candidate fingerprints with stable content hashes.
+
+  Refs #10
+
+- 49932bc: Update the android hat mindset and headroom bypass rules.
+
 ## 0.2.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @raquezha/antigravity
 
+## 0.0.6
+
+### Patch Changes
+
+- ccc49ba: Fix antigravity billing so the provider cost is tracked correctly.
+- 7afa746: Package updates for antigravity, norpiv, and notrace.
+
 ## 0.0.5
 
 ### Patch Changes

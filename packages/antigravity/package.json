@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/antigravity",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "OAuth login provider extension for Google Antigravity models in the Pi Coding Agent",
   "main": "dist/antigravity/index.js",
   "type": "module",
