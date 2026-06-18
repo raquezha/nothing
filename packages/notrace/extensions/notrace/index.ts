@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, chmodSync } from "node:fs";
 import * as path from "node:path";
+import { execSync } from "node:child_process";
 import type {
   NotraceActivity,
   NotraceCaptureMode,
@@ -302,6 +303,12 @@ export default function (pi: ExtensionAPI) {
     const finalTraceId = ctx.sessionManager?.getSessionId?.() || traceId;
     const outputDir = path.join(notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
     const repositoryName = path.basename(ctx.cwd);
+    let branchName: string | null = null;
+    try {
+      branchName = execSync("git branch --show-current", { cwd: ctx.cwd, stdio: ["ignore", "pipe", "ignore"], encoding: "utf8" }).trim() || null;
+    } catch {
+      // not a git repo or no commits yet
+    }
     const recordPath = path.join(outputDir, "notrace.json");
 
     let mergedEvents = events;
@@ -338,6 +345,7 @@ export default function (pi: ExtensionAPI) {
       repository: {
         name: repositoryName,
         cwd: ctx.cwd,
+        branch: branchName,
       },
       session: {
         id: finalTraceId,

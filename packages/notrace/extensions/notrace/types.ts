@@ -36,6 +36,7 @@ export type NotraceHarnessInfo = {
 export type NotraceRepositoryInfo = {
   name: string;
   cwd: string;
+  branch?: string | null;
 };
 
 export type NotraceSessionInfo = {

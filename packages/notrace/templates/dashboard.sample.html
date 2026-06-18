@@ -68,6 +68,44 @@
       overflow: visible;
     }
     .subtitle { margin: 10px 0 0; color: var(--muted); }
+    .session-subtitle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .session-id-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      padding: 6px 8px 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(0,0,0,0.18);
+      color: var(--text);
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .copy-btn:hover, .copy-btn.copied {
+      color: var(--text);
+      border-color: rgba(216,132,98,0.45);
+      background: var(--accent-soft);
+    }
     .meta {
       display: flex;
       gap: 8px;
