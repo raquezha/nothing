@@ -211,6 +211,44 @@ function shell(title: string, body: string, script = ""): string {
       overflow: visible;
     }
     .subtitle { margin: 10px 0 0; color: var(--muted); }
+    .session-subtitle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .session-id-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      padding: 6px 8px 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(0,0,0,0.18);
+      color: var(--text);
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .copy-btn:hover, .copy-btn.copied {
+      color: var(--text);
+      border-color: rgba(216,132,98,0.45);
+      background: var(--accent-soft);
+    }
     .meta {
       display: flex;
       gap: 8px;
@@ -411,6 +449,44 @@ function shell(title: string, body: string, script = ""): string {
 </html>`;
 }
 
+function copyButton(value: string, label: string): string {
+  return `<button class="copy-btn" type="button" data-copy-value="${escapeHtml(value)}" aria-label="Copy ${escapeHtml(label)}" title="Copy ${escapeHtml(label)}"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
+}
+
+function copyScript(): string {
+  return `(() => {
+    document.querySelectorAll('[data-copy-value]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const value = button.getAttribute('data-copy-value') || '';
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(value);
+          } else {
+            const textarea = document.createElement('textarea');
+            textarea.value = value;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+          }
+          const previous = button.innerHTML;
+          button.classList.add('copied');
+          button.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>';
+          setTimeout(() => {
+            button.classList.remove('copied');
+            button.innerHTML = previous;
+          }, 1400);
+        } catch {
+          button.textContent = 'ERR';
+        }
+      });
+    });
+  })();`;
+}
+
 function renderJsonBlock(title: string, value: unknown): string {
   return `<section class="block"><h4>${escapeHtml(title)}</h4><pre>${escapeHtml(typeof value === "string" ? value : JSON.stringify(value, null, 2))}</pre></section>`;
 }
@@ -568,7 +644,7 @@ export function generateHtmlReport(data: any): string {
     <section class="hero">
       <div class="hero-top">
         <div>
-          <div class="brand"><a class="brand-link" href="${escapeHtml(indexHref)}" onclick="if (window.history.length > 1) { window.history.back(); return false; }">${wordmarkSvg()}</a><p class="subtitle">Session retrospective for ${escapeHtml(data.traceId)}</p></div>
+          <div class="brand"><a class="brand-link" href="${escapeHtml(indexHref)}" onclick="if (window.history.length > 1) { window.history.back(); return false; }">${wordmarkSvg()}</a><p class="subtitle session-subtitle"><span>Session retrospective</span><span class="session-id-chip"><span>${escapeHtml(data.traceId)}</span>${copyButton(String(data.traceId || ""), "session ID")}</span></p></div>
         </div>
         <div class="meta">
           <span class="pill">${escapeHtml(repositoryName)}</span>
@@ -612,5 +688,5 @@ export function generateHtmlReport(data: any): string {
       <div class="footer-meta"><a href="https://opensource.org/licenses/MIT">MIT</a></div>
     </footer>
   </div>`;
-  return shell(`notrace - ${data.traceId}`, body);
+  return shell(`notrace - ${data.traceId}`, body, copyScript());
 }
