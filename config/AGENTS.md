@@ -43,6 +43,10 @@ When adding a new Pi "hat" or modifier:
 2. **Help**: Update the `printf` tables in `bootstrap.sh` to include the new flag in the `hats`, `modifiers`, or `combo` sections.
 3. **Mindsets**: If it's a base hat, add its default skills/extensions to `config/mindsets.json`.
 
+### Package Issue Closure Rule
+- For npm package behavior fixes under `packages/*`, PR bodies must use `Refs #ISSUE`, not `Closes/Fixes/Resolves #ISSUE`, because merge does not deliver the fix to npm users. Close the issue only after the package version is published.
+- Add a changeset for package changes unless intentionally unreleased and documented.
+
 ### AI Commit Attribution
 - **Deterministic Identity**: Never guess or hallucinate the active model when writing `Assisted-by` trailers in git commits.
 - **Enforcement**: Run `packages/norpiv/scripts/get-pi-model.sh` to deterministically extract the true active model from the harness logs and inject its exact output.
