@@ -11,8 +11,8 @@
     "test": "node scripts/verify-repo.mjs",
     "changeset:status": "changeset status --since=origin/main",
     "verify:notrace": "node scripts/verify-notrace.mjs",
-    "compare:notrace": "node scripts/notrace-compare.mjs",
-    "review:notrace": "node scripts/notrace-review.mjs",
+    "compare:notrace": "node packages/notrace/bin/notrace-compare.mjs",
+    "review:notrace": "node packages/notrace/bin/notrace-review.mjs",
     "version": "changeset version",
     "release": "changeset publish"
   },
