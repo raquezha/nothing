@@ -1,5 +1,13 @@
 # @raquezha/notrace
 
+## 0.0.6
+
+### Patch Changes
+
+- d349d36: Refresh the notrace UI and sample session rendering separately from the antigravity billing fix.
+- 51fda83: fix: preserve assistant toolCall blocks in noheadroom compression and expose notrace failure metadata
+- 7afa746: Package updates for antigravity, norpiv, and notrace.
+
 ## 0.0.5
 
 ### Patch Changes
