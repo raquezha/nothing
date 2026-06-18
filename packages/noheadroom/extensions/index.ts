@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ContextEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Box, Text } from "@earendil-works/pi-tui";
 import {
@@ -9,7 +10,7 @@ import {
 import { HeadroomHttpClient } from "./client.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
-import type { AgentMessage, CompressResult, HeadroomConfig, HeadroomStats } from "./types.js";
+import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomStats } from "./types.js";
 
 const STATUS_KEY = "headroom";
 const SUBCOMMANDS = ["status", "on", "off", "health", "stats"] as const;
@@ -260,15 +261,16 @@ async function handleContextCompression(
 		return undefined;
 	}
 
-	// 3. If the candidates haven't changed since the last guard skip, don't try again.
-	const candidateFingerprint = generateCandidateFingerprint(event.messages);
-	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
-		return undefined;
-	}
-
 	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return undefined;
+
+	// 3. If eligible candidates haven't changed since the last skip/no-savings result,
+	// don't spend another proxy call just because surrounding conversation changed.
+	const candidateFingerprint = generateCandidateFingerprint(event.messages, payload);
+	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
+		return undefined;
+	}
 	if (runtime.state.proxyOnline !== true) {
 		void ensureProxyInBackground(runtime, ctx);
 		return undefined;
@@ -281,8 +283,10 @@ async function handleContextCompression(
 		const result = await runtime.client.compress(payload.messages, ctx.model?.id, ctx.signal);
 		runtime.state.proxyOnline = true;
 		if (!result.compressed || result.tokensSaved <= 0) {
-			// Even if no tokens saved, record the input so we don't keep trying
+			// Even if no tokens saved, record fingerprints so we don't keep trying
+			// until the actual compressible candidate material changes.
 			runtime.state.lastInputFingerprint = inputFingerprint;
+			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
 			runtime.refreshStatus(ctx);
 			return undefined;
 		}
@@ -321,15 +325,43 @@ async function handleContextCompression(
 	}
 }
 
-function generateCandidateFingerprint(messages: AgentMessage[]): string {
-	return messages
-		.filter((m) => m.role === "toolResult")
-		.map((m) => {
-			const converted = convertMessage(m);
-			const len = converted ? extractOpenAIText(converted).length : 0;
-			return `toolResult:${len}`;
-		})
-		.join(",");
+function generateCandidateFingerprint(messages: AgentMessage[], payload: CompressionPayload): string {
+	const units = payload.mappings
+		.filter((mapping) => mapping.applyTo)
+		.map((mapping) => {
+			const source = messages[mapping.sourceIndex] as AgentMessage & {
+				content?: unknown;
+				toolCallId?: unknown;
+				toolName?: unknown;
+			};
+			return {
+				applyTo: mapping.applyTo,
+				sourceIndex: mapping.sourceIndex,
+				role: source.role,
+				toolCallId: typeof source.toolCallId === "string" ? source.toolCallId : null,
+				toolName: typeof source.toolName === "string" ? source.toolName : null,
+				contentShape: describeContentShape(source.content),
+				textLength: mapping.originalText.length,
+				textHash: stableHash(mapping.originalText),
+			};
+		});
+	return stableHash(JSON.stringify(units));
+}
+
+function describeContentShape(content: unknown): string {
+	if (Array.isArray(content)) {
+		return content
+			.map((part) => {
+				if (!part || typeof part !== "object" || !("type" in part)) return "unknown";
+				return String((part as { type?: unknown }).type ?? "unknown");
+			})
+			.join(",");
+	}
+	return typeof content;
+}
+
+function stableHash(value: string): string {
+	return createHash("sha256").update(value).digest("hex");
 }
 
 function generateFingerprint(messages: AgentMessage[]): string {

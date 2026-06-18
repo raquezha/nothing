@@ -154,7 +154,7 @@ async function testZeroSavings() {
   const client = new MockClient(1.0); // 1.0 = no compression
   const runtime = {
     pi: mockPi, config: mockConfig, client,
-    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
     refreshStatus: () => {}
   };
 
@@ -170,6 +170,25 @@ async function testZeroSavings() {
   const res2 = await handleContextCompression(runtime, { messages: msgs }, createMockCtx(msgs));
   assert(res2 === undefined, "Should skip second attempt if input fingerprint matches");
   assert(client.calls === 1, "Should NOT call client again");
+
+  // New conversational turn with unchanged candidate must not call Headroom again.
+  runtime.state.lastCompressionTime = 0;
+  const msgsNewTurn = [...msgs, { role: "user", content: "new question" }];
+  const res3 = await handleContextCompression(runtime, { messages: msgsNewTurn }, createMockCtx(msgsNewTurn));
+  assert(res3 === undefined, "Should skip if only surrounding conversation changed");
+  assert(client.calls === 1, "Should NOT call client when candidate fingerprint is unchanged");
+
+  // Same length but different toolResult content must call Headroom again.
+  runtime.state.lastCompressionTime = 0;
+  const msgsSameLengthDifferentContent = [
+    { role: "user", content: "hi" },
+    { role: "toolResult", toolCallId: "c", toolName:"t", content: "changed txt" },
+    { role: "user", content: "new question" }
+  ];
+  assert(msgsSameLengthDifferentContent[1].content.length === msgs[1].content.length, "Fixture must keep same length");
+  const res4 = await handleContextCompression(runtime, { messages: msgsSameLengthDifferentContent }, createMockCtx(msgsSameLengthDifferentContent));
+  assert(res4 === undefined, "Still no savings, but should have attempted because content hash changed");
+  assert(client.calls === 2, "Should call client when same-length candidate content changes");
 
   console.log("✓ Zero savings test passed\n");
 }
