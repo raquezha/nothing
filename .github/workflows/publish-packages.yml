@@ -19,6 +19,7 @@ jobs:
     permissions:
       contents: write      # to push version bump commits + tags
       pull-requests: write # to open the Version PR
+      issues: write        # to close package issues after npm publish
       id-token: write      # for npm provenance
 
     steps:
@@ -52,6 +53,7 @@ jobs:
           fi
 
       - name: Create Version PR or publish
+        id: changesets
         if: ${{ inputs.dry_run != 'true' }}
         uses: changesets/action@v1
         with:
@@ -62,6 +64,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Close released package issues
+        if: ${{ inputs.dry_run != 'true' && steps.changesets.outputs.published == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: node scripts/close-released-issues.mjs
 
       - name: Dry run summary
         if: ${{ inputs.dry_run == 'true' }}

@@ -29,12 +29,8 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 
 		const originalText = extractOpenAIText(converted);
 		// Mark candidates for compression.
-		// toolResults are always candidates.
-		// user/assistant messages are candidates unless they are the most recent turn.
-		const isRecent = sourceIndex >= messages.length - 2;
-		let applyTo = (source.role === "toolResult" || (!isRecent && (source.role === "user" || source.role === "assistant"))) 
-			? source.role 
-			: null;
+		// ONLY toolResults are candidates, preserving original Pi conversation fidelity.
+		let applyTo: "toolResult" | null = source.role === "toolResult" ? "toolResult" : null;
 
 		// Headroom Bypass Rules (Android Hat)
 		// We never want to compress `android layout` JSON dumps or critical adb dumps.
@@ -43,7 +39,7 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		}
 		
 		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
-		mappings.push({ sourceIndex, message: converted, applyTo: applyTo as any, originalText });
+		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
 	}
 
 	return {
@@ -69,17 +65,16 @@ export function applyCompressionResult(
 	for (let index = 0; index < mappings.length; index++) {
 		const mapping = mappings[index];
 		const compressed = compressedMessages[index];
+
+		// We only validate and apply changes to explicit candidates.
+		// Headroom is allowed to mangle non-candidates (like assistant history) in its output,
+		// but we simply ignore those changes and keep the original Pi message intact.
+		if (!mapping.applyTo) continue;
+
 		const validation = validateAlignedMessage(mapping.message, compressed);
 		if (!validation.ok) return validation;
 
 		let nextText = extractOpenAIText(compressed);
-
-		// If this is a protected message (not a candidate), and Headroom changed it,
-		// we FORCE it back to the original text to preserve accuracy.
-		if (!mapping.applyTo && nextText !== mapping.originalText) {
-			nextText = mapping.originalText;
-		}
-
 		if (nextText === mapping.originalText) continue;
 
 		const target = nextMessages[mapping.sourceIndex] as AnyMessage;
