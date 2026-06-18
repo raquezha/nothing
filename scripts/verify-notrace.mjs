@@ -19,7 +19,9 @@ function createEventBus() {
   };
 }
 
-async function runSession({ cwd, withActiveTask }) {
+async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
+  const previousCapture = process.env.NOTRACE_CAPTURE;
+  process.env.NOTRACE_CAPTURE = captureMode;
   const handlers = new Map();
   const pi = {
     events: createEventBus(),
@@ -80,12 +82,12 @@ async function runSession({ cwd, withActiveTask }) {
   await emit("tool_execution_start", {
     toolCallId: "tool-1",
     toolName: "read",
-    args: { path: "README.md" },
+    args: { path: "README.md", authorization: "demo auth value" },
   });
   await emit("tool_execution_end", {
     toolCallId: "tool-1",
     toolName: "read",
-    result: { content: "hello" },
+    result: { content: "hello", token: "demo token value" },
     isError: false,
   });
   await emit("message_end", {
@@ -134,6 +136,28 @@ async function runSession({ cwd, withActiveTask }) {
   if (record.telemetry?.extensions?.noheadroom?.status !== "active") {
     throw new Error("Generated notrace record is missing extension telemetry.");
   }
+  if (record.captureMode !== captureMode) {
+    throw new Error(`Expected capture mode ${captureMode}, got ${record.captureMode}`);
+  }
+  const toolStart = record.events.find((event) => event.type === "tool_start");
+  const toolEnd = record.events.find((event) => event.type === "tool_end");
+  const serializedRecord = JSON.stringify(record);
+  if (captureMode === "metadata") {
+    if (!toolStart?.args?.omitted || !toolEnd?.result?.omitted) {
+      throw new Error("Expected metadata mode to omit tool payload bodies.");
+    }
+    if (serializedRecord.includes("demo auth value") || serializedRecord.includes("demo token value")) {
+      throw new Error("Expected metadata mode to omit sensitive payload values.");
+    }
+  }
+  if (captureMode === "redacted") {
+    if (toolStart?.args?.authorization !== "[REDACTED by notrace]" || toolEnd?.result?.token !== "[REDACTED by notrace]") {
+      throw new Error("Expected redacted mode to redact sensitive payload values.");
+    }
+  }
+
+  if (previousCapture === undefined) delete process.env.NOTRACE_CAPTURE;
+  else process.env.NOTRACE_CAPTURE = previousCapture;
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");
@@ -146,9 +170,12 @@ async function runSession({ cwd, withActiveTask }) {
 }
 
 const plainCwd = mkdtempSync(join(tmpdir(), "notrace-plain-"));
-const plain = await runSession({ cwd: plainCwd, withActiveTask: false });
+const plain = await runSession({ cwd: plainCwd, withActiveTask: false, captureMode: "full" });
 
 const taskCwd = mkdtempSync(join(tmpdir(), "notrace-task-"));
-const task = await runSession({ cwd: taskCwd, withActiveTask: true });
+const task = await runSession({ cwd: taskCwd, withActiveTask: true, captureMode: "redacted" });
 
-console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} work=${task.workPath}`);
+const metadataCwd = mkdtempSync(join(tmpdir(), "notrace-metadata-"));
+const metadata = await runSession({ cwd: metadataCwd, withActiveTask: false, captureMode: "metadata" });
+
+console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} metadata=${metadata.reportPath} work=${task.workPath}`);

@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, chmodSync } from "node:fs";
 import * as path from "node:path";
 import type {
   NotraceActivity,
@@ -64,6 +64,7 @@ function isSensitiveKey(key: string): boolean {
 }
 
 function sanitizeTraceValue(value: unknown): unknown {
+  if (currentMode === "metadata") return { omitted: true, reason: "metadata-capture" };
   if (currentMode === "full") return value;
   if (value == null || typeof value !== "object") {
     return typeof value === "string" ? value.replace(SENSITIVE_VALUE_RE, REDACTED).slice(0, 10000) : value;
@@ -88,6 +89,30 @@ function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | 
     totalTokens: asNumber(usage.totalTokens),
     totalCostUsd: asNumber(usage.cost?.total),
   };
+}
+
+function readJsonFile<T>(filePath: string, fallback: T): T {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf-8")) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writePrivateFileAtomic(filePath: string, content: string): void {
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmpPath, content, { encoding: "utf-8", mode: 0o600 });
+  chmodSync(tmpPath, 0o600);
+  renameSync(tmpPath, filePath);
+}
+
+function validateRunRecord(record: NotraceRunRecord): void {
+  if (record.kind !== "notrace-run") throw new Error("notrace record validation failed: invalid kind");
+  if (record.schemaVersion !== SCHEMA_VERSION) throw new Error("notrace record validation failed: invalid schemaVersion");
+  if (!record.traceId || !record.session?.id) throw new Error("notrace record validation failed: missing session id");
+  if (!record.repository?.cwd) throw new Error("notrace record validation failed: missing repository cwd");
+  if (!record.activity?.totals) throw new Error("notrace record validation failed: missing activity totals");
+  if (!Array.isArray(record.events)) throw new Error("notrace record validation failed: events must be an array");
 }
 
 function collectActivity(events: NotraceEvent[], startedAt: number, endedAt: number): NotraceActivity {
@@ -284,7 +309,7 @@ export default function (pi: ExtensionAPI) {
     let originalTask: any = null;
     if (existsSync(recordPath)) {
       try {
-        const oldRecord = JSON.parse(readFileSync(recordPath, "utf-8"));
+        const oldRecord = readJsonFile<any>(recordPath, null);
         if (Array.isArray(oldRecord.events)) {
           mergedEvents = [...oldRecord.events, ...events];
         }
@@ -329,23 +354,24 @@ export default function (pi: ExtensionAPI) {
       events: mergedEvents,
     };
 
+    validateRunRecord(record);
     const html = generateHtmlReport(record);
 
     mkdirSync(outputDir, { recursive: true });
     const htmlPath = path.join(outputDir, "notrace.html");
-    writeFileSync(htmlPath, html);
-    writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+    writePrivateFileAtomic(htmlPath, html);
+    writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
 
     const indexPath = path.join(notraceDir, "index.json");
-    const existing = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf-8")) : { repositoryName, sessions: [] };
+    const existing = readJsonFile<any>(indexPath, { repositoryName, sessions: [] });
     let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
     
     if (!isGhostSession) {
       sessions.push(createIndexEntry(record, ctx.cwd, htmlPath, recordPath));
     }
     
-    writeFileSync(indexPath, `${JSON.stringify({ repositoryName, sessions }, null, 2)}\n`);
-    writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
+    writePrivateFileAtomic(indexPath, `${JSON.stringify({ repositoryName, sessions }, null, 2)}\n`);
+    writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
 
     if (context) {
       adapter.attach(context, {

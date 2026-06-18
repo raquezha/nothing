@@ -103,12 +103,25 @@ Mode meanings:
 - `redacted`: captured payloads with common secret-like values redacted
 - `metadata`: minimal capture, no prompt/tool bodies
 
-**Security warning:** even redacted reports can contain sensitive prompts, tool payloads, local paths, and outputs. Do not publish generated reports.
+**Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
 ## Review
 
+From this monorepo:
+
 ```bash
 npm run review:notrace -- \
+  .notrace/sessions/<id>/notrace.json \
+  --outcome partial \
+  --friction high \
+  --lesson "Headroom reduced tokens but needed manual steering." \
+  --next-change "Try same task with RepoScry enabled."
+```
+
+From an installed package:
+
+```bash
+npx -p @raquezha/notrace notrace-review \
   .notrace/sessions/<id>/notrace.json \
   --outcome partial \
   --friction high \
@@ -124,8 +137,18 @@ Review fields:
 
 ## Compare
 
+From this monorepo:
+
 ```bash
 npm run compare:notrace -- \
+  .notrace/sessions/<baseline-id>/notrace.json \
+  .notrace/sessions/<candidate-id>/notrace.json
+```
+
+From an installed package:
+
+```bash
+npx -p @raquezha/notrace notrace-compare \
   .notrace/sessions/<baseline-id>/notrace.json \
   .notrace/sessions/<candidate-id>/notrace.json
 ```
