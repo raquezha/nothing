@@ -46,6 +46,7 @@ When adding a new Pi "hat" or modifier:
 ### Package Issue Closure Rule
 - For npm package behavior fixes under `packages/*`, PR bodies must use `Refs #ISSUE`, not `Closes/Fixes/Resolves #ISSUE`, because merge does not deliver the fix to npm users. Close the issue only after the package version is published.
 - Add a changeset for package changes unless intentionally unreleased and documented.
+- If a package PR references an issue, include the same `Refs #ISSUE` in the changeset body so the generated changelog can drive post-publish issue closure.
 
 ### AI Commit Attribution
 - **Deterministic Identity**: Never guess or hallucinate the active model when writing `Assisted-by` trailers in git commits.
