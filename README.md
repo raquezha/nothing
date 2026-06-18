@@ -24,6 +24,7 @@
 - **🛡️ Privacy First**: Always-on credential and secret guard via `@raquezha/noleaks`.
 - **🎩 Persona "Hats"**: Instant switching between Triage, PM, Dev, and Meta engineering modes.
 - **🗜️ Context Optimization**: Integrated local [Headroom](https://github.com/headroom-ai/headroom) compression via `@raquezha/noheadroom`.
+- **🧾 Retrospective Memory**: Versioned `notrace.json` session evidence plus HTML reports via `@raquezha/notrace`, with optional extension telemetry.
 - **🔄 RPIV Workflow**: A formal Frame → Plan → Implement → Verify → Sync cycle for reliable agentic output.
 - **🚀 One-Command Bootstrap**: reproducible environment setup across home and work machines.
 
@@ -35,7 +36,7 @@
 | **Optimization** | [`headroom/`](./headroom), [`@raquezha/noheadroom`](./packages/noheadroom) | local context compression |
 | **Workflow** | [`@raquezha/norpiv`](./packages/norpiv) | the core RPIV agentic process |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
-| **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | HTML trace viewer & powerline footer |
+| **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | retrospective run records, HTML reports, and powerline footer |
 | **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
 
 ## 🚀 Getting Started
@@ -66,6 +67,7 @@ Base hats load repo-local skills and personas:
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
+pi --android     # Android development expert; loads local Android CLI skill cache only
 pi --meta        # skill engineering and nothing maintenance
 pi --nothing     # ultimate "clean" mode: zero built-in tools/context
 ```
@@ -100,7 +102,15 @@ pi install npm:@raquezha/norpiv
 
 - **Build packages**: `npm run build --workspaces`
 - **Verify repo**: `npm test`
-- **Sync Android skills**: `./scripts/sync-android-skills.sh`
+- **Refresh Android CLI skills**: `pi --android-update` or `./scripts/android-skills-refresh.sh`
+
+### Android CLI skills cache
+
+`pi --android` never installs, updates, or checks the network. It only loads the local cache at `$NOTHING_CACHE_DIR/android-skills` (default: `~/.local/share/nothing/android-skills`). If the cache is missing or locally stamped stale, it warns and continues safely.
+
+Run `pi --android-update` when you explicitly want network work. The refresh script runs `android update`, installs skills with `android skills add --all --project=<temp project>`, verifies `skills/android-cli/SKILL.md`, and atomically swaps the cache.
+
+If the Android CLI is missing, the script prints the Linux/macOS install command. It only runs the installer when you pass `--install-cli`.
 
 ## 🤝 Attribution
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ContextEvent, ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Box, Text } from "@earendil-works/pi-tui";
 import {
@@ -9,10 +10,11 @@ import {
 import { HeadroomHttpClient } from "./client.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
-import type { AgentMessage, CompressResult, HeadroomConfig, HeadroomStats } from "./types.js";
+import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomStats } from "./types.js";
 
 const STATUS_KEY = "headroom";
 const SUBCOMMANDS = ["status", "on", "off", "health", "stats"] as const;
+const NOTRACE_TELEMETRY_CHANNEL = "notrace.telemetry.extension";
 
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
@@ -26,6 +28,7 @@ interface HeadroomRuntimeState {
 	processing: boolean;
 	lastInputFingerprint: string | null;
 	lastOutputFingerprint: string | null;
+	lastGuardSkipCandidateFingerprint: string | null;
 	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
@@ -59,6 +62,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		if (isRemoteBlocked(runtime.config)) {
 			runtime.refreshStatus(ctx);
+			emitNotraceTelemetry(runtime);
 			ctx.ui.notify(
 				`Headroom remote URL is blocked by default: ${runtime.config.baseUrl}\nSet PI_HEADROOM_ALLOW_REMOTE=1 only if you trust that proxy with full context.`,
 				"warning",
@@ -66,6 +70,7 @@ export default function headroomExtension(pi: ExtensionAPI) {
 			return;
 		}
 		runtime.refreshStatus(ctx);
+		emitNotraceTelemetry(runtime);
 		if (!runtime.state.enabled) return;
 		void ensureProxyInBackground(runtime, ctx);
 	});
@@ -105,6 +110,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		processing: false,
 		lastInputFingerprint: null,
 		lastOutputFingerprint: null,
+		lastGuardSkipCandidateFingerprint: null,
 		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
@@ -258,6 +264,13 @@ async function handleContextCompression(
 	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return undefined;
+
+	// 3. If eligible candidates haven't changed since the last skip/no-savings result,
+	// don't spend another proxy call just because surrounding conversation changed.
+	const candidateFingerprint = generateCandidateFingerprint(event.messages, payload);
+	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
+		return undefined;
+	}
 	if (runtime.state.proxyOnline !== true) {
 		void ensureProxyInBackground(runtime, ctx);
 		return undefined;
@@ -270,8 +283,10 @@ async function handleContextCompression(
 		const result = await runtime.client.compress(payload.messages, ctx.model?.id, ctx.signal);
 		runtime.state.proxyOnline = true;
 		if (!result.compressed || result.tokensSaved <= 0) {
-			// Even if no tokens saved, record the input so we don't keep trying
+			// Even if no tokens saved, record fingerprints so we don't keep trying
+			// until the actual compressible candidate material changes.
 			runtime.state.lastInputFingerprint = inputFingerprint;
+			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
 			runtime.refreshStatus(ctx);
 			return undefined;
 		}
@@ -280,7 +295,13 @@ async function handleContextCompression(
 			minMessageChars: runtime.config.minMessageChars,
 		});
 		if (!applied.ok) {
+			// Record the input even on guard skips to prevent looping retries for this context
+			runtime.state.lastInputFingerprint = inputFingerprint;
+			runtime.state.lastOutputFingerprint = null;
+			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
+
 			recordGuardSkip(runtime.state.stats, applied.reason);
+			emitNotraceTelemetry(runtime);
 			announceGuardSkip(ctx, applied.reason, result);
 			runtime.refreshStatus(ctx);
 			return undefined;
@@ -289,8 +310,10 @@ async function handleContextCompression(
 		// Store fingerprints to break the feedback loop
 		runtime.state.lastInputFingerprint = inputFingerprint;
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
+		runtime.state.lastGuardSkipCandidateFingerprint = null;
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
+    emitNotraceTelemetry(runtime);
 		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages, runtime.config.silent);
 		runtime.refreshStatus(ctx);
 		return { messages: applied.messages };
@@ -300,6 +323,45 @@ async function handleContextCompression(
 	} finally {
 		runtime.state.processing = false;
 	}
+}
+
+function generateCandidateFingerprint(messages: AgentMessage[], payload: CompressionPayload): string {
+	const units = payload.mappings
+		.filter((mapping) => mapping.applyTo)
+		.map((mapping) => {
+			const source = messages[mapping.sourceIndex] as AgentMessage & {
+				content?: unknown;
+				toolCallId?: unknown;
+				toolName?: unknown;
+			};
+			return {
+				applyTo: mapping.applyTo,
+				sourceIndex: mapping.sourceIndex,
+				role: source.role,
+				toolCallId: typeof source.toolCallId === "string" ? source.toolCallId : null,
+				toolName: typeof source.toolName === "string" ? source.toolName : null,
+				contentShape: describeContentShape(source.content),
+				textLength: mapping.originalText.length,
+				textHash: stableHash(mapping.originalText),
+			};
+		});
+	return stableHash(JSON.stringify(units));
+}
+
+function describeContentShape(content: unknown): string {
+	if (Array.isArray(content)) {
+		return content
+			.map((part) => {
+				if (!part || typeof part !== "object" || !("type" in part)) return "unknown";
+				return String((part as { type?: unknown }).type ?? "unknown");
+			})
+			.join(",");
+	}
+	return typeof content;
+}
+
+function stableHash(value: string): string {
+	return createHash("sha256").update(value).digest("hex");
 }
 
 function generateFingerprint(messages: AgentMessage[]): string {
@@ -339,6 +401,52 @@ function recordAppliedCompression(stats: HeadroomStats, result: CompressResult, 
 	stats.last = { ...result, appliedMessages };
 }
 
+function summarizeTelemetry(state: HeadroomRuntimeState): string | null {
+	if (state.stats.last) {
+		const pct = Math.round((1 - state.stats.last.compressionRatio) * 100);
+		return `compressed ${state.stats.last.tokensBefore.toLocaleString()} to ${state.stats.last.tokensAfter.toLocaleString()} tokens; saved ${state.stats.last.tokensSaved.toLocaleString()} tokens across ${state.stats.last.appliedMessages} tool results (-${pct}%)`;
+	}
+	if (!state.enabled) return "headroom loaded but disabled for this session";
+	if (state.stats.lastSkipReason) return `compression not applied; last guard skip: ${state.stats.lastSkipReason}`;
+	if (state.stats.lastError) return `compression unavailable; last error: ${state.stats.lastError}`;
+	if (state.proxyOnline === false) return "proxy unavailable";
+	if (state.proxyStarting) return "proxy starting";
+	return "headroom loaded; no compression applied yet";
+}
+
+function emitNotraceTelemetry(runtime: HeadroomRuntime): void {
+	const state = runtime.state;
+	const status = !state.enabled
+		? "loaded-disabled"
+		: state.stats.last
+			? "active"
+			: "loaded-inactive";
+	const details: Record<string, unknown> = {
+		attempts: state.stats.attempts,
+		applied: state.stats.applied,
+		guardSkips: state.stats.guardSkips,
+		tokensSaved: state.stats.tokensSaved,
+		proxyOnline: state.proxyOnline,
+		proxyStarting: state.proxyStarting,
+		lastSkipReason: state.stats.lastSkipReason,
+		lastError: state.stats.lastError,
+	};
+	if (state.stats.last) details.last = { ...state.stats.last };
+	try {
+		runtime.pi.events.emit(NOTRACE_TELEMETRY_CHANNEL, {
+			extension: "noheadroom",
+			loaded: true,
+			enabled: state.enabled,
+			active: Boolean(state.stats.last),
+			status,
+			summary: summarizeTelemetry(state),
+			details,
+		});
+	} catch {
+		// Telemetry should never break compression behavior.
+	}
+}
+
 function announceAppliedCompression(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
@@ -368,6 +476,7 @@ function announceGuardSkip(ctx: ExtensionContext, reason: string, result: Compre
 function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext, error: unknown): void {
 	runtime.state.stats.lastError = getErrorMessage(error);
 	if (isAbortOrTimeoutError(error)) {
+		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
 		return;
 	}
@@ -380,6 +489,7 @@ function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext,
 			"warning",
 		);
 	}
+	emitNotraceTelemetry(runtime);
 	runtime.refreshStatus(ctx);
 }
 
@@ -406,6 +516,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 		runtime.state.offlineWarningShown = false;
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
+		emitNotraceTelemetry(runtime);
 		ctx.ui.notify(
 			healthy
 				? "Headroom compression enabled. Proxy will keep running after Pi exits."
@@ -416,6 +527,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 	}
 	if (command === "off") {
 		runtime.state.enabled = false;
+		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
 		ctx.ui.notify("Headroom compression disabled for this Pi session. The proxy process is left running.", "info");
 		return;
@@ -423,6 +535,7 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 	if (command === "health") {
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
+		emitNotraceTelemetry(runtime);
 		ctx.ui.notify(
 			healthy ? `Headroom proxy online: ${runtime.config.baseUrl}` : proxyStartHint(runtime.config),
 			healthy ? "info" : "warning",

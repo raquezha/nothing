@@ -1,45 +1,88 @@
 # notrace: Retrospective Memory
 
-This document stores the durable technical memory and design rules for `notrace`.
+This document stores durable technical memory and design rules for `notrace`.
 
-## The Core Thesis
+## Core thesis
 
 **Traces in, lessons out.**
 
-`notrace` is not a dashboard or a monitoring tool. It is a **retrospective engine**. Its purpose is to provide measurable evidence to answer the question: *"Is this workflow variant actually improving the value of my agent sessions?"*
+`notrace` is a retrospective engine.
+It exists to answer questions like:
+- Is this workflow variant actually better?
+- Did this extension reduce cost or friction?
+- What changed between two sessions?
 
-## Architectural Principles
+## Ownership boundary
 
-1.  **Local-First & Private**: Traces are sensitive. They remain on the local machine and use aggressive redaction (`REDACTED`) for secrets by default.
-2.  **Evidence vs. Judgment**:
-    *   **Evidence** (`notrace.json`): Automatically captured logs of LLM calls, tool execution, and usage metrics.
-    *   **Judgment** (`notrace.review.json`): Human-provided outcome, friction level, and lesson.
-3.  **Unified Storage**: All artifacts live in `.notrace/sessions/<id>/`. No retrospective artifacts are owned by the workflow engine (e.g., RPIV).
-4.  **Workflow Adapters**: `notrace` is workflow-agnostic. It detects active workflows (like RPIV) and "attaches" references to those sessions in the workflow's state (e.g., `WORK.md`).
+`notrace` owns the **durable retrospective record**.
+It does not own:
+- Pi's live footer
+- Pi's resume/session UX
+- ad hoc terminal presentation strings
 
-## The Retrospective Spine
+When shutdown output appears mixed together, treat `notrace`, Pi core, and dynamic extensions as separate producers unless the run record explicitly aggregates them.
 
-A session is considered complete only when it follows the spine:
-1.  **Capture**: Extension runs during the session.
-2.  **Inspect**: Review the generated `notrace.html`.
-3.  **Review**: Run `npm run review:notrace` to record the human verdict.
-4.  **Compare**: Run `npm run compare:notrace` against a baseline to measure improvement.
+## Architectural principles
 
-## Storage Schema
+1. **Local-first and private**
+   - traces stay local
+   - generated reports can still contain sensitive data
+2. **Evidence vs. judgment**
+   - evidence: `notrace.json`
+   - judgment: `notrace.review.json`
+3. **Unified storage**
+   - retrospective artifacts live under `.notrace/`
+4. **Workflow attachment, not workflow ownership**
+   - `notrace` may attach links into workflow state such as `WORK.md`
+   - `.notrace/` still owns retrospective artifacts
+5. **Canonical schema first**
+   - runtime, HTML, compare, review, and verification should all align to one versioned run-record model
+6. **Harness-ready design**
+   - Pi is adapter 1 today
+   - schema and telemetry contracts should avoid unnecessary Pi-only assumptions so future harness adapters remain possible
 
-```text
-.notrace/
-  index.json              # Registry of all sessions in this root
-  sessions/
-    <session-id>/
-      notrace.json        # The machine-readable spine
-      notrace.html        # The human-readable report
-      notrace.review.json # The human judgment sidecar
-```
+## Capture modes
 
-## Mandatory Protocol (for Agents)
+Current default is **full** unless `NOTRACE_CAPTURE` is set.
 
-*   **Never commit `.notrace/` or `.workflow/`** to git.
-*   **Always use redacted mode** unless debugging local extension logic.
-*   **Link, don't copy**: RPIV `WORK.md` should only contain relative `file://` links to `.notrace/` artifacts.
-*   **Durable lessons**: When a significant lesson is extracted via `review:notrace`, consider promoting it to a repo-level rule in `AGENTS.md`.
+Supported modes:
+- `full`
+- `redacted`
+- `metadata`
+
+Use `redacted` or `metadata` when reduced sensitivity is more important than deep debugging.
+Use `full` when debugging local extension/runtime behavior and you accept the higher sensitivity.
+
+## Metric families
+
+Keep these separate:
+- **core session usage**: tokens, cost, turns, tool calls, errors, duration
+- **optimization telemetry**: compression attempts, guard skips, tokens saved, transforms applied
+- **presentation-only output**: footer badges, live status strings, resume hints
+
+Never mix consumed tokens and saved tokens into one ambiguous total.
+
+## Dynamic extension telemetry
+
+Optional dynamic extensions may contribute structured telemetry.
+Current first-class example is `noheadroom`.
+
+Rules:
+- absence of an extension must not break `notrace`
+- extension telemetry should arrive through a structured contract
+- do not scrape UI strings for canonical evidence
+- prefer side-channel integration over conversation/session mutation during compression-sensitive flows
+
+## Retrospective spine
+
+A session is complete only when it follows the spine:
+1. capture
+2. inspect
+3. review
+4. compare
+
+## Mandatory protocol
+
+- Never commit `.notrace/` or `.workflow/`.
+- Link, do not copy, retrospective artifacts into workflow docs.
+- If a durable repo rule emerges from repeated retrospective lessons, promote it into repo docs or `AGENTS.md`.

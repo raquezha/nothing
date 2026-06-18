@@ -1,0 +1,113 @@
+{
+  "repositoryName": "nothing",
+  "sessions": [
+    {
+      "sessionId": "019ed2ee-1000-76ee-b353-000000000001",
+      "startedAt": "2026-06-17T09:00:00.000Z",
+      "endedAt": "2026-06-17T09:18:00.000Z",
+      "captureMode": "full",
+      "task": {
+        "workflow": "norpiv",
+        "id": "NR-101",
+        "path": ".workflow/tasks/NR-101",
+        "dir": "/repo/.workflow/tasks/NR-101"
+      },
+      "conditions": {
+        "models": ["gpt-5.4"],
+        "providers": ["openai"],
+        "extensions": ["notrace", "noheadroom"]
+      },
+      "activity": {
+        "turnCount": 4,
+        "llmCallCount": 4,
+        "toolCallCount": 3,
+        "toolErrorCount": 0,
+        "durationMs": 1080000,
+        "totals": {
+          "inputTokens": 3100,
+          "outputTokens": 410,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 3510,
+          "totalCostUsd": 0.0204
+        }
+      },
+      "artifacts": {
+        "html": "sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html",
+        "record": "sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.json"
+      }
+    },
+    {
+      "sessionId": "019ed2ee-1001-76ee-b353-000000000002",
+      "startedAt": "2026-06-17T09:37:00.000Z",
+      "endedAt": "2026-06-17T09:59:00.000Z",
+      "captureMode": "redacted",
+      "task": {
+        "workflow": "research",
+        "id": "branch:topic-02",
+        "path": null,
+        "dir": null
+      },
+      "conditions": {
+        "models": ["claude-sonnet-4"],
+        "providers": ["anthropic"],
+        "extensions": ["notrace"]
+      },
+      "activity": {
+        "turnCount": 5,
+        "llmCallCount": 5,
+        "toolCallCount": 4,
+        "toolErrorCount": 1,
+        "durationMs": 1320000,
+        "totals": {
+          "inputTokens": 4200,
+          "outputTokens": 530,
+          "cacheReadTokens": 1024,
+          "cacheWriteTokens": 0,
+          "totalTokens": 5754,
+          "totalCostUsd": 0.0267
+        }
+      },
+      "artifacts": {
+        "html": "sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html",
+        "record": "sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.json"
+      }
+    },
+    {
+      "sessionId": "019ed2ee-1002-76ee-b353-000000000003",
+      "startedAt": "2026-06-17T10:14:00.000Z",
+      "endedAt": "2026-06-17T10:44:00.000Z",
+      "captureMode": "metadata",
+      "task": {
+        "workflow": "generic",
+        "id": null,
+        "path": null,
+        "dir": null
+      },
+      "conditions": {
+        "models": ["gemini-3.5-flash-high"],
+        "providers": ["google"],
+        "extensions": ["notrace", "noheadroom"]
+      },
+      "activity": {
+        "turnCount": 6,
+        "llmCallCount": 6,
+        "toolCallCount": 5,
+        "toolErrorCount": 2,
+        "durationMs": 1800000,
+        "totals": {
+          "inputTokens": 5100,
+          "outputTokens": 810,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 5910,
+          "totalCostUsd": 0.0334
+        }
+      },
+      "artifacts": {
+        "html": "sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html",
+        "record": "sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.json"
+      }
+    }
+  ]
+}

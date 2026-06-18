@@ -188,6 +188,7 @@ function verifyShellIntegration() {
     const fakePi = path.join(fakeBin, "pi");
     const fakeGit = path.join(fakeBin, "git");
     const fakeNpm = path.join(fakeBin, "npm");
+    const fakeAndroid = path.join(fakeBin, "android");
     const argsFile = path.join(temp, "args.txt");
     const installLog = path.join(temp, "installs.txt");
     const cacheDir = path.join(temp, "cache");
@@ -215,9 +216,26 @@ mkdir -p "$prefix/node_modules/pi-rtk-optimizer"
 printf '{"name":"pi-rtk-optimizer","pi":{"extensions":["./index.ts"]}}\\n' > "$prefix/node_modules/pi-rtk-optimizer/package.json"
 printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer/index.ts"
 `);
+writeFileSync(fakeAndroid, `#!/usr/bin/env bash
+set -euo pipefail
+printf 'android %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
+if [[ "\${1:-}" == "skills" && "\${2:-}" == "add" ]]; then
+project=""
+while [[ $# -gt 0 ]]; do
+case "$1" in
+--project=*) project="\${1#--project=}"; shift ;;
+--project) project="$2"; shift 2 ;;
+*) shift ;;
+esac
+done
+mkdir -p "$project/skills/android-cli"
+printf '%s\n' '---' 'name: android-cli' 'description: fake' '---' > "$project/skills/android-cli/SKILL.md"
+fi
+`);
     chmodSync(fakePi, 0o755);
     chmodSync(fakeGit, 0o755);
     chmodSync(fakeNpm, 0o755);
+    chmodSync(fakeAndroid, 0o755);
 
     const env = { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
     let result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
@@ -236,6 +254,28 @@ printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer
     assert(result.status === 0, "plain pi remains factory/default under shell integration");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "hello"]), "plain pi receives only the explicit noleaks guard plus user args");
+
+    const androidCache = path.join(cacheDir, "android-skills");
+    run("mkdir", ["-p", path.join(androidCache, "skills", "android-cli"), path.join(androidCache, "skills", "r8-analyzer")], root);
+    writeFileSync(path.join(androidCache, "skills", "android-cli", "SKILL.md"), "---\nname: android-cli\ndescription: fake\n---\n");
+    writeFileSync(path.join(androidCache, "skills", "r8-analyzer", "SKILL.md"), "---\nname: r8-analyzer\ndescription: fake\n---\n");
+    writeFileSync(path.join(androidCache, ".refreshed-at"), "2026-06-18T00:00:00Z\n");
+    writeFileSync(argsFile, "");
+    writeFileSync(installLog, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --android hello`], root, { env });
+    assert(result.status === 0, "--android loads local cache without network refresh");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/android-skills/skills/android-cli")), "--android loads cached android-cli skill");
+    assert(args.some((arg) => arg.endsWith("/android-skills/skills/r8-analyzer")), "--android loads cached Android subskill");
+    assert(!readFileSync(installLog, "utf8").includes("android"), "--android does not call Android CLI");
+
+    writeFileSync(installLog, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --android-update`], root, { env });
+    assert(result.status === 0, "--android-update refreshes Android skills cache");
+    assert(existsSync(path.join(androidCache, "skills", "android-cli", "SKILL.md")), "--android-update writes android-cli skill cache");
+    const androidLog = readFileSync(installLog, "utf8");
+    assert(androidLog.includes("android update"), "--android-update runs android update");
+    assert(androidLog.includes("android skills add --all"), "--android-update installs Android skills into temp project");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
@@ -301,6 +341,7 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
+  assert(output.includes("pi --android-update"), "bootstrap documents Android skills refresh command");
 
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
@@ -310,10 +351,12 @@ function verifyBootstrapDryRun() {
 }
 
 function verifyWorkflowFiles() {
-  const android = readFileSync(path.join(root, ".github/workflows/sync-upstream-skills.yml"), "utf8");
-  assert(android.includes("vendor/android-skills/"), "android sync workflow targets vendor/android-skills");
-  assert(!android.includes("packages/android"), "android sync workflow no longer targets packages/android");
-  assert(android.includes("pull-requests: write"), "android sync workflow can create PRs");
+  const refreshScript = readFileSync(path.join(root, "scripts/android-skills-refresh.sh"), "utf8");
+  assert(refreshScript.includes("android update"), "Android refresh script explicitly updates Android CLI");
+  assert(refreshScript.includes("android skills add --all --project"), "Android refresh script installs skills into a temp project");
+  assert(refreshScript.includes("skills/android-cli/SKILL.md"), "Android refresh script verifies android-cli skill cache");
+  assert(!existsSync(path.join(root, ".github/workflows/sync-upstream-skills.yml")), "obsolete Android vendor sync workflow removed");
+  assert(!existsSync(path.join(root, "vendor/android-skills")), "vendored Android skills snapshot removed");
 
   const publish = readFileSync(path.join(root, ".github/workflows/publish-packages.yml"), "utf8");
   assert(publish.includes("changesets/action@v1"), "publish workflow uses changesets action");

@@ -24,7 +24,7 @@ for arg in "$@"; do
     --pulse)
       printf '\n\x1b[1m\x1b[38;5;208m[nothing] Environment Pulse\x1b[0m\n'
       printf '\x1b[38;5;244m--------------------------------------------------\x1b[0m\n'
-      local RS_BOOTSTRAP="$SCRIPT_DIR/packages/norpiv/scripts/reposcry-bootstrap.sh"
+      RS_BOOTSTRAP="$SCRIPT_DIR/packages/norpiv/scripts/reposcry-bootstrap.sh"
       if [[ -f "$RS_BOOTSTRAP" ]]; then
         PULSE=$(bash "$RS_BOOTSTRAP" --pulse)
         printf '\x1b[1mRepoScry:\x1b[0m    %s\n' "${PULSE#PULSE: }"
@@ -36,12 +36,12 @@ for arg in "$@"; do
           printf '\x1b[1mHeadroom:\x1b[0m    \x1b[31mOffline\x1b[0m\n'
         fi
       fi
-      local NT_INDEX="$REPO_ROOT/.notrace/index.json"
+      NT_INDEX="$REPO_ROOT/.notrace/index.json"
       if [[ -f "$NT_INDEX" ]]; then
         SESSIONS=$(jq '.sessions | length' "$NT_INDEX")
         printf '\x1b[1mNotrace:\x1b[0m     \x1b[32mActive\x1b[0m (%d sessions)\n' "$SESSIONS"
       fi
-      local ACTIVE_TASK="$REPO_ROOT/.workflow/active_task.json"
+      ACTIVE_TASK="$REPO_ROOT/.workflow/active_task.json"
       if [[ -f "$ACTIVE_TASK" ]]; then
         TASK_ID=$(jq -r '.active_task // "none"' "$ACTIVE_TASK")
         printf '\x1b[1mActive Task:\x1b[0m %s\n' "$TASK_ID"
@@ -693,6 +693,7 @@ printf '├────────────┼──────────
 printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shell_integration.sh"
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
+printf '│ %-10s │ %-76.76s │\n' "updates" "pi --android-update refreshes local Android CLI skill cache"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --notrace"
 printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace)"

@@ -8,6 +8,21 @@ on:
     branches: [main]
 
 jobs:
+  package-pr-links:
+    name: Package PR issue link policy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate package PR issue links
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/validate-pr-package-links.mjs
+
   changeset-status:
     name: Changeset status
     runs-on: ubuntu-latest

@@ -1,0 +1,18 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>notrace logo mark</title>
+  <desc>A wave that smooths into a flat line, then fades into dots — color shifts from trace orange to no cream as it dissolves.</desc>
+  <defs>
+    <linearGradient id="fadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E2754A"/>
+      <stop offset="100%" stop-color="#EDE2D2"/>
+    </linearGradient>
+  </defs>
+  <g id="trace-icon">
+    <path d="M6,50 C16,18 26,18 36,50 C46,82 54,82 60,50 C64,30 68,30 71,50"
+          fill="none" stroke="url(#fadeGrad)" stroke-width="4" stroke-linecap="round"/>
+    <line x1="74" y1="50" x2="79" y2="50" stroke="#D9C9B5" stroke-width="4" stroke-linecap="round" stroke-opacity="0.6"/>
+    <circle cx="85" cy="50" r="2.2" fill="#D9C9B5" opacity="0.5"/>
+    <circle cx="90" cy="50" r="1.4" fill="#EDE2D2" opacity="0.32"/>
+    <circle cx="94" cy="50" r="0.9" fill="#EDE2D2" opacity="0.15"/>
+  </g>
+</svg>

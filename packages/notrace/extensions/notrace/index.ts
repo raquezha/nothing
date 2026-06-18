@@ -1,18 +1,55 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import * as path from "node:path";
-import type { NotraceMetrics, NotraceEvent } from "./types.js";
+import type {
+  NotraceActivity,
+  NotraceCaptureMode,
+  NotraceConditions,
+  NotraceEvent,
+  NotraceExtensionTelemetry,
+  NotraceRunRecord,
+  WorkflowContext,
+} from "./types.js";
 import { getActiveAdapter } from "./adapters.js";
 import { generateHtmlReport, generateDashboardHtml } from "./renderer.js";
 
 const REDACTED = "[REDACTED by notrace]";
 const SENSITIVE_VALUE_RE = /(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{16,}|AKIA[0-9A-Z]{16})/gi;
+const TELEMETRY_CHANNEL = "notrace.telemetry.extension";
+const SCHEMA_VERSION = 2;
 
-type CaptureMode = "metadata" | "redacted" | "full";
+type UsageLike = {
+  input?: number;
+  output?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  totalTokens?: number;
+  cost?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+    total?: number;
+  };
+};
 
-let currentMode: CaptureMode = "full";
+type ExtensionTelemetryPayload = {
+  extension: string;
+  loaded?: boolean;
+  enabled?: boolean | null;
+  active?: boolean | null;
+  status?: string;
+  summary?: string | null;
+  details?: Record<string, unknown>;
+};
 
-function getInitialMode(): CaptureMode {
+let currentMode: NotraceCaptureMode = "full";
+
+function getInitialMode(): NotraceCaptureMode {
   const env = process.env.NOTRACE_CAPTURE?.toLowerCase();
   if (env === "metadata" || env === "redacted") return env;
   return "full";
@@ -32,38 +69,162 @@ function sanitizeTraceValue(value: unknown): unknown {
     return typeof value === "string" ? value.replace(SENSITIVE_VALUE_RE, REDACTED).slice(0, 10000) : value;
   }
   if (Array.isArray(value)) return value.slice(0, 100).map(sanitizeTraceValue);
-  const out: any = {};
+  const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value).slice(0, 100)) out[k] = isSensitiveKey(k) ? REDACTED : sanitizeTraceValue(v);
   return out;
 }
 
-function collectMetrics(events: NotraceEvent[]): NotraceMetrics {
-  let [tokens, cost, turns, tools, errors] = [0, 0, 0, 0, 0];
+function asNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | "outputTokens" | "cacheReadTokens" | "cacheWriteTokens" | "totalTokens">> & { totalCostUsd: number } {
+  const usage = (raw && typeof raw === "object" ? raw : {}) as UsageLike;
+  return {
+    inputTokens: asNumber(usage.inputTokens ?? usage.input),
+    outputTokens: asNumber(usage.outputTokens ?? usage.output),
+    cacheReadTokens: asNumber(usage.cacheReadTokens ?? usage.cacheRead),
+    cacheWriteTokens: asNumber(usage.cacheWriteTokens ?? usage.cacheWrite),
+    totalTokens: asNumber(usage.totalTokens),
+    totalCostUsd: asNumber(usage.cost?.total),
+  };
+}
+
+function collectActivity(events: NotraceEvent[], startedAt: number, endedAt: number): NotraceActivity {
+  const activity: NotraceActivity = {
+    turnCount: 0,
+    llmCallCount: 0,
+    toolCallCount: 0,
+    toolErrorCount: 0,
+    durationMs: Math.max(0, endedAt - startedAt),
+    totals: {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      totalTokens: 0,
+      totalCostUsd: 0,
+    },
+  };
+
   for (const e of events) {
-    if (e.type === "turn_start") turns++;
-    if (e.type === "tool_start") tools++;
-    if (e.type === "tool_end" && e.isError) errors++;
-    if (e.type === "llm_completion" && e.usage) {
-      tokens += (e.usage.totalTokens || 0);
-      cost += (e.usage.cost?.total || 0);
+    if (e.type === "turn_start") activity.turnCount++;
+    if (e.type === "tool_start") activity.toolCallCount++;
+    if (e.type === "tool_end" && e.isError) activity.toolErrorCount++;
+    if (e.type === "llm_completion") {
+      activity.llmCallCount++;
+      const usage = normalizeUsage(e.usage);
+      activity.totals.inputTokens += usage.inputTokens;
+      activity.totals.outputTokens += usage.outputTokens;
+      activity.totals.cacheReadTokens += usage.cacheReadTokens;
+      activity.totals.cacheWriteTokens += usage.cacheWriteTokens;
+      activity.totals.totalTokens += usage.totalTokens;
+      activity.totals.totalCostUsd += usage.totalCostUsd;
     }
   }
-  return { totalTokens: tokens, totalCost: cost, turnCount: turns, toolCallCount: tools, toolErrorCount: errors };
+
+  return activity;
+}
+
+function buildConditions(events: NotraceEvent[], telemetry: Record<string, NotraceExtensionTelemetry>): NotraceConditions {
+  const models = new Set<string>();
+  const providers = new Set<string>();
+  for (const event of events) {
+    if (event.type !== "llm_completion") continue;
+    if (typeof event.model === "string" && event.model) models.add(event.model);
+    if (typeof event.provider === "string" && event.provider) providers.add(event.provider);
+  }
+
+  const extensions = ["notrace", ...Object.keys(telemetry).sort()];
+
+  return {
+    harness: {
+      name: "pi",
+      adapter: "pi-session-hooks",
+      version: null,
+    },
+    models: [...models],
+    providers: [...providers],
+    extensions,
+  };
+}
+
+function toTaskInfo(context: WorkflowContext | null): NotraceRunRecord["task"] {
+  if (!context) return null;
+  return {
+    workflow: context.workflow,
+    id: context.taskId,
+    path: context.taskPath,
+    dir: context.taskDir,
+  };
+}
+
+function createIndexEntry(record: NotraceRunRecord, cwd: string, htmlPath: string, recordPath: string): Record<string, unknown> {
+  return {
+    sessionId: record.traceId,
+    startedAt: record.session.startedAt,
+    endedAt: record.session.endedAt,
+    captureMode: record.captureMode,
+    task: record.task,
+    conditions: record.conditions,
+    activity: record.activity,
+    artifacts: {
+      html: path.relative(cwd, htmlPath),
+      record: path.relative(cwd, recordPath),
+    },
+  };
+}
+
+function normalizeTelemetryPayload(raw: unknown): { extension: string; telemetry: NotraceExtensionTelemetry } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const payload = raw as ExtensionTelemetryPayload;
+  if (typeof payload.extension !== "string" || !payload.extension.trim()) return null;
+
+  const status =
+    payload.status === "absent" ||
+    payload.status === "loaded-disabled" ||
+    payload.status === "loaded-inactive" ||
+    payload.status === "active" ||
+    payload.status === "unknown"
+      ? payload.status
+      : "unknown";
+
+  return {
+    extension: payload.extension,
+    telemetry: {
+      loaded: payload.loaded !== false,
+      enabled: typeof payload.enabled === "boolean" ? payload.enabled : null,
+      active: typeof payload.active === "boolean" ? payload.active : null,
+      status,
+      summary: typeof payload.summary === "string" ? payload.summary : null,
+      details: payload.details && typeof payload.details === "object" ? payload.details : {},
+    },
+  };
 }
 
 export default function (pi: ExtensionAPI) {
   const events: NotraceEvent[] = [];
   const startTime = Date.now();
   let traceId = "";
-  let activeLlmPayload: any = null;
+  let activeLlmPayload: unknown = null;
+  let shutdownReason: string | null = null;
+  const extensionTelemetry = new Map<string, NotraceExtensionTelemetry>();
   currentMode = getInitialMode();
+
+  if (typeof pi.events?.on === "function") {
+    pi.events.on(TELEMETRY_CHANNEL, (raw) => {
+      const normalized = normalizeTelemetryPayload(raw);
+      if (!normalized) return;
+      extensionTelemetry.set(normalized.extension, normalized.telemetry);
+    });
+  }
 
   pi.registerCommand("notrace", {
     description: "Change notrace capture mode (full | redacted | metadata)",
     handler: async (args, ctx) => {
       const mode = args?.trim().toLowerCase();
       if (mode === "full" || mode === "redacted" || mode === "metadata") {
-        currentMode = mode as CaptureMode;
+        currentMode = mode as NotraceCaptureMode;
         ctx.ui.notify(`notrace capture mode set to: ${currentMode}`, "info");
       } else {
         ctx.ui.notify(`Current notrace mode: ${currentMode}. Usage: /notrace [full|redacted|metadata]`, "info");
@@ -71,7 +232,7 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  pi.on("session_start" as any, async (e: any, ctx: any) => {
+  pi.on("session_start" as any, async (_e: any, ctx: any) => {
     traceId = ctx.sessionManager.getSessionId() || `s-${Date.now()}`;
     events.push({ type: "session_start", timestamp: Date.now() });
   });
@@ -92,39 +253,107 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("message_end" as any, async (e: any) => {
     if (e.message.role === "assistant") {
-      events.push({ type: "llm_completion", model: e.message.model, inputPayload: activeLlmPayload, outputContent: sanitizeTraceValue(e.message.content), usage: e.message.usage, timestamp: Date.now() });
+      events.push({
+        type: "llm_completion",
+        model: e.message.model,
+        provider: e.message.provider,
+        inputPayload: activeLlmPayload,
+        outputContent: sanitizeTraceValue(e.message.content),
+        usage: e.message.usage,
+        stopReason: typeof e.message.stopReason === "string" ? e.message.stopReason : undefined,
+        errorMessage: typeof e.message.errorMessage === "string" ? sanitizeTraceValue(e.message.errorMessage) : undefined,
+        timestamp: Date.now(),
+      });
       activeLlmPayload = null;
     }
   });
 
   pi.on("session_shutdown" as any, async (e: any, ctx: any) => {
+    shutdownReason = typeof e?.reason === "string" ? e.reason : null;
+    const endedAt = Date.now();
     const adapter = getActiveAdapter(ctx.cwd);
     const context = adapter.getContext(ctx.cwd);
     const notraceDir = path.resolve(ctx.cwd, ".notrace");
-    const outputDir = path.join(notraceDir, "sessions", traceId.replace(/[^a-z0-9]/gi, "-"));
-    const metrics = collectMetrics(events);
+    const finalTraceId = ctx.sessionManager?.getSessionId?.() || traceId;
+    const outputDir = path.join(notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
+    const repositoryName = path.basename(ctx.cwd);
+    const recordPath = path.join(outputDir, "notrace.json");
+
+    let mergedEvents = events;
+    let originalStartedAt = startTime;
+    let originalTask: any = null;
+    if (existsSync(recordPath)) {
+      try {
+        const oldRecord = JSON.parse(readFileSync(recordPath, "utf-8"));
+        if (Array.isArray(oldRecord.events)) {
+          mergedEvents = [...oldRecord.events, ...events];
+        }
+        if (oldRecord.session?.startedAt) {
+          originalStartedAt = new Date(oldRecord.session.startedAt).getTime();
+        }
+        if (oldRecord.task) {
+          originalTask = oldRecord.task;
+        }
+      } catch (err) {
+        // ignore parse errors
+      }
+    }
+
+    const activity = collectActivity(mergedEvents, originalStartedAt, endedAt);
     
-    const html = generateHtmlReport({ traceId, startTime: new Date(startTime).toISOString(), metrics, events });
-    const record = { traceId, metrics, events, context };
+    // Do not index purely empty ghost sessions
+    const isGhostSession = activity.llmCallCount === 0 && activity.toolCallCount === 0 && activity.totals.totalTokens === 0;
+
+    const telemetry = Object.fromEntries([...extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
+
+    const record: NotraceRunRecord = {
+      kind: "notrace-run",
+      schemaVersion: SCHEMA_VERSION,
+      traceId: finalTraceId,
+      repository: {
+        name: repositoryName,
+        cwd: ctx.cwd,
+      },
+      session: {
+        id: finalTraceId,
+        startedAt: new Date(originalStartedAt).toISOString(),
+        endedAt: new Date(endedAt).toISOString(),
+        durationMs: activity.durationMs,
+        shutdownReason,
+      },
+      task: toTaskInfo(context) || originalTask,
+      captureMode: currentMode,
+      conditions: buildConditions(mergedEvents, telemetry),
+      activity,
+      telemetry: { extensions: telemetry },
+      events: mergedEvents,
+    };
+
+    const html = generateHtmlReport(record);
 
     mkdirSync(outputDir, { recursive: true });
-    writeFileSync(path.join(outputDir, "notrace.html"), html);
-    writeFileSync(path.join(outputDir, "notrace.json"), JSON.stringify(record, null, 2));
+    const htmlPath = path.join(outputDir, "notrace.html");
+    writeFileSync(htmlPath, html);
+    writeFileSync(recordPath, `${JSON.stringify(record, null, 2)}\n`);
 
     const indexPath = path.join(notraceDir, "index.json");
-    const existing = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf-8")) : { sessions: [] };
-    const sessions = existing.sessions.filter((s: any) => s.sessionId !== traceId);
-    sessions.push({ sessionId: traceId, startedAt: new Date(startTime).toISOString(), workflow: context?.workflow, taskId: context?.taskId, artifacts: { html: path.relative(ctx.cwd, path.join(outputDir, "notrace.html")), record: path.relative(ctx.cwd, path.join(outputDir, "notrace.json")) } });
-    writeFileSync(indexPath, JSON.stringify({ ...existing, sessions }, null, 2));
-    writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions));
+    const existing = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf-8")) : { repositoryName, sessions: [] };
+    let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
+    
+    if (!isGhostSession) {
+      sessions.push(createIndexEntry(record, ctx.cwd, htmlPath, recordPath));
+    }
+    
+    writeFileSync(indexPath, `${JSON.stringify({ repositoryName, sessions }, null, 2)}\n`);
+    writeFileSync(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
 
     if (context) {
       adapter.attach(context, {
-        html: path.relative(ctx.cwd, path.join(outputDir, "notrace.html")),
-        record: path.relative(ctx.cwd, path.join(outputDir, "notrace.json"))
+        html: path.relative(ctx.cwd, htmlPath),
+        record: path.relative(ctx.cwd, recordPath)
       });
     }
 
-    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${path.join(outputDir, "notrace.html")}\x1b[0m\n`);
+    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
   });
 }

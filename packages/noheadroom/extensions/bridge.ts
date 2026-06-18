@@ -29,15 +29,17 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 
 		const originalText = extractOpenAIText(converted);
 		// Mark candidates for compression.
-		// toolResults are always candidates.
-		// user/assistant messages are candidates unless they are the most recent turn.
-		const isRecent = sourceIndex >= messages.length - 2;
-		const applyTo = (source.role === "toolResult" || (!isRecent && (source.role === "user" || source.role === "assistant"))) 
-			? source.role 
-			: null;
+		// ONLY toolResults are candidates, preserving original Pi conversation fidelity.
+		let applyTo: "toolResult" | null = source.role === "toolResult" ? "toolResult" : null;
+
+		// Headroom Bypass Rules (Android Hat)
+		// We never want to compress `android layout` JSON dumps or critical adb dumps.
+		if (source.role === "toolResult" && originalText.trim().startsWith("[") && originalText.includes('"resource-id"')) {
+			applyTo = null;
+		}
 		
 		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
-		mappings.push({ sourceIndex, message: converted, applyTo: applyTo as any, originalText });
+		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
 	}
 
 	return {
@@ -63,17 +65,16 @@ export function applyCompressionResult(
 	for (let index = 0; index < mappings.length; index++) {
 		const mapping = mappings[index];
 		const compressed = compressedMessages[index];
+
+		// We only validate and apply changes to explicit candidates.
+		// Headroom is allowed to mangle non-candidates (like assistant history) in its output,
+		// but we simply ignore those changes and keep the original Pi message intact.
+		if (!mapping.applyTo) continue;
+
 		const validation = validateAlignedMessage(mapping.message, compressed);
 		if (!validation.ok) return validation;
 
 		let nextText = extractOpenAIText(compressed);
-
-		// If this is a protected message (not a candidate), and Headroom changed it,
-		// we FORCE it back to the original text to preserve accuracy.
-		if (!mapping.applyTo && nextText !== mapping.originalText) {
-			nextText = mapping.originalText;
-		}
-
 		if (nextText === mapping.originalText) continue;
 
 		const target = nextMessages[mapping.sourceIndex] as AnyMessage;
@@ -207,8 +208,26 @@ function replaceTextContent(message: MessageWithContent, text: string): boolean 
 		return true;
 	}
 	if (!Array.isArray(message.content)) return false;
-	const imageParts = message.content.filter((part): part is ImageContent => isImageContent(part));
-	message.content = [{ type: "text", text }, ...imageParts];
+
+	const nextContent: unknown[] = [];
+	let replacedText = false;
+
+	for (const part of message.content) {
+		if (isTextContent(part)) {
+			if (!replacedText) {
+				nextContent.push({ type: "text", text });
+				replacedText = true;
+			}
+			continue;
+		}
+		nextContent.push(part);
+	}
+
+	if (!replacedText && text.length > 0) {
+		nextContent.unshift({ type: "text", text });
+	}
+
+	message.content = nextContent as typeof message.content;
 	return true;
 }
 

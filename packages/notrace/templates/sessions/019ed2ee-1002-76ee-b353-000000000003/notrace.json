@@ -1,0 +1,134 @@
+{
+  "kind": "notrace-run",
+  "schemaVersion": 2,
+  "traceId": "019ed2ee-1002-76ee-b353-000000000003",
+  "repository": {
+    "name": "nothing",
+    "cwd": "/Users/raquezha/RQZ/personal/nothing"
+  },
+  "session": {
+    "id": "019ed2ee-1002-76ee-b353-000000000003",
+    "startedAt": "2026-06-17T10:14:00.000Z",
+    "endedAt": "2026-06-17T10:44:00.000Z",
+    "durationMs": 1800000,
+    "shutdownReason": "quit"
+  },
+  "task": {
+    "workflow": "generic",
+    "id": null,
+    "path": null,
+    "dir": null
+  },
+  "captureMode": "metadata",
+  "conditions": {
+    "models": [
+      "gemini-3.5-flash-high"
+    ],
+    "providers": [
+      "google"
+    ],
+    "extensions": [
+      "notrace",
+      "noheadroom"
+    ]
+  },
+  "activity": {
+    "turnCount": 6,
+    "llmCallCount": 6,
+    "toolCallCount": 5,
+    "toolErrorCount": 2,
+    "durationMs": 1800000,
+    "totals": {
+      "inputTokens": 5100,
+      "outputTokens": 810,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "totalTokens": 5910,
+      "totalCostUsd": 0.0334
+    }
+  },
+  "telemetry": {
+    "extensions": {
+      "noheadroom": {
+        "loaded": true,
+        "enabled": true,
+        "active": true,
+        "status": "active",
+        "summary": "compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results",
+        "details": {
+          "attempts": 2,
+          "applied": 1,
+          "guardSkips": 0,
+          "tokensSaved": 5778,
+          "last": {
+            "tokensBefore": 24110,
+            "tokensAfter": 18332,
+            "tokensSaved": 5778,
+            "compressionRatio": 0.7603,
+            "appliedMessages": 3,
+            "transformsApplied": [
+              "tool-result-compression"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "session_start",
+      "timestamp": 1781705100000
+    },
+    {
+      "type": "turn_start",
+      "timestamp": 1781705102000
+    },
+    {
+      "type": "tool_start",
+      "toolName": "functions.bash",
+      "args": {
+        "command": "find packages/notrace -maxdepth 3 -type f"
+      },
+      "timestamp": 1781705104000
+    },
+    {
+      "type": "tool_end",
+      "toolName": "functions.bash",
+      "result": {
+        "stdout": "packages/notrace/extensions/notrace/index.ts\npackages/notrace/extensions/notrace/renderer.ts\npackages/notrace/package.json",
+        "stderr": "",
+        "exitCode": 0
+      },
+      "isError": false,
+      "timestamp": 1781705105200
+    },
+    {
+      "type": "llm_completion",
+      "model": "claude-sonnet-4",
+      "provider": "anthropic",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Polish notrace HTML output and unify dashboard/session design."
+          }
+        ]
+      },
+      "outputContent": "Found renderer split. Will move both pages to one shared shell and standardize styles.",
+      "usage": {
+        "input": 2140,
+        "output": 116,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 2256,
+        "cost": {
+          "total": 0.01451
+        }
+      },
+      "timestamp": 1781705111000
+    }
+  ],
+  "navigation": {
+    "indexHref": "../../dashboard.sample.html"
+  }
+}
