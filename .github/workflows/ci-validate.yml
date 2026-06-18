@@ -43,7 +43,11 @@ jobs:
         run: npm install
 
       - name: Require changeset for package changes
-        run: npm run changeset:status
+        run: |
+          echo "If this fails, a package changed without a changeset."
+          echo "Run: npx changeset add"
+          echo "If no package release is needed, run: npx changeset add --empty"
+          npm run changeset:status
 
   shellcheck:
     name: Shellcheck
