@@ -189,6 +189,7 @@ function verifyShellIntegration() {
     const fakeGit = path.join(fakeBin, "git");
     const fakeNpm = path.join(fakeBin, "npm");
     const fakeAndroid = path.join(fakeBin, "android");
+    const fakeDocker = path.join(fakeBin, "docker");
     const argsFile = path.join(temp, "args.txt");
     const installLog = path.join(temp, "installs.txt");
     const cacheDir = path.join(temp, "cache");
@@ -232,10 +233,15 @@ mkdir -p "$project/skills/android-cli"
 printf '%s\n' '---' 'name: android-cli' 'description: fake' '---' > "$project/skills/android-cli/SKILL.md"
 fi
 `);
+    writeFileSync(fakeDocker, `#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
+`);
     chmodSync(fakePi, 0o755);
     chmodSync(fakeGit, 0o755);
     chmodSync(fakeNpm, 0o755);
     chmodSync(fakeAndroid, 0o755);
+    chmodSync(fakeDocker, 0o755);
 
     const env = { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
     let result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
@@ -270,12 +276,16 @@ fi
     assert(!readFileSync(installLog, "utf8").includes("android"), "--android does not call Android CLI");
 
     writeFileSync(installLog, "");
-    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --android-update`], root, { env });
-    assert(result.status === 0, "--android-update refreshes Android skills cache");
-    assert(existsSync(path.join(androidCache, "skills", "android-cli", "SKILL.md")), "--android-update writes android-cli skill cache");
-    const androidLog = readFileSync(installLog, "utf8");
-    assert(androidLog.includes("android update"), "--android-update runs android update");
-    assert(androidLog.includes("android skills add --all"), "--android-update installs Android skills into temp project");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi update`], root, { env });
+    assert(result.status === 0, "pi update refreshes managed caches");
+    assert(existsSync(path.join(androidCache, "skills", "android-cli", "SKILL.md")), "pi update writes android-cli skill cache");
+    const updateLog = readFileSync(installLog, "utf8");
+    assert(updateLog.includes("android update"), "pi update runs android update");
+    assert(updateLog.includes("android skills add --all"), "pi update installs Android skills into temp project");
+    assert(updateLog.includes("git clone") && updateLog.includes("ponytail"), "pi update refreshes Ponytail cache");
+    assert(updateLog.includes("git clone") && updateLog.includes("caveman"), "pi update refreshes Caveman cache");
+    assert(updateLog.includes("npm install"), "pi update refreshes RTK cache");
+    assert(updateLog.includes("docker compose") && updateLog.includes("pull"), "pi update refreshes Headroom image");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
@@ -341,7 +351,7 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
-  assert(output.includes("pi --android-update"), "bootstrap documents Android skills refresh command");
+  assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");
 
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
