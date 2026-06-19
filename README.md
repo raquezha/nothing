@@ -120,13 +120,13 @@ Useful commands once loaded:
 
 - **Build packages**: `npm run build --workspaces`
 - **Verify repo**: `npm test`
-- **Refresh Android CLI skills**: `pi --android-update` or `./scripts/android-skills-refresh.sh`
+- **Refresh managed caches**: `pi update`
 
 ### Android CLI skills cache
 
 `pi --android` never installs, updates, or checks the network. It only loads the local cache at `$NOTHING_CACHE_DIR/android-skills` (default: `~/.local/share/nothing/android-skills`). If the cache is missing or locally stamped stale, it warns and continues safely.
 
-Run `pi --android-update` when you explicitly want network work. The refresh script runs `android update`, installs skills with `android skills add --all --project=<temp project>`, verifies `skills/android-cli/SKILL.md`, and atomically swaps the cache.
+Run `pi update` when you explicitly want network work. It updates Pi plus nothing-managed caches: Android CLI skills, Caveman, Ponytail, RTK, and the Headroom image. The Android refresh script remains as an internal helper: it runs `android update`, installs skills with `android skills add --all --project=<temp project>`, verifies `skills/android-cli/SKILL.md`, and atomically swaps the cache.
 
 If the Android CLI is missing, the script prints the Linux/macOS install command. It only runs the installer when you pass `--install-cli`.
 

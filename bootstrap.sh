@@ -694,7 +694,7 @@ printf '├────────────┼──────────
 printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shell_integration.sh"
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
-printf '│ %-10s │ %-76.76s │\n' "updates" "pi --android-update refreshes local Android CLI skill cache"
+printf '│ %-10s │ %-76.76s │\n' "updates" "pi update refreshes Pi plus nothing-managed lazy caches"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --notrace | --ponytail"
 printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace + ponytail)"

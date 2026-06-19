@@ -27,7 +27,7 @@ pi() {
   # skills before them, the CLI treats the subcommand as an initial chat prompt
   # instead (for example: `pi update` opens Pi with "update" as input).
   case "${1:-}" in
-    install|remove|uninstall|update|list|config)
+    install|remove|uninstall|list|config)
       command pi "$@"
       return $?
       ;;
@@ -298,14 +298,14 @@ EOF
     local stale_hit
 
     if [[ ! -d "$skills_dir" ]]; then
-      nothing_warn "Android skills cache missing; run: pi --android-update"
+      nothing_warn "Android skills cache missing; run: pi update"
       return 0
     fi
 
     if [[ -f "$stamp" ]]; then
       stale_hit="$(find "$stamp" -mtime +"$stale_days" -print -quit 2>/dev/null)"
       if [[ -n "$stale_hit" ]]; then
-        nothing_warn "Android skills cache may be stale; run: pi --android-update"
+        nothing_warn "Android skills cache may be stale; run: pi update"
       fi
     fi
 
@@ -319,20 +319,91 @@ $(find "$skills_dir" -mindepth 2 -maxdepth 2 -name "SKILL.md" 2>/dev/null)
 EOF
 
     if [[ "$found_skill" != true ]]; then
-      nothing_warn "Android skills cache has no skills; run: pi --android-update"
+      nothing_warn "Android skills cache has no skills; run: pi update"
     fi
     export NOTHING_ANDROID_SKILLS_CACHE="$cache_dir"
   }
 
+  update_git_cache() {
+    local name="$1" url="$2" dir="$3"
+    if ! command -v git >/dev/null 2>&1; then
+      nothing_warn "Skipping $name update; git unavailable"
+      return 0
+    fi
+    mkdir -p "$(dirname "$dir")"
+    if [[ -d "$dir/.git" ]]; then
+      if git -C "$dir" pull --ff-only >/dev/null 2>&1; then
+        printf '✅ [nothing] updated %s\n' "$name" >&2
+        return 0
+      fi
+      nothing_warn "$name update failed; recloning"
+      rm -rf "$dir"
+    fi
+    if git clone --depth 1 "$url" "$dir" >/dev/null 2>&1; then
+      printf '✅ [nothing] installed %s\n' "$name" >&2
+    else
+      nothing_warn "Failed to update $name"
+    fi
+  }
+
+  update_rtk_cache() {
+    local pkg_root="$NOTHING_CACHE_DIR/npm/rtk"
+    if ! command -v npm >/dev/null 2>&1; then
+      nothing_warn "Skipping RTK update; npm unavailable"
+      return 0
+    fi
+    mkdir -p "$pkg_root"
+    if npm install --prefix "$pkg_root" --omit=peer --no-audit --no-fund pi-rtk-optimizer@latest >/dev/null 2>&1; then
+      printf '✅ [nothing] updated rtk\n' >&2
+    else
+      nothing_warn "Failed to update RTK"
+    fi
+  }
+
+  update_android_cache() {
+    local refresh_script="$NOTHING_DIR/scripts/android-skills-refresh.sh"
+    if [[ -f "$refresh_script" ]]; then
+      bash "$refresh_script" || nothing_warn "Failed to update Android skills"
+    else
+      nothing_warn "Skipping Android skills update; missing $refresh_script"
+    fi
+  }
+
+  update_headroom_cache() {
+    local compose_file="$NOTHING_DIR/headroom/compose.yml"
+    if [[ ! -f "$compose_file" ]]; then
+      return 0
+    fi
+    if ! command -v docker >/dev/null 2>&1; then
+      nothing_warn "Skipping Headroom update; docker unavailable"
+      return 0
+    fi
+    if docker compose -f "$compose_file" pull >/dev/null 2>&1; then
+      printf '✅ [nothing] updated headroom\n' >&2
+    else
+      nothing_warn "Failed to update Headroom image"
+    fi
+  }
+
+  nothing_update_caches() {
+    printf '🔄 [nothing] updating managed caches\n' >&2
+    update_git_cache "caveman" "https://github.com/JuliusBrussee/caveman.git" "$NOTHING_CACHE_DIR/repos/caveman"
+    update_git_cache "ponytail" "https://github.com/DietrichGebert/ponytail.git" "$NOTHING_CACHE_DIR/repos/ponytail"
+    update_rtk_cache
+    update_android_cache
+    update_headroom_cache
+  }
+
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      install|remove|uninstall|update|list|config)
+      update)
         command pi "$@"
-        return
+        local pi_update_status=$?
+        nothing_update_caches
+        return "$pi_update_status"
         ;;
-      --android-update)
-        shift
-        bash "$NOTHING_DIR/scripts/android-skills-refresh.sh" "$@"
+      install|remove|uninstall|list|config)
+        command pi "$@"
         return
         ;;
     esac
