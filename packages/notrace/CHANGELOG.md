@@ -1,5 +1,13 @@
 # @raquezha/notrace
 
+## 0.0.7
+
+### Patch Changes
+
+- 5a3e563: Improve session reports by rendering the session ID as a copyable chip under the notrace logo.
+- 5a3e563: Enhance the trace header to include the active git branch alongside the repository name, and clarify the capture setting label.
+- 7664e50: Polish notrace reliability and installed-package ergonomics: add review/compare package CLIs, validate run records before writing, atomically write private artifacts, recover from corrupt index JSON, and verify capture modes.
+
 ## 0.0.6
 
 ### Patch Changes
