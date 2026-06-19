@@ -49,6 +49,7 @@ pi() {
   local MOD_HEADROOM=false
   local MOD_ANTIGRAVITY=false
   local MOD_NOTRACE=false
+  local MOD_PONYTAIL=false
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -234,6 +235,37 @@ EOF
     export NOTHING_RTK="1"
   }
 
+  ensure_ponytail_cache() {
+    local repo_dir="$NOTHING_CACHE_DIR/repos/ponytail"
+    if [[ -f "$repo_dir/package.json" && -d "$repo_dir/skills" && -f "$repo_dir/pi-extension/index.js" ]]; then
+      printf '%s\n' "$repo_dir"
+      return 0
+    fi
+    if ! command -v git >/dev/null 2>&1; then
+      nothing_warn "--ponytail requested but git is unavailable; cannot install ponytail cache"
+      return 1
+    fi
+    nothing_warn "--ponytail requested; installing ponytail into $repo_dir"
+    rm -rf "$repo_dir"
+    mkdir -p "$(dirname "$repo_dir")"
+    if git clone --depth 1 https://github.com/DietrichGebert/ponytail.git "$repo_dir" >/dev/null 2>&1; then
+      printf '%s\n' "$repo_dir"
+      return 0
+    fi
+    nothing_warn "Failed to install ponytail into $repo_dir"
+    rm -rf "$repo_dir"
+    return 1
+  }
+
+  add_ponytail() {
+    local repo_dir
+    repo_dir="$(ensure_ponytail_cache)" || return 0
+    EXTRA_EXTENSIONS+=("--extension" "$repo_dir")
+    add_skill "$repo_dir/skills"
+    export PONYTAIL_DEFAULT_MODE="${PONYTAIL_DEFAULT_MODE:-full}"
+    export NOTHING_PONYTAIL="1"
+  }
+
   ensure_headroom_proxy() {
     local up_script="$NOTHING_DIR/scripts/headroom-up.sh"
     if [[ ! -f "$up_script" ]]; then
@@ -325,10 +357,15 @@ EOF
         MOD_NOTRACE=true
         shift
         ;;
+      --ponytail)
+        MOD_PONYTAIL=true
+        shift
+        ;;
       --tkmx)
         COMBO_PRESET="tkmx"
         MOD_ANTIGRAVITY=true
         MOD_NOTRACE=true
+        MOD_PONYTAIL=true
         MOD_CAVEMAN=true
         MOD_CAVEMAN_INTENSITY="ultra"
         MOD_RTK=true
@@ -377,7 +414,7 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -401,11 +438,15 @@ EOF
     if [[ "$MOD_NOTRACE" == true ]]; then
       add_extension "notrace"
     fi
+
+    if [[ "$MOD_PONYTAIL" == true ]]; then
+      add_ponytail
+    fi
   fi
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
@@ -413,6 +454,7 @@ EOF
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
     [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")
     [[ "$MOD_NOTRACE" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("notrace")
+    [[ "$MOD_PONYTAIL" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("ponytail")
     local mod_label="none"
     if [[ ${#mods[@]} -gt 0 ]]; then
       mod_label="${mods[*]}"

@@ -696,10 +696,10 @@ printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "updates" "pi --android-update refreshes local Android CLI skill cache"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --antigravity"
-printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --notrace"
-printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace)"
+printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --notrace | --ponytail"
+printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace + ponytail)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
-printf '\n   note: --caveman and --rtk lazy-install local caches on first use.\n'
+printf '\n   note: --caveman, --rtk, and --ponytail lazy-install local caches on first use.\n'
 printf '   note: --headroom starts the local Headroom Docker backend on demand.\n'
 printf '   note: plain `pi` keeps the noleaks guard on by default, regardless of mindset.\n\n'
