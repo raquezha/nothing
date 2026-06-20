@@ -180,7 +180,7 @@ If writing fails, output the markdown to stdout so the user can copy it manually
 - Does not require `WORK.md`
 - Does not interact with `.workflow/` directory
 - Does not sync to Jira, GitHub, or GitLab
-- Does not run cleanup
+- Does not run post-merge-prune
 - Does not require any existing task or ticket
 
 ---

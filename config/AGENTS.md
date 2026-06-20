@@ -37,6 +37,18 @@ Always use the nested directory pattern to ensure correct discovery and naming:
 - **package.json**: Set `"pi": { "extensions": ["extensions"] }` and `"main": "dist/<name>/index.js"`.
 - This avoids extensions appearing with `.ts` suffixes or generic "extensions" names.
 
+### Skill Rename / Package Follow-through
+When changing a skill name, command, or directory, update **all** linked surfaces in the same task. Do not stop at `SKILL.md`.
+- **Skill frontmatter**: `name`, `description`, and instruction text.
+- **Directory / install path**: rename the skill folder when the public skill name changes.
+- **Package metadata**: update `packages/*/package.json` `files`, `pi.skills`, and related manifests.
+- **Mindsets / loaders**: update `config/mindsets.json`, shell integration, bootstrap help, and any hardcoded skill references.
+- **Installer / adapters**: update package install scripts and generated AGENTS/adapter text.
+- **Docs**: update package READMEs, workflow docs, examples, and command references.
+- **Release metadata**: update or add the changeset so published package notes match the real rename.
+
+Default assumption for this repo: if a package skill changed, check `config/mindsets.json`, `packages/<pkg>/package.json`, installer scripts, README/docs, and changesets before declaring the task done.
+
 ### Adding Hats & Modifiers
 When adding a new Pi "hat" or modifier:
 1. **Logic**: Add flag parsing and extension/skill loading to `dotfiles/shell_integration.sh`.

@@ -15,7 +15,7 @@
         "norpiv/verify",
         "norpiv/sync",
         "norpiv/update-docs",
-        "norpiv/cleanup",
+        "norpiv/post-merge-prune",
         "nometa/pulse"
       ],
       "extensions": [
@@ -49,7 +49,7 @@
         "norpiv/verify",
         "norpiv/sync",
         "norpiv/update-docs",
-        "norpiv/cleanup",
+        "norpiv/post-merge-prune",
         "nometa/pulse"
       ],
       "extensions": [
@@ -68,7 +68,7 @@
         "norpiv/verify",
         "norpiv/sync",
         "norpiv/update-docs",
-        "norpiv/cleanup",
+        "norpiv/post-merge-prune",
         "nometa/pulse"
       ],
       "extensions": [

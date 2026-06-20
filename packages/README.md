@@ -10,7 +10,7 @@ This folder contains the local package and skill bundles that make up the `nothi
 | `nofooter/` | `@raquezha/nofooter` | Pi extension | Usable | Powerline-style Pi footer/theme with token, cost, context, model, provider, and Git branch status. |
 | `noleaks/` | `@raquezha/noleaks` | Pi extension | Usable defense-in-depth | Credentials guard and DLP shield that blocks sensitive files and redacts secret-looking output. |
 | `nometa/` | Local skill bundle | Skills | Local-first | Meta/setup skills for maintaining `nothing`, creating skills, bootstrapping repos, and converting content to HTML. |
-| `norpiv/` | `@raquezha/norpiv` | Skill bundle | Usable workflow | RPIV task lifecycle skills: triage, frame, grill-with-docs, plan, implement, verify, sync, update-docs, and cleanup. |
+| `norpiv/` | `@raquezha/norpiv` | Skill bundle | Usable workflow | RPIV task lifecycle skills: triage, frame, grill-with-docs, plan, implement, verify, sync, update-docs, and post-merge-prune. |
 | `nosearch/` | `@raquezha/nosearch` | Pi extension + skills | Usable | Brave Search and Firecrawl subagent wrapper plus bundled `brave-search` and `firecrawl` skills. |
 | `notrace/` | `@raquezha/notrace` | Pi extension | Phase 0 / POC | Local-first interactive HTML trace reports for Pi sessions. Treat generated reports as sensitive. |
 

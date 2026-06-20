@@ -128,4 +128,4 @@ Return a concise summary:
 - **Action**: no-op / updated existing status / created new status
 - **Reason**: marker found, body identical, marker missing, etc.
 - **Link**: remote comment/note URL if available
-- **Next step**: review, verify, cleanup, or continue implementation
+- **Next step**: review, verify, post-merge-prune, or continue implementation

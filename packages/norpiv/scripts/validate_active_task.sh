@@ -289,7 +289,7 @@ if [[ -n "$WORK_MD" && -f "$WORK_MD" ]]; then
 fi
 
 if [[ "$META_STATUS" =~ ^(done|archived)$ ]]; then
-  warn "active pointer references a task with status=$META_STATUS; consider cleanup, archive handling, or reopening intentionally"
+  warn "active pointer references a task with status=$META_STATUS; consider post-merge-prune, archive handling, or reopening intentionally"
 fi
 
 echo
@@ -315,7 +315,7 @@ if [[ -n "$WORK_MD" && -f "$WORK_MD" ]]; then
 fi
 if [[ -n "$META_STATUS" && "$META_STATUS" =~ ^(done|archived)$ ]]; then
   echo "  - Choose intentionally: $TRIAGE_HELPER ${TASK_SOURCE:-local} ${TASK_ID:-task} reopen"
-  echo "  - Or leave closed and run cleanup when appropriate."
+  echo "  - Or leave closed and run post-merge-prune when appropriate."
 fi
 if [[ "$WARNINGS" -eq 0 && "$ERRORS" -eq 0 ]]; then
   echo "  - No fixes suggested."
