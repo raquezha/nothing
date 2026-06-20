@@ -30,8 +30,11 @@ function appendWorkLogEntry(taskDir: string, message: string): void {
     }
     const before = lines.slice(0, nextSection);
     const after = lines.slice(nextSection);
+    while (before.length > logIndex + 1 && before[before.length - 1]?.trim() === "") {
+      before.pop();
+    }
     before.push(entry);
-    writeFileSync(workMd, `${before.join("\n")}\n${after.join("\n")}`);
+    writeFileSync(workMd, `${[...before, ...after].join("\n").replace(/\n*$/, "\n")}`);
   } catch { }
 }
 
