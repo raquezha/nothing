@@ -307,7 +307,7 @@ export default function (pi: ExtensionAPI) {
     const repositoryName = path.basename(ctx.cwd);
     let branchName: string | null = null;
     try {
-      branchName = execSync("git branch --show-current", { cwd: ctx.cwd, stdio: ["ignore", "pipe", "ignore"], encoding: "utf8" }).trim() || null;
+      branchName = execSync("git branch --show-current", { cwd: ctx.cwd, stdio: ["ignore", "pipe", "ignore"], encoding: "utf8", timeout: 1000 }).trim() || null;
     } catch {
       // not a git repo or no commits yet
     }
@@ -373,15 +373,33 @@ export default function (pi: ExtensionAPI) {
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
 
     const indexPath = path.join(notraceDir, "index.json");
-    const existing = readJsonFile<any>(indexPath, { sessions: [] });
-    let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
-    
-    if (!isGhostSession) {
-      sessions.push(createIndexEntry(record, htmlPath, recordPath));
+    const lockPath = `${indexPath}.lock`;
+    let lockAcquired = false;
+    for (let i = 0; i < 20; i++) {
+      try {
+        writeFileSync(lockPath, `${process.pid}`, { flag: "wx" });
+        lockAcquired = true;
+        break;
+      } catch {
+        const t = Date.now(); while (Date.now() - t < 50) {} // busy wait 50ms
+      }
     }
-    
-    writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
-    writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
+
+    try {
+      const existing = readJsonFile<any>(indexPath, { sessions: [] });
+      let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
+      
+      if (!isGhostSession) {
+        sessions.push(createIndexEntry(record, htmlPath, recordPath));
+      }
+      
+      writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
+      writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
+    } finally {
+      if (lockAcquired && existsSync(lockPath)) {
+        try { import("node:fs").then(fs => fs.rmSync ? fs.rmSync(lockPath) : fs.unlinkSync(lockPath)); } catch {}
+      }
+    }
 
     if (context) {
       const displayPath = htmlPath.startsWith(os.homedir()) 

@@ -424,6 +424,8 @@ function shell(title: string, body: string, script = ""): string {
       margin: 0;
       background: transparent;
       border: none;
+      max-height: 400px;
+      overflow-y: auto;
     }
     .footer-note {
       margin-top: 22px;
