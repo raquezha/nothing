@@ -84,6 +84,14 @@ When adding a new Pi "hat" or modifier:
 - **notrace Ownership**: Treat `notrace` as the durable retrospective layer, not the live Pi footer or resume UX.
 - **Telemetry Rule**: Keep consumed session usage metrics separate from optimization metrics such as Headroom tokens saved; do not merge them into one ambiguous total.
 
+### notrace Brand & Logo Guardrails
+- **Cemented Design**: The `notrace` logo is finalized and MUST NOT be redesigned, altered, or hallucinated by AI agents.
+- **Two Components**: The primary logo (`wordmarkSvg`) strictly consists of two elements:
+  1. The **Line Curve** (the wave graphic fading into dots).
+  2. The **notrace Name** (the text component).
+- **Web Icon / Favicon**: The favicon strictly uses ONLY the Line Curve (wave icon).
+- **Preservation Rule**: Agents must preserve the exact current SVG paths, fonts, sizes, layout, and colors (`#E2754A`, `#EDE2D2`, `#d88462`, `#ECE3DA`). Do not change these components unless explicitly commanded to do so.
+
 ## Docker Recovery (Linux)
 If homelab services are down or laptop recently restarted:
 ```bash
