@@ -168,13 +168,15 @@ function verifyPackageManifests() {
     "packages/noheadroom/package.json": { extensions: ["extensions"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
-    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "cleanup", "distill"] },
+    "packages/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {
     const pkg = JSON.parse(readFileSync(path.join(root, file), "utf8"));
     assert(pkg.keywords?.includes("pi-package"), `${file} is tagged as a pi package`);
-    assert(JSON.stringify(pkg.pi) === JSON.stringify(piManifest), `${file} declares expected pi resources`);
+    const actual = JSON.stringify(pkg.pi);
+    const wanted = JSON.stringify(piManifest);
+    assert(actual === wanted, actual === wanted ? `${file} declares expected pi resources` : `${file} declares expected pi resources (expected ${wanted}, got ${actual})`);
   }
 
   const nosearchSource = readFileSync(path.join(root, "packages/nosearch/extensions/nosearch.ts"), "utf8");

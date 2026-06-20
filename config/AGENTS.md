@@ -47,7 +47,15 @@ When changing a skill name, command, or directory, update **all** linked surface
 - **Docs**: update package READMEs, workflow docs, examples, and command references.
 - **Release metadata**: update or add the changeset so published package notes match the real rename.
 
-Default assumption for this repo: if a package skill changed, check `config/mindsets.json`, `packages/<pkg>/package.json`, installer scripts, README/docs, and changesets before declaring the task done.
+Default assumption for this repo: if a package skill changed, check `config/mindsets.json`, `packages/<pkg>/package.json`, installer scripts, README/docs, tests/verification scripts, and changesets before declaring the task done.
+
+### Local Verification Before Done
+When touching package metadata, skills, mindsets, installers, bootstrap behavior, or shell integration, run the local repo gates before saying the task is complete:
+- `npm test`
+- `./bootstrap.sh --dry-run`
+- `npm run changeset:status` when package contents or publish surface changed
+
+CI failures in this repo are usually deterministic contract failures, not flaky infrastructure. Treat red CI as a missed local follow-through until proven otherwise.
 
 ### Adding Hats & Modifiers
 When adding a new Pi "hat" or modifier:
