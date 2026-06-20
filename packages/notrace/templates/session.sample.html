@@ -246,7 +246,40 @@
     .msg-role { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
     .msg.user .msg-role { color: #8ec5ff; }
     .msg.assistant .msg-role { color: var(--accent); }
-    .msg-content { padding: 14px; white-space: pre-wrap; word-break: break-word; }
+    .msg-content { padding: 14px; }
+    .chat-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .chat-text:last-child { margin-bottom: 0; }
+    .chat-tool-use {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .chat-tool-use:last-child { margin-bottom: 0; }
+    .chat-tool-header {
+      background: rgba(255,255,255,0.04);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      color: #8ec5ff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-tool-body {
+      padding: 12px;
+      margin: 0;
+      background: transparent;
+      border: none;
+    }
     .footer-note {
       margin-top: 22px;
       color: var(--muted);
@@ -423,9 +456,9 @@
       </div>
       <span class="event-time">22:05:04</span>
     </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Arguments</h4><pre>{
+    <div class="event-body"><div class="stack"><section class="block"><h4>Arguments</h4><div class="msg-content"><div class="chat-tool-use"><div class="chat-tool-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Execution Input</div><pre class="chat-tool-body">{
   &quot;command&quot;: &quot;find packages/notrace -maxdepth 3 -type f&quot;
-}</pre></section></div></div>
+}</pre></div></div></section></div></div>
   </details><details class="event">
     <summary>
       <div class="event-main">
@@ -434,11 +467,11 @@
       </div>
       <span class="event-time">22:05:05</span>
     </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Result</h4><pre>{
+    <div class="event-body"><div class="stack"><section class="block"><h4>Result</h4><div class="msg-content"><div class="chat-tool-use" style=""><div class="chat-tool-header" style="color: var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> Execution Output</div><pre class="chat-tool-body">{
   &quot;stdout&quot;: &quot;packages/notrace/extensions/notrace/index.ts\npackages/notrace/extensions/notrace/renderer.ts\npackages/notrace/package.json&quot;,
   &quot;stderr&quot;: &quot;&quot;,
   &quot;exitCode&quot;: 0
-}</pre></section></div></div>
+}</pre></div></div></section></div></div>
   </details><details class="event">
     <summary>
       <div class="event-main">
@@ -447,7 +480,7 @@
       </div>
       <span class="event-time">22:05:11</span>
     </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Input Messages</h4><div class="msg user"><div class="msg-head"><span class="msg-role">user</span></div><div class="msg-content">Polish notrace HTML output and unify dashboard/session design.</div></div></section><section class="block"><h4>Output</h4><pre>Found renderer split. Will move both pages to one shared shell and standardize styles.</pre></section><section class="block"><h4>Usage</h4><pre>{
+    <div class="event-body"><div class="stack"><section class="block"><h4>Input Messages</h4><div class="msg user"><div class="msg-head"><span class="msg-role">user</span></div><div class="msg-content"><div class="chat-text">Polish notrace HTML output and unify dashboard/session design.</div></div></div></section><section class="block"><h4>Output</h4><div class="msg-content"><div class="chat-text">Found renderer split. Will move both pages to one shared shell and standardize styles.</div></div></section><section class="block"><h4>Usage</h4><pre>{
   &quot;input&quot;: 2140,
   &quot;output&quot;: 116,
   &quot;cacheRead&quot;: 0,

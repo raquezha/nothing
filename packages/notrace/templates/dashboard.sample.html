@@ -246,7 +246,40 @@
     .msg-role { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
     .msg.user .msg-role { color: #8ec5ff; }
     .msg.assistant .msg-role { color: var(--accent); }
-    .msg-content { padding: 14px; white-space: pre-wrap; word-break: break-word; }
+    .msg-content { padding: 14px; }
+    .chat-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .chat-text:last-child { margin-bottom: 0; }
+    .chat-tool-use {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .chat-tool-use:last-child { margin-bottom: 0; }
+    .chat-tool-header {
+      background: rgba(255,255,255,0.04);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      color: #8ec5ff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-tool-body {
+      padding: 12px;
+      margin: 0;
+      background: transparent;
+      border: none;
+    }
     .footer-note {
       margin-top: 22px;
       color: var(--muted);

@@ -391,7 +391,40 @@ function shell(title: string, body: string, script = ""): string {
     .msg-role { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
     .msg.user .msg-role { color: #8ec5ff; }
     .msg.assistant .msg-role { color: var(--accent); }
-    .msg-content { padding: 14px; white-space: pre-wrap; word-break: break-word; }
+    .msg-content { padding: 14px; }
+    .chat-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .chat-text:last-child { margin-bottom: 0; }
+    .chat-tool-use {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .chat-tool-use:last-child { margin-bottom: 0; }
+    .chat-tool-header {
+      background: rgba(255,255,255,0.04);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-family: "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      color: #8ec5ff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chat-tool-body {
+      padding: 12px;
+      margin: 0;
+      background: transparent;
+      border: none;
+    }
     .footer-note {
       margin-top: 22px;
       color: var(--muted);
@@ -493,9 +526,61 @@ function renderJsonBlock(title: string, value: unknown): string {
   return `<section class="block"><h4>${escapeHtml(title)}</h4><pre>${escapeHtml(typeof value === "string" ? value : JSON.stringify(value, null, 2))}</pre></section>`;
 }
 
+function renderToolUseHtml(name: string, input: any): string {
+  const parsedInput = typeof input === "string" ? (() => { try { return JSON.parse(input); } catch { return input; } })() : input;
+  return `<div class="chat-tool-use"><div class="chat-tool-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> ${escapeHtml(name)}</div><pre class="chat-tool-body">${escapeHtml(typeof parsedInput === 'string' ? parsedInput : JSON.stringify(parsedInput, null, 2))}</pre></div>`;
+}
+
+function renderToolResultHtml(id: string, content: any): string {
+  return `<div class="chat-tool-use"><div class="chat-tool-header" style="color: var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> Tool Result: ${escapeHtml(id)}</div><pre class="chat-tool-body">${escapeHtml(typeof content === 'string' ? content : JSON.stringify(content, null, 2))}</pre></div>`;
+}
+
+function renderUniversalMessageContent(m: any): string {
+  if (!m) return "";
+  let html = "";
+
+  // 1. Handle string content or Anthropic/Pi blocks
+  if (typeof m.content === "string" && m.content.trim()) {
+    html += `<div class="chat-text">${escapeHtml(m.content)}</div>`;
+  } else if (Array.isArray(m.content)) {
+    html += m.content.map((block: any) => {
+      if (!block) return "";
+      if (block.type === "text") return `<div class="chat-text">${escapeHtml(block.text)}</div>`;
+      if (block.type === "tool_use") return renderToolUseHtml(block.name, block.input);
+      if (block.type === "tool_result") return renderToolResultHtml(block.tool_use_id || "unknown", block.content);
+      return `<pre class="chat-tool-body">${escapeHtml(JSON.stringify(block, null, 2))}</pre>`;
+    }).join("");
+  } else if (m.content && typeof m.content === "object") {
+    html += `<pre class="chat-tool-body">${escapeHtml(JSON.stringify(m.content, null, 2))}</pre>`;
+  }
+
+  // 2. Handle OpenAI/Codex tool_calls (attached to message, not in content)
+  if (Array.isArray(m.tool_calls)) {
+    html += m.tool_calls.map((tc: any) => {
+      if (tc.type === "function" && tc.function) {
+        return renderToolUseHtml(tc.function.name, tc.function.arguments);
+      }
+      return "";
+    }).join("");
+  }
+
+  // 3. Handle OpenAI legacy function_call
+  if (m.function_call) {
+    html += renderToolUseHtml(m.function_call.name, m.function_call.arguments);
+  }
+
+  // 4. Handle OpenAI tool result (message role is "tool")
+  if (m.role === "tool" && !html.includes("chat-tool-result")) {
+    // If it was just a string, it rendered above. Wrap it in a tool result block instead.
+    html = renderToolResultHtml(m.tool_call_id || m.name || "unknown", m.content);
+  }
+
+  return html || `<div class="empty">Empty message</div>`;
+}
+
 function renderMessages(messages: any[] | undefined): string {
   if (!messages?.length) return "";
-  return `<section class="block"><h4>Input Messages</h4>${messages.map(m => `<div class="msg ${escapeHtml(m?.role || "unknown")}"><div class="msg-head"><span class="msg-role">${escapeHtml(m?.role || "unknown")}</span></div><div class="msg-content">${escapeHtml(m?.content ?? "")}</div></div>`).join("")}</section>`;
+  return `<section class="block"><h4>Input Messages</h4>${messages.map(m => `<div class="msg ${escapeHtml(m?.role || "unknown")}"><div class="msg-head"><span class="msg-role">${escapeHtml(m?.role || "unknown")}</span></div><div class="msg-content">${renderUniversalMessageContent(m)}</div></div>`).join("")}</section>`;
 }
 
 function eventBadgeClass(ev: any): string {
@@ -518,12 +603,12 @@ function renderEventCard(ev: any): string {
     if (ev.errorMessage) {
       sections.push(renderJsonBlock("Error Message", ev.errorMessage));
     }
-    sections.push(renderJsonBlock("Output", ev.outputContent));
+    sections.push(`<section class="block"><h4>Output</h4><div class="msg-content">${renderUniversalMessageContent({ content: ev.outputContent })}</div></section>`);
     if (ev.usage) sections.push(renderJsonBlock("Usage", ev.usage));
   } else if (ev.type === "tool_start") {
-    sections.push(renderJsonBlock("Arguments", ev.args));
+    sections.push(`<section class="block"><h4>Arguments</h4><div class="msg-content"><div class="chat-tool-use"><div class="chat-tool-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Execution Input</div><pre class="chat-tool-body">${escapeHtml(typeof ev.args === 'string' ? ev.args : JSON.stringify(ev.args, null, 2))}</pre></div></div></section>`);
   } else if (ev.type === "tool_end") {
-    sections.push(renderJsonBlock(ev.isError ? "Error Result" : "Result", ev.result));
+    sections.push(`<section class="block"><h4>${ev.isError ? "Error Result" : "Result"}</h4><div class="msg-content"><div class="chat-tool-use" style="${ev.isError ? 'border-color: rgba(239,127,127,0.3);' : ''}"><div class="chat-tool-header" style="${ev.isError ? 'color: var(--err);' : 'color: var(--muted);'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> Execution Output</div><pre class="chat-tool-body">${escapeHtml(typeof ev.result === 'string' ? ev.result : JSON.stringify(ev.result, null, 2))}</pre></div></div></section>`);
   } else {
     sections.push(renderJsonBlock("Event", ev));
   }
