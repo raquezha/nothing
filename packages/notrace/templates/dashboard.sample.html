@@ -114,7 +114,7 @@
       align-items: center;
       margin-top: 16px;
     }
-    .pill, .workflow-pill, .sort-btn {
+    .pill, .workflow-pill, .sort-btn, .export-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -127,7 +127,7 @@
       font-size: 0.86rem;
       font-weight: 600;
     }
-    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 24px 0; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 16px; margin: 24px 0; }
     .metric-card {
       background: var(--panel-strong);
       border: 1px solid var(--border);
@@ -324,7 +324,15 @@
       color: var(--text);
       border-bottom-color: rgba(236,227,218,0.45);
     }
-    @media (max-width: 760px) {
+    .export-btn {
+      cursor: pointer;
+      transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .export-btn:hover, .export-btn.copied {
+      color: var(--text);
+      border-color: rgba(216,132,98,0.45);
+      background: var(--accent-soft);
+    }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
       .hero-top { grid-template-columns: 1fr; }
@@ -337,9 +345,8 @@
 </head>
 <body><div class="container">
     <section class="hero">
-      <div class="hero-top">
-        <div>
-          <div class="brand"><a class="brand-link" href="index.html"><svg class="wordmark" viewBox="0 0 420 138" aria-label="notrace" role="img" xmlns="http://www.w3.org/2000/svg">
+      <div class="hero-split">
+        <a class="brand-link" href="index.html"><svg class="wordmark" viewBox="0 0 420 138" aria-label="notrace" role="img" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="fadeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="#E2754A"/>
@@ -356,11 +363,15 @@
     </g>
     <text x="0" y="114" fill="#ECE3DA" style="fill:#ECE3DA" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">no</text>
     <text x="82" y="114" fill="#d88462" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">trace</text>
-  </svg></a><p class="subtitle">Retrospective index. Repo-local session evidence.</p></div>
-        </div>
-        <div class="meta">
-          <span class="pill">nothing</span>
-          <span class="pill">3 sessions</span>
+  </svg></a>
+        <div class="hero-right">
+          <div class="hero-session">
+            <strong style="color: var(--text); font-weight: 500;">Global Index</strong>
+            <span style="color: var(--muted);">Machine-wide session evidence.</span>
+          </div>
+          <div class="hero-meta">
+            <span class="hero-pill">3 sessions</span>
+          </div>
         </div>
       </div>
       <div class="metrics">
@@ -371,8 +382,8 @@
     </section>
     <section class="panel">
       <h2 class="section-title">Session Reports</h2>
-      <table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
-      <tr data-index="3" data-workflow="Generic" data-started="1781691240000" data-tokens="5910" data-cost="0.0334"><td class="index-cell">3</td><td><a class="session-link" href="sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1002-76ee-b353-000000000003</span></a></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>18:14</span></div></td><td>General session</td><td class="num-cell">5,910</td><td class="num-cell">$0.03340</td></tr><tr data-index="2" data-workflow="Research" data-started="1781689020000" data-tokens="5754" data-cost="0.0267"><td class="index-cell">2</td><td><a class="session-link" href="sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1001-76ee-b353-000000000002</span></a></td><td><span class="workflow-pill workflow-research">Research</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:37</span></div></td><td>Branch topic-02</td><td class="num-cell">5,754</td><td class="num-cell">$0.02670</td></tr><tr data-index="1" data-workflow="RPIV" data-started="1781686800000" data-tokens="3510" data-cost="0.0204"><td class="index-cell">1</td><td><a class="session-link" href="sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1000-76ee-b353-000000000001</span></a></td><td><span class="workflow-pill workflow-rpiv">RPIV</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:00</span></div></td><td>NR-101</td><td class="num-cell">3,510</td><td class="num-cell">$0.02040</td></tr>
+      <table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th>Project</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
+      <tr data-index="3" data-workflow="Generic" data-started="1781691240000" data-tokens="5910" data-cost="0.0334"><td class="index-cell">3</td><td><a class="session-link" href="sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1002-76ee-b353-000000000003</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>18:14</span></div></td><td>General session</td><td class="num-cell">5,910</td><td class="num-cell">$0.03340</td></tr><tr data-index="2" data-workflow="Research" data-started="1781689020000" data-tokens="5754" data-cost="0.0267"><td class="index-cell">2</td><td><a class="session-link" href="sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1001-76ee-b353-000000000002</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-research">Research</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:37</span></div></td><td>Branch topic-02</td><td class="num-cell">5,754</td><td class="num-cell">$0.02670</td></tr><tr data-index="1" data-workflow="RPIV" data-started="1781686800000" data-tokens="3510" data-cost="0.0204"><td class="index-cell">1</td><td><a class="session-link" href="sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1000-76ee-b353-000000000001</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-rpiv">RPIV</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:00</span></div></td><td>NR-101</td><td class="num-cell">3,510</td><td class="num-cell">$0.02040</td></tr>
       </tbody></table>
     </section>
     <footer class="footer-note minimal">notrace • raquezha 2026</footer>

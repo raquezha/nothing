@@ -21,7 +21,10 @@ function createEventBus() {
 
 async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
   const previousCapture = process.env.NOTRACE_CAPTURE;
+  const previousDir = process.env.NOTRACE_DIR;
+  
   process.env.NOTRACE_CAPTURE = captureMode;
+  process.env.NOTRACE_DIR = join(cwd, ".notrace");
   const handlers = new Map();
   const pi = {
     events: createEventBus(),
@@ -158,6 +161,9 @@ async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
 
   if (previousCapture === undefined) delete process.env.NOTRACE_CAPTURE;
   else process.env.NOTRACE_CAPTURE = previousCapture;
+
+  if (previousDir === undefined) delete process.env.NOTRACE_DIR;
+  else process.env.NOTRACE_DIR = previousDir;
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");

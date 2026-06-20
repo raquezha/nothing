@@ -711,17 +711,19 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
   const reversed = sessions.slice().reverse();
   const totalCost = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalCostUsd || 0), 0);
   const totalTokens = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalTokens || 0), 0);
-  const repositoryName = resolveRepoName(options);
   const homeHref = options?.indexHref || "index.html";
   const body = `<div class="container">
     <section class="hero">
-      <div class="hero-top">
-        <div>
-          <div class="brand"><a class="brand-link" href="${escapeHtml(homeHref)}">${wordmarkSvg()}</a><p class="subtitle">Retrospective index. Repo-local session evidence.</p></div>
-        </div>
-        <div class="meta">
-          <span class="pill">${escapeHtml(repositoryName)}</span>
-          <span class="pill">${sessions.length} sessions</span>
+      <div class="hero-split">
+        <a class="brand-link" href="${escapeHtml(homeHref)}">${wordmarkSvg()}</a>
+        <div class="hero-right">
+          <div class="hero-session">
+            <strong style="color: var(--text); font-weight: 500;">Global Index</strong>
+            <span style="color: var(--muted);">Machine-wide session evidence.</span>
+          </div>
+          <div class="hero-meta">
+            <span class="hero-pill">${sessions.length} sessions</span>
+          </div>
         </div>
       </div>
       <div class="metrics">
@@ -732,14 +734,14 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
     </section>
     <section class="panel">
       <h2 class="section-title">Session Reports</h2>
-      ${reversed.length ? `<table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
+      ${reversed.length ? `<table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th>Project</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
       ${reversed.map((s, index) => {
-        const link = s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html;
+        const link = s.artifacts?.html ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html) : "#";
         const workflow = s.task?.workflow || "generic";
         const workflowLabel = workflowDisplayName(workflow);
         const tokens = Number(s.activity?.totals?.totalTokens || 0);
         const cost = Number(s.activity?.totals?.totalCostUsd || 0);
-        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}" data-tokens="${tokens}" data-cost="${cost}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td><td class="num-cell">${tokens.toLocaleString()}</td><td class="num-cell">${formatUsd(cost)}</td></tr>`;
+        return `<tr data-index="${reversed.length - index}" data-workflow="${escapeHtml(workflowLabel)}" data-started="${parseDate(s.startedAt)?.getTime() || 0}" data-tokens="${tokens}" data-cost="${cost}"><td class="index-cell">${reversed.length - index}</td><td><a class="session-link" href="${escapeHtml(link)}"><strong>${escapeHtml(String(s.sessionId).slice(0, 8))}</strong><span class="session-sub">${escapeHtml(String(s.sessionId))}</span></a></td><td><span class="hero-pill">${escapeHtml(s.repositoryName || "Unknown")}</span></td><td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td><td>${formatDateCell(s.startedAt)}</td><td>${escapeHtml(taskDisplay(s))}</td><td class="num-cell">${tokens.toLocaleString()}</td><td class="num-cell">${formatUsd(cost)}</td></tr>`;
       }).join("")}
       </tbody></table>` : `<div class="empty">No sessions yet. Run Pi with notrace enabled. New reports appear here.</div>`}
     </section>

@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, chmodSync } from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
 import { execSync } from "node:child_process";
 import type {
   NotraceActivity,
@@ -185,9 +186,10 @@ function toTaskInfo(context: WorkflowContext | null): NotraceRunRecord["task"] {
   };
 }
 
-function createIndexEntry(record: NotraceRunRecord, cwd: string, htmlPath: string, recordPath: string): Record<string, unknown> {
+function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath: string): Record<string, unknown> {
   return {
     sessionId: record.traceId,
+    repositoryName: record.repository.name,
     startedAt: record.session.startedAt,
     endedAt: record.session.endedAt,
     captureMode: record.captureMode,
@@ -195,8 +197,8 @@ function createIndexEntry(record: NotraceRunRecord, cwd: string, htmlPath: strin
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
-      html: path.relative(cwd, htmlPath),
-      record: path.relative(cwd, recordPath),
+      html: htmlPath,
+      record: recordPath,
     },
   };
 }
@@ -299,7 +301,7 @@ export default function (pi: ExtensionAPI) {
     const endedAt = Date.now();
     const adapter = getActiveAdapter(ctx.cwd);
     const context = adapter.getContext(ctx.cwd);
-    const notraceDir = path.resolve(ctx.cwd, ".notrace");
+    const notraceDir = process.env.NOTRACE_DIR || path.join(os.homedir(), ".notrace");
     const finalTraceId = ctx.sessionManager?.getSessionId?.() || traceId;
     const outputDir = path.join(notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
     const repositoryName = path.basename(ctx.cwd);
@@ -371,20 +373,23 @@ export default function (pi: ExtensionAPI) {
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
 
     const indexPath = path.join(notraceDir, "index.json");
-    const existing = readJsonFile<any>(indexPath, { repositoryName, sessions: [] });
+    const existing = readJsonFile<any>(indexPath, { sessions: [] });
     let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
     
     if (!isGhostSession) {
-      sessions.push(createIndexEntry(record, ctx.cwd, htmlPath, recordPath));
+      sessions.push(createIndexEntry(record, htmlPath, recordPath));
     }
     
-    writePrivateFileAtomic(indexPath, `${JSON.stringify({ repositoryName, sessions }, null, 2)}\n`);
-    writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, { repositoryName }));
+    writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
+    writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
 
     if (context) {
+      const displayPath = htmlPath.startsWith(os.homedir()) 
+        ? `~${htmlPath.slice(os.homedir().length)}` 
+        : htmlPath;
       adapter.attach(context, {
-        html: path.relative(ctx.cwd, htmlPath),
-        record: path.relative(ctx.cwd, recordPath)
+        html: displayPath,
+        record: recordPath
       });
     }
 

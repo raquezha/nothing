@@ -114,7 +114,7 @@
       align-items: center;
       margin-top: 16px;
     }
-    .pill, .workflow-pill, .sort-btn {
+    .pill, .workflow-pill, .sort-btn, .export-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -127,7 +127,7 @@
       font-size: 0.86rem;
       font-weight: 600;
     }
-    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 24px 0; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 16px; margin: 24px 0; }
     .metric-card {
       background: var(--panel-strong);
       border: 1px solid var(--border);
@@ -324,7 +324,15 @@
       color: var(--text);
       border-bottom-color: rgba(236,227,218,0.45);
     }
-    @media (max-width: 760px) {
+    .export-btn {
+      cursor: pointer;
+      transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .export-btn:hover, .export-btn.copied {
+      color: var(--text);
+      border-color: rgba(216,132,98,0.45);
+      background: var(--accent-soft);
+    }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
       .hero-top { grid-template-columns: 1fr; }
@@ -362,6 +370,7 @@
           <span class="pill">nothing</span>
           <span class="pill">Started 2026-06-17 18:14</span>
           <span class="pill">Mode: metadata</span>
+          <button class="export-btn" type="button" data-copy-value="{&quot;kind&quot;:&quot;notrace-export&quot;,&quot;traceId&quot;:&quot;019ed2ee-1002-76ee-b353-000000000003&quot;,&quot;repository&quot;:&quot;nothing&quot;,&quot;task&quot;:{&quot;workflow&quot;:&quot;generic&quot;,&quot;id&quot;:null,&quot;path&quot;:null,&quot;dir&quot;:null},&quot;metrics&quot;:{&quot;inputTokens&quot;:5100,&quot;outputTokens&quot;:810,&quot;cacheReadTokens&quot;:0,&quot;cacheWriteTokens&quot;:0,&quot;totalTokens&quot;:5910,&quot;totalCostUsd&quot;:0.0334},&quot;summary&quot;:&quot;compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results&quot;,&quot;events&quot;:[{&quot;model&quot;:&quot;claude-sonnet-4&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;Polish notrace HTML output and unify dashboard/session design.&quot;}],&quot;output&quot;:&quot;Found renderer split. Will move both pages to one shared shell and standardize styles.&quot;}]}" title="Copy session data for LLM/Agent context"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export</span></button>
         </div>
       </div>
       <div class="metrics">
