@@ -125,6 +125,32 @@ async function testLoopPrevention() {
   console.log("✓ Loop prevention test passed\n");
 }
 
+async function testFingerprintIncludesContent() {
+  console.log("Testing Fingerprint Content Hash...");
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  const makeMessages = (ch) => [
+    { role: "user", content: "same prompt" },
+    { role: "toolResult", toolCallId: "c", toolName:"read", content: ch.repeat(5000) }
+  ];
+  const first = makeMessages("A");
+  const second = makeMessages("B");
+
+  assert.notEqual(generateFingerprint(first), generateFingerprint(second), "Same-length different content needs a different fingerprint");
+
+  await handleContextCompression(runtime, { messages: first }, createMockCtx(first));
+  runtime.state.lastCompressionTime = 0;
+  await handleContextCompression(runtime, { messages: second }, createMockCtx(second));
+
+  assert(client.calls === 2, "Should compress again when same-length content changes");
+  console.log("✓ Fingerprint content hash test passed\n");
+}
+
 async function testThrottle() {
   console.log("Testing Throttle...");
   const client = new MockClient();
@@ -320,6 +346,7 @@ async function testEdgeCases() {
 async function runAll() {
   try {
     await testLoopPrevention();
+    await testFingerprintIncludesContent();
     await testThrottle();
     await testZeroSavings();
     testAssistantToolCallPreservation();

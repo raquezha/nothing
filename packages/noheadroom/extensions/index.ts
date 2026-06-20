@@ -368,8 +368,8 @@ function generateFingerprint(messages: AgentMessage[]): string {
 	return messages
 		.map((m) => {
 			const converted = convertMessage(m);
-			const len = converted ? extractOpenAIText(converted).length : 0;
-			return `${m.role}:${len}`;
+			const text = converted ? extractOpenAIText(converted) : "";
+			return `${m.role}:${text.length}:${stableHash(text)}`;
 		})
 		.join(",");
 }
@@ -460,13 +460,15 @@ function announceAppliedCompression(
 	// Note: we no longer use pi.appendEntry or pi.sendMessage here because
 	// modifying the session history inside the context event triggers an infinite loop.
 	// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
-	process.stderr.write(`🗜 ${line}\n`);
+	// In interactive Pi TUI, writing to stderr during the context hook can leave a stale "Working..." row.
+	if (!ctx.hasUI) process.stderr.write(`🗜 ${line}\n`);
 }
 
 function announceGuardSkip(ctx: ExtensionContext, reason: string, result: CompressResult): void {
 	const line = `noheadroom: compression skipped by guard (${reason}); Headroom reported ${result.tokensSaved.toLocaleString()} tokens saved but Pi context was left unchanged`;
 	ctx.ui.notify(line, "warning");
-	process.stderr.write(`⚠ ${line}\n`);
+	// In interactive Pi TUI, writing to stderr during the context hook can leave a stale "Working..." row.
+	if (!ctx.hasUI) process.stderr.write(`⚠ ${line}\n`);
 }
 
 function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext, error: unknown): void {
