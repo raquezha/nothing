@@ -91,7 +91,7 @@ done
 AGENT_DIR="$HOME/.pi/agent"
 SECRETS_FILE="$HOME/.pi-secrets/.env"
 
-TOTAL_STEPS=12
+TOTAL_STEPS=13
 CURRENT_STEP=0
 
 print_logo() {
@@ -117,6 +117,7 @@ print_plan() {
   printf '   third-party modifiers lazy cache\n'
   printf '   headroom backend     %s\n' "$([[ "$INSTALL_HEADROOM" == true ]] && printf yes || printf no)"
   printf '   package source        checkout\n'
+  printf '   repo git hooks       pre-push verify-repo\n'
   printf '   global AGENTS.md      bootstrap-managed\n'
 }
 
@@ -301,6 +302,24 @@ install_shell_integration() {
     printf '\n# nothing shell integration\n%s\n' "$line" >> "$rc"
     ok "Added nothing shell integration to $(basename "$rc")"
   fi
+}
+
+install_repo_git_hooks() {
+  local hooks_dir="$SCRIPT_DIR/.githooks"
+  if [[ ! -d "$SCRIPT_DIR/.git" ]]; then
+    warn "Skipping repo git hooks; not running from a git checkout"
+    return
+  fi
+  if [[ ! -f "$hooks_dir/pre-push" ]]; then
+    warn "Skipping repo git hooks; missing $hooks_dir/pre-push"
+    return
+  fi
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] git config core.hooksPath %s\n' "$hooks_dir"
+    return
+  fi
+  run git config core.hooksPath "$hooks_dir"
+  ok "Installed repo git hooks from $hooks_dir"
 }
 
 install_global_agents_md() {
@@ -662,6 +681,9 @@ chmod_bundled_scripts
 
 step "Configure global git ignore defaults"
 ensure_global_gitignore
+
+step "Install repo git hooks"
+install_repo_git_hooks
 
 step "Install shell integration"
 install_shell_integration

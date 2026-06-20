@@ -55,6 +55,10 @@ When touching package metadata, skills, mindsets, installers, bootstrap behavior
 - `./bootstrap.sh --dry-run`
 - `npm run changeset:status` when package contents or publish surface changed
 
+The repo should also enforce this locally:
+- Keep the repo-managed pre-push hook active via `git config core.hooksPath .githooks` or by running `./bootstrap.sh`.
+- The pre-push hook must run `scripts/verify-repo.mjs` before push.
+
 CI failures in this repo are usually deterministic contract failures, not flaky infrastructure. Treat red CI as a missed local follow-through until proven otherwise.
 
 ### Adding Hats & Modifiers
