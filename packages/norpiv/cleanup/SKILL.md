@@ -1,53 +1,55 @@
 ---
-name: cleanup
-description: "DIRECT EXECUTION: Immediately prunes local branches and task folders. User activation of this skill constitutes explicit permission to execute deletions. Do not ask for confirmation or offer dry runs unless requested. Reconciles stale Git refs and workflow artifacts."
+name: post-merge-prune
+description: "Post-merge branch cleanup only. Use after a PR/MR is merged and the local feature branch is stale: prune remote refs and delete local branches already merged into the target branch."
 ---
 
-# Skill: cleanup (Durable Repo Hygiene)
+# Skill: post-merge-prune
 
 > [!IMPORTANT]
-> **LLM INSTRUCTION**: This skill is a DIRECT ACTION tool. If the user invokes "cleanup," they have already granted permission for all standard deletions (merged branches, stale refs, verified tasks). DO NOT offer a menu of options. DO NOT ask "Dry run or Execute?". Proceed directly to Step 1.
+> **LLM INSTRUCTION**: This skill is a deliberate post-merge deletion tool. If the user invokes `post-merge-prune`, they want stale local branches removed after merge into the intended target branch. Do not offer a menu of options. Do not ask "Dry run or Execute?". Proceed directly.
 
-A durable, idempotent utility to synchronize the local filesystem and Git state with the project's "Definition of Done," regardless of whether the RPIV workflow is used.
+Use this skill after a PR/MR has been merged into its intended branch, typically `main`, to remove stale remote-tracking refs and delete the matching local branches because the work is done.
 
-## Pre-conditions (Checkpoints)
-- **Current Branch**: Should ideally be `main` or `master`.
-- **Durable State Source**: `git branch` refs and (optionally) `.workflow/tasks/*/WORK.md`.
+## Goal
+- Switch to the intended target branch (`main` by default).
+- Prune deleted remote branches.
+- Delete local branches that are already merged into the target branch.
+- Optionally remove matching workflow task folders.
 
-## Workflow (Durable Steps)
+## Workflow
 
-### Step 1: Remote Reconciliation
+### Step 1: Go to the target branch
+- `git checkout main` (or the intended merge target)
+- If the tree is dirty, stash first.
+
+### Step 2: Prune remote-tracking refs
 - `git remote update origin --prune`
-- Identify branches deleted on remote.
+- This removes local refs for remote branches that were deleted after merge.
 
-### Step 2: Analysis (General & Workflow)
-Iterate through all local branches and `.workflow/tasks/*` folders:
-- **STALE BRANCHES**: Local branches merged into `main` (safe to delete) or whose remote is gone.
-- **VERIFIED TASKS**: `.workflow/tasks/*` where `WORK.md` state is `MERGED` or `CLOSED`.
-- **ORPHANS**: Local branches with no remote and no task folder, or task folders with no branch.
+### Step 3: Delete merged local branches
+Iterate through local branches and delete the ones already merged into the target branch:
+- Use `git branch -d <branch>` for normal merges.
+- If `-d` refuses but `git log main..[branch]` is empty, the branch was squash-merged; use `git branch -D <branch>`.
+- Never delete the active target branch.
 
-### Step 3: Atomic Execution
-1. **Branch Pruning**: 
-   - Use `git branch -d` for merged branches.
-   - **Smart Merge Check**: If `-d` fails, check `git log main..[branch]`. If empty, the branch was squash-merged; use `git branch -D` quietly.
-2. **Artifact Cleanup**: If a `.workflow/tasks/` folder exists for a pruned branch, `rm -rf` it.
-3. **Active Task Reset**: Clear `.workflow/active_task.json` if it points to a deleted task.
+### Step 4: Optional workflow cleanup
+If a deleted branch has a matching `.workflow/tasks/*` folder, remove it.
+If `.workflow/active_task.json` points to a deleted task, clear it.
 
-### Step 4: Durable Verification (Success Metrics)
-- `git branch -a` must not contain deleted refs.
-- `.workflow/tasks/` must not contain folders for deleted tasks.
+### Step 5: Verify
+- `git branch -a` should no longer show deleted refs.
+- `git branch --merged main` should only show branches you intend to keep.
+- `.workflow/tasks/` should not contain deleted tasks.
 
-## Guardrails & Recovery
-- **RESOLUTION OVER REPORTING**: Do not stall the user with "Ambiguous" lists or menus. If a status is unclear, the agent must check merge status (`git branch --merged` or `git log main..branch`) immediately and resolve it.
-- **NO DRY RUNS BY DEFAULT**: Proceed directly to execution unless a dry run is explicitly requested.
-- **MANDATORY SMART DELETE**: If `git branch -d` fails, the agent MUST check if the diff is empty. If empty (squash-merged), use `git branch -D` quietly.
-- **TRUST THE USER**: If the user says "all done" or "clean it all," skip all safety checks and force-delete everything.
-- **Dirty Tree**: If the working tree is dirty, `git stash` before branch switching and `git stash pop` as the final act.
-- **Unmerged Work**: If a branch has no remote and contains unique commits, the agent **MUST** ask ONCE: "Branch [name] contains unmerged commits and has no remote. Force delete? (y/N)".
+## Guardrails
+- **RESOLUTION OVER REPORTING**: If merge status is unclear, check `git branch --merged main` or `git log main..branch` and resolve it.
+- **NO DRY RUNS BY DEFAULT**: Execute the cleanup unless the user explicitly asks for a preview.
+- **SMART DELETE**: If a branch is squash-merged, delete it with `git branch -D` after confirming there are no unique commits left.
+- **ACTIVE BRANCH PROTECTION**: Do not delete the current branch.
+- **UNMERGED WORK**: If a branch has unique commits and no remote, ask once before force-deleting.
 
 ## Output Contract
-Return a concise "Durable State Report":
-- **Cleaned**: List of (Task ID + Branch Name) successfully removed.
-- **Skipped/Active**: List of tasks kept and why (e.g., "Contains unmerged commits").
-- **Working Branch**: The branch left active (should be `main`).
-- **Next step**: Ready for `/triage`.
+Return a concise report:
+- **Cleaned**: deleted branches / task folders
+- **Kept**: branches still in use
+- **Working Branch**: the branch left checked out (should be `main`)
