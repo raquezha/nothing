@@ -8,7 +8,7 @@
   },
   "files": [
     "bin",
-    "cleanup",
+    "post-merge-prune",
     "distill",
     "frame",
     "grill-with-docs",
@@ -44,7 +44,7 @@
       "verify",
       "sync",
       "update-docs",
-      "cleanup",
+      "post-merge-prune",
       "distill"
     ]
   }

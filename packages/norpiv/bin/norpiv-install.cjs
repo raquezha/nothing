@@ -136,7 +136,7 @@ function writeCodexAdapter(root, names, sharedNames, opts) {
   const sharedLines = sharedNames.length
     ? `\nShared helpers:\n\n${sharedNames.map((name) => `- ${name}/`).join("\n")}\n`
     : "";
-  const body = `# norpiv RPIV skills for Codex\n\nCodex does not currently auto-load Pi/Claude SKILL.md bundles from npm.\n\nUse these installed skill instructions as a portable RPIV workflow reference:\n\n${names.map((name) => `- ${name}/SKILL.md`).join("\n")}\n${sharedLines}\nCore lifecycle: triage → frame → grill-with-docs → plan → implement → verify → sync → cleanup.\n\nIf your Codex environment supports AGENTS.md discovery, copy or reference this file from your project.\n`;
+  const body = `# norpiv RPIV skills for Codex\n\nCodex does not currently auto-load Pi/Claude SKILL.md bundles from npm.\n\nUse these installed skill instructions as a portable RPIV workflow reference:\n\n${names.map((name) => `- ${name}/SKILL.md`).join("\n")}\n${sharedLines}\nCore lifecycle: triage -> frame -> grill-with-docs -> plan -> implement -> verify -> sync -> post-merge-prune.\n\nIf your Codex environment supports AGENTS.md discovery, copy or reference this file from your project.\n`;
   log(opts, `write Codex adapter ${adapter}`);
   if (!opts.dryRun) fs.writeFileSync(adapter, body);
 }
