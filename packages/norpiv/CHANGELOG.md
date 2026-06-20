@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.0.6
+
+### Patch Changes
+
+- 1add263: Rename the cleanup skill to post-merge-prune, move the skill directory to match, update norpiv package skill metadata and bundled docs, refresh installer/lifecycle references, and tighten the instructions around post-merge branch pruning.
+
 ## 0.0.5
 
 ### Patch Changes
