@@ -7,7 +7,7 @@
 ## Features
 
 - **Repo Pulse**: Detects if **RepoScry** has a Warm (ready), Cold (needs indexing), or Missing index for the current workspace.
-- **Compression Check**: Confirms if **Headroom** is Online and active for context compression.
+- **Compression Check**: Confirms if **Headroom** is online and active for context compression.
 - **Observability Status**: Checks if **Notrace** is capturing sessions and how many have been recorded in the current root.
 - **Workflow Context**: Displays the active **RPIV** task or **Research** branch.
 
@@ -25,7 +25,7 @@ Inside the Pi agent, simply type:
 [nothing] Environment Pulse
 --------------------------------------------------
 Repo Pulse:    Warm (142 files)
-Headroom:      Online
+Headroom:      online
 Notrace:       Active (9 sessions)
 Active Task:   local-smoke
 --------------------------------------------------

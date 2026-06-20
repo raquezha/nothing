@@ -259,7 +259,7 @@ function shell(title: string, body: string, script = ""): string {
       align-items: center;
       margin-top: 16px;
     }
-    .pill, .workflow-pill, .sort-btn {
+    .pill, .workflow-pill, .sort-btn, .export-btn {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -272,7 +272,7 @@ function shell(title: string, body: string, script = ""): string {
       font-size: 0.86rem;
       font-weight: 600;
     }
-    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 24px 0; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 16px; margin: 24px 0; }
     .metric-card {
       background: var(--panel-strong);
       border: 1px solid var(--border);
@@ -469,7 +469,15 @@ function shell(title: string, body: string, script = ""): string {
       color: var(--text);
       border-bottom-color: rgba(236,227,218,0.45);
     }
-    @media (max-width: 760px) {
+    .export-btn {
+      cursor: pointer;
+      transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .export-btn:hover, .export-btn.copied {
+      color: var(--text);
+      border-color: rgba(216,132,98,0.45);
+      background: var(--accent-soft);
+    }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
       .hero-top { grid-template-columns: 1fr; }
@@ -484,8 +492,26 @@ function shell(title: string, body: string, script = ""): string {
 </html>`;
 }
 
-function copyButton(value: string, label: string): string {
-  return `<button class="copy-btn" type="button" data-copy-value="${escapeHtml(value)}" aria-label="Copy ${escapeHtml(label)}" title="Copy ${escapeHtml(label)}"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
+function copyButton(value: string, label: string, className = "copy-btn"): string {
+  return `<button class="${escapeHtml(className)}" type="button" data-copy-value="${escapeHtml(value)}" aria-label="Copy ${escapeHtml(label)}" title="Copy ${escapeHtml(label)}"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>`;
+}
+
+function exportButton(data: any): string {
+  const payload = JSON.stringify({
+    kind: "notrace-export",
+    traceId: data.traceId,
+    repository: data.repository?.name,
+    branch: data.repository?.branch,
+    task: data.task,
+    metrics: data.activity?.totals,
+    summary: data.telemetry?.extensions?.noheadroom?.summary,
+    events: (data.events || []).filter((e: any) => e.type === "llm_completion").map((e: any) => ({
+      model: e.model,
+      input: e.inputPayload?.messages,
+      output: e.outputContent
+    }))
+  });
+  return `<button class="export-btn" type="button" data-copy-value="${escapeHtml(payload)}" title="Copy session data for LLM/Agent context"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export</span></button>`;
 }
 
 function copyScript(): string {
@@ -737,6 +763,7 @@ export function generateHtmlReport(data: any): string {
           <span class="pill">${escapeHtml(resolveRepoName(data))}</span>
           <span class="pill">Started ${formatDateLong(data.session?.startedAt)}</span>
           <span class="pill">Mode: ${escapeHtml(data.captureMode || "full")}</span>
+          ${exportButton(data)}
         </div>
       </div>
       <div class="metrics">

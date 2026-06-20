@@ -20,6 +20,6 @@ Display the "Environment Pulse" for the current workspace.
 ## Output contract
 Print a formatted summary:
 - **Repo Pulse**: Warm / Cold / Missing
-- **Headroom**: Online / Offline
+- **Headroom**: online / offline
 - **Notrace**: Active (X sessions)
 - **Active Task**: [source-id] (or None)
