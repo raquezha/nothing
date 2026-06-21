@@ -1,5 +1,13 @@
 # @raquezha/noheadroom
 
+## 0.2.3
+
+### Patch Changes
+
+- 8f31379: fix(noheadroom): match lowercase footer casing
+  feat(notrace): add session export to HTML retrospective
+- 4249ec6: fix(noheadroom): avoid stale Pi TUI working rows and same-length fingerprint collisions
+
 ## 0.2.2
 
 ### Patch Changes

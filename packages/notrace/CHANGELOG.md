@@ -1,5 +1,19 @@
 # @raquezha/notrace
 
+## 0.1.0
+
+### Minor Changes
+
+- a2fc3cb: Implement machine-global observability dashboard and Mistral-style timeline parser.
+  - Storage migrated from `.notrace/` in the local working directory to a machine-wide `~/.notrace/` directory to prevent repository pollution and enable global insights.
+  - Dashboard updated with a new `Project` column for multi-repo tracking.
+  - Timeline parser overhauled to render LLM arrays, tool execution cards, and code blocks beautifully instead of raw JSON dumps.
+
+### Patch Changes
+
+- 8f31379: fix(noheadroom): match lowercase footer casing
+  feat(notrace): add session export to HTML retrospective
+
 ## 0.0.7
 
 ### Patch Changes
