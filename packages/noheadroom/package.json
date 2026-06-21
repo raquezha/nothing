@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/noheadroom",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Personal Headroom compression bridge for Pi with Docker-first defaults and Pi tool-name adaptation",
   "main": "dist/index.js",
   "type": "module",
