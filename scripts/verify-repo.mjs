@@ -201,9 +201,10 @@ function verifyShellIntegration() {
 set -euo pipefail
 printf 'git %s\\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
 dest="\${@: -1}"
-mkdir -p "$dest/skills/caveman" "$dest/skills/caveman-stats"
+mkdir -p "$dest/skills/caveman" "$dest/skills/caveman-stats" "$dest/skills/caveman-help"
 printf '%s\\n' '---' 'name: caveman' 'description: fake' '---' > "$dest/skills/caveman/SKILL.md"
 printf '%s\\n' '---' 'name: caveman-stats' 'description: fake' '---' > "$dest/skills/caveman-stats/SKILL.md"
+printf '%s\\n' '---' 'name: caveman-help' 'description: fake' '---' > "$dest/skills/caveman-help/SKILL.md"
 `);
     writeFileSync(fakeNpm, `#!/usr/bin/env bash
 set -euo pipefail
@@ -295,7 +296,8 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.filter((arg) => arg === "--skill").length === 2, "--caveman explicitly loads two cached skills");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--caveman loads cached caveman skill path");
-    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman-stats")), "--caveman loads cached caveman-stats skill path");
+    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman-help")), "--caveman loads cached caveman-help skill path");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/dotfiles/caveman-stats.ts")), "--caveman explicitly loads dotfiles extension for stats");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--rtk explicitly loads cached RTK optimizer extension");
     const installs = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(installs.includes("git clone") && installs.includes("npm install"), "modifiers install into local cache on first use");

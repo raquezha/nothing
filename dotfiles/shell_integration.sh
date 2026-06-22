@@ -194,13 +194,20 @@ EOF
     local intensity="${1:-full}"
     local repo_dir
     repo_dir="$(ensure_caveman_cache)" || return 0
-    for skill_name in caveman caveman-stats; do
+    
+    # Load upstream caveman skills (skip stats hook)
+    for skill_name in caveman caveman-help; do
       if [[ -d "$repo_dir/skills/$skill_name" ]]; then
         EXTRA_SKILLS+=("--skill" "$repo_dir/skills/$skill_name")
       else
         nothing_warn "Cached caveman skill missing: $skill_name"
       fi
     done
+    
+    # Load native Pi extension for stats instead of Claude Code hook
+    if [[ -f "$_NOTHING_REPO_DIR/dotfiles/caveman-stats.ts" ]]; then
+      EXTRA_EXTENSIONS+=("--extension" "$_NOTHING_REPO_DIR/dotfiles/caveman-stats.ts")
+    fi
     export PI_CAVEMAN="1"
     export PI_CAVEMAN_INTENSITY="$intensity"
   }
