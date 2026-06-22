@@ -582,7 +582,7 @@ function renderFooterStatus(ctx: ExtensionContext, config: HeadroomConfig, state
 
 	const pct = Math.round((1 - state.stats.last.compressionRatio) * 100);
 	return (
-		paint("success", "✓") + paint("dim", ` Headroom -${pct}% (${state.stats.last.tokensSaved.toLocaleString()} sve)`)
+		paint("success", "✓") + paint("dim", ` Headroom -${pct}% (${state.stats.last.tokensSaved.toLocaleString()} saved)`)
 	);
 }
 
