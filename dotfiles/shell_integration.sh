@@ -50,6 +50,8 @@ pi() {
   local MOD_ANTIGRAVITY=false
   local MOD_NOTRACE=false
   local MOD_PONYTAIL=false
+  local MOD_CAVEMAN_INTENSITY=""
+  local MOD_PONYTAIL_INTENSITY=""
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -204,9 +206,10 @@ EOF
       fi
     done
     
-    # Load native Pi extension for stats instead of Claude Code hook
-    if [[ -f "$_NOTHING_REPO_DIR/dotfiles/caveman-stats.ts" ]]; then
-      EXTRA_EXTENSIONS+=("--extension" "$_NOTHING_REPO_DIR/dotfiles/caveman-stats.ts")
+    # Load native Pi extension for stats instead of Claude Code hook.
+    # Use a directory/index.ts extension so Pi displays "caveman-stats", not "caveman-stats.ts".
+    if [[ -f "$_NOTHING_REPO_DIR/dotfiles/caveman-stats/index.ts" ]]; then
+      EXTRA_EXTENSIONS+=("--extension" "$_NOTHING_REPO_DIR/dotfiles/caveman-stats")
     fi
     export PI_CAVEMAN="1"
     export PI_CAVEMAN_INTENSITY="$intensity"
@@ -265,11 +268,12 @@ EOF
   }
 
   add_ponytail() {
+    local intensity="${1:-full}"
     local repo_dir
     repo_dir="$(ensure_ponytail_cache)" || return 0
     EXTRA_EXTENSIONS+=("--extension" "$repo_dir")
     add_skill "$repo_dir/skills"
-    export PONYTAIL_DEFAULT_MODE="${PONYTAIL_DEFAULT_MODE:-full}"
+    export PONYTAIL_DEFAULT_MODE="$intensity"
     export NOTHING_PONYTAIL="1"
   }
 
@@ -438,6 +442,10 @@ EOF
       --ponytail)
         MOD_PONYTAIL=true
         shift
+        if [[ "${1:-}" == "lite" || "${1:-}" == "full" || "${1:-}" == "ultra" ]]; then
+          MOD_PONYTAIL_INTENSITY="$1"
+          shift
+        fi
         ;;
       --tkmx)
         COMBO_PRESET="tkmx"
@@ -453,6 +461,10 @@ EOF
       --caveman)
         MOD_CAVEMAN=true
         shift
+        if [[ "${1:-}" == "lite" || "${1:-}" == "full" || "${1:-}" == "ultra" || "${1:-}" == "wenyan-lite" || "${1:-}" == "wenyan-full" || "${1:-}" == "wenyan-ultra" ]]; then
+          MOD_CAVEMAN_INTENSITY="$1"
+          shift
+        fi
         ;;
       --rtk|--rkt)
         MOD_RTK=true
@@ -518,7 +530,7 @@ EOF
     fi
 
     if [[ "$MOD_PONYTAIL" == true ]]; then
-      add_ponytail
+      add_ponytail "${MOD_PONYTAIL_INTENSITY:-full}"
     fi
   fi
 

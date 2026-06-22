@@ -297,7 +297,8 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.filter((arg) => arg === "--skill").length === 2, "--caveman explicitly loads two cached skills");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--caveman loads cached caveman skill path");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman-help")), "--caveman loads cached caveman-help skill path");
-    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/dotfiles/caveman-stats.ts")), "--caveman explicitly loads dotfiles extension for stats");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/dotfiles/caveman-stats")), "--caveman loads caveman-stats as an extension directory");
+    assert(!args.some((arg) => arg.endsWith("/dotfiles/caveman-stats.ts")), "--caveman does not load caveman-stats with a .ts display name");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--rtk explicitly loads cached RTK optimizer extension");
     const installs = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(installs.includes("git clone") && installs.includes("npm install"), "modifiers install into local cache on first use");
@@ -308,6 +309,13 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(result.status === 0, "cached caveman and rkt alias run without reinstalling");
     const secondInstalls = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(secondInstalls.trim() === "", "modifiers skip install when local cache exists");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman lite --ponytail lite hello`], root, { env });
+    assert(result.status === 0, "caveman and ponytail accept optional intensity arguments");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(!args.includes("lite"), "modifier intensity values are consumed instead of forwarded as prompts");
+    assert(args[args.length - 1] === "hello", "user prompt remains after consumed modifier intensities");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --headroom hello`], root, { env });
