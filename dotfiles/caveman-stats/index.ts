@@ -10,20 +10,21 @@ export default function (pi: ExtensionAPI) {
         return;
       }
       
-      const inTokens = usage.inputTokens || 0;
-      const outTokens = usage.outputTokens || 0;
-      const total = inTokens + outTokens;
-      
-      // Estimated savings for prose compression (~46% reduction for caveman-compress logic)
-      // or standard mode savings (~65% from benchmarks). We'll use 65% for full mode.
-      const estimatedSavings = Math.floor(inTokens * 0.65);
-      
+      const tokens = usage.tokens;
+      if (tokens == null) {
+        ctx.ui.notify("No token count available yet. Talk to the model first.", "warning");
+        return;
+      }
+
+      const estimatedSavings = Math.floor(tokens * 0.65);
+      const percent = usage.percent == null ? "unknown" : `${usage.percent.toFixed(1)}%`;
+
       const msg = [
         "Caveman Stats (Pi Native)",
         "-------------------------",
-        `Input Tokens : ${inTokens.toLocaleString()}`,
-        `Output Tokens: ${outTokens.toLocaleString()}`,
-        `Total Tokens : ${total.toLocaleString()}`,
+        `Context Tokens : ${tokens.toLocaleString()}`,
+        `Context Window : ${usage.contextWindow.toLocaleString()}`,
+        `Context Used   : ${percent}`,
         "",
         `Estimated Tokens Saved: ~${estimatedSavings.toLocaleString()} (assuming 65% prose compression)`
       ].join("\n");
