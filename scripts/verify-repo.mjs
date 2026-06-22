@@ -299,6 +299,9 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman-help")), "--caveman loads cached caveman-help skill path");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/dotfiles/caveman-stats")), "--caveman loads caveman-stats as an extension directory");
     assert(!args.some((arg) => arg.endsWith("/dotfiles/caveman-stats.ts")), "--caveman does not load caveman-stats with a .ts display name");
+    const cavemanStatsSource = readFileSync(path.join(root, "dotfiles/caveman-stats/index.ts"), "utf8");
+    assert(cavemanStatsSource.includes("usage.tokens"), "caveman-stats reads Pi ContextUsage.tokens");
+    assert(!cavemanStatsSource.includes("inputTokens") && !cavemanStatsSource.includes("outputTokens"), "caveman-stats does not read nonexistent token fields");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--rtk explicitly loads cached RTK optimizer extension");
     const installs = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(installs.includes("git clone") && installs.includes("npm install"), "modifiers install into local cache on first use");
