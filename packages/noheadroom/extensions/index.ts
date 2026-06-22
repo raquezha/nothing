@@ -137,7 +137,11 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 
 async function updateHealthState(runtime: HeadroomRuntime, signal?: AbortSignal): Promise<boolean> {
 	if (isRemoteBlocked(runtime.config)) return false;
-	runtime.state.proxyOnline = await runtime.client.health(signal);
+	if (await runtime.client.health(signal)) {
+		runtime.state.proxyOnline = true;
+	} else {
+		runtime.state.proxyOnline = await runtime.client.probe(signal);
+	}
 	return runtime.state.proxyOnline;
 }
 
