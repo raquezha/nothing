@@ -1,5 +1,17 @@
 # @raquezha/noheadroom
 
+## 0.2.4
+
+### Patch Changes
+
+- faa9c4f: fix: add lenient health check mode for air-gapped environments
+
+  When HEADROOM proxy's upstream is unreachable, strict health check blocks
+  compression even though /v1/compress works. Added healthStrategy option
+  ('strict' | 'lenient') to bypass upstream check and probe compression directly.
+
+  Refs #14
+
 ## 0.2.3
 
 ### Patch Changes
