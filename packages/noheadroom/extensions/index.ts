@@ -10,10 +10,11 @@ import {
 import { HeadroomHttpClient } from "./client.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
-import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomStats } from "./types.js";
+import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomMode, HeadroomStats } from "./types.js";
 
 const STATUS_KEY = "headroom";
-const SUBCOMMANDS = ["status", "on", "off", "health", "stats"] as const;
+const SUBCOMMANDS = ["status", "on", "off", "health", "stats", "mode"] as const;
+const MODES = ["normal", "quiet", "silent"] as const;
 const NOTRACE_TELEMETRY_CHANNEL = "notrace.telemetry.extension";
 
 type Subcommand = (typeof SUBCOMMANDS)[number];
@@ -78,15 +79,30 @@ export default function headroomExtension(pi: ExtensionAPI) {
 	pi.on("context", (event, ctx) => handleContextCompression(runtime, event, ctx));
 
 	pi.registerCommand("headroom", {
-		description: "Headroom token compression. Usage: /headroom [on|off|status|health|stats]",
+		description: "Headroom token compression. Usage: /headroom [on|off|status|health|stats|mode <normal|quiet|silent>]",
 		getArgumentCompletions(argumentPrefix) {
-			const prefix = argumentPrefix.trim().toLowerCase();
+			const parts = argumentPrefix.trim().toLowerCase().split(/\s+/);
+			if (parts[0] === "mode") {
+				const modePfx = parts[1] ?? "";
+				return MODES.filter((m) => m.startsWith(modePfx)).map((m) => ({
+					value: `mode ${m}`,
+					label: `mode ${m}`,
+				}));
+			}
+			const prefix = parts[0] ?? "";
 			return SUBCOMMANDS.filter((command) => command.startsWith(prefix)).map((command) => ({
 				value: command,
 				label: command,
 			}));
 		},
-		handler: async (args, ctx) => handleCommand(runtime, parseSubcommand(args), ctx),
+		handler: async (args, ctx) => {
+			const parts = args.trim().split(/\s+/);
+			const first = (parts[0] ?? "").toLowerCase();
+			if (first === "mode") {
+				return handleModeChange(runtime, parts[1]?.toLowerCase() ?? "", ctx);
+			}
+			return handleCommand(runtime, parseSubcommand(first), ctx);
+		},
 	});
 
 	pi.registerCommand("headroom-health", {
@@ -302,7 +318,7 @@ async function handleContextCompression(
 
 			recordGuardSkip(runtime.state.stats, applied.reason);
 			emitNotraceTelemetry(runtime);
-			announceGuardSkip(ctx, applied.reason, result);
+			announceGuardSkip(ctx, applied.reason, result, runtime.config.mode);
 			runtime.refreshStatus(ctx);
 			return undefined;
 		}
@@ -313,8 +329,8 @@ async function handleContextCompression(
 		runtime.state.lastGuardSkipCandidateFingerprint = null;
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
-    emitNotraceTelemetry(runtime);
-		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages, runtime.config.silent);
+		emitNotraceTelemetry(runtime);
+		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages, runtime.config.mode);
 		runtime.refreshStatus(ctx);
 		return { messages: applied.messages };
 	} catch (error) {
@@ -452,22 +468,21 @@ function announceAppliedCompression(
 	ctx: ExtensionContext,
 	result: CompressResult,
 	appliedMessages: number,
-	silent: boolean = false
+	mode: HeadroomMode = "normal",
 ): void {
+	if (mode === "quiet" || mode === "silent") return;
 	const pct = Math.round((1 - result.compressionRatio) * 100);
 	const summary = `compressed ${result.tokensBefore.toLocaleString()} → ${result.tokensAfter.toLocaleString()} tokens (-${pct}%, saved ${result.tokensSaved.toLocaleString()}, messages ${appliedMessages})`;
 	const line = `noheadroom: ${summary}`;
-	
-	if (!silent) {
-		ctx.ui.notify(line, "info");
-		// Note: we no longer use pi.appendEntry or pi.sendMessage here because
-		// modifying the session history inside the context event triggers an infinite loop.
-		// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
-		process.stderr.write(`🗜 ${line}\n`);
-	}
+	ctx.ui.notify(line, "info");
+	// Note: we no longer use pi.appendEntry or pi.sendMessage here because
+	// modifying the session history inside the context event triggers an infinite loop.
+	// Non-interactive `pi -p` does not always show footer/status UI, so print an explicit proof line.
+	process.stderr.write(`🗜 ${line}\n`);
 }
 
-function announceGuardSkip(ctx: ExtensionContext, reason: string, result: CompressResult): void {
+function announceGuardSkip(ctx: ExtensionContext, reason: string, result: CompressResult, mode: HeadroomMode = "normal"): void {
+	if (mode === "silent") return;
 	const line = `noheadroom: compression skipped by guard (${reason}); Headroom reported ${result.tokensSaved.toLocaleString()} tokens saved but Pi context was left unchanged`;
 	ctx.ui.notify(line, "warning");
 	process.stderr.write(`⚠ ${line}\n`);
@@ -549,6 +564,21 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 	ctx.ui.notify(renderStatus(runtime.config, runtime.state), "info");
 }
 
+async function handleModeChange(runtime: HeadroomRuntime, rawMode: string, ctx: ExtensionContext): Promise<void> {
+	const VALID_MODES: HeadroomMode[] = ["normal", "quiet", "silent"];
+	if (!VALID_MODES.includes(rawMode as HeadroomMode)) {
+		ctx.ui.notify(
+			`Unknown mode "${rawMode}". Valid modes: ${VALID_MODES.join(", ")}\nUsage: /headroom mode <normal|quiet|silent>`,
+			"warning",
+		);
+		return;
+	}
+	const mode = rawMode as HeadroomMode;
+	runtime.config.mode = mode;
+	emitNotraceTelemetry(runtime);
+	ctx.ui.notify(`Headroom output mode set to "${mode}" for this session.`, "info");
+}
+
 function refreshStatus(ctx: ExtensionContext, config: HeadroomConfig, state: HeadroomRuntimeState): void {
 	if (!ctx.hasUI) return;
 	ctx.ui.setStatus(STATUS_KEY, renderFooterStatus(ctx, config, state));
@@ -614,6 +644,7 @@ function renderStatus(config: HeadroomConfig, state: HeadroomRuntimeState): stri
 		`  Auto-start: ${config.autoStart ? `yes (${config.command})` : "no"}`,
 		`  Shutdown: proxy is left running after Pi exits`,
 		`  Remote:  ${isRemoteBlocked(config) ? "blocked" : config.allowRemote ? "allowed" : "local-only"}`,
+		`  Mode:    ${config.mode}`,
 		`  Thresholds: context >= ${config.minContextTokens.toLocaleString()} tokens, toolResult >= ${config.minMessageChars.toLocaleString()} chars`,
 		"",
 		"Session stats:",
