@@ -188,6 +188,7 @@ async function testZeroSavings() {
   
   const res1 = await handleContextCompression(runtime, { messages: msgs }, createMockCtx(msgs));
   assert(res1 === undefined, "Should return undefined if no tokens saved");
+  assert(runtime.state.stats.last === undefined, "stats.last must be cleared on 0-savings turn");
   assert(client.calls === 1);
   assert(runtime.state.lastInputFingerprint !== null, "Should record input fingerprint even if no savings");
 
