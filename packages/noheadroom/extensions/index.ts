@@ -291,6 +291,8 @@ async function handleContextCompression(
 			// until the actual compressible candidate material changes.
 			runtime.state.lastInputFingerprint = inputFingerprint;
 			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
+			// ponytail: clear stats.last so renderFooterStatus shows idle instead of stale savings
+			runtime.state.stats.last = undefined;
 			runtime.refreshStatus(ctx);
 			return undefined;
 		}
