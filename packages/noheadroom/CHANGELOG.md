@@ -1,5 +1,12 @@
 # @raquezha/noheadroom
 
+## 0.2.5
+
+### Patch Changes
+
+- 9ffd1b2: Fix the Headroom footer saved-token label typo.
+- d07cecd: Fix footer showing stale savings when proxy returns 0 tokens saved. Refs #35
+
 ## 0.2.4
 
 ### Patch Changes
