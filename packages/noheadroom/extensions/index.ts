@@ -8,7 +8,7 @@ import {
 	extractOpenAIText,
 } from "./bridge.js";
 import { HeadroomHttpClient } from "./client.js";
-import { isRemoteBlocked, loadHeadroomConfig } from "./config.js";
+import { isRemoteBlocked, loadHeadroomConfig, saveHeadroomSettings } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
 import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomMode, HeadroomStats } from "./types.js";
 
@@ -575,8 +575,9 @@ async function handleModeChange(runtime: HeadroomRuntime, rawMode: string, ctx: 
 	}
 	const mode = rawMode as HeadroomMode;
 	runtime.config.mode = mode;
+	saveHeadroomSettings({ mode });
 	emitNotraceTelemetry(runtime);
-	ctx.ui.notify(`Headroom output mode set to "${mode}" for this session.`, "info");
+	ctx.ui.notify(`Headroom output mode set to "${mode}" and saved to settings.`, "info");
 }
 
 function refreshStatus(ctx: ExtensionContext, config: HeadroomConfig, state: HeadroomRuntimeState): void {

@@ -36,6 +36,20 @@ export function loadHeadroomSettings(settingsPath: string = HEADROOM_SETTINGS_FI
 	return {};
 }
 
+export function saveHeadroomSettings(
+	patch: Partial<HeadroomSettings>,
+	settingsPath: string = HEADROOM_SETTINGS_FILE,
+): void {
+	const current = loadHeadroomSettings(settingsPath);
+	const updated = { ...current, ...patch };
+	try {
+		fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+		fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2) + "\n", "utf-8");
+	} catch (error) {
+		console.warn(`[noheadroom] Failed to save settings to ${settingsPath}:`, error);
+	}
+}
+
 export function loadHeadroomConfig(
 	env: NodeJS.ProcessEnv = process.env,
 	settings: HeadroomSettings = env === process.env ? loadHeadroomSettings() : {},
