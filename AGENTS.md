@@ -56,3 +56,18 @@ When changing a skill name, command, or directory:
 - **Pi settings**: `~/.pi/agent/settings.json` (from `config/settings.json`)
 - **Mindsets**: `~/.pi/agent/mindsets.json` (from `config/mindsets.json`)
 - **Shell integration**: `dotfiles/shell_integration.sh`
+
+## Obsidian Vault
+
+This repo is Obsidian-native. Notes live at `~/RQZ/notes/` (the vault root). When reading, creating, or updating notes, use Obsidian CLI commands:
+- Read: `obsidian note open <path>` or use `read` tool on the markdown file
+- Create: write to `~/RQZ/notes/<area>/<note>.md` with Obsidian frontmatter
+- Update: edit files in `~/RQZ/notes/` directly
+
+Vault conventions:
+- `ai/` — agent architecture, token efficiency, journal entries
+- `references/` — durable reference docs
+- `templates/` — note templates (Slide Source Note.md, etc.)
+- Assets in `assets/` alongside their area
+
+Use raw HTML `<svg>` tags for diagrams (Obsidian renders them). Avoid ` ```svg ` code blocks.
