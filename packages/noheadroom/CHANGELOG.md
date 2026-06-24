@@ -1,5 +1,18 @@
 # @raquezha/noheadroom
 
+## 0.3.0
+
+### Minor Changes
+
+- 07300fd: Refactor noheadroom output configuration to use a new `mode` option (`normal`, `quiet`, `silent`) instead of the boolean `silent` flag, and update `PI_HEADROOM_MODE` environment variable handling.
+- 021d723: fix(noheadroom): Naturalize Headroom compression hints
+
+  - Keeps the upstream `pi_tool_result` bridge behavior because local tests did not prove a routing or fidelity benefit from renaming tool calls.
+  - Translates Headroom retrieve-hash markers into Pi-native `read` offset/limit hints so agents do not chase unusable retrieval hashes.
+  - Documents the remaining merge blocker: code-fidelity guard must reject unsafe `kompress` output when compressed code loses declarations.
+
+  Refs #39
+
 ## 0.2.5
 
 ### Patch Changes
