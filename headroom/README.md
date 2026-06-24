@@ -64,9 +64,12 @@ Pi extension settings should point to this backend:
 ```json
 {
   "baseUrl": "http://127.0.0.1:8788",
-  "autoStart": false
+  "autoStart": false,
+  "mode": "normal"
 }
 ```
+
+The `mode` field controls output verbosity: `normal` (all output), `quiet` (suppress routine compression notices), or `silent` (suppress all non-critical output). Override via `PI_HEADROOM_MODE` env var.
 
 ---
 
