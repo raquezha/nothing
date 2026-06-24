@@ -77,6 +77,9 @@ export function applyCompressionResult(
 		let nextText = extractOpenAIText(compressed);
 		if (nextText === mapping.originalText) continue;
 
+		// Naturalize Headroom's native CCR markers to provide Pi-native tooling hints (Upstream #846)
+		nextText = naturalizeHeadroomMarkers(nextText);
+
 		const target = nextMessages[mapping.sourceIndex] as AnyMessage;
 		if (!hasContent(target) || !replaceTextContent(target, nextText)) {
 			return { ok: false, reason: "target-content-unreplaceable" };
@@ -156,9 +159,8 @@ function convertToolCall(toolCall: ToolCall): OpenAIToolCall {
 		id: toolCall.id,
 		type: "function",
 		function: {
-			// Headroom may protect/exclude built-in agent tool names such as `read` and `bash`.
-			// This payload is only for compression alignment; Pi's original tool metadata is preserved
-			// in originalMessages and restored when applying the compressed toolResult text.
+			// Headroom protects exact tool names (read, bash) in its DEFAULT_EXCLUDE_TOOLS.
+			// Keep upstream bridge behavior until tests prove a better name changes routing/fidelity.
 			name: "pi_tool_result",
 			arguments: JSON.stringify({ originalToolName: toolCall.name }),
 		},
@@ -263,4 +265,31 @@ function readStringProperty(value: unknown, key: string): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function naturalizeHeadroomMarkers(text: string): string {
+	// Translate Headroom's "[X items compressed to Y. Retrieve more: hash=...]" 
+	// into a Pi-native instruction to use offset/limit instead of hallucinating a retrieve command.
+	return text.replace(
+		/\[(.*?(?:compressed|omitted).*?)\.?\s*Retrieve more: hash=[a-f0-9]+\]/gi,
+		"[$1. Hint: Do not re-read the whole file. Use the 'read' tool with 'offset' and 'limit' to inspect specific sections.]"
+	);
+}
+
+export function injectCompressionAwareness(messages: AgentMessage[]): AgentMessage[] {
+	// If a system message already exists at the top, we append the hint to it.
+	// Otherwise, we inject a new system message at index 0.
+	const result = [...messages];
+	const hintText = "Environment Hint: Some tool results in this context have been automatically compressed by Headroom to optimize tokens. If you see '[X items compressed to Y]' or similar markers, do NOT attempt to re-read the entire file. Use the 'read' tool with 'offset' and 'limit' to query missing sections.";
+
+	const first = result[0] as unknown as Record<string, unknown>;
+	if (first && first.role === "system" && typeof first.content === "string") {
+		if (!first.content.includes("automatically compressed by Headroom")) {
+			result[0] = { ...first, content: `${first.content}\n\n${hintText}` } as unknown as AgentMessage;
+		}
+	} else {
+		result.unshift({ role: "system", content: hintText } as unknown as AgentMessage);
+	}
+
+	return result;
 }
