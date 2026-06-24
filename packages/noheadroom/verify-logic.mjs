@@ -1,6 +1,7 @@
 import assert from "node:assert";
 import { __test__ } from "./dist/index.js";
 import { applyCompressionResult, buildCompressionPayload } from "./dist/bridge.js";
+import { loadHeadroomConfig } from "./dist/config.js";
 
 const { handleContextCompression, generateFingerprint } = __test__;
 
@@ -317,8 +318,102 @@ async function testEdgeCases() {
   console.log("✓ Edge cases passed\n");
 }
 
+function testConfigMode() {
+  console.log("Testing Config Mode Parsing...");
+  
+  // env tests
+  assert(loadHeadroomConfig({ PI_HEADROOM_MODE: "quiet" }, {}).mode === "quiet", "PI_HEADROOM_MODE=quiet should parse to mode: quiet");
+  assert(loadHeadroomConfig({ PI_HEADROOM_MODE: "silent" }, {}).mode === "silent", "PI_HEADROOM_MODE=silent should parse to mode: silent");
+  assert(loadHeadroomConfig({ PI_HEADROOM_MODE: "normal" }, {}).mode === "normal", "PI_HEADROOM_MODE=normal should parse to mode: normal");
+  
+  // settings tests
+  assert(loadHeadroomConfig({}, { mode: "quiet" }).mode === "quiet", "settings.mode=quiet should parse to mode: quiet");
+  assert(loadHeadroomConfig({}, { mode: "silent" }).mode === "silent", "settings.mode=silent should parse to mode: silent");
+  
+  // backwards compat test
+  assert(loadHeadroomConfig({}, { silent: true }).mode === "silent", "settings.silent=true should map to mode: silent");
+  assert(loadHeadroomConfig({}, { silent: false }).mode === "normal", "settings.silent=false should map to mode: normal");
+
+  console.log("✓ Config mode parsing passed\n");
+}
+
+async function testOutputModes() {
+  console.log("Testing Output Modes...");
+  
+  const client = new MockClient();
+  const msg = [
+    { role: "user", content: "hi" },
+    { role: "toolResult", toolCallId: "c", toolName:"t", content: "A".repeat(5000) }
+  ];
+
+  let notifies = 0;
+  const mockCtx = createMockCtx(msg);
+  mockCtx.ui.notify = () => { notifies++; };
+
+  // Normal mode
+  const runtimeNormal = {
+    pi: mockPi, config: { ...mockConfig, mode: "normal" }, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+  await handleContextCompression(runtimeNormal, { messages: msg }, mockCtx);
+  assert(notifies === 1, "Normal mode should emit success notices");
+
+  // Quiet mode
+  notifies = 0;
+  runtimeNormal.state.lastCompressionTime = 0;
+  runtimeNormal.config.mode = "quiet";
+  await handleContextCompression(runtimeNormal, { messages: msg }, mockCtx);
+  assert(notifies === 0, "Quiet mode should suppress success notices");
+
+  // Silent mode
+  notifies = 0;
+  runtimeNormal.state.lastCompressionTime = 0;
+  runtimeNormal.config.mode = "silent";
+  await handleContextCompression(runtimeNormal, { messages: msg }, mockCtx);
+  assert(notifies === 0, "Silent mode should suppress success notices");
+
+  // Guard skip notices
+  const msgGuard = [
+    { role: "user", content: "hi" },
+    { role: "toolResult", toolCallId: "c", toolName:"t", content: "A".repeat(5000) }
+  ];
+  const clientMalicious = {
+    async compress(messages) {
+      return { 
+        compressed: true, 
+        // Malicious client renames the tool call ID, causing guard skip
+        messages: messages.map(m => m.role === 'tool' ? { ...m, tool_call_id: "HACKED_ID" } : m),
+        tokensBefore: 1000, tokensAfter: 500, tokensSaved: 500, compressionRatio: 0.5, transformsApplied: [], ccrHashes: []
+      };
+    }
+  };
+  
+  const runtimeGuard = {
+    pi: mockPi, config: { ...mockConfig, mode: "quiet" }, client: clientMalicious,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  // quiet emits guard-skip
+  notifies = 0;
+  await handleContextCompression(runtimeGuard, { messages: msgGuard }, mockCtx);
+  assert(notifies === 1, "Quiet mode should emit guard-skip notices");
+
+  // silent suppresses guard-skip
+  notifies = 0;
+  runtimeGuard.config.mode = "silent";
+  runtimeGuard.state.lastCompressionTime = 0;
+  await handleContextCompression(runtimeGuard, { messages: msgGuard }, mockCtx);
+  assert(notifies === 0, "Silent mode should suppress guard-skip notices");
+
+  console.log("✓ Output modes passed\n");
+}
+
 async function runAll() {
   try {
+    testConfigMode();
+    await testOutputModes();
     await testLoopPrevention();
     await testThrottle();
     await testZeroSavings();

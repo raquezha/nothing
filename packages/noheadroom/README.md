@@ -73,12 +73,14 @@ Settings are stored in `~/.pi/agent/headroom/settings.json`:
   "enabled": true,
   "baseUrl": "http://127.0.0.1:8788",
   "autoStart": false,
+  "mode": "normal",
   "minContextTokens": 10000,
   "minMessageChars": 2000
 }
 ```
 
 - **`autoStart`**: Set to `false` when using the Docker backend.
+- **`mode`**: `normal` (all output), `quiet` (suppress routine success), or `silent` (suppress all non-critical notices). Override with `PI_HEADROOM_MODE=quiet`.
 - **`minContextTokens`**: Compression kicks in once the context reaches this size.
 
 ## 🛡 Privacy & Security
