@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { HeadroomConfig } from "./types.js";
+import type { HeadroomConfig, HeadroomMode } from "./types.js";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8788";
 const DEFAULT_MIN_CONTEXT_TOKENS = 20_000;
@@ -17,6 +17,8 @@ export interface HeadroomSettings {
 	url?: string;
 	allowRemote?: boolean | string;
 	autoStart?: boolean | string;
+	mode?: string;
+	silent?: boolean | string;
 	command?: string;
 	minContextTokens?: number | string;
 	minMessageChars?: number | string;
@@ -34,6 +36,20 @@ export function loadHeadroomSettings(settingsPath: string = HEADROOM_SETTINGS_FI
 	return {};
 }
 
+export function saveHeadroomSettings(
+	patch: Partial<HeadroomSettings>,
+	settingsPath: string = HEADROOM_SETTINGS_FILE,
+): void {
+	const current = loadHeadroomSettings(settingsPath);
+	const updated = { ...current, ...patch };
+	try {
+		fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+		fs.writeFileSync(settingsPath, JSON.stringify(updated, null, 2) + "\n", "utf-8");
+	} catch (error) {
+		console.warn(`[noheadroom] Failed to save settings to ${settingsPath}:`, error);
+	}
+}
+
 export function loadHeadroomConfig(
 	env: NodeJS.ProcessEnv = process.env,
 	settings: HeadroomSettings = env === process.env ? loadHeadroomSettings() : {},
@@ -45,6 +61,11 @@ export function loadHeadroomConfig(
 		baseUrl,
 		allowRemote: parseBoolean(settings.allowRemote, parseBoolean(env.PI_HEADROOM_ALLOW_REMOTE, false)),
 		autoStart: parseBoolean(settings.autoStart, parseBoolean(env.PI_HEADROOM_AUTO_START, true)),
+		mode: parseMode(
+			settings.mode,
+			env.PI_HEADROOM_MODE,
+			parseBoolean(settings.silent, parseBoolean(env.PI_HEADROOM_SILENT, false)) ? "silent" : "normal",
+		),
 		command: parseString(settings.command, env.PI_HEADROOM_COMMAND?.trim() || "headroom"),
 		minContextTokens: parseInteger(
 			settings.minContextTokens,
@@ -98,4 +119,15 @@ function parseInteger(raw: unknown, fallback: number, min: number): number {
 	const parsed = typeof raw === "number" ? raw : typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
 	if (!Number.isFinite(parsed) || parsed < min) return fallback;
 	return Math.trunc(parsed);
+}
+
+const HEADROOM_MODES: HeadroomMode[] = ["normal", "quiet", "silent"];
+
+function parseMode(raw: unknown, envRaw: string | undefined, fallback: HeadroomMode): HeadroomMode {
+	const normalize = (v: unknown): HeadroomMode | null => {
+		if (typeof v !== "string") return null;
+		const s = v.trim().toLowerCase() as HeadroomMode;
+		return HEADROOM_MODES.includes(s) ? s : null;
+	};
+	return normalize(raw) ?? normalize(envRaw) ?? fallback;
 }

@@ -58,11 +58,14 @@ export interface CompressResult {
 	compressed: boolean;
 }
 
+export type HeadroomMode = "normal" | "quiet" | "silent";
+
 export interface HeadroomConfig {
 	enabled: boolean;
 	baseUrl: string;
 	allowRemote: boolean;
 	autoStart: boolean;
+	mode: HeadroomMode;
 	command: string;
 	minContextTokens: number;
 	minMessageChars: number;
