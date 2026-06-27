@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "bench:loop": "node bench-loop-hardening.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {

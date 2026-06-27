@@ -16,6 +16,10 @@ const STATUS_KEY = "headroom";
 const SUBCOMMANDS = ["status", "on", "off", "health", "stats", "mode"] as const;
 const MODES = ["normal", "quiet", "silent"] as const;
 const NOTRACE_TELEMETRY_CHANNEL = "notrace.telemetry.extension";
+// Bounded FIFO, not config: this is a safety valve for duplicate-compression loops.
+// 512 hashes covers roughly 256 compressed candidates because we store original + compressed text hashes.
+// That is far beyond the reread-loop case while keeping memory bounded for long sessions.
+const MAX_SEEN_CANDIDATE_CONTENT_FINGERPRINTS = 512;
 
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
@@ -30,6 +34,8 @@ interface HeadroomRuntimeState {
 	lastInputFingerprint: string | null;
 	lastOutputFingerprint: string | null;
 	lastGuardSkipCandidateFingerprint: string | null;
+	seenCandidateContentFingerprints?: Set<string>;
+	seenCandidateContentOrder?: string[];
 	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
@@ -127,6 +133,8 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		lastInputFingerprint: null,
 		lastOutputFingerprint: null,
 		lastGuardSkipCandidateFingerprint: null,
+		seenCandidateContentFingerprints: new Set(),
+		seenCandidateContentOrder: [],
 		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
@@ -291,6 +299,9 @@ async function handleContextCompression(
 	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
 		return undefined;
 	}
+	if (allCandidateContentSeen(runtime.state, payload)) {
+		return undefined;
+	}
 	if (runtime.state.proxyOnline !== true) {
 		void ensureProxyInBackground(runtime, ctx);
 		return undefined;
@@ -333,6 +344,7 @@ async function handleContextCompression(
 		runtime.state.lastInputFingerprint = inputFingerprint;
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 		runtime.state.lastGuardSkipCandidateFingerprint = null;
+		recordSeenCandidateContent(runtime.state, payload, result.messages);
 
 		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
 		emitNotraceTelemetry(runtime);
@@ -344,6 +356,40 @@ async function handleContextCompression(
 		return undefined;
 	} finally {
 		runtime.state.processing = false;
+	}
+}
+
+function allCandidateContentSeen(state: HeadroomRuntimeState, payload: CompressionPayload): boolean {
+	const seen = state.seenCandidateContentFingerprints;
+	if (!seen?.size) return false;
+	const hashes = payload.mappings.filter((mapping) => mapping.applyTo).map((mapping) => stableHash(mapping.originalText));
+	return hashes.length > 0 && hashes.every((hash) => seen.has(hash));
+}
+
+function recordSeenCandidateContent(
+	state: HeadroomRuntimeState,
+	payload: CompressionPayload,
+	compressedMessages: CompressionPayload["messages"],
+): void {
+	state.seenCandidateContentFingerprints ??= new Set();
+	state.seenCandidateContentOrder ??= [];
+	payload.mappings.forEach((mapping, index) => {
+		if (!mapping.applyTo) return;
+		addSeenCandidateHash(state, stableHash(mapping.originalText));
+		const compressed = compressedMessages[index];
+		if (compressed) addSeenCandidateHash(state, stableHash(extractOpenAIText(compressed)));
+	});
+}
+
+function addSeenCandidateHash(state: HeadroomRuntimeState, hash: string): void {
+	state.seenCandidateContentFingerprints ??= new Set();
+	state.seenCandidateContentOrder ??= [];
+	if (state.seenCandidateContentFingerprints.has(hash)) return;
+	state.seenCandidateContentFingerprints.add(hash);
+	state.seenCandidateContentOrder.push(hash);
+	while (state.seenCandidateContentOrder.length > MAX_SEEN_CANDIDATE_CONTENT_FINGERPRINTS) {
+		const oldest = state.seenCandidateContentOrder.shift();
+		if (oldest) state.seenCandidateContentFingerprints.delete(oldest);
 	}
 }
 
