@@ -112,18 +112,93 @@ async function testLoopPrevention() {
   assert(res2 === undefined, "Should BLOCK recursion if input matches previous output");
   assert(client.calls === 1, "Should NOT call headroom on recursion");
 
-  // Pass 3: Real new turn (content changed)
-  console.log(" - Pass 3: New turn (content changed)...");
+  // Pass 3: New user turn with unchanged toolResult should not waste another proxy call.
+  console.log(" - Pass 3: New turn, same candidate content...");
   const newMessages = [...initialMessages, { role: "user", content: "new question" }];
-  // Reset time to avoid throttle
   runtime.state.lastCompressionTime = 0;
   const event3 = { messages: newMessages };
   const res3 = await handleContextCompression(runtime, event3, createMockCtx(newMessages));
   
-  assert(res3 !== undefined, "Should compress when content actually changes");
-  assert(client.calls === 2, "Should call headroom for new content");
+  assert(res3 === undefined, "Should skip when only surrounding conversation changes");
+  assert(client.calls === 1, "Should not call headroom for unchanged candidate content");
+
+  // Pass 4: Actually changed toolResult content should still compress.
+  console.log(" - Pass 4: Candidate content changed...");
+  const changedMessages = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: null, tool_calls: [{ id: "c2", type: "function", function: { name: "read", arguments: "{}" } }] },
+    { role: "toolResult", toolCallId: "c2", toolName: "read", content: "B".repeat(5000) }
+  ];
+  runtime.state.lastCompressionTime = 0;
+  const res4 = await handleContextCompression(runtime, { messages: changedMessages }, createMockCtx(changedMessages));
+  assert(res4 !== undefined, "Should compress when candidate content actually changes");
+  assert(client.calls === 2, "Should call headroom for changed candidate content");
 
   console.log("✓ Loop prevention test passed\n");
+}
+
+async function testRepeatedReadContentLoop() {
+  console.log("Testing Repeated Read Content Loop...");
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, seenCandidateContentFingerprints: new Set(), lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  const fullFile = "function important() { return 42; }\n".repeat(200);
+  const first = [
+    { role: "user", content: "read file" },
+    { role: "toolResult", toolCallId: "read-1", toolName:"read", content: fullFile }
+  ];
+
+  const compressed = await handleContextCompression(runtime, { messages: first }, createMockCtx(first));
+  assert(compressed !== undefined, "Should compress first read");
+  assert(client.calls === 1, "Should call Headroom for first read");
+
+  runtime.state.lastCompressionTime = 0;
+  const reread = [
+    ...compressed.messages,
+    { role: "user", content: "read it again, previous result was incomplete" },
+    { role: "toolResult", toolCallId: "read-2", toolName:"read", content: fullFile }
+  ];
+  const skipped = await handleContextCompression(runtime, { messages: reread }, createMockCtx(reread));
+  assert(skipped === undefined, "Should skip duplicate same-content reread");
+  assert(client.calls === 1, "Should NOT call Headroom again for same content under new toolCallId");
+
+  runtime.state.lastCompressionTime = 0;
+  const changed = [
+    ...compressed.messages,
+    { role: "user", content: "read changed file" },
+    { role: "toolResult", toolCallId: "read-3", toolName:"read", content: fullFile.replace("42", "43") }
+  ];
+  await handleContextCompression(runtime, { messages: changed }, createMockCtx(changed));
+  assert(client.calls === 2, "Should still call Headroom when content actually changes");
+
+  console.log("✓ Repeated read content loop test passed\n");
+}
+
+async function testSeenCandidateMemoryCap() {
+  console.log("Testing Seen Candidate Memory Cap...");
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, seenCandidateContentFingerprints: new Set(), seenCandidateContentOrder: [], lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  for (let i = 0; i < 270; i++) {
+    const messages = [
+      { role: "user", content: `read file ${i}` },
+      { role: "toolResult", toolCallId: `read-${i}`, toolName:"read", content: `unique-${i}-`.repeat(500) }
+    ];
+    runtime.state.lastCompressionTime = 0;
+    await handleContextCompression(runtime, { messages }, createMockCtx(messages));
+  }
+
+  assert(runtime.state.seenCandidateContentFingerprints.size <= 512, "Seen content fingerprint set should be capped");
+  assert(runtime.state.seenCandidateContentOrder.length <= 512, "Seen content FIFO order should be capped");
+  console.log("✓ Seen candidate memory cap test passed\n");
 }
 
 async function testFingerprintIncludesContent() {
@@ -442,6 +517,8 @@ async function runAll() {
     testConfigMode();
     await testOutputModes();
     await testLoopPrevention();
+    await testRepeatedReadContentLoop();
+    await testSeenCandidateMemoryCap();
     await testFingerprintIncludesContent();
     await testThrottle();
     await testZeroSavings();
