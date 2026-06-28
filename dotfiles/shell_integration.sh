@@ -47,6 +47,7 @@ pi() {
   local MOD_CAVEMAN=false
   local MOD_RTK=false
   local MOD_HEADROOM=false
+  local MOD_LEANCTX=false
   local MOD_ANTIGRAVITY=false
   local MOD_NOTRACE=false
   local MOD_PONYTAIL=false
@@ -277,6 +278,18 @@ EOF
     export NOTHING_PONYTAIL="1"
   }
 
+  ensure_leanctx_proxy() {
+    if ! command -v lean-ctx >/dev/null 2>&1; then
+      nothing_warn "--leanctx requested but lean-ctx is unavailable"
+      return 1
+    fi
+    lean-ctx proxy enable >&2 || {
+      nothing_warn "LeanCTX proxy enable failed"
+      return 1
+    }
+    export NOTHING_LEANCTX="1"
+  }
+
   ensure_headroom_proxy() {
     local up_script="$NOTHING_DIR/scripts/headroom-up.sh"
     if [[ ! -f "$up_script" ]]; then
@@ -474,6 +487,10 @@ EOF
         MOD_HEADROOM=true
         shift
         ;;
+      --leanctx)
+        MOD_LEANCTX=true
+        shift
+        ;;
       *)
         ARGS+=("$1")
         shift
@@ -504,7 +521,7 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -516,9 +533,18 @@ EOF
       add_rtk_extension
     fi
 
+    if [[ "$MOD_HEADROOM" == true && "$MOD_LEANCTX" == true ]]; then
+      nothing_warn "Choose one compression layer: --headroom or --leanctx"
+      return 2
+    fi
+
     if [[ "$MOD_HEADROOM" == true ]]; then
       ensure_headroom_proxy
       add_extension "noheadroom"
+    fi
+
+    if [[ "$MOD_LEANCTX" == true ]]; then
+      ensure_leanctx_proxy
     fi
 
     if [[ "$MOD_ANTIGRAVITY" == true ]]; then
@@ -536,12 +562,13 @@ EOF
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
+    [[ "$MOD_LEANCTX" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("leanctx")
     [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")
     [[ "$MOD_NOTRACE" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("notrace")
     [[ "$MOD_PONYTAIL" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("ponytail")
