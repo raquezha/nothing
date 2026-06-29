@@ -47,7 +47,7 @@ When changing a skill name, command, or directory:
 
 - **Bootstrap**: `./bootstrap.sh` resets workspace
 - **Hats**: `pi --nothing | --pm | --dev | --rpiv | --android | --meta`
-- **Modifiers**: `--caveman | --rtk | --headroom | --notrace | --ponytail`
+- **Modifiers**: `--caveman | --rtk | --headroom | --leanctx | --notrace | --ponytail`
 - **Combo**: `pi --tkmx` (all modifiers)
 - **Reload shell**: `source dotfiles/shell_integration.sh`
 
