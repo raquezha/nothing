@@ -32,6 +32,7 @@ const MODEL_VARIANTS = [
 		name: "Gemini 3.5 Flash Low (Antigravity)",
 		runtimeModel: "gemini-3.5-flash-extra-low",
 		reasoning: true,
+		needsToolCallId: false,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 1048576,
 		maxTokens: 65535,
@@ -41,6 +42,7 @@ const MODEL_VARIANTS = [
 		name: "Gemini 3.5 Flash Medium (Antigravity)",
 		runtimeModel: DEFAULT_RUNTIME_MODEL_ID,
 		reasoning: true,
+		needsToolCallId: false,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 1048576,
 		maxTokens: 65535,
@@ -50,6 +52,7 @@ const MODEL_VARIANTS = [
 		name: "Gemini 3.5 Flash High (Antigravity)",
 		runtimeModel: "gemini-3-flash-agent",
 		reasoning: true,
+		needsToolCallId: false,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 1048576,
 		maxTokens: 65535,
@@ -59,6 +62,7 @@ const MODEL_VARIANTS = [
 		name: "Gemini 3.1 Pro Low (Antigravity)",
 		runtimeModel: "gemini-3.1-pro-low",
 		reasoning: true,
+		needsToolCallId: false,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 1048576,
 		maxTokens: 65535,
@@ -68,6 +72,7 @@ const MODEL_VARIANTS = [
 		name: "Gemini 3.1 Pro High (Antigravity)",
 		runtimeModel: "gemini-pro-agent",
 		reasoning: true,
+		needsToolCallId: false,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 1048576,
 		maxTokens: 65535,
@@ -77,6 +82,7 @@ const MODEL_VARIANTS = [
 		name: "Claude Sonnet 4.6 Thinking (Antigravity)",
 		runtimeModel: "claude-sonnet-4-6",
 		reasoning: true,
+		needsToolCallId: true,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 200000,
 		maxTokens: 64000,
@@ -86,6 +92,7 @@ const MODEL_VARIANTS = [
 		name: "Claude Opus 4.6 Thinking (Antigravity)",
 		runtimeModel: "claude-opus-4-6-thinking",
 		reasoning: true,
+		needsToolCallId: true,
 		input: ["text", "image"] as Array<"text" | "image">,
 		contextWindow: 200000,
 		maxTokens: 128000,
@@ -95,6 +102,7 @@ const MODEL_VARIANTS = [
 		name: "GPT-OSS 120B Medium (Antigravity)",
 		runtimeModel: "gpt-oss-120b-medium",
 		reasoning: false,
+		needsToolCallId: true,
 		input: ["text"] as Array<"text" | "image">,
 		contextWindow: 131072,
 		maxTokens: 32768,
@@ -519,13 +527,18 @@ function asTextParts(content: unknown): any[] {
 	});
 }
 
-function sanitizeToolCallId(id: string): string {
-	// ponytail: strip anything outside ^[a-zA-Z0-9_-]+$
-	return id.replace(/[^a-zA-Z0-9_-]/g, "_") || "tool_id";
+let _toolCallCounter = 0;
+
+function sanitizeToolCallId(id: string, fallbackName?: string): string {
+	const cleaned = id.replace(/[^a-zA-Z0-9_-]/g, "_");
+	// ponytail: unique fallback — static "tool_id" collides on multi-tool turns
+	return cleaned || `${fallbackName || "tool"}_${Date.now()}_${++_toolCallCounter}`;
 }
 
 function toolCallIdNeeded(modelId: string): boolean {
-	return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
+	// prefer capability flag from variant; fall back to prefix match for safety
+	return MODEL_VARIANTS.find((v) => v.id === modelId)?.needsToolCallId
+		?? (modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-"));
 }
 
 function convertMessages(model: any, context: any): any[] {
@@ -547,7 +560,7 @@ function convertMessages(model: any, context: any): any[] {
 						functionCall: {
 							name: block.name,
 							args: block.arguments ?? {},
-							...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(block.id || "") } : {}),
+							...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(block.id || "", block.name) } : {}),
 						},
 						...(block.thoughtSignature ? { thoughtSignature: block.thoughtSignature } : {}),
 					});
@@ -562,7 +575,7 @@ function convertMessages(model: any, context: any): any[] {
 				functionResponse: {
 					name: msg.toolName,
 					response: msg.isError ? { error: responseText } : { output: responseText },
-					...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(msg.toolCallId || "") } : {}),
+					...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(msg.toolCallId || "", msg.toolName) } : {}),
 				},
 			};
 			const last = contents[contents.length - 1];
@@ -736,8 +749,8 @@ async function streamResponse(response: Response, stream: AssistantMessageEventS
 				if (part.functionCall) {
 					hasContent = true;
 					finishCurrent();
-					const rawId = part.functionCall.id || `${part.functionCall.name || "tool"}_${Date.now()}_${blocks.length}`;
-					const toolCall = { type: "toolCall" as const, id: sanitizeToolCallId(rawId), name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
+					const rawId = part.functionCall.id || "";
+					const toolCall = { type: "toolCall" as const, id: sanitizeToolCallId(rawId, part.functionCall.name), name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
 					blocks.push(toolCall);
 					ensureStarted();
 					stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
