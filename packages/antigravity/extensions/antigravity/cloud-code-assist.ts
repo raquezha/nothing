@@ -13,6 +13,7 @@ import {
 	safeError,
 	sanitizeText,
 	parseApiKey,
+	antigravityEnv,
 	antigravityHeaders,
 	jsonOrTextError,
 	loadCodeAssist,
@@ -322,13 +323,13 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 		try {
 			const creds = parseApiKey(options?.apiKey);
 			const warmedProject = await loadCodeAssist(creds.token);
-			const projectId = process.env.ANTIGRAVITY_PROJECT_ID?.trim() || process.env.NOAGY_PROJECT_ID?.trim() || warmedProject || creds.projectId || DEFAULT_PROJECT_ID;
+			const projectId = antigravityEnv("PROJECT_ID")?.trim() || warmedProject || creds.projectId || DEFAULT_PROJECT_ID;
 			setLastProjectId(projectId);
 			await fetchAvailableRuntimeModel(creds.token, projectId);
 
 			// Dynamic effort-based model routing
 			const effort = options?.reasoning ?? "off";
-			const runtimeModel = process.env.ANTIGRAVITY_RUNTIME_MODEL?.trim() || process.env.NOAGY_RUNTIME_MODEL?.trim() || getAntigravityRequestModelId(model.id, effort);
+			const runtimeModel = antigravityEnv("RUNTIME_MODEL")?.trim() || getAntigravityRequestModelId(model.id, effort);
 			setLastResolvedRuntimeModel(runtimeModel);
 
 			const body = JSON.stringify(buildRequest(model, context, projectId, options || {}, runtimeModel));
