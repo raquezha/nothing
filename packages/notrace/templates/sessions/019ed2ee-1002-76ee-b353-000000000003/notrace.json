@@ -22,7 +22,7 @@
   "captureMode": "metadata",
   "conditions": {
     "models": [
-      "gemini-3.5-flash-high"
+      "gemini-3.5-flash"
     ],
     "providers": [
       "google"

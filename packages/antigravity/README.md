@@ -33,15 +33,21 @@ npm install -g @raquezha/antigravity
 ## Provider
 
 - Provider id: `antigravity`
-- Model ids:
-  - `gemini-3.5-flash-low` -> upstream `gemini-3.5-flash-extra-low`
-  - `gemini-3.5-flash` -> upstream `gemini-3.5-flash-low` (medium/default)
-  - `gemini-3.5-flash-high` -> upstream `gemini-3-flash-agent`
-  - `gemini-3.1-pro-low` -> upstream `gemini-3.1-pro-low`
-  - `gemini-3.1-pro-high` -> upstream `gemini-pro-agent`
-  - `claude-sonnet-4-6-thinking` -> upstream `claude-sonnet-4-6`
-  - `claude-opus-4-6-thinking` -> upstream `claude-opus-4-6-thinking`
-  - `gpt-oss-120b-medium` -> upstream `gpt-oss-120b-medium`
+- Public model ids:
+  - `gemini-3.5-flash`
+  - `gemini-3.1-pro`
+  - `claude-sonnet-4-6`
+  - `claude-opus-4-6`
+  - `gpt-oss-120b`
+  - plus additional Gemini / Claude catalog entries exposed by the package
+- Runtime routing examples:
+  - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-extra-low`, `gemini-3.5-flash-low`, or `gemini-3-flash-agent`
+  - `gemini-3.1-pro` -> routes internally to `gemini-3.1-pro-low` or `gemini-pro-agent`
+  - `claude-sonnet-4-6` -> routes to `claude-sonnet-4-6`
+  - `claude-opus-4-6` -> routes to `claude-opus-4-6-thinking`
+  - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`
+- Migration note:
+  - old public ids like `gemini-3.5-flash-high`, `gemini-3.5-flash-low`, `gemini-3.1-pro-low`, `gemini-3.1-pro-high`, `claude-sonnet-4-6-thinking`, and `gpt-oss-120b-medium` were replaced by cleaner public ids plus internal routing.
 - Default endpoint: `https://daily-cloudcode-pa.googleapis.com`
 
 ## Diagnostics
