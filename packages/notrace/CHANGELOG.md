@@ -1,5 +1,13 @@
 # @raquezha/notrace
 
+## 0.1.1
+
+### Patch Changes
+
+- 13be706: refactor: split antigravity monolith and implement dynamic model routing, validated toolConfig, interleaved thinking headers, and empty stream retries
+
+  docs: replace stale public model IDs in notrace sample templates
+
 ## 0.1.0
 
 ### Minor Changes
