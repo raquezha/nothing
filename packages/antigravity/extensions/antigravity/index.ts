@@ -519,6 +519,11 @@ function asTextParts(content: unknown): any[] {
 	});
 }
 
+function sanitizeToolCallId(id: string): string {
+	// ponytail: strip anything outside ^[a-zA-Z0-9_-]+$
+	return id.replace(/[^a-zA-Z0-9_-]/g, "_") || "tool_id";
+}
+
 function toolCallIdNeeded(modelId: string): boolean {
 	return modelId.startsWith("claude-") || modelId.startsWith("gpt-oss-");
 }
@@ -542,7 +547,7 @@ function convertMessages(model: any, context: any): any[] {
 						functionCall: {
 							name: block.name,
 							args: block.arguments ?? {},
-							...(toolCallIdNeeded(model.id) ? { id: block.id } : {}),
+							...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(block.id || "") } : {}),
 						},
 						...(block.thoughtSignature ? { thoughtSignature: block.thoughtSignature } : {}),
 					});
@@ -557,7 +562,7 @@ function convertMessages(model: any, context: any): any[] {
 				functionResponse: {
 					name: msg.toolName,
 					response: msg.isError ? { error: responseText } : { output: responseText },
-					...(toolCallIdNeeded(model.id) ? { id: msg.toolCallId } : {}),
+					...(toolCallIdNeeded(model.id) ? { id: sanitizeToolCallId(msg.toolCallId || "") } : {}),
 				},
 			};
 			const last = contents[contents.length - 1];
@@ -731,7 +736,8 @@ async function streamResponse(response: Response, stream: AssistantMessageEventS
 				if (part.functionCall) {
 					hasContent = true;
 					finishCurrent();
-					const toolCall = { type: "toolCall" as const, id: part.functionCall.id || `${part.functionCall.name || "tool"}_${Date.now()}_${blocks.length}`, name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
+					const rawId = part.functionCall.id || `${part.functionCall.name || "tool"}_${Date.now()}_${blocks.length}`;
+					const toolCall = { type: "toolCall" as const, id: sanitizeToolCallId(rawId), name: part.functionCall.name || "", arguments: part.functionCall.args || {}, ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}) };
 					blocks.push(toolCall);
 					ensureStarted();
 					stream.push({ type: "toolcall_start", contentIndex: blockIndex(), partial: output });
