@@ -167,26 +167,27 @@ function buildRequest(model: any, context: any, projectId: string, options: any,
 	
 	if (Object.keys(generationConfig).length) request.generationConfig = generationConfig;
 	const tools = convertTools(context.tools, runtimeModel.startsWith("claude-"));
-	if (tools) request.tools = tools;
-
-	if (runtimeModel.startsWith("claude-")) {
-		request.toolConfig = options?.toolChoice
-			? {
-					functionCallingConfig: {
-						mode: options.toolChoice === "none" ? "NONE" : options.toolChoice === "any" ? "ANY" : "AUTO",
-					},
-				}
-			: {
-					functionCallingConfig: {
-						mode: "VALIDATED",
-					},
-				};
-	} else if (options?.toolChoice) {
-		request.toolConfig = {
-			functionCallingConfig: {
-				mode: options.toolChoice === "none" ? "NONE" : options.toolChoice === "any" ? "ANY" : "AUTO",
-			},
-		};
+	if (tools) {
+		request.tools = tools;
+		if (runtimeModel.startsWith("claude-")) {
+			request.toolConfig = options?.toolChoice
+				? {
+						functionCallingConfig: {
+							mode: options.toolChoice === "none" ? "NONE" : options.toolChoice === "any" ? "ANY" : "AUTO",
+						},
+					}
+				: {
+						functionCallingConfig: {
+							mode: "VALIDATED",
+						},
+					};
+		} else if (options?.toolChoice) {
+			request.toolConfig = {
+				functionCallingConfig: {
+					mode: options.toolChoice === "none" ? "NONE" : options.toolChoice === "any" ? "ANY" : "AUTO",
+				},
+			};
+		}
 	}
 	if (options?.sessionId) request.sessionId = options.sessionId;
 	return { project: projectId, model: runtimeModel, request, requestType: "agent", userAgent: "antigravity", requestId: nowRequestId() };

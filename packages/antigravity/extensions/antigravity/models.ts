@@ -296,5 +296,8 @@ export function getAntigravityRequestModelId(modelId: string, effort: string | u
 		return r.off ?? r.routing?.minimal ?? r.routing?.low ?? r.defaultRequestId ?? modelId;
 	}
 	const effortKey = effort as "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+	if (effortKey === "xhigh") {
+		return r.routing?.xhigh ?? r.routing?.high ?? r.routing?.low ?? r.routing?.minimal ?? r.off ?? r.defaultRequestId ?? modelId;
+	}
 	return r.routing?.[effortKey] ?? r.routing?.low ?? r.routing?.minimal ?? r.off ?? r.defaultRequestId ?? modelId;
 }

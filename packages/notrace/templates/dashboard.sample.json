@@ -85,7 +85,7 @@
         "dir": null
       },
       "conditions": {
-        "models": ["gemini-3.5-flash-high"],
+        "models": ["gemini-3.5-flash"],
         "providers": ["google"],
         "extensions": ["notrace", "noheadroom"]
       },
