@@ -12,7 +12,7 @@ import type {
   NotraceRunRecord,
   WorkflowContext,
 } from "./types.js";
-import { getActiveAdapter } from "./adapters.js";
+import { getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
 import { generateHtmlReport, generateDashboardHtml } from "./renderer.js";
 
 const REDACTED = "[REDACTED by notrace]";
@@ -203,6 +203,140 @@ function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath
   };
 }
 
+export type SessionShutdownDeps = {
+  events: NotraceEvent[];
+  startTime: number;
+  traceId: string;
+  extensionTelemetry: Map<string, NotraceExtensionTelemetry>;
+  captureMode: NotraceCaptureMode;
+  notraceDir: string;
+  adapter: WorkflowAdapter;
+};
+
+export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutdownDeps): Promise<void> {
+  const shutdownReason = typeof e?.reason === "string" ? e.reason : null;
+  const endedAt = Date.now();
+  const context = deps.adapter.getContext(ctx.cwd);
+  const finalTraceId = ctx.sessionManager?.getSessionId?.() || deps.traceId;
+  const outputDir = path.join(deps.notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
+  const repositoryName = path.basename(ctx.cwd);
+  let branchName: string | null = null;
+  try {
+    branchName = execSync("git branch --show-current", { cwd: ctx.cwd, stdio: ["ignore", "pipe", "ignore"], encoding: "utf8", timeout: 1000 }).trim() || null;
+  } catch {
+    // not a git repo or no commits yet
+  }
+  const recordPath = path.join(outputDir, "notrace.json");
+
+  let mergedEvents = deps.events;
+  let originalStartedAt = deps.startTime;
+  let originalTask: any = null;
+  if (existsSync(recordPath)) {
+    try {
+      const oldRecord = readJsonFile<any>(recordPath, null);
+      if (Array.isArray(oldRecord.events)) {
+        mergedEvents = [...oldRecord.events, ...deps.events];
+      }
+      if (oldRecord.session?.startedAt) {
+        originalStartedAt = new Date(oldRecord.session.startedAt).getTime();
+      }
+      if (oldRecord.task) {
+        originalTask = oldRecord.task;
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
+  }
+
+  const activity = collectActivity(mergedEvents, originalStartedAt, endedAt);
+  
+  // Do not index purely empty ghost sessions
+  const isGhostSession = activity.llmCallCount === 0 && activity.toolCallCount === 0 && activity.totals.totalTokens === 0;
+
+  const telemetry = Object.fromEntries([...deps.extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
+
+  const record: NotraceRunRecord = {
+    kind: "notrace-run",
+    schemaVersion: SCHEMA_VERSION,
+    traceId: finalTraceId,
+    repository: {
+      name: repositoryName,
+      cwd: ctx.cwd,
+      branch: branchName,
+    },
+    session: {
+      id: finalTraceId,
+      startedAt: new Date(originalStartedAt).toISOString(),
+      endedAt: new Date(endedAt).toISOString(),
+      durationMs: activity.durationMs,
+      shutdownReason,
+    },
+    task: toTaskInfo(context) || originalTask,
+    captureMode: deps.captureMode,
+    conditions: buildConditions(mergedEvents, telemetry),
+    activity,
+    telemetry: { extensions: telemetry },
+    events: mergedEvents,
+  };
+
+  validateRunRecord(record);
+  const html = generateHtmlReport(record);
+
+  mkdirSync(outputDir, { recursive: true });
+  const htmlPath = path.join(outputDir, "notrace.html");
+  writePrivateFileAtomic(htmlPath, html);
+  writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+
+  const indexPath = path.join(deps.notraceDir, "index.json");
+  const lockPath = `${indexPath}.lock`;
+  let lockAcquired = false;
+  for (let i = 0; i < 20; i++) {
+    try {
+      writeFileSync(lockPath, `${process.pid}`, { flag: "wx" });
+      lockAcquired = true;
+      break;
+    } catch {
+      const t = Date.now(); while (Date.now() - t < 50) {} // busy wait 50ms
+    }
+  }
+
+  if (!lockAcquired) {
+    // Could not get exclusive access to the index after retrying. Skip the
+    // index/dashboard update rather than racing another process's
+    // read-modify-write on index.json. The per-session record and HTML
+    // report were already written above and are not affected.
+    console.warn(`[notrace] Could not acquire index lock, skipping index update for ${finalTraceId}`);
+  } else {
+    try {
+      const existing = readJsonFile<any>(indexPath, { sessions: [] });
+      let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
+
+      if (!isGhostSession) {
+        sessions.push(createIndexEntry(record, htmlPath, recordPath));
+      }
+
+      writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
+      writePrivateFileAtomic(path.join(deps.notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
+    } finally {
+      if (existsSync(lockPath)) {
+        try { rmSync(lockPath); } catch {}
+      }
+    }
+  }
+
+  if (context) {
+    const displayPath = htmlPath.startsWith(os.homedir()) 
+      ? `~${htmlPath.slice(os.homedir().length)}` 
+      : htmlPath;
+    deps.adapter.attach(context, {
+      html: displayPath,
+      record: recordPath
+    });
+  }
+
+  console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
+}
+
 function normalizeTelemetryPayload(raw: unknown): { extension: string; telemetry: NotraceExtensionTelemetry } | null {
   if (!raw || typeof raw !== "object") return null;
   const payload = raw as ExtensionTelemetryPayload;
@@ -235,7 +369,6 @@ export default function (pi: ExtensionAPI) {
   const startTime = Date.now();
   let traceId = "";
   let activeLlmPayload: unknown = null;
-  let shutdownReason: string | null = null;
   const extensionTelemetry = new Map<string, NotraceExtensionTelemetry>();
   currentMode = getInitialMode();
 
@@ -297,128 +430,14 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown" as any, async (e: any, ctx: any) => {
-    shutdownReason = typeof e?.reason === "string" ? e.reason : null;
-    const endedAt = Date.now();
-    const adapter = getActiveAdapter(ctx.cwd);
-    const context = adapter.getContext(ctx.cwd);
-    const notraceDir = process.env.NOTRACE_DIR || path.join(os.homedir(), ".notrace");
-    const finalTraceId = ctx.sessionManager?.getSessionId?.() || traceId;
-    const outputDir = path.join(notraceDir, "sessions", finalTraceId.replace(/[^a-z0-9]/gi, "-"));
-    const repositoryName = path.basename(ctx.cwd);
-    let branchName: string | null = null;
-    try {
-      branchName = execSync("git branch --show-current", { cwd: ctx.cwd, stdio: ["ignore", "pipe", "ignore"], encoding: "utf8", timeout: 1000 }).trim() || null;
-    } catch {
-      // not a git repo or no commits yet
-    }
-    const recordPath = path.join(outputDir, "notrace.json");
-
-    let mergedEvents = events;
-    let originalStartedAt = startTime;
-    let originalTask: any = null;
-    if (existsSync(recordPath)) {
-      try {
-        const oldRecord = readJsonFile<any>(recordPath, null);
-        if (Array.isArray(oldRecord.events)) {
-          mergedEvents = [...oldRecord.events, ...events];
-        }
-        if (oldRecord.session?.startedAt) {
-          originalStartedAt = new Date(oldRecord.session.startedAt).getTime();
-        }
-        if (oldRecord.task) {
-          originalTask = oldRecord.task;
-        }
-      } catch (err) {
-        // ignore parse errors
-      }
-    }
-
-    const activity = collectActivity(mergedEvents, originalStartedAt, endedAt);
-    
-    // Do not index purely empty ghost sessions
-    const isGhostSession = activity.llmCallCount === 0 && activity.toolCallCount === 0 && activity.totals.totalTokens === 0;
-
-    const telemetry = Object.fromEntries([...extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
-
-    const record: NotraceRunRecord = {
-      kind: "notrace-run",
-      schemaVersion: SCHEMA_VERSION,
-      traceId: finalTraceId,
-      repository: {
-        name: repositoryName,
-        cwd: ctx.cwd,
-        branch: branchName,
-      },
-      session: {
-        id: finalTraceId,
-        startedAt: new Date(originalStartedAt).toISOString(),
-        endedAt: new Date(endedAt).toISOString(),
-        durationMs: activity.durationMs,
-        shutdownReason,
-      },
-      task: toTaskInfo(context) || originalTask,
+    await handleSessionShutdown(e, ctx, {
+      events,
+      startTime,
+      traceId,
+      extensionTelemetry,
       captureMode: currentMode,
-      conditions: buildConditions(mergedEvents, telemetry),
-      activity,
-      telemetry: { extensions: telemetry },
-      events: mergedEvents,
-    };
-
-    validateRunRecord(record);
-    const html = generateHtmlReport(record);
-
-    mkdirSync(outputDir, { recursive: true });
-    const htmlPath = path.join(outputDir, "notrace.html");
-    writePrivateFileAtomic(htmlPath, html);
-    writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
-
-    const indexPath = path.join(notraceDir, "index.json");
-    const lockPath = `${indexPath}.lock`;
-    let lockAcquired = false;
-    for (let i = 0; i < 20; i++) {
-      try {
-        writeFileSync(lockPath, `${process.pid}`, { flag: "wx" });
-        lockAcquired = true;
-        break;
-      } catch {
-        const t = Date.now(); while (Date.now() - t < 50) {} // busy wait 50ms
-      }
-    }
-
-    if (!lockAcquired) {
-      // Could not get exclusive access to the index after retrying. Skip the
-      // index/dashboard update rather than racing another process's
-      // read-modify-write on index.json. The per-session record and HTML
-      // report were already written above and are not affected.
-      console.warn(`[notrace] Could not acquire index lock, skipping index update for ${finalTraceId}`);
-    } else {
-      try {
-        const existing = readJsonFile<any>(indexPath, { sessions: [] });
-        let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
-
-        if (!isGhostSession) {
-          sessions.push(createIndexEntry(record, htmlPath, recordPath));
-        }
-
-        writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
-        writePrivateFileAtomic(path.join(notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
-      } finally {
-        if (existsSync(lockPath)) {
-          try { rmSync(lockPath); } catch {}
-        }
-      }
-    }
-
-    if (context) {
-      const displayPath = htmlPath.startsWith(os.homedir()) 
-        ? `~${htmlPath.slice(os.homedir().length)}` 
-        : htmlPath;
-      adapter.attach(context, {
-        html: displayPath,
-        record: recordPath
-      });
-    }
-
-    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
+      notraceDir: process.env.NOTRACE_DIR || path.join(os.homedir(), ".notrace"),
+      adapter: getActiveAdapter(ctx.cwd),
+    });
   });
 }
