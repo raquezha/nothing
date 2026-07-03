@@ -13,9 +13,16 @@
         "dir": "/repo/.workflow/tasks/NR-101"
       },
       "conditions": {
-        "models": ["gpt-5.4"],
-        "providers": ["openai"],
-        "extensions": ["notrace", "noheadroom"]
+        "models": [
+          "gpt-5.4"
+        ],
+        "providers": [
+          "openai"
+        ],
+        "extensions": [
+          "notrace",
+          "noheadroom"
+        ]
       },
       "activity": {
         "turnCount": 4,
@@ -49,9 +56,15 @@
         "dir": null
       },
       "conditions": {
-        "models": ["claude-sonnet-4"],
-        "providers": ["anthropic"],
-        "extensions": ["notrace"]
+        "models": [
+          "claude-sonnet-4"
+        ],
+        "providers": [
+          "anthropic"
+        ],
+        "extensions": [
+          "notrace"
+        ]
       },
       "activity": {
         "turnCount": 5,
@@ -85,9 +98,16 @@
         "dir": null
       },
       "conditions": {
-        "models": ["gemini-3.5-flash"],
-        "providers": ["google"],
-        "extensions": ["notrace", "noheadroom"]
+        "models": [
+          "gemini-3.5-flash"
+        ],
+        "providers": [
+          "google"
+        ],
+        "extensions": [
+          "notrace",
+          "noheadroom"
+        ]
       },
       "activity": {
         "turnCount": 6,
@@ -107,6 +127,49 @@
       "artifacts": {
         "html": "sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html",
         "record": "sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.json"
+      }
+    },
+    {
+      "sessionId": "019ed2ee-massive",
+      "startedAt": "2026-06-18T12:00:00.000Z",
+      "endedAt": "2026-06-18T13:00:00.000Z",
+      "captureMode": "full",
+      "task": {
+        "workflow": "chaos",
+        "id": "test-massive",
+        "path": null,
+        "dir": null
+      },
+      "conditions": {
+        "models": [
+          "claude-opus",
+          "gpt-4-turbo"
+        ],
+        "providers": [
+          "multi"
+        ],
+        "extensions": [
+          "notrace"
+        ]
+      },
+      "activity": {
+        "turnCount": 50,
+        "llmCallCount": 50,
+        "toolCallCount": 250,
+        "toolErrorCount": 0,
+        "durationMs": 3600000,
+        "totals": {
+          "inputTokens": 5000000,
+          "outputTokens": 100000,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "totalTokens": 5100000,
+          "totalCostUsd": 75.5
+        }
+      },
+      "artifacts": {
+        "html": "sessions/019ed2ee-massive/notrace.html",
+        "record": "sessions/019ed2ee-massive/notrace.json"
       }
     }
   ]

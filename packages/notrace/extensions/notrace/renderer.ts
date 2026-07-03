@@ -98,6 +98,25 @@ function formatUsd(value: number | undefined): string {
   return `$${num.toFixed(5)}`;
 }
 
+function formatTokens(value: number | undefined): string {
+  const num = Number(value || 0);
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}k`;
+  return num.toString();
+}
+
+function formatMs(value: number | undefined): string {
+  const ms = Number(value || 0);
+  if (!ms) return "-";
+  const totalSeconds = Math.round(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours}h ${minutes}m`;
+  if (minutes) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 function formatTelemetryStatus(value: string | undefined): string {
   switch (value) {
     case "active": return "Active";
@@ -200,6 +219,30 @@ function shell(title: string, body: string, script = ""): string {
       gap: 16px;
       align-items: start;
     }
+    .hero-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .hero-right {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+      min-width: 0;
+    }
+    .hero-session {
+      display: grid;
+      gap: 4px;
+      text-align: right;
+      min-width: 0;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
     .brand { margin-bottom: 10px; }
     .brand-link {
       display: inline-flex;
@@ -278,11 +321,52 @@ function shell(title: string, body: string, script = ""): string {
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 18px;
+      min-width: 0;
     }
     .metric-card small { display: block; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; font-weight: 700; }
-    .metric-card strong { display: block; margin-top: 8px; font-size: 1.55rem; }
+    .metric-card strong { display: block; margin-top: 8px; font-size: clamp(1rem, 2vw, 1.55rem); overflow-wrap: anywhere; }
     .panel { padding: 0; overflow: hidden; }
     .section-title { margin: 0; padding: 20px 22px; border-bottom: 1px solid var(--border); font-size: 1rem; }
+    .summary-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .kv-card {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .kv-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .kv-list { display: grid; gap: 8px; }
+    .kv-row { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .kv-key { color: var(--muted); }
+    .kv-value { color: var(--text); text-align: right; word-break: break-word; }
+    .tiny-breakdown {
+      margin-top: -10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .tiny-breakdown strong { color: var(--text); font-size: inherit; font-weight: 600; }
+    .collapsible { margin-top: 24px; }
+    .collapsible > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; font-size: 1rem; font-weight: 700; }
+    .collapsible > summary::-webkit-details-marker { display: none; }
+    .collapsible > summary:hover { background: rgba(255,255,255,0.02); }
+    .collapsible > summary::after { content: "▾"; color: var(--muted); font-size: 0.9rem; }
+    .collapsible:not([open]) > summary::after { content: "▸"; }
     .empty { padding: 32px 22px; color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -480,17 +564,46 @@ function shell(title: string, body: string, script = ""): string {
       border-color: rgba(216,132,98,0.45);
       background: var(--accent-soft);
     }
+    .back-to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(12,11,10,0.88);
+      color: var(--text);
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 160ms ease, transform 160ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .back-to-top.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .back-to-top:hover { border-color: rgba(216,132,98,0.45); background: rgba(216,132,98,0.12); }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
-      .hero-top { grid-template-columns: 1fr; }
-      .meta { justify-content: flex-start; margin-top: 8px; }
-      .wordmark { width: 280px; height: 92px; }
+      .hero-top, .hero-split { grid-template-columns: 1fr; }
+      .meta, .hero-meta { justify-content: flex-start; margin-top: 8px; }
+      .hero-right, .hero-session { justify-items: start; text-align: left; }
+      .wordmark { width: min(280px, 100%); height: auto; }
+      .metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
       th:nth-child(5), td:nth-child(5) { display: none; }
       .event summary { align-items: flex-start; }
     }
   </style>
 </head>
-<body>${body}${script ? `<script>${script}</script>` : ""}</body>
+<body><a href="#top" class="back-to-top" aria-label="Back to top">↑ Top</a>${body}${script ? `<script>${script}</script>` : ""}</body>
 </html>`;
 }
 
@@ -547,6 +660,27 @@ function copyScript(): string {
         }
       });
     });
+
+    document.querySelectorAll('details[data-lazy-event-body]').forEach((details) => {
+      details.addEventListener('toggle', () => {
+        if (!details.open) return;
+        if (details.querySelector('.event-body')) return;
+        const html = decodeURIComponent(details.getAttribute('data-lazy-event-body') || '');
+        details.insertAdjacentHTML('beforeend', html);
+      }, { once: false });
+    });
+
+    const topBtn = document.querySelector('.back-to-top');
+    if (topBtn) {
+      const syncTopButton = () => {
+        const scrollable = document.documentElement.scrollHeight > window.innerHeight + 24;
+        const show = scrollable && window.scrollY > 200;
+        topBtn.classList.toggle('visible', show);
+      };
+      window.addEventListener('scroll', syncTopButton, { passive: true });
+      window.addEventListener('resize', syncTopButton);
+      syncTopButton();
+    }
   })();`;
 }
 
@@ -621,7 +755,7 @@ function eventTitle(ev: any): string {
   return ev.model || ev.toolName || ev.type;
 }
 
-function renderEventCard(ev: any): string {
+function renderEventBody(ev: any): string {
   const sections: string[] = [];
   if (ev.type === "llm_completion") {
     sections.push(renderMessages(ev.inputPayload?.messages));
@@ -640,8 +774,11 @@ function renderEventCard(ev: any): string {
   } else {
     sections.push(renderJsonBlock("Event", ev));
   }
+  return `<div class="event-body"><div class="stack">${sections.join("")}</div></div>`;
+}
 
-  return `<details class="event">
+function renderEventCard(ev: any): string {
+  return `<details class="event" data-lazy-event-body="${escapeHtml(encodeURIComponent(renderEventBody(ev)))}">
     <summary>
       <div class="event-main">
         <span class="${eventBadgeClass(ev)}">${escapeHtml(ev.type)}</span>
@@ -649,7 +786,6 @@ function renderEventCard(ev: any): string {
       </div>
       <span class="event-time">${formatTime(ev.timestamp)}</span>
     </summary>
-    <div class="event-body"><div class="stack">${sections.join("")}</div></div>
   </details>`;
 }
 
@@ -709,6 +845,82 @@ function dashboardSortScript(): string {
   })();`;
 }
 
+function groupByModel(events: any[]): Record<string, any> {
+  const models: Record<string, any> = {};
+  for (const ev of events) {
+    if (ev.type !== "llm_completion") continue;
+    const name = ev.model || "unknown";
+    if (!models[name]) {
+      models[name] = { count: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, cost: 0, cacheRead: 0, cacheWrite: 0, errors: 0 };
+    }
+    const m = models[name];
+    m.count++;
+    if (ev.usage) {
+      m.inputTokens += Number(ev.usage.inputTokens || ev.usage.input || 0);
+      m.outputTokens += Number(ev.usage.outputTokens || ev.usage.output || 0);
+      m.totalTokens += Number(ev.usage.totalTokens || 0);
+      m.cacheRead += Number(ev.usage.cacheReadTokens || ev.usage.cacheRead || 0);
+      m.cacheWrite += Number(ev.usage.cacheWriteTokens || ev.usage.cacheWrite || 0);
+      m.cost += Number(ev.usage.cost?.total || 0);
+    }
+    if (ev.errorMessage) m.errors++;
+  }
+  return models;
+}
+
+function buildModelSwitches(events: any[]): any[] {
+  const switches: any[] = [];
+  let lastModel: string | null = null;
+  let lastProvider: string | null = null;
+  let lastTime: number | null = null;
+  let completionIndex = 0;
+
+  for (const ev of events) {
+    if (ev.type !== "llm_completion") continue;
+    completionIndex++;
+    const currentModel = ev.model || "unknown";
+    const currentProvider = ev.provider || "unknown";
+    if (lastModel && lastModel !== currentModel) {
+      switches.push({
+        index: completionIndex,
+        from: lastModel,
+        to: currentModel,
+        fromProvider: lastProvider || "unknown",
+        toProvider: currentProvider,
+        providerChanged: (lastProvider || "unknown") !== currentProvider,
+        timestamp: ev.timestamp,
+        timeDelta: lastTime ? ev.timestamp - lastTime : 0,
+        cost: Number(ev.usage?.cost?.total || 0),
+        tokens: Number(ev.usage?.totalTokens || 0)
+      });
+    }
+    lastModel = currentModel;
+    lastProvider = currentProvider;
+    lastTime = ev.timestamp;
+  }
+  return switches;
+}
+
+function buildModelSummary(events: any[]): any {
+  const completions = events.filter((ev: any) => ev.type === "llm_completion");
+  if (!completions.length) return null;
+  const uniqueModels = new Set(completions.map((ev: any) => ev.model || "unknown"));
+  return {
+    firstModel: completions[0]?.model || "unknown",
+    finalModel: completions[completions.length - 1]?.model || "unknown",
+    switchCount: buildModelSwitches(events).length,
+    uniqueModels: uniqueModels.size,
+  };
+}
+
+function renderCollapsibleSection(title: string, body: string, open = false): string {
+  return `<details class="panel collapsible"${open ? " open" : ""}><summary>${escapeHtml(title)}</summary><div>${body}</div></details>`;
+}
+
+function renderKeyValueList(items: Array<[string, unknown]>): string {
+  return `<div class="kv-list">${items.map(([k, v]) => `<div class="kv-row"><span class="kv-key">${escapeHtml(k)}</span><strong class="kv-value">${escapeHtml(v == null || v === "" ? "-" : v)}</strong></div>`).join("")}</div>`;
+}
+
 export function generateDashboardHtml(sessions: any[], options: any = {}): string {
   const reversed = sessions.slice().reverse();
   const totalCost = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalCostUsd || 0), 0);
@@ -755,9 +967,83 @@ export function generateDashboardHtml(sessions: any[], options: any = {}): strin
 export function generateHtmlReport(data: any): string {
   const visibleEvents = (data.events || []).filter((ev: any) => ev.type !== "session_start" && ev.type !== "turn_start");
   const indexHref = data?.navigation?.indexHref || "../../index.html";
-  const repositoryName = resolveRepoName(data);
   const task = data.task;
-  const body = `<div class="container">
+  const modelStats = groupByModel(data.events || []);
+  const modelSwitches = buildModelSwitches(data.events || []);
+  const modelSummary = buildModelSummary(data.events || []);
+  const sortedModels = Object.entries(modelStats).sort((a: any, b: any) => Number(b[1]?.cost || 0) - Number(a[1]?.cost || 0));
+  const topSpender = sortedModels[0]?.[0] || null;
+  const mostUsed = [...sortedModels].sort((a: any, b: any) => Number(b[1]?.count || 0) - Number(a[1]?.count || 0))[0]?.[0] || null;
+  const biggestSwitch = [...modelSwitches].sort((a: any, b: any) => Number(b?.cost || 0) - Number(a?.cost || 0))[0] || null;
+
+  const modelHtml = sortedModels.length ? renderCollapsibleSection("Models", `
+      <div style="padding: 16px; border-bottom: 1px solid var(--border); display: grid; gap: 8px;">
+        <div style="color: var(--muted);">Top spender: <strong style="color: var(--text);">${escapeHtml(topSpender || "unknown")}</strong></div>
+        <div style="color: var(--muted);">Most used: <strong style="color: var(--text);">${escapeHtml(mostUsed || "unknown")}</strong></div>
+      </div>
+      <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="num-cell">Calls</th>
+            <th class="num-cell">Input</th>
+            <th class="num-cell">Output</th>
+            <th class="num-cell">Tokens</th>
+            <th class="num-cell">Cost</th>
+            <th class="num-cell">Avg Cost/Call</th>
+            <th class="num-cell">Avg Tokens/Call</th>
+            <th class="num-cell">Errors</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sortedModels.map(([name, stats]: [string, any]) => `
+            <tr>
+              <td><strong>${escapeHtml(name)}</strong>${name === topSpender ? ` <span class="badge badge-llm">top spend</span>` : ""}${name === mostUsed ? ` <span class="badge badge-tool">most used</span>` : ""}</td>
+              <td class="num-cell">${stats.count}</td>
+              <td class="num-cell">${formatTokens(stats.inputTokens)}</td>
+              <td class="num-cell">${formatTokens(stats.outputTokens)}</td>
+              <td class="num-cell">${formatTokens(stats.totalTokens)}</td>
+              <td class="num-cell">${formatUsd(stats.cost)}</td>
+              <td class="num-cell">${formatUsd(stats.count ? stats.cost / stats.count : 0)}</td>
+              <td class="num-cell">${formatTokens(stats.count ? stats.totalTokens / stats.count : 0)}</td>
+              <td class="num-cell">${stats.errors}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      </div>
+  `, false) : "";
+
+  const switchHtml = modelSwitches.length ? renderCollapsibleSection("Model Switches", `
+      <div style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--muted);">Biggest switch cost: <strong style="color: var(--text);">${biggestSwitch ? `${escapeHtml(biggestSwitch.from)} → ${escapeHtml(biggestSwitch.to)} (${formatUsd(biggestSwitch.cost)})` : "-"}</strong></div>
+      <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th class="num-cell">Cost Impact</th>
+            <th class="num-cell">New Context Tokens</th>
+            <th class="num-cell">Provider Changed</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${modelSwitches.map((sw: any) => `
+            <tr>
+              <td><span class="badge badge-system">${escapeHtml(sw.from)}</span> → <span class="badge badge-llm">${escapeHtml(sw.to)}</span></td>
+              <td class="num-cell">${formatUsd(sw.cost)}</td>
+              <td class="num-cell">${formatTokens(sw.tokens)}</td>
+              <td class="num-cell">${sw.providerChanged ? "Yes" : "No"}</td>
+              <td><span class="session-sub">#${sw.index} • ${formatTime(sw.timestamp)} • ${Math.round(sw.timeDelta / 1000)}s since previous completion</span></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+      </div>
+  `, false) : "";
+
+  const body = `<div class="container" id="top">
     <section class="hero">
       <div class="hero-top">
         <div>
@@ -773,33 +1059,46 @@ export function generateHtmlReport(data: any): string {
       <div class="metrics">
         <div class="metric-card"><small>Total Cost</small><strong>${formatUsd(data.activity?.totals?.totalCostUsd)}</strong></div>
         <div class="metric-card"><small>Total Tokens</small><strong>${Number(data.activity?.totals?.totalTokens || 0).toLocaleString()}</strong></div>
-        <div class="metric-card"><small>Input Tokens</small><strong>${Number(data.activity?.totals?.inputTokens || 0).toLocaleString()}</strong></div>
-        <div class="metric-card"><small>Output Tokens</small><strong>${Number(data.activity?.totals?.outputTokens || 0).toLocaleString()}</strong></div>
-        <div class="metric-card"><small>Tool Calls</small><strong>${Number(data.activity?.toolCallCount || 0)}</strong></div>
-        <div class="metric-card"><small>Events</small><strong>${visibleEvents.length}</strong></div>
+        <div class="metric-card"><small>Duration</small><strong>${formatMs(data.session?.durationMs || data.activity?.durationMs)}</strong></div>
+      </div>
+      <div class="tiny-breakdown">
+        <span>Input <strong>${formatTokens(data.activity?.totals?.inputTokens || 0)}</strong></span>
+        <span>Output <strong>${formatTokens(data.activity?.totals?.outputTokens || 0)}</strong></span>
+        <span>Cache Read <strong>${formatTokens(data.activity?.totals?.cacheReadTokens || 0)}</strong></span>
+        <span>Cache Write <strong>${formatTokens(data.activity?.totals?.cacheWriteTokens || 0)}</strong></span>
+        <span>Switches <strong>${modelSummary ? modelSummary.switchCount : 0}</strong></span>
+        <span>Unique Models <strong>${modelSummary ? modelSummary.uniqueModels : 0}</strong></span>
+        <span>Tool Calls <strong>${Number(data.activity?.toolCallCount || 0)}</strong></span>
+        <span>Events <strong>${visibleEvents.length}</strong></span>
       </div>
     </section>
-    <section class="panel">
-      <h2 class="section-title">Run Summary</h2>
-      <div style="padding: 16px;" class="stack">
-        ${renderJsonBlock("Session", data.session || {})}
-        ${renderJsonBlock("Task", task || { workflow: "generic", id: null })}
-        ${renderJsonBlock("Conditions", data.conditions || {})}
-        ${renderJsonBlock("Activity", data.activity || {})}
+
+    ${renderCollapsibleSection("Run Summary", `
+      <div style="padding: 18px 20px; display: grid; gap: 14px;">
+        <div style="color: var(--muted); line-height: 1.7;">
+          <strong style="color: var(--text);">${escapeHtml(taskDisplay(task || { workflow: "generic", id: null }))}</strong>
+          ran for <strong style="color: var(--text);">${formatMs(data.session?.durationMs || data.activity?.durationMs)}</strong>,
+          used <strong style="color: var(--text);">${formatTokens(data.activity?.totals?.totalTokens || 0)}</strong> tokens,
+          cost <strong style="color: var(--text);">${formatUsd(data.activity?.totals?.totalCostUsd)}</strong>.
+        </div>
+        <div class="tiny-breakdown" style="margin: 0;">
+          <span>Session <strong>${escapeHtml(data.session?.id || data.traceId || "-")}</strong></span>
+          <span>Started <strong>${formatDateLong(data.session?.startedAt)}</strong></span>
+          <span>Workflow <strong>${escapeHtml(task?.workflow || "generic")}</strong></span>
+          <span>LLM Calls <strong>${Number(data.activity?.llmCallCount || 0)}</strong></span>
+          <span>Tool Errors <strong>${Number(data.activity?.toolErrorCount || 0)}</strong></span>
+          <span>Providers <strong>${escapeHtml((data.conditions?.providers || []).join(", ") || "-")}</strong></span>
+        </div>
       </div>
-    </section>
-    <section class="panel" style="margin-top: 24px;">
-      <h2 class="section-title">Dynamic Extension Telemetry</h2>
-      <div style="padding: 16px;" class="stack">
-        ${Object.entries(data.telemetry?.extensions || {}).length ? Object.entries(data.telemetry.extensions).map(([name, ext]: [string, any]) => renderJsonBlock(`${name} (${formatTelemetryStatus(ext?.status)})`, { summary: ext?.summary || null, ...ext?.details })).join("") : `<div class="empty">No extension telemetry captured for this run.</div>`}
-      </div>
-    </section>
-    <section class="panel" style="margin-top: 24px;">
-      <h2 class="section-title">Timeline</h2>
-      <div style="padding: 16px;">
+    `, false)}
+    ${renderCollapsibleSection("Timeline", `<div style="padding: 16px;">
         <div class="timeline">${visibleEvents.map(renderEventCard).join("") || `<div class="empty">No visible events captured.</div>`}</div>
-      </div>
-    </section>
+      </div>`, false)}
+    ${modelHtml}
+    ${switchHtml}
+    ${renderCollapsibleSection("Dynamic Extension Telemetry", `<div style="padding: 16px;" class="stack">
+        ${Object.entries(data.telemetry?.extensions || {}).length ? Object.entries(data.telemetry.extensions).map(([name, ext]: [string, any]) => renderJsonBlock(`${name} (${formatTelemetryStatus(ext?.status)})`, { summary: ext?.summary || null, ...ext?.details })).join("") : `<div class="empty">No extension telemetry captured for this run.</div>`}
+      </div>`, false)}
     <footer class="footer-note stack">
       <div class="footer-brand">notrace</div>
       <div class="footer-tagline">Local-first retrospective engine</div>

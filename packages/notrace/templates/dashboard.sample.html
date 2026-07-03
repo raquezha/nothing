@@ -55,6 +55,30 @@
       gap: 16px;
       align-items: start;
     }
+    .hero-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .hero-right {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+      min-width: 0;
+    }
+    .hero-session {
+      display: grid;
+      gap: 4px;
+      text-align: right;
+      min-width: 0;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
     .brand { margin-bottom: 10px; }
     .brand-link {
       display: inline-flex;
@@ -133,11 +157,52 @@
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 18px;
+      min-width: 0;
     }
     .metric-card small { display: block; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; font-weight: 700; }
-    .metric-card strong { display: block; margin-top: 8px; font-size: 1.55rem; }
+    .metric-card strong { display: block; margin-top: 8px; font-size: clamp(1rem, 2vw, 1.55rem); overflow-wrap: anywhere; }
     .panel { padding: 0; overflow: hidden; }
     .section-title { margin: 0; padding: 20px 22px; border-bottom: 1px solid var(--border); font-size: 1rem; }
+    .summary-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .kv-card {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .kv-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .kv-list { display: grid; gap: 8px; }
+    .kv-row { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .kv-key { color: var(--muted); }
+    .kv-value { color: var(--text); text-align: right; word-break: break-word; }
+    .tiny-breakdown {
+      margin-top: -10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .tiny-breakdown strong { color: var(--text); font-size: inherit; font-weight: 600; }
+    .collapsible { margin-top: 24px; }
+    .collapsible > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; font-size: 1rem; font-weight: 700; }
+    .collapsible > summary::-webkit-details-marker { display: none; }
+    .collapsible > summary:hover { background: rgba(255,255,255,0.02); }
+    .collapsible > summary::after { content: "▾"; color: var(--muted); font-size: 0.9rem; }
+    .collapsible:not([open]) > summary::after { content: "▸"; }
     .empty { padding: 32px 22px; color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -279,6 +344,8 @@
       margin: 0;
       background: transparent;
       border: none;
+      max-height: 400px;
+      overflow-y: auto;
     }
     .footer-note {
       margin-top: 22px;
@@ -333,17 +400,46 @@
       border-color: rgba(216,132,98,0.45);
       background: var(--accent-soft);
     }
+    .back-to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(12,11,10,0.88);
+      color: var(--text);
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 160ms ease, transform 160ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .back-to-top.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .back-to-top:hover { border-color: rgba(216,132,98,0.45); background: rgba(216,132,98,0.12); }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
-      .hero-top { grid-template-columns: 1fr; }
-      .meta { justify-content: flex-start; margin-top: 8px; }
-      .wordmark { width: 280px; height: 92px; }
+      .hero-top, .hero-split { grid-template-columns: 1fr; }
+      .meta, .hero-meta { justify-content: flex-start; margin-top: 8px; }
+      .hero-right, .hero-session { justify-items: start; text-align: left; }
+      .wordmark { width: min(280px, 100%); height: auto; }
+      .metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
       th:nth-child(5), td:nth-child(5) { display: none; }
       .event summary { align-items: flex-start; }
     }
   </style>
 </head>
-<body><div class="container">
+<body><a href="#top" class="back-to-top" aria-label="Back to top">↑ Top</a><div class="container">
     <section class="hero">
       <div class="hero-split">
         <a class="brand-link" href="index.html"><svg class="wordmark" viewBox="0 0 420 138" aria-label="notrace" role="img" xmlns="http://www.w3.org/2000/svg">
@@ -370,20 +466,20 @@
             <span style="color: var(--muted);">Machine-wide session evidence.</span>
           </div>
           <div class="hero-meta">
-            <span class="hero-pill">3 sessions</span>
+            <span class="hero-pill">4 sessions</span>
           </div>
         </div>
       </div>
       <div class="metrics">
-        <div class="metric-card"><small>Sessions</small><strong>3</strong></div>
-        <div class="metric-card"><small>Total Tokens</small><strong>15,174</strong></div>
-        <div class="metric-card"><small>Total Cost</small><strong>$0.08050</strong></div>
+        <div class="metric-card"><small>Sessions</small><strong>4</strong></div>
+        <div class="metric-card"><small>Total Tokens</small><strong>5,115,174</strong></div>
+        <div class="metric-card"><small>Total Cost</small><strong>$75.58050</strong></div>
       </div>
     </section>
     <section class="panel">
       <h2 class="section-title">Session Reports</h2>
       <table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th>Project</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody>
-      <tr data-index="3" data-workflow="Generic" data-started="1781691240000" data-tokens="5910" data-cost="0.0334"><td class="index-cell">3</td><td><a class="session-link" href="sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1002-76ee-b353-000000000003</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>18:14</span></div></td><td>General session</td><td class="num-cell">5,910</td><td class="num-cell">$0.03340</td></tr><tr data-index="2" data-workflow="Research" data-started="1781689020000" data-tokens="5754" data-cost="0.0267"><td class="index-cell">2</td><td><a class="session-link" href="sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1001-76ee-b353-000000000002</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-research">Research</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:37</span></div></td><td>Branch topic-02</td><td class="num-cell">5,754</td><td class="num-cell">$0.02670</td></tr><tr data-index="1" data-workflow="RPIV" data-started="1781686800000" data-tokens="3510" data-cost="0.0204"><td class="index-cell">1</td><td><a class="session-link" href="sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1000-76ee-b353-000000000001</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-rpiv">RPIV</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:00</span></div></td><td>NR-101</td><td class="num-cell">3,510</td><td class="num-cell">$0.02040</td></tr>
+      <tr data-index="4" data-workflow="Generic" data-started="1781784000000" data-tokens="5100000" data-cost="75.5"><td class="index-cell">4</td><td><a class="session-link" href="sessions/019ed2ee-massive/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-massive</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-18</strong><span>20:00</span></div></td><td>test-massive</td><td class="num-cell">5,100,000</td><td class="num-cell">$75.50000</td></tr><tr data-index="3" data-workflow="Generic" data-started="1781691240000" data-tokens="5910" data-cost="0.0334"><td class="index-cell">3</td><td><a class="session-link" href="sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1002-76ee-b353-000000000003</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>18:14</span></div></td><td>General session</td><td class="num-cell">5,910</td><td class="num-cell">$0.03340</td></tr><tr data-index="2" data-workflow="Research" data-started="1781689020000" data-tokens="5754" data-cost="0.0267"><td class="index-cell">2</td><td><a class="session-link" href="sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1001-76ee-b353-000000000002</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-research">Research</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:37</span></div></td><td>Branch topic-02</td><td class="num-cell">5,754</td><td class="num-cell">$0.02670</td></tr><tr data-index="1" data-workflow="RPIV" data-started="1781686800000" data-tokens="3510" data-cost="0.0204"><td class="index-cell">1</td><td><a class="session-link" href="sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1000-76ee-b353-000000000001</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-rpiv">RPIV</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:00</span></div></td><td>NR-101</td><td class="num-cell">3,510</td><td class="num-cell">$0.02040</td></tr>
       </tbody></table>
     </section>
     <footer class="footer-note minimal">notrace • raquezha 2026</footer>

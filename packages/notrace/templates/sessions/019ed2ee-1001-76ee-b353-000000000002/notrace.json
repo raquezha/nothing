@@ -125,6 +125,56 @@
         }
       },
       "timestamp": 1781705111000
+    },
+    {
+      "type": "llm_completion",
+      "model": "gpt-4o",
+      "provider": "openai",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "massive analysis"
+          }
+        ]
+      },
+      "outputContent": "done.",
+      "usage": {
+        "input": 1540000,
+        "output": 450,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 1540450,
+        "cost": {
+          "total": 7.70225
+        }
+      },
+      "timestamp": 1781705150000
+    },
+    {
+      "type": "llm_completion",
+      "model": "claude-sonnet-4",
+      "provider": "anthropic",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "polish"
+          }
+        ]
+      },
+      "outputContent": "done.",
+      "usage": {
+        "input": 84000,
+        "output": 250,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 84250,
+        "cost": {
+          "total": 0.42
+        }
+      },
+      "timestamp": 1781705200000
     }
   ],
   "navigation": {

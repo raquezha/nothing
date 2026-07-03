@@ -26,9 +26,16 @@
       "adapter": "pi-session-hooks",
       "version": null
     },
-    "models": ["claude-sonnet-4"],
-    "providers": ["anthropic"],
-    "extensions": ["notrace", "noheadroom"]
+    "models": [
+      "claude-sonnet-4"
+    ],
+    "providers": [
+      "anthropic"
+    ],
+    "extensions": [
+      "notrace",
+      "noheadroom"
+    ]
   },
   "activity": {
     "turnCount": 18,
@@ -41,8 +48,8 @@
       "outputTokens": 179,
       "cacheReadTokens": 0,
       "cacheWriteTokens": 0,
-      "totalTokens": 3299,
-      "totalCostUsd": 0.02064
+      "totalTokens": 1626956,
+      "totalCostUsd": 8.13676
     }
   },
   "telemetry": {
@@ -64,7 +71,9 @@
             "tokensSaved": 5778,
             "compressionRatio": 0.7603,
             "appliedMessages": 3,
-            "transformsApplied": ["tool-result-compression"]
+            "transformsApplied": [
+              "tool-result-compression"
+            ]
           }
         }
       }
@@ -122,6 +131,56 @@
         }
       },
       "timestamp": 1781705111000
+    },
+    {
+      "type": "llm_completion",
+      "model": "gpt-4o",
+      "provider": "openai",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "massive analysis"
+          }
+        ]
+      },
+      "outputContent": "done.",
+      "usage": {
+        "input": 1540000,
+        "output": 450,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 1540450,
+        "cost": {
+          "total": 7.70225
+        }
+      },
+      "timestamp": 1781705150000
+    },
+    {
+      "type": "llm_completion",
+      "model": "claude-sonnet-4",
+      "provider": "anthropic",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "polish"
+          }
+        ]
+      },
+      "outputContent": "done.",
+      "usage": {
+        "input": 84000,
+        "output": 250,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 84250,
+        "cost": {
+          "total": 0.42
+        }
+      },
+      "timestamp": 1781705200000
     }
   ]
 }
