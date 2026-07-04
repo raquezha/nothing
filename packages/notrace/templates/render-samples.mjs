@@ -1,7 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateDashboardHtml, generateHtmlReport } from "../dist/notrace/renderer.js";
+import { generateDashboardHtml } from "../dist/notrace/report-app/dashboard-report.js";
+import { generateHtmlReport } from "../dist/notrace/report-app/report.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dashboardData = JSON.parse(readFileSync(path.join(here, "dashboard.sample.json"), "utf8"));
