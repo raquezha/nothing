@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, chmodSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { execSync } from "node:child_process";
@@ -81,14 +81,18 @@ function asNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | "outputTokens" | "cacheReadTokens" | "cacheWriteTokens" | "totalTokens">> & { totalCostUsd: number } {
+export function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | "outputTokens" | "cacheReadTokens" | "cacheWriteTokens" | "totalTokens">> & { totalCostUsd: number } {
   const usage = (raw && typeof raw === "object" ? raw : {}) as UsageLike;
+  const inputTokens = asNumber(usage.inputTokens ?? usage.input);
+  const outputTokens = asNumber(usage.outputTokens ?? usage.output);
+  const cacheReadTokens = asNumber(usage.cacheReadTokens ?? usage.cacheRead);
+  const cacheWriteTokens = asNumber(usage.cacheWriteTokens ?? usage.cacheWrite);
   return {
-    inputTokens: asNumber(usage.inputTokens ?? usage.input),
-    outputTokens: asNumber(usage.outputTokens ?? usage.output),
-    cacheReadTokens: asNumber(usage.cacheReadTokens ?? usage.cacheRead),
-    cacheWriteTokens: asNumber(usage.cacheWriteTokens ?? usage.cacheWrite),
-    totalTokens: asNumber(usage.totalTokens),
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    totalTokens: usage.totalTokens == null ? inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens : asNumber(usage.totalTokens),
     totalCostUsd: asNumber(usage.cost?.total),
   };
 }
@@ -300,19 +304,27 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     }
   }
 
-  try {
-    const existing = readJsonFile<any>(indexPath, { sessions: [] });
-    let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
-    
-    if (!isGhostSession) {
-      sessions.push(createIndexEntry(record, htmlPath, recordPath));
-    }
-    
-    writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
-    writePrivateFileAtomic(path.join(deps.notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
-  } finally {
-    if (lockAcquired && existsSync(lockPath)) {
-      try { import("node:fs").then(fs => fs.rmSync ? fs.rmSync(lockPath) : fs.unlinkSync(lockPath)); } catch {}
+  if (!lockAcquired) {
+    // Could not get exclusive access to the index after retrying. Skip the
+    // index/dashboard update rather than racing another process's
+    // read-modify-write on index.json. The per-session record and HTML
+    // report were already written above and are not affected.
+    console.warn(`[notrace] Could not acquire index lock, skipping index update for ${finalTraceId}`);
+  } else {
+    try {
+      const existing = readJsonFile<any>(indexPath, { sessions: [] });
+      let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
+
+      if (!isGhostSession) {
+        sessions.push(createIndexEntry(record, htmlPath, recordPath));
+      }
+
+      writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
+      writePrivateFileAtomic(path.join(deps.notraceDir, "index.html"), generateDashboardHtml(sessions, {}));
+    } finally {
+      if (existsSync(lockPath)) {
+        try { rmSync(lockPath); } catch {}
+      }
     }
   }
 
