@@ -81,14 +81,18 @@ function asNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | "outputTokens" | "cacheReadTokens" | "cacheWriteTokens" | "totalTokens">> & { totalCostUsd: number } {
+export function normalizeUsage(raw: unknown): Required<Pick<UsageLike, "inputTokens" | "outputTokens" | "cacheReadTokens" | "cacheWriteTokens" | "totalTokens">> & { totalCostUsd: number } {
   const usage = (raw && typeof raw === "object" ? raw : {}) as UsageLike;
+  const inputTokens = asNumber(usage.inputTokens ?? usage.input);
+  const outputTokens = asNumber(usage.outputTokens ?? usage.output);
+  const cacheReadTokens = asNumber(usage.cacheReadTokens ?? usage.cacheRead);
+  const cacheWriteTokens = asNumber(usage.cacheWriteTokens ?? usage.cacheWrite);
   return {
-    inputTokens: asNumber(usage.inputTokens ?? usage.input),
-    outputTokens: asNumber(usage.outputTokens ?? usage.output),
-    cacheReadTokens: asNumber(usage.cacheReadTokens ?? usage.cacheRead),
-    cacheWriteTokens: asNumber(usage.cacheWriteTokens ?? usage.cacheWrite),
-    totalTokens: asNumber(usage.totalTokens),
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    totalTokens: usage.totalTokens == null ? inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens : asNumber(usage.totalTokens),
     totalCostUsd: asNumber(usage.cost?.total),
   };
 }
