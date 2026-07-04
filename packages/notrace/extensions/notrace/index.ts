@@ -284,12 +284,14 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   };
 
   validateRunRecord(record);
-  const html = generateHtmlReport(record);
-
-  mkdirSync(outputDir, { recursive: true });
   const htmlPath = path.join(outputDir, "notrace.html");
-  writePrivateFileAtomic(htmlPath, html);
-  writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+
+  if (!isGhostSession) {
+    const html = generateHtmlReport(record);
+    mkdirSync(outputDir, { recursive: true });
+    writePrivateFileAtomic(htmlPath, html);
+    writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+  }
 
   const indexPath = path.join(deps.notraceDir, "index.json");
   const lockPath = `${indexPath}.lock`;
@@ -328,7 +330,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     }
   }
 
-  if (context) {
+  if (context && !isGhostSession) {
     const displayPath = htmlPath.startsWith(os.homedir()) 
       ? `~${htmlPath.slice(os.homedir().length)}` 
       : htmlPath;
@@ -338,7 +340,9 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     });
   }
 
-  console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
+  if (!isGhostSession) {
+    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
+  }
 }
 
 function normalizeTelemetryPayload(raw: unknown): { extension: string; telemetry: NotraceExtensionTelemetry } | null {
