@@ -1,5 +1,15 @@
 # @raquezha/notrace
 
+## 0.2.0
+
+### Minor Changes
+
+- 382b624: Add model usage breakdowns, switch insights, lazy timeline rendering, and refreshed report samples.
+
+### Patch Changes
+
+- 04d574e: Refactor notrace report rendering into modular report-app files and add focused regression coverage without changing package dependencies or entrypoints.
+
 ## 0.1.2
 
 ### Patch Changes

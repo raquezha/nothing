@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.0.8
+
+### Patch Changes
+
+- 49f3462: Update routing to match available backend models
+
 ## 0.0.7
 
 ### Patch Changes
