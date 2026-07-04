@@ -9,11 +9,15 @@ export function groupByModel(events: any[]): Record<string, any> {
     const m = models[name];
     m.count++;
     if (ev.usage) {
-      m.inputTokens += Number(ev.usage.inputTokens || ev.usage.input || 0);
-      m.outputTokens += Number(ev.usage.outputTokens || ev.usage.output || 0);
-      m.totalTokens += Number(ev.usage.totalTokens || 0);
-      m.cacheRead += Number(ev.usage.cacheReadTokens || ev.usage.cacheRead || 0);
-      m.cacheWrite += Number(ev.usage.cacheWriteTokens || ev.usage.cacheWrite || 0);
+      const input = Number(ev.usage.inputTokens || ev.usage.input || 0);
+      const output = Number(ev.usage.outputTokens || ev.usage.output || 0);
+      const cacheR = Number(ev.usage.cacheReadTokens || ev.usage.cacheRead || 0);
+      const cacheW = Number(ev.usage.cacheWriteTokens || ev.usage.cacheWrite || 0);
+      m.inputTokens += input;
+      m.outputTokens += output;
+      m.cacheRead += cacheR;
+      m.cacheWrite += cacheW;
+      m.totalTokens += Number(ev.usage.totalTokens || (input + output + cacheR + cacheW));
       m.cost += Number(ev.usage.cost?.total || 0);
     }
     if (ev.errorMessage) m.errors++;
@@ -33,6 +37,9 @@ export function buildModelSwitches(events: any[]): any[] {
     completionIndex++;
     const currentModel = ev.model || "unknown";
     const currentProvider = ev.provider || "unknown";
+    const currentTimestamp = ev.timestamp ? new Date(ev.timestamp).getTime() : 0;
+    const validTimestamp = Number.isNaN(currentTimestamp) ? 0 : currentTimestamp;
+
     if (lastModel && lastModel !== currentModel) {
       switches.push({
         index: completionIndex,
@@ -41,15 +48,15 @@ export function buildModelSwitches(events: any[]): any[] {
         fromProvider: lastProvider || "unknown",
         toProvider: currentProvider,
         providerChanged: (lastProvider || "unknown") !== currentProvider,
-        timestamp: ev.timestamp,
-        timeDelta: lastTime ? ev.timestamp - lastTime : 0,
+        timestamp: validTimestamp,
+        timeDelta: lastTime ? validTimestamp - lastTime : 0,
         cost: Number(ev.usage?.cost?.total || 0),
         tokens: Number(ev.usage?.totalTokens || 0)
       });
     }
     lastModel = currentModel;
     lastProvider = currentProvider;
-    lastTime = ev.timestamp;
+    lastTime = validTimestamp;
   }
   return switches;
 }

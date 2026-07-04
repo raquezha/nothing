@@ -12,7 +12,7 @@ export function renderUniversalMessageContent(m: any): string {
       if (!block) return "";
       if (block.type === "text") return `<div class="chat-text">${escapeHtml(block.text)}</div>`;
       if (block.type === "tool_use") return renderToolUseHtml(block.name, block.input);
-      if (block.type === "tool_result") return renderToolResultHtml(block.tool_use_id || "unknown", block.content);
+      if (block.type === "tool_result") return renderToolResultHtml(block.tool_use_id || "unknown", block.content, block.is_error === true);
       return `<pre class="chat-tool-body">${escapeHtml(JSON.stringify(block, null, 2))}</pre>`;
     }).join("");
   } else if (m.content && typeof m.content === "object") {
@@ -28,7 +28,7 @@ export function renderUniversalMessageContent(m: any): string {
 
   if (m.function_call) html += renderToolUseHtml(m.function_call.name, m.function_call.arguments);
 
-  if (m.role === "tool") html = renderToolResultHtml(m.tool_call_id || m.name || "unknown", m.content);
+  if (m.role === "tool") html = renderToolResultHtml(m.tool_call_id || m.name || "unknown", m.content, m.is_error === true);
 
   return html || `<div class="empty">Empty message</div>`;
 }
