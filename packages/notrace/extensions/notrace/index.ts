@@ -13,7 +13,8 @@ import type {
   WorkflowContext,
 } from "./types.js";
 import { getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
-import { generateHtmlReport, generateDashboardHtml } from "./renderer.js";
+import { generateHtmlReport } from "./report-app/report.js";
+import { generateDashboardHtml } from "./report-app/dashboard-report.js";
 
 const REDACTED = "[REDACTED by notrace]";
 const SENSITIVE_VALUE_RE = /(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{16,}|AKIA[0-9A-Z]{16})/gi;

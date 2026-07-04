@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>notrace</title><link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20role%3D%22img%22%3E%3Ctitle%3Enotrace%20logo%20mark%3C%2Ftitle%3E%3Cdesc%3EA%20wave%20that%20smooths%20into%20a%20flat%20line%2C%20then%20fades%20into%20dots%20%E2%80%94%20color%20shifts%20from%20trace%20orange%20to%20no%20cream%20as%20it%20dissolves.%3C%2Fdesc%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22fadeGrad%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%220%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23E2754A%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23EDE2D2%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cg%20id%3D%22trace-icon%22%3E%3Cpath%20d%3D%22M6%2C50%20C16%2C18%2026%2C18%2036%2C50%20C46%2C82%2054%2C82%2060%2C50%20C64%2C30%2068%2C30%2071%2C50%22%20fill%3D%22none%22%20stroke%3D%22url(%23fadeGrad)%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cline%20x1%3D%2274%22%20y1%3D%2250%22%20x2%3D%2279%22%20y2%3D%2250%22%20stroke%3D%22%23D9C9B5%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%20stroke-opacity%3D%220.6%22%2F%3E%3Ccircle%20cx%3D%2285%22%20cy%3D%2250%22%20r%3D%222.2%22%20fill%3D%22%23D9C9B5%22%20opacity%3D%220.5%22%2F%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%2250%22%20r%3D%221.4%22%20fill%3D%22%23EDE2D2%22%20opacity%3D%220.32%22%2F%3E%3Ccircle%20cx%3D%2294%22%20cy%3D%2250%22%20r%3D%220.9%22%20fill%3D%22%23EDE2D2%22%20opacity%3D%220.15%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"><style>:root {
+export const STYLES = `:root {
       --bg: #0c0b0a;
       --panel: rgba(255,255,255,0.04);
       --panel-strong: rgba(255,255,255,0.06);
@@ -428,56 +428,4 @@
       .metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
       th:nth-child(5), td:nth-child(5) { display: none; }
       .event summary { align-items: flex-start; }
-    }</style></head><body><div class="container"><section class="hero"><div class="hero-split"><a class="brand-link" href="index.html"><svg class="wordmark" viewBox="0 0 420 138" aria-label="notrace" role="img" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="fadeGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#E2754A"/><stop offset="100%" stop-color="#EDE2D2"/></linearGradient></defs><g id="trace-icon" transform="translate(1 -18) scale(0.93)"><path d="M6,50 C16,18 26,18 36,50 C46,82 54,82 60,50 C64,30 68,30 71,50" fill="none" stroke="url(#fadeGrad)" stroke-width="4" stroke-linecap="round"/><line x1="74" y1="50" x2="79" y2="50" stroke="#D9C9B5" stroke-width="4" stroke-linecap="round" stroke-opacity="0.6"/><circle cx="85" cy="50" r="2.2" fill="#D9C9B5" opacity="0.5"/><circle cx="90" cy="50" r="1.4" fill="#EDE2D2" opacity="0.32"/><circle cx="94" cy="50" r="0.9" fill="#EDE2D2" opacity="0.15"/></g><text x="0" y="114" fill="#ECE3DA" style="fill:#ECE3DA" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">no</text><text x="82" y="114" fill="#d88462" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="900" letter-spacing="-7">trace</text></svg></a><div class="hero-right"><div class="hero-session"><strong style="color: var(--text); font-weight: 500;">Global Index</strong><span style="color: var(--muted);">Machine-wide session evidence.</span></div><div class="hero-meta"><span class="hero-pill">4 sessions</span></div></div></div><div class="metrics"><div class="metric-card"><small>Sessions</small><strong>4</strong></div><div class="metric-card"><small>Total Tokens</small><strong>5,115,174</strong></div><div class="metric-card"><small>Total Cost</small><strong>$75.58050</strong></div></div></section><section class="panel"><h2 class="section-title">Session Reports</h2><table data-dashboard-table><thead><tr><th class="col-index sortable-head"><button class="sort-btn" data-sort-key="index"><span class="sort-label">#</span><span class="sort-state">↓</span></button></th><th>Session</th><th>Project</th><th class="sortable-head"><button class="sort-btn" data-sort-key="workflow"><span class="sort-label">Workflow</span><span class="sort-state"></span></button></th><th class="sortable-head"><button class="sort-btn" data-sort-key="started"><span class="sort-label">Started</span><span class="sort-state"></span></button></th><th>Task</th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="tokens"><span class="sort-label">Tokens</span><span class="sort-state"></span></button></th><th class="sortable-head num-cell"><button class="sort-btn" data-sort-key="cost"><span class="sort-label">Cost</span><span class="sort-state"></span></button></th></tr></thead><tbody><tr data-index="4" data-workflow="Generic" data-started="1781784000000" data-tokens="5100000" data-cost="75.5"><td class="index-cell">4</td><td><a class="session-link" href="sessions/019ed2ee-massive/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-massive</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-18</strong><span>20:00</span></div></td><td>test-massive</td><td class="num-cell">5,100,000</td><td class="num-cell">$75.50000</td></tr><tr data-index="3" data-workflow="Generic" data-started="1781691240000" data-tokens="5910" data-cost="0.0334"><td class="index-cell">3</td><td><a class="session-link" href="sessions/019ed2ee-1002-76ee-b353-000000000003/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1002-76ee-b353-000000000003</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-generic">Generic</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>18:14</span></div></td><td>General session</td><td class="num-cell">5,910</td><td class="num-cell">$0.03340</td></tr><tr data-index="2" data-workflow="Research" data-started="1781689020000" data-tokens="5754" data-cost="0.0267"><td class="index-cell">2</td><td><a class="session-link" href="sessions/019ed2ee-1001-76ee-b353-000000000002/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1001-76ee-b353-000000000002</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-research">Research</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:37</span></div></td><td>Branch topic-02</td><td class="num-cell">5,754</td><td class="num-cell">$0.02670</td></tr><tr data-index="1" data-workflow="RPIV" data-started="1781686800000" data-tokens="3510" data-cost="0.0204"><td class="index-cell">1</td><td><a class="session-link" href="sessions/019ed2ee-1000-76ee-b353-000000000001/notrace.html"><strong>019ed2ee</strong><span class="session-sub">019ed2ee-1000-76ee-b353-000000000001</span></a></td><td><span class="hero-pill">Unknown</span></td><td><span class="workflow-pill workflow-rpiv">RPIV</span></td><td><div class="date-cell"><strong>2026-06-17</strong><span>17:00</span></div></td><td>NR-101</td><td class="num-cell">3,510</td><td class="num-cell">$0.02040</td></tr></tbody></table></section><footer class="footer-note minimal">notrace • raquezha 2026</footer></div><script>(() => {
-    const table = document.querySelector('[data-dashboard-table]');
-    if (!table) return;
-    const tbody = table.querySelector('tbody');
-    if (!tbody) return;
-    const buttons = Array.from(document.querySelectorAll('[data-sort-key]'));
-    let currentKey = 'index';
-    let currentDir = 'desc';
-
-    function icon(dir) {
-      return dir === 'asc' ? '↑' : '↓';
-    }
-
-    function updateState() {
-      buttons.forEach(btn => {
-        const key = btn.getAttribute('data-sort-key');
-        const state = btn.querySelector('.sort-state');
-        if (!state) return;
-        state.textContent = key === currentKey ? icon(currentDir) : '';
-      });
-    }
-
-    function compare(a, b, key) {
-      if (key === 'index' || key === 'started' || key === 'tokens' || key === 'cost') {
-        return Number(a.dataset[key] || 0) - Number(b.dataset[key] || 0);
-      }
-      return String(a.dataset[key] || '').localeCompare(String(b.dataset[key] || ''));
-    }
-
-    function sortBy(key) {
-      const rows = Array.from(tbody.querySelectorAll('tr'));
-      rows.sort((a, b) => {
-        const result = compare(a, b, key);
-        return currentDir === 'asc' ? result : -result;
-      });
-      rows.forEach(row => tbody.appendChild(row));
-      updateState();
-    }
-
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = btn.getAttribute('data-sort-key') || 'index';
-        if (currentKey === key) currentDir = currentDir === 'asc' ? 'desc' : 'asc';
-        else {
-          currentKey = key;
-          currentDir = key === 'workflow' ? 'asc' : 'desc';
-        }
-        sortBy(currentKey);
-      });
-    });
-
-    sortBy(currentKey);
-  })();</script></body></html>
+    }`;
