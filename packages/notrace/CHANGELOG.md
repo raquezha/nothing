@@ -1,5 +1,13 @@
 # @raquezha/notrace
 
+## 0.1.2
+
+### Patch Changes
+
+- a0f076e: Fix notrace index lock behavior under contention and add regression coverage for lock handling and usage normalization.
+- 894da0a: Add Vitest scaffolding and extract `handleSessionShutdown` for testability with no intended runtime behavior change.
+- 9d6c8b2: Skip writing per-session notrace artifacts for ghost sessions and add regression coverage for ghost vs non-ghost shutdown behavior.
+
 ## 0.1.1
 
 ### Patch Changes
