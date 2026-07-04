@@ -55,6 +55,30 @@
       gap: 16px;
       align-items: start;
     }
+    .hero-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .hero-right {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+      min-width: 0;
+    }
+    .hero-session {
+      display: grid;
+      gap: 4px;
+      text-align: right;
+      min-width: 0;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
     .brand { margin-bottom: 10px; }
     .brand-link {
       display: inline-flex;
@@ -133,11 +157,52 @@
       border: 1px solid var(--border);
       border-radius: 18px;
       padding: 18px;
+      min-width: 0;
     }
     .metric-card small { display: block; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72rem; font-weight: 700; }
-    .metric-card strong { display: block; margin-top: 8px; font-size: 1.55rem; }
+    .metric-card strong { display: block; margin-top: 8px; font-size: clamp(1rem, 2vw, 1.55rem); overflow-wrap: anywhere; }
     .panel { padding: 0; overflow: hidden; }
     .section-title { margin: 0; padding: 20px 22px; border-bottom: 1px solid var(--border); font-size: 1rem; }
+    .summary-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .kv-card {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .kv-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .kv-list { display: grid; gap: 8px; }
+    .kv-row { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .kv-key { color: var(--muted); }
+    .kv-value { color: var(--text); text-align: right; word-break: break-word; }
+    .tiny-breakdown {
+      margin-top: -10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+    .tiny-breakdown strong { color: var(--text); font-size: inherit; font-weight: 600; }
+    .collapsible { margin-top: 24px; }
+    .collapsible > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 22px; font-size: 1rem; font-weight: 700; }
+    .collapsible > summary::-webkit-details-marker { display: none; }
+    .collapsible > summary:hover { background: rgba(255,255,255,0.02); }
+    .collapsible > summary::after { content: "▾"; color: var(--muted); font-size: 0.9rem; }
+    .collapsible:not([open]) > summary::after { content: "▸"; }
     .empty { padding: 32px 22px; color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -279,6 +344,8 @@
       margin: 0;
       background: transparent;
       border: none;
+      max-height: 400px;
+      overflow-y: auto;
     }
     .footer-note {
       margin-top: 22px;
@@ -333,17 +400,46 @@
       border-color: rgba(216,132,98,0.45);
       background: var(--accent-soft);
     }
+    .back-to-top {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(12,11,10,0.88);
+      color: var(--text);
+      text-decoration: none;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 160ms ease, transform 160ms ease, border-color 120ms ease, background 120ms ease;
+    }
+    .back-to-top.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .back-to-top:hover { border-color: rgba(216,132,98,0.45); background: rgba(216,132,98,0.12); }
       .container { padding: 20px 14px 48px; }
       .hero { padding: 20px; }
-      .hero-top { grid-template-columns: 1fr; }
-      .meta { justify-content: flex-start; margin-top: 8px; }
-      .wordmark { width: 280px; height: 92px; }
+      .hero-top, .hero-split { grid-template-columns: 1fr; }
+      .meta, .hero-meta { justify-content: flex-start; margin-top: 8px; }
+      .hero-right, .hero-session { justify-items: start; text-align: left; }
+      .wordmark { width: min(280px, 100%); height: auto; }
+      .metrics { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
       th:nth-child(5), td:nth-child(5) { display: none; }
       .event summary { align-items: flex-start; }
     }
   </style>
 </head>
-<body><div class="container">
+<body><a href="#top" class="back-to-top" aria-label="Back to top">↑ Top</a><div class="container" id="top">
     <section class="hero">
       <div class="hero-top">
         <div>
@@ -370,71 +466,173 @@
           <span class="pill">nothing</span>
           <span class="pill">Started 2026-06-17 22:05</span>
           <span class="pill">Mode: full</span>
-          <button class="export-btn" type="button" data-copy-value="{&quot;kind&quot;:&quot;notrace-export&quot;,&quot;traceId&quot;:&quot;019ed2ee-5252-76ee-b353-ad925a6bad31&quot;,&quot;repository&quot;:&quot;nothing&quot;,&quot;task&quot;:{&quot;workflow&quot;:&quot;research&quot;,&quot;id&quot;:&quot;branch:main&quot;,&quot;path&quot;:null,&quot;dir&quot;:null},&quot;metrics&quot;:{&quot;inputTokens&quot;:3120,&quot;outputTokens&quot;:179,&quot;cacheReadTokens&quot;:0,&quot;cacheWriteTokens&quot;:0,&quot;totalTokens&quot;:3299,&quot;totalCostUsd&quot;:0.02064},&quot;summary&quot;:&quot;compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results&quot;,&quot;events&quot;:[{&quot;model&quot;:&quot;claude-sonnet-4&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;Polish notrace HTML output and unify dashboard/session design.&quot;}],&quot;output&quot;:&quot;Found renderer split. Will move both pages to one shared shell and standardize styles.&quot;}]}" title="Copy session data for LLM/Agent context"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export</span></button>
+          <button class="export-btn" type="button" data-copy-value="{&quot;kind&quot;:&quot;notrace-export&quot;,&quot;traceId&quot;:&quot;019ed2ee-5252-76ee-b353-ad925a6bad31&quot;,&quot;repository&quot;:&quot;nothing&quot;,&quot;task&quot;:{&quot;workflow&quot;:&quot;research&quot;,&quot;id&quot;:&quot;branch:main&quot;,&quot;path&quot;:null,&quot;dir&quot;:null},&quot;metrics&quot;:{&quot;inputTokens&quot;:3120,&quot;outputTokens&quot;:179,&quot;cacheReadTokens&quot;:0,&quot;cacheWriteTokens&quot;:0,&quot;totalTokens&quot;:1626956,&quot;totalCostUsd&quot;:8.13676},&quot;summary&quot;:&quot;compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results&quot;,&quot;events&quot;:[{&quot;model&quot;:&quot;claude-sonnet-4&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;Polish notrace HTML output and unify dashboard/session design.&quot;}],&quot;output&quot;:&quot;Found renderer split. Will move both pages to one shared shell and standardize styles.&quot;},{&quot;model&quot;:&quot;gpt-4o&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;massive analysis&quot;}],&quot;output&quot;:&quot;done.&quot;},{&quot;model&quot;:&quot;claude-sonnet-4&quot;,&quot;input&quot;:[{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;polish&quot;}],&quot;output&quot;:&quot;done.&quot;}]}" title="Copy session data for LLM/Agent context"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export</span></button>
         </div>
       </div>
       <div class="metrics">
-        <div class="metric-card"><small>Total Cost</small><strong>$0.02064</strong></div>
-        <div class="metric-card"><small>Total Tokens</small><strong>3,299</strong></div>
-        <div class="metric-card"><small>Input Tokens</small><strong>3,120</strong></div>
-        <div class="metric-card"><small>Output Tokens</small><strong>179</strong></div>
-        <div class="metric-card"><small>Tool Calls</small><strong>4</strong></div>
-        <div class="metric-card"><small>Events</small><strong>3</strong></div>
+        <div class="metric-card"><small>Total Cost</small><strong>$8.13676</strong></div>
+        <div class="metric-card"><small>Total Tokens</small><strong>1,626,956</strong></div>
+        <div class="metric-card"><small>Duration</small><strong>3m 12s</strong></div>
+      </div>
+      <div class="tiny-breakdown">
+        <span>Input <strong>3.1k</strong></span>
+        <span>Output <strong>179</strong></span>
+        <span>Cache Read <strong>0</strong></span>
+        <span>Cache Write <strong>0</strong></span>
+        <span>Switches <strong>2</strong></span>
+        <span>Unique Models <strong>2</strong></span>
+        <span>Tool Calls <strong>4</strong></span>
+        <span>Events <strong>5</strong></span>
       </div>
     </section>
-    <section class="panel">
-      <h2 class="section-title">Run Summary</h2>
-      <div style="padding: 16px;" class="stack">
-        <section class="block"><h4>Session</h4><pre>{
-  &quot;id&quot;: &quot;019ed2ee-5252-76ee-b353-ad925a6bad31&quot;,
-  &quot;startedAt&quot;: &quot;2026-06-17T14:05:00.000Z&quot;,
-  &quot;endedAt&quot;: &quot;2026-06-17T14:08:12.000Z&quot;,
-  &quot;durationMs&quot;: 192000,
-  &quot;shutdownReason&quot;: &quot;quit&quot;
-}</pre></section>
-        <section class="block"><h4>Task</h4><pre>{
-  &quot;workflow&quot;: &quot;research&quot;,
-  &quot;id&quot;: &quot;branch:main&quot;,
-  &quot;path&quot;: null,
-  &quot;dir&quot;: null
-}</pre></section>
-        <section class="block"><h4>Conditions</h4><pre>{
-  &quot;harness&quot;: {
-    &quot;name&quot;: &quot;pi&quot;,
-    &quot;adapter&quot;: &quot;pi-session-hooks&quot;,
-    &quot;version&quot;: null
-  },
-  &quot;models&quot;: [
-    &quot;claude-sonnet-4&quot;
-  ],
-  &quot;providers&quot;: [
-    &quot;anthropic&quot;
-  ],
-  &quot;extensions&quot;: [
-    &quot;notrace&quot;,
-    &quot;noheadroom&quot;
-  ]
-}</pre></section>
-        <section class="block"><h4>Activity</h4><pre>{
-  &quot;turnCount&quot;: 18,
-  &quot;llmCallCount&quot;: 2,
-  &quot;toolCallCount&quot;: 4,
-  &quot;toolErrorCount&quot;: 1,
-  &quot;durationMs&quot;: 192000,
-  &quot;totals&quot;: {
-    &quot;inputTokens&quot;: 3120,
-    &quot;outputTokens&quot;: 179,
-    &quot;cacheReadTokens&quot;: 0,
-    &quot;cacheWriteTokens&quot;: 0,
-    &quot;totalTokens&quot;: 3299,
-    &quot;totalCostUsd&quot;: 0.02064
-  }
-}</pre></section>
+
+    <details class="panel collapsible"><summary>Run Summary</summary><div>
+      <div style="padding: 18px 20px; display: grid; gap: 14px;">
+        <div style="color: var(--muted); line-height: 1.7;">
+          <strong style="color: var(--text);">Branch main</strong>
+          ran for <strong style="color: var(--text);">3m 12s</strong>,
+          used <strong style="color: var(--text);">1.63M</strong> tokens,
+          cost <strong style="color: var(--text);">$8.13676</strong>.
+        </div>
+        <div class="tiny-breakdown" style="margin: 0;">
+          <span>Session <strong>019ed2ee-5252-76ee-b353-ad925a6bad31</strong></span>
+          <span>Started <strong>2026-06-17 22:05</strong></span>
+          <span>Workflow <strong>research</strong></span>
+          <span>LLM Calls <strong>2</strong></span>
+          <span>Tool Errors <strong>1</strong></span>
+          <span>Providers <strong>anthropic</strong></span>
+        </div>
       </div>
-    </section>
-    <section class="panel" style="margin-top: 24px;">
-      <h2 class="section-title">Dynamic Extension Telemetry</h2>
-      <div style="padding: 16px;" class="stack">
+    </div></details>
+    <details class="panel collapsible"><summary>Timeline</summary><div><div style="padding: 16px;">
+        <div class="timeline"><details class="event" data-lazy-event-body="%3Cdiv%20class%3D%22event-body%22%3E%3Cdiv%20class%3D%22stack%22%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EArguments%3C%2Fh4%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-tool-use%22%3E%3Cdiv%20class%3D%22chat-tool-header%22%3E%3Csvg%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M14.7%206.3a1%201%200%200%200%200%201.4l1.6%201.6a1%201%200%200%200%201.4%200l3.77-3.77a6%206%200%200%201-7.94%207.94l-6.91%206.91a2.12%202.12%200%200%201-3-3l6.91-6.91a6%206%200%200%201%207.94-7.94l-3.76%203.76z%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20Execution%20Input%3C%2Fdiv%3E%3Cpre%20class%3D%22chat-tool-body%22%3E%7B%0A%20%20%26quot%3Bcommand%26quot%3B%3A%20%26quot%3Bfind%20packages%2Fnotrace%20-maxdepth%203%20-type%20f%26quot%3B%0A%7D%3C%2Fpre%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3C%2Fdiv%3E%3C%2Fdiv%3E">
+    <summary>
+      <div class="event-main">
+        <span class="badge badge-tool">tool_start</span>
+        <span class="event-title">functions.bash</span>
+      </div>
+      <span class="event-time">22:05:04</span>
+    </summary>
+  </details><details class="event" data-lazy-event-body="%3Cdiv%20class%3D%22event-body%22%3E%3Cdiv%20class%3D%22stack%22%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EResult%3C%2Fh4%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-tool-use%22%20style%3D%22%22%3E%3Cdiv%20class%3D%22chat-tool-header%22%20style%3D%22color%3A%20var(--muted)%3B%22%3E%3Csvg%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22currentColor%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%229%2010%204%2015%209%2020%22%3E%3C%2Fpolyline%3E%3Cpath%20d%3D%22M20%204v7a4%204%200%200%201-4%204H4%22%3E%3C%2Fpath%3E%3C%2Fsvg%3E%20Execution%20Output%3C%2Fdiv%3E%3Cpre%20class%3D%22chat-tool-body%22%3E%7B%0A%20%20%26quot%3Bstdout%26quot%3B%3A%20%26quot%3Bpackages%2Fnotrace%2Fextensions%2Fnotrace%2Findex.ts%5Cnpackages%2Fnotrace%2Fextensions%2Fnotrace%2Frenderer.ts%5Cnpackages%2Fnotrace%2Fpackage.json%26quot%3B%2C%0A%20%20%26quot%3Bstderr%26quot%3B%3A%20%26quot%3B%26quot%3B%2C%0A%20%20%26quot%3BexitCode%26quot%3B%3A%200%0A%7D%3C%2Fpre%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3C%2Fdiv%3E%3C%2Fdiv%3E">
+    <summary>
+      <div class="event-main">
+        <span class="badge badge-tool">tool_end</span>
+        <span class="event-title">functions.bash</span>
+      </div>
+      <span class="event-time">22:05:05</span>
+    </summary>
+  </details><details class="event" data-lazy-event-body="%3Cdiv%20class%3D%22event-body%22%3E%3Cdiv%20class%3D%22stack%22%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EInput%20Messages%3C%2Fh4%3E%3Cdiv%20class%3D%22msg%20user%22%3E%3Cdiv%20class%3D%22msg-head%22%3E%3Cspan%20class%3D%22msg-role%22%3Euser%3C%2Fspan%3E%3C%2Fdiv%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3EPolish%20notrace%20HTML%20output%20and%20unify%20dashboard%2Fsession%20design.%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EOutput%3C%2Fh4%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3EFound%20renderer%20split.%20Will%20move%20both%20pages%20to%20one%20shared%20shell%20and%20standardize%20styles.%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EUsage%3C%2Fh4%3E%3Cpre%3E%7B%0A%20%20%26quot%3Binput%26quot%3B%3A%202140%2C%0A%20%20%26quot%3Boutput%26quot%3B%3A%20116%2C%0A%20%20%26quot%3BcacheRead%26quot%3B%3A%200%2C%0A%20%20%26quot%3BcacheWrite%26quot%3B%3A%200%2C%0A%20%20%26quot%3BtotalTokens%26quot%3B%3A%202256%2C%0A%20%20%26quot%3Bcost%26quot%3B%3A%20%7B%0A%20%20%20%20%26quot%3Btotal%26quot%3B%3A%200.01451%0A%20%20%7D%0A%7D%3C%2Fpre%3E%3C%2Fsection%3E%3C%2Fdiv%3E%3C%2Fdiv%3E">
+    <summary>
+      <div class="event-main">
+        <span class="badge badge-llm">llm_completion</span>
+        <span class="event-title">claude-sonnet-4</span>
+      </div>
+      <span class="event-time">22:05:11</span>
+    </summary>
+  </details><details class="event" data-lazy-event-body="%3Cdiv%20class%3D%22event-body%22%3E%3Cdiv%20class%3D%22stack%22%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EInput%20Messages%3C%2Fh4%3E%3Cdiv%20class%3D%22msg%20user%22%3E%3Cdiv%20class%3D%22msg-head%22%3E%3Cspan%20class%3D%22msg-role%22%3Euser%3C%2Fspan%3E%3C%2Fdiv%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3Emassive%20analysis%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EOutput%3C%2Fh4%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3Edone.%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EUsage%3C%2Fh4%3E%3Cpre%3E%7B%0A%20%20%26quot%3Binput%26quot%3B%3A%201540000%2C%0A%20%20%26quot%3Boutput%26quot%3B%3A%20450%2C%0A%20%20%26quot%3BcacheRead%26quot%3B%3A%200%2C%0A%20%20%26quot%3BcacheWrite%26quot%3B%3A%200%2C%0A%20%20%26quot%3BtotalTokens%26quot%3B%3A%201540450%2C%0A%20%20%26quot%3Bcost%26quot%3B%3A%20%7B%0A%20%20%20%20%26quot%3Btotal%26quot%3B%3A%207.70225%0A%20%20%7D%0A%7D%3C%2Fpre%3E%3C%2Fsection%3E%3C%2Fdiv%3E%3C%2Fdiv%3E">
+    <summary>
+      <div class="event-main">
+        <span class="badge badge-llm">llm_completion</span>
+        <span class="event-title">gpt-4o</span>
+      </div>
+      <span class="event-time">22:05:50</span>
+    </summary>
+  </details><details class="event" data-lazy-event-body="%3Cdiv%20class%3D%22event-body%22%3E%3Cdiv%20class%3D%22stack%22%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EInput%20Messages%3C%2Fh4%3E%3Cdiv%20class%3D%22msg%20user%22%3E%3Cdiv%20class%3D%22msg-head%22%3E%3Cspan%20class%3D%22msg-role%22%3Euser%3C%2Fspan%3E%3C%2Fdiv%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3Epolish%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EOutput%3C%2Fh4%3E%3Cdiv%20class%3D%22msg-content%22%3E%3Cdiv%20class%3D%22chat-text%22%3Edone.%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fsection%3E%3Csection%20class%3D%22block%22%3E%3Ch4%3EUsage%3C%2Fh4%3E%3Cpre%3E%7B%0A%20%20%26quot%3Binput%26quot%3B%3A%2084000%2C%0A%20%20%26quot%3Boutput%26quot%3B%3A%20250%2C%0A%20%20%26quot%3BcacheRead%26quot%3B%3A%200%2C%0A%20%20%26quot%3BcacheWrite%26quot%3B%3A%200%2C%0A%20%20%26quot%3BtotalTokens%26quot%3B%3A%2084250%2C%0A%20%20%26quot%3Bcost%26quot%3B%3A%20%7B%0A%20%20%20%20%26quot%3Btotal%26quot%3B%3A%200.42%0A%20%20%7D%0A%7D%3C%2Fpre%3E%3C%2Fsection%3E%3C%2Fdiv%3E%3C%2Fdiv%3E">
+    <summary>
+      <div class="event-main">
+        <span class="badge badge-llm">llm_completion</span>
+        <span class="event-title">claude-sonnet-4</span>
+      </div>
+      <span class="event-time">22:06:40</span>
+    </summary>
+  </details></div>
+      </div></div></details>
+    <details class="panel collapsible"><summary>Models</summary><div>
+      <div style="padding: 16px; border-bottom: 1px solid var(--border); display: grid; gap: 8px;">
+        <div style="color: var(--muted);">Top spender: <strong style="color: var(--text);">gpt-4o</strong></div>
+        <div style="color: var(--muted);">Most used: <strong style="color: var(--text);">claude-sonnet-4</strong></div>
+      </div>
+      <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th class="num-cell">Calls</th>
+            <th class="num-cell">Input</th>
+            <th class="num-cell">Output</th>
+            <th class="num-cell">Tokens</th>
+            <th class="num-cell">Cost</th>
+            <th class="num-cell">Avg Cost/Call</th>
+            <th class="num-cell">Avg Tokens/Call</th>
+            <th class="num-cell">Errors</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><strong>gpt-4o</strong> <span class="badge badge-llm">top spend</span></td>
+              <td class="num-cell">1</td>
+              <td class="num-cell">1.54M</td>
+              <td class="num-cell">450</td>
+              <td class="num-cell">1.54M</td>
+              <td class="num-cell">$7.70225</td>
+              <td class="num-cell">$7.70225</td>
+              <td class="num-cell">1.54M</td>
+              <td class="num-cell">0</td>
+            </tr>
+          
+            <tr>
+              <td><strong>claude-sonnet-4</strong> <span class="badge badge-tool">most used</span></td>
+              <td class="num-cell">2</td>
+              <td class="num-cell">86.1k</td>
+              <td class="num-cell">366</td>
+              <td class="num-cell">86.5k</td>
+              <td class="num-cell">$0.43451</td>
+              <td class="num-cell">$0.21726</td>
+              <td class="num-cell">43.3k</td>
+              <td class="num-cell">0</td>
+            </tr>
+          
+        </tbody>
+      </table>
+      </div>
+  </div></details>
+    <details class="panel collapsible"><summary>Model Switches</summary><div>
+      <div style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--muted);">Biggest switch cost: <strong style="color: var(--text);">claude-sonnet-4 → gpt-4o ($7.70225)</strong></div>
+      <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Switch</th>
+            <th class="num-cell">Cost Impact</th>
+            <th class="num-cell">New Context Tokens</th>
+            <th class="num-cell">Provider Changed</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><span class="badge badge-system">claude-sonnet-4</span> → <span class="badge badge-llm">gpt-4o</span></td>
+              <td class="num-cell">$7.70225</td>
+              <td class="num-cell">1.54M</td>
+              <td class="num-cell">Yes</td>
+              <td><span class="session-sub">#2 • 22:05:50 • 39s since previous completion</span></td>
+            </tr>
+          
+            <tr>
+              <td><span class="badge badge-system">gpt-4o</span> → <span class="badge badge-llm">claude-sonnet-4</span></td>
+              <td class="num-cell">$0.42000</td>
+              <td class="num-cell">84.3k</td>
+              <td class="num-cell">Yes</td>
+              <td><span class="session-sub">#3 • 22:06:40 • 50s since previous completion</span></td>
+            </tr>
+          
+        </tbody>
+      </table>
+      </div>
+  </div></details>
+    <details class="panel collapsible"><summary>Dynamic Extension Telemetry</summary><div><div style="padding: 16px;" class="stack">
         <section class="block"><h4>noheadroom (Active)</h4><pre>{
   &quot;summary&quot;: &quot;compressed 24,110 to 18,332 tokens; saved 5,778 tokens across 3 tool results&quot;,
   &quot;attempts&quot;: 2,
@@ -452,56 +650,7 @@
     ]
   }
 }</pre></section>
-      </div>
-    </section>
-    <section class="panel" style="margin-top: 24px;">
-      <h2 class="section-title">Timeline</h2>
-      <div style="padding: 16px;">
-        <div class="timeline"><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-tool">tool_start</span>
-        <span class="event-title">functions.bash</span>
-      </div>
-      <span class="event-time">22:05:04</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Arguments</h4><div class="msg-content"><div class="chat-tool-use"><div class="chat-tool-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Execution Input</div><pre class="chat-tool-body">{
-  &quot;command&quot;: &quot;find packages/notrace -maxdepth 3 -type f&quot;
-}</pre></div></div></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-tool">tool_end</span>
-        <span class="event-title">functions.bash</span>
-      </div>
-      <span class="event-time">22:05:05</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Result</h4><div class="msg-content"><div class="chat-tool-use" style=""><div class="chat-tool-header" style="color: var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> Execution Output</div><pre class="chat-tool-body">{
-  &quot;stdout&quot;: &quot;packages/notrace/extensions/notrace/index.ts\npackages/notrace/extensions/notrace/renderer.ts\npackages/notrace/package.json&quot;,
-  &quot;stderr&quot;: &quot;&quot;,
-  &quot;exitCode&quot;: 0
-}</pre></div></div></section></div></div>
-  </details><details class="event">
-    <summary>
-      <div class="event-main">
-        <span class="badge badge-llm">llm_completion</span>
-        <span class="event-title">claude-sonnet-4</span>
-      </div>
-      <span class="event-time">22:05:11</span>
-    </summary>
-    <div class="event-body"><div class="stack"><section class="block"><h4>Input Messages</h4><div class="msg user"><div class="msg-head"><span class="msg-role">user</span></div><div class="msg-content"><div class="chat-text">Polish notrace HTML output and unify dashboard/session design.</div></div></div></section><section class="block"><h4>Output</h4><div class="msg-content"><div class="chat-text">Found renderer split. Will move both pages to one shared shell and standardize styles.</div></div></section><section class="block"><h4>Usage</h4><pre>{
-  &quot;input&quot;: 2140,
-  &quot;output&quot;: 116,
-  &quot;cacheRead&quot;: 0,
-  &quot;cacheWrite&quot;: 0,
-  &quot;totalTokens&quot;: 2256,
-  &quot;cost&quot;: {
-    &quot;total&quot;: 0.01451
-  }
-}</pre></section></div></div>
-  </details></div>
-      </div>
-    </section>
+      </div></div></details>
     <footer class="footer-note stack">
       <div class="footer-brand">notrace</div>
       <div class="footer-tagline">Local-first retrospective engine</div>
@@ -537,5 +686,26 @@
         }
       });
     });
+
+    document.querySelectorAll('details[data-lazy-event-body]').forEach((details) => {
+      details.addEventListener('toggle', () => {
+        if (!details.open) return;
+        if (details.querySelector('.event-body')) return;
+        const html = decodeURIComponent(details.getAttribute('data-lazy-event-body') || '');
+        details.insertAdjacentHTML('beforeend', html);
+      }, { once: false });
+    });
+
+    const topBtn = document.querySelector('.back-to-top');
+    if (topBtn) {
+      const syncTopButton = () => {
+        const scrollable = document.documentElement.scrollHeight > window.innerHeight + 24;
+        const show = scrollable && window.scrollY > 200;
+        topBtn.classList.toggle('visible', show);
+      };
+      window.addEventListener('scroll', syncTopButton, { passive: true });
+      window.addEventListener('resize', syncTopButton);
+      syncTopButton();
+    }
   })();</script></body>
 </html>
