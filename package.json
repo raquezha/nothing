@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "node scripts/verify-repo.mjs",
-    "changeset:status": "GIT_DIR=.git GIT_WORK_TREE=. changeset status",
+    "changeset:status": "GIT_DIR=.git GIT_WORK_TREE=. changeset status --since=origin/main",
     "verify:notrace": "node scripts/verify-notrace.mjs",
     "compare:notrace": "node packages/notrace/bin/notrace-compare.mjs",
     "review:notrace": "node packages/notrace/bin/notrace-review.mjs",
