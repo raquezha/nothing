@@ -27,6 +27,8 @@ describe("report-app analytics", () => {
     
     // timestamp Delta between "2026-06-17T17:00:02.000Z" and "2026-06-17T17:00:03.000Z" is 1000ms
     expect(switches[0].timeDelta).toBe(1000);
+    // falls back to input + output when totalTokens is missing
+    expect(switches[0].tokens).toBe(60);
   });
 
   it("builds summary", () => {

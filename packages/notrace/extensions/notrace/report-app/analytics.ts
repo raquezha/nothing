@@ -41,6 +41,11 @@ export function buildModelSwitches(events: any[]): any[] {
     const validTimestamp = Number.isNaN(currentTimestamp) ? 0 : currentTimestamp;
 
     if (lastModel && lastModel !== currentModel) {
+      const input = Number(ev.usage?.inputTokens || ev.usage?.input || 0);
+      const output = Number(ev.usage?.outputTokens || ev.usage?.output || 0);
+      const cacheR = Number(ev.usage?.cacheReadTokens || ev.usage?.cacheRead || 0);
+      const cacheW = Number(ev.usage?.cacheWriteTokens || ev.usage?.cacheWrite || 0);
+
       switches.push({
         index: completionIndex,
         from: lastModel,
@@ -51,7 +56,7 @@ export function buildModelSwitches(events: any[]): any[] {
         timestamp: validTimestamp,
         timeDelta: lastTime ? validTimestamp - lastTime : 0,
         cost: Number(ev.usage?.cost?.total || 0),
-        tokens: Number(ev.usage?.totalTokens || 0)
+        tokens: Number(ev.usage?.totalTokens || (input + output + cacheR + cacheW))
       });
     }
     lastModel = currentModel;
