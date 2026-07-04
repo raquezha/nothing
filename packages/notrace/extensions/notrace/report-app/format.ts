@@ -45,9 +45,9 @@ export function workflowClassName(workflow: MaybeString): string {
 }
 
 export function taskDisplay(taskish: Taskish): string {
-  const task = taskish?.task;
+  const task = taskish?.task || taskish;
   const workflow = task?.workflow || taskish?.workflow || "generic";
-  const taskId = task?.id ?? taskish?.taskId;
+  const taskId = (task as any)?.id ?? taskish?.taskId;
   if (taskId) {
     if (workflow === "research" && String(taskId).startsWith("branch:")) {
       return `Branch ${String(taskId).slice(7)}`;
