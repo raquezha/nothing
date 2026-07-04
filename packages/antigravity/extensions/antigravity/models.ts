@@ -11,15 +11,6 @@ export type AntigravityRouting = {
 
 // Routing table mapping public selectable model IDs to their backend request models based on effort.
 export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
-	"claude-opus-4-5": {
-		routing: {
-			minimal: "claude-opus-4-5-thinking",
-			low: "claude-opus-4-5-thinking",
-			medium: "claude-opus-4-5-thinking",
-			high: "claude-opus-4-5-thinking",
-		},
-		defaultRequestId: "claude-opus-4-5-thinking",
-	},
 	"claude-opus-4-6": {
 		routing: {
 			minimal: "claude-opus-4-6-thinking",
@@ -29,29 +20,15 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 		},
 		defaultRequestId: "claude-opus-4-6-thinking",
 	},
-	"claude-sonnet-4-5": {
-		off: "claude-sonnet-4-5",
-		routing: {
-			minimal: "claude-sonnet-4-5-thinking",
-			low: "claude-sonnet-4-5-thinking",
-			medium: "claude-sonnet-4-5-thinking",
-			high: "claude-sonnet-4-5-thinking",
-		},
-		defaultRequestId: "claude-sonnet-4-5",
-	},
-	"claude-sonnet-4-6": {
-		off: "claude-sonnet-4-6",
-		defaultRequestId: "claude-sonnet-4-6",
-	},
 	"gemini-2.5-flash": {
-		off: "gemini-2.5-flash",
+		off: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
 		routing: {
-			minimal: "gemini-2.5-flash-thinking",
-			low: "gemini-2.5-flash-thinking",
-			medium: "gemini-2.5-flash-thinking",
-			high: "gemini-2.5-flash-thinking",
+			minimal: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
+			low: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
+			medium: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
+			high: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
 		},
-		defaultRequestId: "gemini-2.5-flash",
+		defaultRequestId: "MODEL_GOOGLE_GEMINI_2_5_FLASH",
 	},
 	"gemini-2.5-pro": {
 		routing: {
@@ -64,28 +41,19 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 	},
 	"gemini-3-flash": {
 		routing: {
-			minimal: "gemini-3-flash-agent",
-			low: "gemini-3.5-flash-extra-low",
-			medium: "gemini-3.5-flash-extra-low",
-			high: "gemini-3.5-flash-low",
+			minimal: "gemini-3-flash",
+			low: "gemini-3-flash",
+			medium: "gemini-3-flash",
+			high: "gemini-3-flash",
 		},
-		defaultRequestId: "gemini-3.5-flash-extra-low",
-	},
-	"gemini-3-pro": {
-		off: "gemini-3-pro-low",
-		routing: {
-			minimal: "gemini-3-pro-low",
-			low: "gemini-3-pro-low",
-			high: "gemini-3-pro-high",
-		},
-		defaultRequestId: "gemini-3-pro-low",
+		defaultRequestId: "gemini-3-flash",
 	},
 	"gemini-3.1-pro": {
 		off: "gemini-3.1-pro-low",
 		routing: {
 			minimal: "gemini-3.1-pro-low",
 			low: "gemini-3.1-pro-low",
-			high: "gemini-pro-agent",
+			high: "gemini-3.1-pro-high",
 		},
 		defaultRequestId: "gemini-3.1-pro-low",
 	},
@@ -102,14 +70,14 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 		defaultRequestId: "gemini-3.1-flash-lite",
 	},
 	"gemini-3.5-flash": {
-		off: "gemini-3.5-flash-extra-low",
+		off: "gemini-3.5-flash-medium",
 		routing: {
-			minimal: "gemini-3-flash-agent",
-			low: "gemini-3.5-flash-extra-low",
-			medium: "gemini-3.5-flash-extra-low",
-			high: "gemini-3.5-flash-low",
+			minimal: "gemini-3.5-flash-medium",
+			low: "gemini-3.5-flash-medium",
+			medium: "gemini-3.5-flash-medium",
+			high: "gemini-3.5-flash-high",
 		},
-		defaultRequestId: "gemini-3.5-flash-extra-low",
+		defaultRequestId: "gemini-3.5-flash-medium",
 	},
 	"gpt-oss-120b": {
 		off: "gpt-oss-120b-medium",
@@ -133,38 +101,8 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 
 export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 	{
-		id: "claude-opus-4-5",
-		name: "Claude Opus 4.5 (Antigravity)",
-		reasoning: true,
-		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
-		input: ["text", "image"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 200000,
-		maxTokens: 64000,
-	},
-	{
 		id: "claude-opus-4-6",
 		name: "Claude Opus 4.6 (Antigravity)",
-		reasoning: true,
-		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
-		input: ["text", "image"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 250000,
-		maxTokens: 64000,
-	},
-	{
-		id: "claude-sonnet-4-5",
-		name: "Claude Sonnet 4.5 (Antigravity)",
-		reasoning: true,
-		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
-		input: ["text", "image"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1000000,
-		maxTokens: 64000,
-	},
-	{
-		id: "claude-sonnet-4-6",
-		name: "Claude Sonnet 4.6 (Antigravity)",
 		reasoning: true,
 		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
 		input: ["text", "image"],
@@ -210,16 +148,6 @@ export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 1048576,
 		maxTokens: 65536,
-	},
-	{
-		id: "gemini-3-pro",
-		name: "Gemini 3 Pro (Antigravity)",
-		reasoning: true,
-		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
-		input: ["text", "image"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: 1048576,
-		maxTokens: 65535,
 	},
 	{
 		id: "gemini-3.1-flash-image",
