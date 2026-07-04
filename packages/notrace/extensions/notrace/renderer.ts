@@ -9,17 +9,6 @@ export function escapeHtml(v: unknown): string {
   return String(v ?? "").replace(/[&<>'"]/g, c => map[c]);
 }
 
-export function safeJsonForScript(v: any): string {
-  const map: Record<string, string> = {
-    "<": "\\u003c",
-    ">": "\\u003e",
-    "&": "\\u0026",
-    "\u2028": "\\u2028",
-    "\u2029": "\\u2029"
-  };
-  return JSON.stringify(v).replace(/[<>&\u2028\u2029]/g, c => map[c]);
-}
-
 function parseDate(value: string | number): Date | null {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -127,12 +116,6 @@ function formatTelemetryStatus(value: string | undefined): string {
     default:
       return "Unknown";
   }
-}
-
-function summarizeEventCount(data: any): number {
-  return Array.isArray(data?.events)
-    ? data.events.filter((ev: any) => ev?.type !== "session_start" && ev?.type !== "turn_start").length
-    : 0;
 }
 
 function wordmarkSvg(className = "wordmark"): string {
