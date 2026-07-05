@@ -86,6 +86,7 @@ pi() {
 
     for candidate in \
       "$NOTHING_DIR/packages/$spec" \
+      "$NOTHING_DIR/packages/workflows/$spec" \
       "$NOTHING_DIR/$spec" \
       "$HOME/.pi/agent/skills/$spec"; do
       if [[ -e "$candidate" ]]; then
@@ -106,6 +107,7 @@ pi() {
 
     for candidate in \
       "$NOTHING_DIR/packages/$spec" \
+      "$NOTHING_DIR/packages/workflows/$spec" \
       "$NOTHING_DIR/$spec" \
       "$HOME/.pi/agent/extensions/$spec"; do
       if [[ -e "$candidate" ]]; then
@@ -435,7 +437,7 @@ EOF
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes)
+      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes|--research)
         local flag_name="${1#--}"
         if [[ -n "$BASE_MINDSET" && "$BASE_MINDSET" != "$flag_name" ]]; then
           nothing_warn "Only one base hat allowed: --$BASE_MINDSET already set, got --$flag_name"
@@ -558,6 +560,11 @@ EOF
     if [[ "$MOD_PONYTAIL" == true ]]; then
       add_ponytail "${MOD_PONYTAIL_INTENSITY:-full}"
     fi
+  fi
+
+  if [[ "$BASE_MINDSET" == "research" && ${#ARGS[@]} -gt 0 && "${ARGS[0]}" != /* && "${ARGS[0]}" != -* ]]; then
+    local research_topic="${ARGS[*]}"
+    ARGS=("/research.start $research_topic")
   fi
 
   add_extension "noleaks"

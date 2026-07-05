@@ -24,6 +24,7 @@
 - **🛡️ Privacy First**: Always-on credential and secret guard via `@raquezha/noleaks`.
 - **🎩 Persona "Hats"**: Instant switching between Triage, PM, Dev, and Meta engineering modes.
 - **🗜️ Context Optimization**: Integrated local [Headroom](https://github.com/headroom-ai/headroom) compression via `@raquezha/noheadroom`.
+- **🔄 Workflow Platform**: A generic [Workflow Contract](./docs/workflow.md) focusing on 3 Real Modes (Chat, Research, RPIV), using a centralized `.workflow/active.json` to manage state locally without over-engineering.
 - **🧾 Retrospective Memory**: Versioned `notrace.json` session evidence plus HTML reports via `@raquezha/notrace`, with optional extension telemetry.
 - **🐎 Simplicity Pressure**: Optional Ponytail modifier for YAGNI-first, stdlib-first, minimal-diff behavior.
 - **🔄 RPIV Workflow**: A formal Frame → Plan → Implement → Verify → Sync cycle for reliable agentic output.
@@ -35,7 +36,7 @@
 |---|---|---|
 | **Privacy** | [`@raquezha/noleaks`](./packages/noleaks) | credential & secret protection |
 | **Optimization** | [`headroom/`](./headroom), [`@raquezha/noheadroom`](./packages/noheadroom) | local context compression |
-| **Workflow** | [`@raquezha/norpiv`](./packages/norpiv) | the core RPIV agentic process |
+| **Workflow** | [`@raquezha/norpiv`](./packages/workflows/norpiv), [`noresearch`](./packages/workflows/noresearch), [`docs/workflow.md`](./docs/workflow.md) | RPIV execution workflow, local Research workflow, and platform workflow contract |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
 | **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | retrospective run records, HTML reports, and powerline footer |
 | **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
@@ -67,6 +68,7 @@ Base hats load repo-local skills and personas:
 
 ```bash
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
+pi --research    # intentional research workflow (or: pi --research "topic")
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
 pi --android     # Android development expert; loads local Android CLI skill cache only
