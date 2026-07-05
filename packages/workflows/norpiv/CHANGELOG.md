@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.0.7
+
+### Patch Changes
+
+- 9b509ab: Move the RPIV workflow package under `packages/workflows/norpiv` and add generic `.workflow/active.json` compatibility while preserving legacy `.workflow/active_task.json` behavior.
+
 ## 0.0.6
 
 ### Patch Changes
