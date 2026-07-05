@@ -38,6 +38,20 @@ export class HeadroomHttpClient {
 		}
 	}
 
+	async probe(signal?: AbortSignal): Promise<boolean> {
+		try {
+			const response = await fetch(`${this.baseUrl}/v1/compress`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ messages: [{ role: "user", content: "ping" }], model: "gpt-4o" }),
+				signal: buildSignal(5_000, signal),
+			});
+			return response.ok;
+		} catch {
+			return false;
+		}
+	}
+
 	async stats(signal?: AbortSignal): Promise<unknown> {
 		const response = await fetch(`${this.baseUrl}/stats`, {
 			signal: buildSignal(this.timeoutMs, signal),

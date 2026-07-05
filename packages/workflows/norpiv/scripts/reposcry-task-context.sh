@@ -20,7 +20,15 @@ cd "$REPO_ROOT"
 "$SCRIPT_DIR/reposcry-bootstrap.sh" || true
 
 mkdir -p .reposcry
-BUDGET=${REPOSCRY_CONTEXT_BUDGET:-20000}
+
+# Detect low-token modes (Caveman, etc.)
+DEFAULT_BUDGET=20000
+if [[ "${CAVEMAN_MODE:-off}" != "off" ]] || [[ "${LOW_TOKEN_MODE:-0}" == "1" ]]; then
+  DEFAULT_BUDGET=5000
+  echo "Low-token mode detected: reducing context budget to $DEFAULT_BUDGET"
+fi
+
+BUDGET=${REPOSCRY_CONTEXT_BUDGET:-$DEFAULT_BUDGET}
 OUTPUT_PATH=".reposcry/AI_CONTEXT.md"
 
 echo "Generating RepoScry task context at $OUTPUT_PATH..."

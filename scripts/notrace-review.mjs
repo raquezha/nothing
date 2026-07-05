@@ -107,8 +107,10 @@ const review = {
 
 writeFileSync(reviewPath, `${JSON.stringify(review, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
 
-if (run.session?.cwd && run.task?.path) {
-  const taskDir = resolve(run.session.cwd, run.task.path);
+if (run.repository?.cwd && (run.task?.dir || run.task?.path)) {
+  const taskDir = run.task?.dir
+    ? resolve(run.task.dir)
+    : resolve(run.repository.cwd, run.task.path);
   appendWorkLogEntry(taskDir, `notrace review recorded: outcome=${review.outcome ?? "-"}, friction=${review.friction ?? "-"}, review=${relative(taskDir, reviewPath)}`);
 } else {
   appendWorkLogEntry(dirname(runPath), `notrace review recorded: outcome=${review.outcome ?? "-"}, friction=${review.friction ?? "-"}, review=${basename(reviewPath)}`);

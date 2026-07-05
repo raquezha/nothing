@@ -1,5 +1,61 @@
 # @raquezha/notrace
 
+## 0.2.0
+
+### Minor Changes
+
+- 382b624: Add model usage breakdowns, switch insights, lazy timeline rendering, and refreshed report samples.
+
+### Patch Changes
+
+- 04d574e: Refactor notrace report rendering into modular report-app files and add focused regression coverage without changing package dependencies or entrypoints.
+
+## 0.1.2
+
+### Patch Changes
+
+- a0f076e: Fix notrace index lock behavior under contention and add regression coverage for lock handling and usage normalization.
+- 894da0a: Add Vitest scaffolding and extract `handleSessionShutdown` for testability with no intended runtime behavior change.
+- 9d6c8b2: Skip writing per-session notrace artifacts for ghost sessions and add regression coverage for ghost vs non-ghost shutdown behavior.
+
+## 0.1.1
+
+### Patch Changes
+
+- 13be706: refactor: split antigravity monolith and implement dynamic model routing, validated toolConfig, interleaved thinking headers, and empty stream retries
+
+  docs: replace stale public model IDs in notrace sample templates
+
+## 0.1.0
+
+### Minor Changes
+
+- a2fc3cb: Implement machine-global observability dashboard and Mistral-style timeline parser.
+  - Storage migrated from `.notrace/` in the local working directory to a machine-wide `~/.notrace/` directory to prevent repository pollution and enable global insights.
+  - Dashboard updated with a new `Project` column for multi-repo tracking.
+  - Timeline parser overhauled to render LLM arrays, tool execution cards, and code blocks beautifully instead of raw JSON dumps.
+
+### Patch Changes
+
+- 8f31379: fix(noheadroom): match lowercase footer casing
+  feat(notrace): add session export to HTML retrospective
+
+## 0.0.7
+
+### Patch Changes
+
+- 5a3e563: Improve session reports by rendering the session ID as a copyable chip under the notrace logo.
+- 5a3e563: Enhance the trace header to include the active git branch alongside the repository name, and clarify the capture setting label.
+- 7664e50: Polish notrace reliability and installed-package ergonomics: add review/compare package CLIs, validate run records before writing, atomically write private artifacts, recover from corrupt index JSON, and verify capture modes.
+
+## 0.0.6
+
+### Patch Changes
+
+- d349d36: Refresh the notrace UI and sample session rendering separately from the antigravity billing fix.
+- 51fda83: fix: preserve assistant toolCall blocks in noheadroom compression and expose notrace failure metadata
+- 7afa746: Package updates for antigravity, norpiv, and notrace.
+
 ## 0.0.5
 
 ### Patch Changes

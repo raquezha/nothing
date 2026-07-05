@@ -1,4 +1,4 @@
-# AGENTS.md (MANDATORY PROTOCOL)
+# AGENTS.md (UNIVERSAL BASELINE)
 
 ## Tool invocation hygiene (CRITICAL)
 
@@ -10,25 +10,10 @@ The environment has aggressive security guardrails. To avoid being **BLOCKED**:
   - **NO** heredocs (`<<EOF`). Use `write` or temporary files.
   - **NO** non-ASCII characters or control characters in strings.
   - **PREFER**: `read` tool for examining files. It is faster and safer.
-- **PYTHON/NODE**: Use these for any logic, parsing, or data transformation. Use `python -c "..."` for simple one-liners or write a script for complex tasks.
+- **PYTHON/NODE**: Use these for any logic, parsing, or data transformation.
 - **JQ**: Use `jq` for ALL JSON parsing. Do not try to `grep` JSON.
 
 ## TOKENMAXXING
 - **BATCH**: Use one `edit` call for multiple changes in a file.
 - **SCOPE**: Never `ls -R` `node_modules`. Use `find . -maxdepth 2`.
 - **PRECISE**: Use `read` with `limit` and `offset` to probe large files.
-
-## Monitoring (Netdata)
-
-{{NETDATA_INSTRUCTIONS}}
-
-## Docker Recovery (Linux)
-If homelab services are down or laptop recently restarted:
-```bash
-find ~/homelab -name "docker-compose.yml" -exec docker compose -f {} up -d \;
-```
-
-## Environment setup
-
-If `pi` is missing or outdated, reload the shell integration:
-`source ~/RQZ/personal/nothing/dotfiles/shell_integration.sh`

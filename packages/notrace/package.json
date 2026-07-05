@@ -1,19 +1,24 @@
 {
   "name": "@raquezha/notrace",
-  "version": "0.0.5",
+  "version": "0.2.0",
   "description": "Zero-dependency, local-first interactive HTML Trace Viewer for the Pi Coding Agent",
-  "main": "dist/notrace.js",
-  "types": "dist/notrace.d.ts",
+  "main": "dist/notrace/index.js",
+  "types": "dist/notrace/index.d.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "test": "vitest run --passWithNoTests",
+    "render:samples": "npm run build && node ./templates/render-samples.mjs",
+    "review": "node ./bin/notrace-review.mjs",
+    "compare": "node ./bin/notrace-compare.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.74.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
   },
   "keywords": [
     "pi-agent",
@@ -30,5 +35,9 @@
     "extensions": [
       "extensions"
     ]
+  },
+  "bin": {
+    "notrace-review": "./bin/notrace-review.mjs",
+    "notrace-compare": "./bin/notrace-compare.mjs"
   }
 }

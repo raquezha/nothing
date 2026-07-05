@@ -24,7 +24,7 @@ Auxiliary hygiene:
 
 | Command | Purpose | Input / Output Files |
 | :--- | :--- | :--- |
-| `/cleanup` | Declutter Git branches and completed task folders after work is merged/closed. | Prunes finished task folders & resets pointer when safe |
+| `/post-merge-prune` | Delete stale local branches after a PR/MR is merged, prune remote refs, and clean completed task folders. | Post-merge branch cleanup plus safe task-folder cleanup |
 
 ---
 
@@ -55,7 +55,7 @@ Best for trying or handing off RPIV skills without installing the full `nothing`
 
 ```bash
 npx -y skills add raquezha/nothing --full-depth -g -a pi \
-  -s triage frame grill-with-docs plan implement verify sync cleanup update-docs distill \
+  -s triage frame grill-with-docs plan implement verify sync post-merge-prune update-docs distill \
   -y
 ```
 
@@ -88,7 +88,7 @@ Targets:
 
 | Hat | Purpose |
 | :--- | :--- |
-| `pi --rpiv` | Full RPIV workflow. Loads triage, frame, grill-with-docs, plan, implement, verify, sync, cleanup, and update-docs. |
+| `pi --rpiv` | Full RPIV workflow. Loads triage, frame, grill-with-docs, plan, implement, verify, sync, post-merge-prune, and update-docs. |
 | `pi --notes` | Conversation distiller. Saves useful thinking to Obsidian without RPIV ceremony. |
 
 ## 📝 Pre-RPIV note capture
@@ -158,7 +158,7 @@ Research is a separate local workflow bundle in `packages/workflows/noresearch` 
    ```text
    /verify
    /sync
-   /cleanup
+   /post-merge-prune
    ```
 
 ## 🧭 Shared helper scripts

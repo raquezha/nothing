@@ -242,6 +242,7 @@ function renderConversation(raw) {
     }
   }
 
+
   if (!messages.length) return null;
 
   function renderContent(content) {
@@ -285,6 +286,19 @@ if (format === "markdown") {
 }
 
 const pageTitle = customTitle || result.title || path.basename(inputArg, path.extname(inputArg)) || "nohtml";
+
+// ─── Stats extraction ─────────────────────────────────────────────────────────
+let stats = null;
+try {
+  const parsed = JSON.parse(raw);
+  if (parsed.activity && parsed.activity.totals) {
+    stats = {
+      cost: parsed.activity.totals.totalCostUsd || 0,
+      tokens: parsed.activity.totals.totalTokens || 0,
+      turns: parsed.activity.turnCount || 0
+    };
+  }
+} catch (e) {}
 
 // ─── HTML shell ───────────────────────────────────────────────────────────────
 const html = `<!DOCTYPE html>
@@ -446,6 +460,14 @@ const html = `<!DOCTYPE html>
     .bubble-system   .bubble-label { color: #c084fc; }
     .bubble-body { padding: 0.9rem 1.1rem; }
     .bubble-body p { color: var(--text); margin: 0.4rem 0; }
+
+    /* Header Nav & Stats */
+    .header-main { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
+    .header-stats { display: flex; gap: 1.25rem; }
+    .stat-item { display: flex; flex-direction: column; align-items: flex-end; }
+    .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .stat-value { font-size: 0.9rem; font-weight: 600; color: var(--text); font-family: 'Source Code Pro', monospace; }
+
     .thinking-block, .tool-block { margin: 0.5rem 0; }
     .thinking-block summary, .tool-block summary {
       cursor: pointer; font-size: 0.82rem; color: var(--muted);
@@ -463,8 +485,26 @@ const html = `<!DOCTYPE html>
 <body>
   <div class="wrap">
     <header class="page-header">
-      <h1>${esc(pageTitle)}</h1>
-      <span class="page-badge">${esc(format)}</span>
+      <div class="header-main">
+        <span class="page-badge">${esc(format)}</span>
+        <h1>${esc(pageTitle)}</h1>
+      </div>
+      ${stats ? `
+      <div class="header-stats">
+        <div class="stat-item">
+          <span class="stat-label">Cost</span>
+          <span class="stat-value">$${stats.cost.toFixed(5)}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Tokens</span>
+          <span class="stat-value">${stats.tokens.toLocaleString()}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Turns</span>
+          <span class="stat-value">${stats.turns}</span>
+        </div>
+      </div>
+      ` : ""}
     </header>
     <main>
       ${result.body}

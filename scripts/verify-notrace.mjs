@@ -2,13 +2,37 @@
 import { mkdtempSync, readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import notrace from "../packages/notrace/dist/notrace.js";
+import notrace from "../packages/notrace/dist/notrace/index.js";
 
-async function runSession({ cwd, withActiveTask }) {
+function createEventBus() {
+  const listeners = new Map();
+  return {
+    emit(channel, data) {
+      for (const handler of listeners.get(channel) || []) handler(data);
+    },
+    on(channel, handler) {
+      const current = listeners.get(channel) || [];
+      current.push(handler);
+      listeners.set(channel, current);
+      return () => listeners.set(channel, (listeners.get(channel) || []).filter((entry) => entry !== handler));
+    },
+  };
+}
+
+async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
+  const previousCapture = process.env.NOTRACE_CAPTURE;
+  const previousDir = process.env.NOTRACE_DIR;
+  
+  process.env.NOTRACE_CAPTURE = captureMode;
+  process.env.NOTRACE_DIR = join(cwd, ".notrace");
   const handlers = new Map();
   const pi = {
+    events: createEventBus(),
     on(event, handler) {
       handlers.set(event, handler);
+    },
+    registerCommand() {
+      // no-op for smoke verification
     },
   };
 
@@ -41,17 +65,32 @@ async function runSession({ cwd, withActiveTask }) {
     await handler(payload, ctx);
   }
 
+  pi.events.emit("notrace.telemetry.extension", {
+    extension: "noheadroom",
+    loaded: true,
+    enabled: true,
+    active: true,
+    status: "active",
+    summary: "compressed 15 to 10 tokens; saved 5 tokens across 1 tool results",
+    details: {
+      attempts: 1,
+      applied: 1,
+      guardSkips: 0,
+      tokensSaved: 5,
+    },
+  });
+
   await emit("session_start", { reason: withActiveTask ? "task-smoke" : "plain-smoke" });
   await emit("turn_start", {});
   await emit("tool_execution_start", {
     toolCallId: "tool-1",
     toolName: "read",
-    args: { path: "README.md" },
+    args: { path: "README.md", authorization: "demo auth value" },
   });
   await emit("tool_execution_end", {
     toolCallId: "tool-1",
     toolName: "read",
-    result: { content: "hello" },
+    result: { content: "hello", token: "demo token value" },
     isError: false,
   });
   await emit("message_end", {
@@ -63,13 +102,14 @@ async function runSession({ cwd, withActiveTask }) {
       usage: {
         input: 10,
         output: 5,
+        cacheRead: 0,
+        cacheWrite: 0,
         totalTokens: 15,
         cost: { total: 0.001 },
       },
     },
   });
-  await emit("turn_end", {});
-  await emit("session_shutdown", {});
+  await emit("session_shutdown", { reason: "quit" });
 
   const outputDir = join(cwd, ".notrace", "sessions", withActiveTask ? "notrace-task-session" : "notrace-plain-session");
   const reportPath = join(outputDir, "notrace.html");
@@ -93,10 +133,41 @@ async function runSession({ cwd, withActiveTask }) {
   if (record.activity?.llmCallCount !== 1 || record.activity?.toolCallCount !== 1) {
     throw new Error("Generated notrace record is missing expected activity counts.");
   }
+  if (record.activity?.totals?.inputTokens !== 10 || record.activity?.totals?.outputTokens !== 5) {
+    throw new Error("Generated notrace record is missing normalized token totals.");
+  }
+  if (record.telemetry?.extensions?.noheadroom?.status !== "active") {
+    throw new Error("Generated notrace record is missing extension telemetry.");
+  }
+  if (record.captureMode !== captureMode) {
+    throw new Error(`Expected capture mode ${captureMode}, got ${record.captureMode}`);
+  }
+  const toolStart = record.events.find((event) => event.type === "tool_start");
+  const toolEnd = record.events.find((event) => event.type === "tool_end");
+  const serializedRecord = JSON.stringify(record);
+  if (captureMode === "metadata") {
+    if (!toolStart?.args?.omitted || !toolEnd?.result?.omitted) {
+      throw new Error("Expected metadata mode to omit tool payload bodies.");
+    }
+    if (serializedRecord.includes("demo auth value") || serializedRecord.includes("demo token value")) {
+      throw new Error("Expected metadata mode to omit sensitive payload values.");
+    }
+  }
+  if (captureMode === "redacted") {
+    if (toolStart?.args?.authorization !== "[REDACTED by notrace]" || toolEnd?.result?.token !== "[REDACTED by notrace]") {
+      throw new Error("Expected redacted mode to redact sensitive payload values.");
+    }
+  }
+
+  if (previousCapture === undefined) delete process.env.NOTRACE_CAPTURE;
+  else process.env.NOTRACE_CAPTURE = previousCapture;
+
+  if (previousDir === undefined) delete process.env.NOTRACE_DIR;
+  else process.env.NOTRACE_DIR = previousDir;
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");
-    if (!work.includes("notrace captured artifacts") || !work.includes(".notrace/sessions/notrace-task-session")) {
+    if (!work.includes("notrace retrospective") || !work.includes(".notrace/sessions/notrace-task-session")) {
       throw new Error("Expected WORK.md log to include notrace artifact attachment.");
     }
   }
@@ -105,9 +176,12 @@ async function runSession({ cwd, withActiveTask }) {
 }
 
 const plainCwd = mkdtempSync(join(tmpdir(), "notrace-plain-"));
-const plain = await runSession({ cwd: plainCwd, withActiveTask: false });
+const plain = await runSession({ cwd: plainCwd, withActiveTask: false, captureMode: "full" });
 
 const taskCwd = mkdtempSync(join(tmpdir(), "notrace-task-"));
-const task = await runSession({ cwd: taskCwd, withActiveTask: true });
+const task = await runSession({ cwd: taskCwd, withActiveTask: true, captureMode: "redacted" });
 
-console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} work=${task.workPath}`);
+const metadataCwd = mkdtempSync(join(tmpdir(), "notrace-metadata-"));
+const metadata = await runSession({ cwd: metadataCwd, withActiveTask: false, captureMode: "metadata" });
+
+console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} metadata=${metadata.reportPath} work=${task.workPath}`);

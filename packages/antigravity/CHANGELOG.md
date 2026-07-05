@@ -1,5 +1,26 @@
 # @raquezha/antigravity
 
+## 0.0.8
+
+### Patch Changes
+
+- 49f3462: Update routing to match available backend models
+
+## 0.0.7
+
+### Patch Changes
+
+- 13be706: refactor: split antigravity monolith and implement dynamic model routing, validated toolConfig, interleaved thinking headers, and empty stream retries
+
+  docs: replace stale public model IDs in notrace sample templates
+
+## 0.0.6
+
+### Patch Changes
+
+- ccc49ba: Fix antigravity billing so the provider cost is tracked correctly.
+- 7afa746: Package updates for antigravity, norpiv, and notrace.
+
 ## 0.0.5
 
 ### Patch Changes

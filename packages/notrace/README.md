@@ -1,101 +1,171 @@
+<p align="center">
+  <img src="./assets/notrace-logo.svg" alt="notrace logo" width="240" />
+</p>
+
 # notrace
 
-Phase 0 / POC local-first trace capture for the Pi Coding Agent. It captures execution traces for workflow debugging — LLM calls, tool executions, token usage, costs — and writes both an interactive HTML report and a machine-readable `notrace.json` run record to your active task workspace at session end.
+**Traces in, lessons out.**
 
-> **Security warning:** notrace is local-first and now redacts common secrets by default, escapes report rendering, blocks network access in generated reports, and writes private report files. Reports can still contain sensitive prompts, tool payloads, outputs, and local paths. Do not publish generated reports.
+`notrace` is a local-first retrospective engine for the Pi Coding Agent.
+It captures session evidence, writes a versioned `notrace.json` run record, renders a human-readable HTML report, and supports review/compare flows for workflow R&D.
 
-## Boundary with RPIV
+## What notrace owns
 
-The relationship is intentionally optional both ways:
+When enabled, `notrace` is the durable retrospective layer for a session.
+It aggregates:
+- core Pi session telemetry
+- workflow/task context
+- optional dynamic extension telemetry
 
-- **notrace without RPIV**: should work; notrace-owned artifacts belong under `.notrace/`
-- **RPIV without notrace**: should work; `WORK.md` remains the source of truth without any notrace dependency
-- **together**: RPIV `WORK.md [LOG]` may reference notrace artifacts, but `.workflow/` should not own them
+Today, Pi is the first harness adapter.
+The canonical run schema is designed so other harness adapters can be added later, but multi-harness support is not implemented in this package yet.
 
-Neither package should require the other to function.
+## What notrace does not own
 
-## Features
+`notrace` is **not**:
+- the live Pi footer
+- the Pi resume/session-switch UX
+- a scraper of terminal status strings
 
-- **Session timeline**: Every turn, tool call, and LLM completion rendered as an expandable card
-- **Metrics dashboard**: Total tokens, input/output split, cache reads, cost (USD), duration
-- **Machine-readable run record**: Normalized `notrace.json` sidecar for future retrospective/compare flows
-- **Clickable `file://` links**: Artifact paths printed to console at session end for instant browser access
-- **Workdir aware**: notrace-owned artifacts are planned to live under `.notrace/` for the root execution directory
-- **RPIV attachment**: When a task has a `WORK.md`, notrace appends artifact/review references into `[LOG]`
-- **HTML report**: Self-contained/offline report with a restrictive CSP and no remote font/network loads
-- **Safer defaults**: Secret-key/value redaction, bounded payload sizes, metadata-only mode, private file permissions, and `.workflow`-confined artifact writes
+Live footer output, resume hints, and extension footer badges may appear near `notrace` output during shutdown, but they are separate producers.
 
-## Output
+## Retrospective spine
 
+1. **Capture evidence**: `notrace.json`
+2. **Inspect**: `notrace.html`
+3. **Review outcome**: `notrace.review.json`
+4. **Compare attempts**: `compare:notrace`
+
+## Storage
+
+```text
+.notrace/
+  index.json
+  index.html
+  sessions/
+    <session-id>/
+      notrace.json
+      notrace.html
+      notrace.review.json
 ```
-🔍 [notrace] Observability artifacts generated:
-📂 file:///path/to/.notrace/sessions/<session-id>/notrace.html
-📂 file:///path/to/.notrace/sessions/<session-id>/notrace.json
-```
 
-## Usage
+## Canonical run model
+
+Generated `notrace.json` is the source of truth for runtime output, HTML rendering, and downstream tooling.
+The record is versioned and centers on:
+- `kind`
+- `schemaVersion`
+- `traceId`
+- `repository`
+- `session`
+- `task`
+- `captureMode`
+- `conditions`
+- `activity`
+- `telemetry`
+- `events`
+
+Key rule:
+- **consumed tokens** and **saved tokens** are separate metric families
+- optimization telemetry belongs under `telemetry.extensions.*`
+- presentation-only UI strings are not canonical evidence
+
+## Dynamic extension telemetry
+
+`notrace` can include optional structured telemetry from dynamic extensions.
+Current first target is `noheadroom`.
+
+If an extension is absent, `notrace` should still succeed.
+If an extension is present, it can contribute a structured summary such as:
+- loaded / enabled / active state
+- optimization attempts
+- tokens saved
+- last applied compression summary
+
+## Capture modes
+
+Default capture mode is **full**.
 
 ```bash
-# Load directly
 pi --extension ./packages/notrace
-
-# Via nothing mindset (dev, rpiv)
-pi --dev
 ```
 
-## NPM
+Optional modes:
 
 ```bash
-npm install -g @raquezha/notrace
+NOTRACE_CAPTURE=redacted pi --extension ./packages/notrace
+NOTRACE_CAPTURE=metadata pi --extension ./packages/notrace
+NOTRACE_CAPTURE=full pi --extension ./packages/notrace
 ```
 
-## Add a human review
+Mode meanings:
+- `full`: full captured payloads; best for local debugging; highest sensitivity
+- `redacted`: captured payloads with common secret-like values redacted
+- `metadata`: minimal capture, no prompt/tool bodies
+
+**Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
+
+## Review
+
+From this monorepo:
 
 ```bash
-npm run review:notrace -- path/to/notrace.json \
+npm run review:notrace -- \
+  .notrace/sessions/<id>/notrace.json \
   --outcome partial \
   --friction high \
   --lesson "Headroom reduced tokens but needed manual steering." \
   --next-change "Try same task with RepoScry enabled."
 ```
 
-This writes an adjacent review sidecar. For normal runs that means `notrace.review.json` next to `notrace.json`.
+From an installed package:
 
-If the run is attached to an RPIV task folder with `WORK.md`, the review is also logged into that task's `[LOG]` section as a reference to the notrace artifact.
+```bash
+npx -p @raquezha/notrace notrace-review \
+  .notrace/sessions/<id>/notrace.json \
+  --outcome partial \
+  --friction high \
+  --lesson "Headroom reduced tokens but needed manual steering." \
+  --next-change "Try same task with RepoScry enabled."
+```
 
 Review fields:
-
 - `outcome`: `success`, `partial`, `failed`, `abandoned`, `inconclusive`
 - `friction`: `low`, `medium`, `high`
-- `lesson`: short human conclusion
-- `nextChange`: what to try next run
+- `lesson`
+- `nextChange`
 
-## Compare two runs
+## Compare
+
+From this monorepo:
 
 ```bash
 npm run compare:notrace -- \
-  path/to/baseline/notrace.json \
-  path/to/candidate/notrace.json
+  .notrace/sessions/<baseline-id>/notrace.json \
+  .notrace/sessions/<candidate-id>/notrace.json
 ```
 
-This prints a small retrospective diff for:
-
-- total/input/output tokens
-- duration
-- LLM calls
-- tool calls
-- tool errors
-- total cost
-- model/provider mix
-- review sidecar outcome/friction/lesson when present
-
-## Capture controls
-
-By default, notrace uses `NOTRACE_CAPTURE=redacted`: it captures useful payloads but redacts common secret keys/values and truncates very large values.
+From an installed package:
 
 ```bash
-NOTRACE_CAPTURE=metadata pi --dev   # no prompt/tool payload bodies
-NOTRACE_CAPTURE=full pi --dev       # unsafe: raw payloads for local debugging only
+npx -p @raquezha/notrace notrace-compare \
+  .notrace/sessions/<baseline-id>/notrace.json \
+  .notrace/sessions/<candidate-id>/notrace.json
+```
+
+## Templates
+
+HTML source-of-truth lives in `templates/`:
+- `dashboard.sample.json`
+- `session.sample.json`
+- `dashboard.sample.html`
+- `session.sample.html`
+
+Refresh previews after renderer changes:
+
+```bash
+cd packages/notrace
+npm run render:samples
 ```
 
 ## Build

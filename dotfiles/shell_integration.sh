@@ -27,7 +27,7 @@ pi() {
   # skills before them, the CLI treats the subcommand as an initial chat prompt
   # instead (for example: `pi update` opens Pi with "update" as input).
   case "${1:-}" in
-    install|remove|uninstall|update|list|config)
+    install|remove|uninstall|list|config)
       command pi "$@"
       return $?
       ;;
@@ -47,7 +47,12 @@ pi() {
   local MOD_CAVEMAN=false
   local MOD_RTK=false
   local MOD_HEADROOM=false
+  local MOD_LEANCTX=false
   local MOD_ANTIGRAVITY=false
+  local MOD_NOTRACE=false
+  local MOD_PONYTAIL=false
+  local MOD_CAVEMAN_INTENSITY=""
+  local MOD_PONYTAIL_INTENSITY=""
 
   nothing_warn() { printf '⚠️  %s\n' "$*" >&2; }
 
@@ -194,13 +199,21 @@ EOF
     local intensity="${1:-full}"
     local repo_dir
     repo_dir="$(ensure_caveman_cache)" || return 0
-    for skill_name in caveman caveman-stats; do
+    
+    # Load upstream caveman skills (skip stats hook)
+    for skill_name in caveman caveman-help; do
       if [[ -d "$repo_dir/skills/$skill_name" ]]; then
         EXTRA_SKILLS+=("--skill" "$repo_dir/skills/$skill_name")
       else
         nothing_warn "Cached caveman skill missing: $skill_name"
       fi
     done
+    
+    # Load native Pi extension for stats instead of Claude Code hook.
+    # Use a directory/index.ts extension so Pi displays "caveman-stats", not "caveman-stats.ts".
+    if [[ -f "$_NOTHING_REPO_DIR/dotfiles/caveman-stats/index.ts" ]]; then
+      EXTRA_EXTENSIONS+=("--extension" "$_NOTHING_REPO_DIR/dotfiles/caveman-stats")
+    fi
     export PI_CAVEMAN="1"
     export PI_CAVEMAN_INTENSITY="$intensity"
   }
@@ -235,6 +248,50 @@ EOF
     export NOTHING_RTK="1"
   }
 
+  ensure_ponytail_cache() {
+    local repo_dir="$NOTHING_CACHE_DIR/repos/ponytail"
+    if [[ -f "$repo_dir/package.json" && -d "$repo_dir/skills" && -f "$repo_dir/pi-extension/index.js" ]]; then
+      printf '%s\n' "$repo_dir"
+      return 0
+    fi
+    if ! command -v git >/dev/null 2>&1; then
+      nothing_warn "--ponytail requested but git is unavailable; cannot install ponytail cache"
+      return 1
+    fi
+    nothing_warn "--ponytail requested; installing ponytail into $repo_dir"
+    rm -rf "$repo_dir"
+    mkdir -p "$(dirname "$repo_dir")"
+    if git clone --depth 1 https://github.com/DietrichGebert/ponytail.git "$repo_dir" >/dev/null 2>&1; then
+      printf '%s\n' "$repo_dir"
+      return 0
+    fi
+    nothing_warn "Failed to install ponytail into $repo_dir"
+    rm -rf "$repo_dir"
+    return 1
+  }
+
+  add_ponytail() {
+    local intensity="${1:-full}"
+    local repo_dir
+    repo_dir="$(ensure_ponytail_cache)" || return 0
+    EXTRA_EXTENSIONS+=("--extension" "$repo_dir")
+    add_skill "$repo_dir/skills"
+    export PONYTAIL_DEFAULT_MODE="$intensity"
+    export NOTHING_PONYTAIL="1"
+  }
+
+  ensure_leanctx_proxy() {
+    if ! command -v lean-ctx >/dev/null 2>&1; then
+      nothing_warn "--leanctx requested but lean-ctx is unavailable"
+      return 1
+    fi
+    lean-ctx proxy enable >&2 || {
+      nothing_warn "LeanCTX proxy enable failed"
+      return 1
+    }
+    export NOTHING_LEANCTX="1"
+  }
+
   ensure_headroom_proxy() {
     local up_script="$NOTHING_DIR/scripts/headroom-up.sh"
     if [[ ! -f "$up_script" ]]; then
@@ -257,9 +314,121 @@ EOF
     export PI_HEADROOM_URL="http://127.0.0.1:8788"
   }
 
+  add_android_skills() {
+    local cache_dir="${ANDROID_SKILLS_CACHE_DIR:-$NOTHING_CACHE_DIR/android-skills}"
+    local skills_dir="$cache_dir/skills"
+    local stamp="$cache_dir/.refreshed-at"
+    local stale_days="${ANDROID_SKILLS_STALE_DAYS:-14}"
+    local found_skill=false
+    local skill_file
+    local stale_hit
+
+    if [[ ! -d "$skills_dir" ]]; then
+      nothing_warn "Android skills cache missing; run: pi update"
+      return 0
+    fi
+
+    if [[ -f "$stamp" ]]; then
+      stale_hit="$(find "$stamp" -mtime +"$stale_days" -print -quit 2>/dev/null)"
+      if [[ -n "$stale_hit" ]]; then
+        nothing_warn "Android skills cache may be stale; run: pi update"
+      fi
+    fi
+
+    while IFS= read -r skill_file; do
+      if [[ -n "$skill_file" ]]; then
+        EXTRA_SKILLS+=("--skill" "$(dirname "$skill_file")")
+        found_skill=true
+      fi
+    done <<EOF
+$(find "$skills_dir" -mindepth 2 -maxdepth 2 -name "SKILL.md" 2>/dev/null)
+EOF
+
+    if [[ "$found_skill" != true ]]; then
+      nothing_warn "Android skills cache has no skills; run: pi update"
+    fi
+    export NOTHING_ANDROID_SKILLS_CACHE="$cache_dir"
+  }
+
+  update_git_cache() {
+    local name="$1" url="$2" dir="$3"
+    if ! command -v git >/dev/null 2>&1; then
+      nothing_warn "Skipping $name update; git unavailable"
+      return 0
+    fi
+    mkdir -p "$(dirname "$dir")"
+    if [[ -d "$dir/.git" ]]; then
+      if git -C "$dir" pull --ff-only >/dev/null 2>&1; then
+        printf '✅ [nothing] updated %s\n' "$name" >&2
+        return 0
+      fi
+      nothing_warn "$name update failed; recloning"
+      rm -rf "$dir"
+    fi
+    if git clone --depth 1 "$url" "$dir" >/dev/null 2>&1; then
+      printf '✅ [nothing] installed %s\n' "$name" >&2
+    else
+      nothing_warn "Failed to update $name"
+    fi
+  }
+
+  update_rtk_cache() {
+    local pkg_root="$NOTHING_CACHE_DIR/npm/rtk"
+    if ! command -v npm >/dev/null 2>&1; then
+      nothing_warn "Skipping RTK update; npm unavailable"
+      return 0
+    fi
+    mkdir -p "$pkg_root"
+    if npm install --prefix "$pkg_root" --omit=peer --no-audit --no-fund pi-rtk-optimizer@latest >/dev/null 2>&1; then
+      printf '✅ [nothing] updated rtk\n' >&2
+    else
+      nothing_warn "Failed to update RTK"
+    fi
+  }
+
+  update_android_cache() {
+    local refresh_script="$NOTHING_DIR/scripts/android-skills-refresh.sh"
+    if [[ -f "$refresh_script" ]]; then
+      bash "$refresh_script" || nothing_warn "Failed to update Android skills"
+    else
+      nothing_warn "Skipping Android skills update; missing $refresh_script"
+    fi
+  }
+
+  update_headroom_cache() {
+    local compose_file="$NOTHING_DIR/headroom/compose.yml"
+    if [[ ! -f "$compose_file" ]]; then
+      return 0
+    fi
+    if ! command -v docker >/dev/null 2>&1; then
+      nothing_warn "Skipping Headroom update; docker unavailable"
+      return 0
+    fi
+    if docker compose -f "$compose_file" pull >/dev/null 2>&1; then
+      printf '✅ [nothing] updated headroom\n' >&2
+    else
+      nothing_warn "Failed to update Headroom image"
+    fi
+  }
+
+  nothing_update_caches() {
+    printf '🔄 [nothing] updating managed caches\n' >&2
+    update_git_cache "caveman" "https://github.com/JuliusBrussee/caveman.git" "$NOTHING_CACHE_DIR/repos/caveman"
+    update_git_cache "ponytail" "https://github.com/DietrichGebert/ponytail.git" "$NOTHING_CACHE_DIR/repos/ponytail"
+    update_rtk_cache
+    update_android_cache
+    update_headroom_cache
+  }
+
   if [[ $# -gt 0 ]]; then
     case "$1" in
-      install|remove|uninstall|update|list|config)
+      update)
+        command pi "$@"
+        local pi_update_status=$?
+        nothing_update_caches
+        return "$pi_update_status"
+        ;;
+      install|remove|uninstall|list|config)
         command pi "$@"
         return
         ;;
@@ -281,9 +450,23 @@ EOF
         MOD_ANTIGRAVITY=true
         shift
         ;;
+      --notrace)
+        MOD_NOTRACE=true
+        shift
+        ;;
+      --ponytail)
+        MOD_PONYTAIL=true
+        shift
+        if [[ "${1:-}" == "lite" || "${1:-}" == "full" || "${1:-}" == "ultra" ]]; then
+          MOD_PONYTAIL_INTENSITY="$1"
+          shift
+        fi
+        ;;
       --tkmx)
         COMBO_PRESET="tkmx"
         MOD_ANTIGRAVITY=true
+        MOD_NOTRACE=true
+        MOD_PONYTAIL=true
         MOD_CAVEMAN=true
         MOD_CAVEMAN_INTENSITY="ultra"
         MOD_RTK=true
@@ -293,6 +476,10 @@ EOF
       --caveman)
         MOD_CAVEMAN=true
         shift
+        if [[ "${1:-}" == "lite" || "${1:-}" == "full" || "${1:-}" == "ultra" || "${1:-}" == "wenyan-lite" || "${1:-}" == "wenyan-full" || "${1:-}" == "wenyan-ultra" ]]; then
+          MOD_CAVEMAN_INTENSITY="$1"
+          shift
+        fi
         ;;
       --rtk|--rkt)
         MOD_RTK=true
@@ -300,6 +487,10 @@ EOF
         ;;
       --headroom)
         MOD_HEADROOM=true
+        shift
+        ;;
+      --leanctx)
+        MOD_LEANCTX=true
         shift
         ;;
       *)
@@ -324,11 +515,15 @@ EOF
       while IFS= read -r ext; do
         [[ -n "$ext" ]] && add_extension "$ext"
       done <<< "$extensions"
+
+      if [[ "$BASE_MINDSET" == "android" ]]; then
+        add_android_skills
+      fi
     fi
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -340,13 +535,30 @@ EOF
       add_rtk_extension
     fi
 
+    if [[ "$MOD_HEADROOM" == true && "$MOD_LEANCTX" == true ]]; then
+      nothing_warn "Choose one compression layer: --headroom or --leanctx"
+      return 2
+    fi
+
     if [[ "$MOD_HEADROOM" == true ]]; then
       ensure_headroom_proxy
       add_extension "noheadroom"
     fi
 
+    if [[ "$MOD_LEANCTX" == true ]]; then
+      ensure_leanctx_proxy
+    fi
+
     if [[ "$MOD_ANTIGRAVITY" == true ]]; then
       add_extension "antigravity"
+    fi
+
+    if [[ "$MOD_NOTRACE" == true ]]; then
+      add_extension "notrace"
+    fi
+
+    if [[ "$MOD_PONYTAIL" == true ]]; then
+      add_ponytail "${MOD_PONYTAIL_INTENSITY:-full}"
     fi
   fi
 
@@ -357,13 +569,16 @@ EOF
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_ANTIGRAVITY" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
+    [[ "$MOD_LEANCTX" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("leanctx")
     [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")
+    [[ "$MOD_NOTRACE" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("notrace")
+    [[ "$MOD_PONYTAIL" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("ponytail")
     local mod_label="none"
     if [[ ${#mods[@]} -gt 0 ]]; then
       mod_label="${mods[*]}"

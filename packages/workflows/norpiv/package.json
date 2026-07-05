@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/norpiv",
-  "version": "0.0.4",
+  "version": "0.0.6",
   "description": "Bundled RPIV workflow skills for Pi, Claude, and Codex-style coding agents",
   "type": "commonjs",
   "bin": {
@@ -8,7 +8,7 @@
   },
   "files": [
     "bin",
-    "cleanup",
+    "post-merge-prune",
     "distill",
     "frame",
     "grill-with-docs",
@@ -44,7 +44,7 @@
       "verify",
       "sync",
       "update-docs",
-      "cleanup",
+      "post-merge-prune",
       "distill"
     ]
   }

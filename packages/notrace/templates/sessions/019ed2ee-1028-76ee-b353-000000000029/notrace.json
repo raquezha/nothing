@@ -1,0 +1,130 @@
+{
+  "traceId": "019ed2ee-1028-76ee-b353-000000000029",
+  "startTime": "2026-06-18T02:16:00.000Z",
+  "metrics": {
+    "totalTokens": 25468,
+    "totalCost": 0.2076,
+    "turnCount": 8,
+    "toolCallCount": 11,
+    "toolErrorCount": 1
+  },
+  "events": [
+    {
+      "type": "session_start",
+      "timestamp": 1781705100000
+    },
+    {
+      "type": "turn_start",
+      "timestamp": 1781705102000
+    },
+    {
+      "type": "tool_start",
+      "toolName": "functions.bash",
+      "args": {
+        "command": "find packages/notrace -maxdepth 3 -type f"
+      },
+      "timestamp": 1781705104000
+    },
+    {
+      "type": "tool_end",
+      "toolName": "functions.bash",
+      "result": {
+        "stdout": "packages/notrace/extensions/notrace/index.ts\npackages/notrace/extensions/notrace/renderer.ts\npackages/notrace/package.json",
+        "stderr": "",
+        "exitCode": 0
+      },
+      "isError": false,
+      "timestamp": 1781705105200
+    },
+    {
+      "type": "llm_completion",
+      "model": "claude-sonnet-4",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Polish notrace HTML output and unify dashboard/session design."
+          }
+        ]
+      },
+      "outputContent": "Found renderer split. Will move both pages to one shared shell and standardize styles.",
+      "usage": {
+        "inputTokens": 2140,
+        "outputTokens": 116,
+        "totalTokens": 2256,
+        "cost": {
+          "total": 0.01451
+        }
+      },
+      "timestamp": 1781705111000
+    },
+    {
+      "type": "tool_start",
+      "toolName": "functions.edit",
+      "args": {
+        "path": "packages/notrace/extensions/notrace/renderer.ts",
+        "edits": [
+          {
+            "oldText": "old renderer",
+            "newText": "new renderer"
+          }
+        ]
+      },
+      "timestamp": 1781705120000
+    },
+    {
+      "type": "tool_end",
+      "toolName": "functions.edit",
+      "result": {
+        "message": "Successfully replaced 1 block(s)"
+      },
+      "isError": false,
+      "timestamp": 1781705120800
+    },
+    {
+      "type": "tool_start",
+      "toolName": "functions.bash",
+      "args": {
+        "command": "cd packages/notrace && npm run build"
+      },
+      "timestamp": 1781705130000
+    },
+    {
+      "type": "tool_end",
+      "toolName": "functions.bash",
+      "result": {
+        "stdout": "\n> @raquezha/notrace@0.0.5 build\n> tsc\n",
+        "stderr": "src/renderer.ts:12:4 - error TS1005: ';' expected.",
+        "exitCode": 2
+      },
+      "isError": true,
+      "timestamp": 1781705134100
+    },
+    {
+      "type": "llm_completion",
+      "model": "claude-sonnet-4",
+      "inputPayload": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Build failed. Find syntax bug and re-run."
+          }
+        ]
+      },
+      "outputContent": "TS syntax bug in arrow fn body. Fixing renderer and rebuilding.",
+      "usage": {
+        "inputTokens": 980,
+        "outputTokens": 63,
+        "totalTokens": 1043,
+        "cost": {
+          "total": 0.00613
+        }
+      },
+      "timestamp": 1781705140000
+    }
+  ],
+  "navigation": {
+    "indexHref": "../../dashboard.sample.html"
+  },
+  "repositoryName": "nothing"
+}
