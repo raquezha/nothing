@@ -273,6 +273,35 @@ log_research() {
   echo "Logged research update to $state_file"
 }
 
+update_research_meta() {
+  local state_file="$1"
+  local status="$2"
+  local phase="$3"
+  python3 - "$state_file" "$status" "$phase" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+status = sys.argv[2]
+phase = sys.argv[3]
+
+if not path.exists():
+    raise SystemExit
+
+text = path.read_text()
+lines = text.splitlines()
+
+for i, line in enumerate(lines):
+    if line.startswith("- Status: `"):
+        lines[i] = f"- Status: `{status}`"
+    elif line.startswith("- Phase: `"):
+        lines[i] = f"- Phase: `{phase}`"
+
+path.write_text("\n".join(lines).rstrip() + "\n")
+PY
+}
+
 close_research() {
   local artifact="$ARG"
   local workflow id state_file research_dir
@@ -289,6 +318,7 @@ close_research() {
   fi
   append_section_entry "$state_file" "LOG" "- $NOW: Research closed via /research.close"
   json_upsert "$research_dir/metadata.json" "status=closed" "phase=closed" "closedAt=$ISO_NOW" "updatedAt=$ISO_NOW"
+  update_research_meta "$state_file" "closed" "closed"
   rm -f "$ACTIVE_WORKFLOW"
   echo "Research workflow closed: $id"
   echo "State file retained: $state_file"

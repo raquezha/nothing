@@ -63,7 +63,7 @@ notrace evidence must stay under `.notrace/`. `RESEARCH.md` should only link to 
 
 ## Helper
 
-Use the bundled helper script:
+Use the bundled helper script (`research_helper.sh`) to invoke state operations:
 
 ```bash
 <skill_dir>/../scripts/research_helper.sh start "<topic>"

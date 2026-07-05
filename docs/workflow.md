@@ -42,7 +42,7 @@ A branch or worktree is the execution lane. The active workflow pointer declares
       metadata.json
 ```
 
-`.workflow/active.json` is the generic pointer. (Legacy `.workflow/active_workflow.json` or `active_task.json` may still exist during migration, but `active.json` is the shared helper target).
+`.workflow/active.json` is the generic pointer. (Legacy `active_task.json` may still exist during migration, but `active.json` is the target).
 
 Example:
 
@@ -134,7 +134,7 @@ Workflow files may link to notrace artifacts, but notrace owns the artifacts.
 When attaching evidence, notrace should prefer:
 
 1. `.workflow/active.json`
-2. legacy `.workflow/active_workflow.json` or `.workflow/active_task.json`
+2. legacy `.workflow/active_task.json`
 3. no-workflow mode under `.notrace/` only
 
 ## Package handoff rule
@@ -149,13 +149,6 @@ For `@raquezha/norpiv` specifically:
 - `.workflow/active_task.json` remains as compatibility state.
 - `.workflow/active.json` is additive generic state, not a breaking replacement.
 - Research is kept as a local workflow bundle under `packages/workflows/noresearch` for now; it is not published to npm yet.
-
-## Shared Helper
-
-To avoid duplicating state-machine code, a minimal shared workflow helper (`packages/workflows/core/scripts/workflow_core.sh`) provides:
-- active workflow pointer read/write (`.workflow/active.json`)
-- section append
-- metadata update
 
 ## Domain Boundaries (Hats)
 
