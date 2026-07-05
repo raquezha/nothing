@@ -120,7 +120,7 @@ PY
 
 write_active_pointer() {
     mkdir -p ".workflow"
-    python3 - ".workflow/active_task.json" ".workflow/active_workflow.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
+    python3 - ".workflow/active_task.json" ".workflow/active.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
 import json
 import sys
 from pathlib import Path

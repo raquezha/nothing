@@ -18,7 +18,7 @@ name: research
 intent: discovery — understand something, answer a question
 question: what do I need to understand and why does it matter?
 entry: /research.start
-activePointer: .workflow/active_workflow.json
+activePointer: .workflow/active.json
 stateFile: .workflow/research/<research-id>/RESEARCH.md
 phases:
   - start
@@ -45,7 +45,7 @@ Research workflow state lives under `.workflow`:
 
 ```text
 .workflow/
-  active_workflow.json
+  active.json
   research/
     <research-id>/
       RESEARCH.md
@@ -56,6 +56,7 @@ notrace evidence must stay under `.notrace/`. `RESEARCH.md` should only link to 
 
 ## Command forms
 
+- **(Auto-start)** — If the user provides a research goal (like "I want to understand X") and there is no active workflow, infer `/research.start X` automatically and run the helper.
 - `/research.start <topic>` — create or resume a research workflow.
 - `/research.log <message>` — append a timestamped research log entry.
 - `/research.close [artifact-path]` — close the active research workflow and optionally link the distilled note or artifact.
@@ -76,7 +77,7 @@ Resolve `<skill_dir>` to this skill directory. Prefer the absolute path when inv
 
 1. Parse the topic from the user request.
 2. Run `research_helper.sh start "<topic>"`.
-3. Read `.workflow/active_workflow.json` and the created `RESEARCH.md`.
+3. Read `.workflow/active.json` and the created `RESEARCH.md`.
 4. State the research question back to the user.
 5. Begin research using the minimum useful tools.
 
@@ -118,8 +119,8 @@ Output contract:
 
 ## Guardrails
 
-- READ: `.workflow/active_workflow.json`, active `RESEARCH.md`, and relevant source materials.
-- WRITE: `.workflow/research/<research-id>/RESEARCH.md`, `metadata.json`, and `.workflow/active_workflow.json` only through the helper.
+- READ: `.workflow/active.json`, active `RESEARCH.md`, and relevant source materials.
+- WRITE: `.workflow/research/<research-id>/RESEARCH.md`, `metadata.json`, and `.workflow/active.json` only through the helper.
 - NEVER create `.workflow/tasks/*/WORK.md` for research.
 - NEVER start RPIV automatically from research.
 - NEVER treat a research answer as verified implementation.

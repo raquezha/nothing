@@ -167,9 +167,9 @@ function verifyRpivWorkflowPointer() {
     assert(result.status === 0, "rpiv triage helper creates local task");
 
     const activeTaskPath = path.join(temp, ".workflow", "active_task.json");
-    const activeWorkflowPath = path.join(temp, ".workflow", "active_workflow.json");
+    const activeWorkflowPath = path.join(temp, ".workflow", "active.json");
     assert(existsSync(activeTaskPath), "rpiv writes compatibility active_task.json");
-    assert(existsSync(activeWorkflowPath), "rpiv writes generic active_workflow.json");
+    assert(existsSync(activeWorkflowPath), "rpiv writes generic active.json");
 
     const activeTask = JSON.parse(readFileSync(activeTaskPath, "utf8"));
     const activeWorkflow = JSON.parse(readFileSync(activeWorkflowPath, "utf8"));
@@ -199,10 +199,10 @@ function verifyResearchWorkflowHelper() {
     let result = run("bash", [script, "start", "Understand Notrace Storage"], temp);
     assert(result.status === 0, "research helper starts workflow");
 
-    const activeWorkflowPath = path.join(temp, ".workflow", "active_workflow.json");
-    assert(existsSync(activeWorkflowPath), "research writes generic active_workflow.json");
+    const activeWorkflowPath = path.join(temp, ".workflow", "active.json");
+    assert(existsSync(activeWorkflowPath), "research writes generic active.json");
     const activeWorkflow = JSON.parse(readFileSync(activeWorkflowPath, "utf8"));
-    assert(activeWorkflow.workflow === "research", "research active_workflow identifies research workflow");
+    assert(activeWorkflow.workflow === "research", "research active.json identifies research workflow");
     assert(activeWorkflow.id === "understand-notrace-storage", "research id is derived from topic");
     assert(activeWorkflow.stateFile === ".workflow/research/understand-notrace-storage/RESEARCH.md", "research active_workflow points to RESEARCH.md");
 

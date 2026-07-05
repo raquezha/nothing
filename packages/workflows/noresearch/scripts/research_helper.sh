@@ -12,7 +12,7 @@ MODE=${1:-}
 ARG=${2:-}
 OPTIONAL=${3:-}
 BASE_DIR=".workflow/research"
-ACTIVE_WORKFLOW=".workflow/active_workflow.json"
+ACTIVE_WORKFLOW=".workflow/active.json"
 
 if [[ -z "$MODE" ]]; then
   echo "Usage: $0 start <topic> [id] | log <message> | close [artifact-path]"
