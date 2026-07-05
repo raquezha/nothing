@@ -10,7 +10,7 @@ description: Verify the active slice or task against WORK.md, quality gates, and
 The final gate for a slice or task. Verify truth before reporting progress.
 
 ## Guardrails
-- READ: `.workflow/active_workflow.json` / `.workflow/active_task.json`, active `WORK.md` `[BRIEF]`, `[PLAN]`, and `[LOG]`.
+- READ: `.workflow/active.json` / `.workflow/active_task.json`, active `WORK.md` `[BRIEF]`, `[PLAN]`, and `[LOG]`.
 - WRITE: `WORK.md` -> `[PLAN]` checkboxes and append to `[LOG]` only.
 - NEVER: add `Signed-off-by`; tell the human to sign if needed.
 - NEVER: transition tracker state if verification fails.

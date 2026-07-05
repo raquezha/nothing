@@ -1,5 +1,7 @@
 ---
 name: triage
+workflow: rpiv
+workflowPhase: triage
 description: "Ingest or resume a tracked/local task in the RPIV workspace. Use when starting or returning to jira:, github:, gitlab:, or local: work and you need canonical WORK.md state without duplicating the scaffold."
 ---
 
@@ -8,10 +10,10 @@ description: "Ingest or resume a tracked/local task in the RPIV workspace. Use w
 Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 
 ## Guardrails
-- READ: user argument, `.workflow/active_task.json` if present, target `metadata.json`, and target `WORK.md` if resuming.
-- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active_task.json`; optional `.reposcry/` cache files only if RepoScry is installed.
+- READ: user argument, `.workflow/active.json` / `.workflow/active_task.json` if present, target `metadata.json`, and target `WORK.md` if resuming.
+- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active.json`, `.workflow/active_task.json`; optional `.reposcry/` cache files only if RepoScry is installed.
 - On **create**, initialize required guarded sections only if absent: `[BRIEF]`, `[GRILL]`, `[PLAN]`, `[LOG]`, `[META]`.
-- On **resume**, only update `.workflow/active_task.json`, metadata timestamps/state as needed, and `[META]`, then append one concise `[LOG]` entry.
+- On **resume**, only update `.workflow/active.json`, `.workflow/active_task.json`, metadata timestamps/state as needed, and `[META]`, then append one concise `[LOG]` entry.
 - NEVER: duplicate guarded sections.
 - NEVER: overwrite existing `[BRIEF]`, `[GRILL]`, or `[PLAN]` during triage.
 - NEVER: create `PROBLEM.md`, `PRD.md`, `PLAN.md`, or `EVIDENCE.md`.

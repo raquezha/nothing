@@ -2,7 +2,7 @@
 
 RPIV: a gated workflow for reliable AI coding agents.
 
-RPIV is one implementation of the broader `nothing` Workflow Contract. The contract defines the generic shape for workflows such as RPIV and Research.
+RPIV is one implementation of the broader `nothing` Workflow Contract. The contract defines the generic shape for workflows such as RPIV and Research, focusing on 3 Real Modes (Chat, Research, RPIV) tracked by `.workflow/active.json`.
 
 Standalone package usage still works: `@raquezha/norpiv` includes the RPIV skills, `distill`, and helper scripts needed for handoff. The local Research workflow lives separately under `packages/workflows/noresearch`. The platform-level contract lives in the source repo at <https://github.com/raquezha/nothing/blob/main/docs/workflow.md>.
 

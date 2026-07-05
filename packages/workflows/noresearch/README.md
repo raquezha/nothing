@@ -23,7 +23,7 @@ Research state is written to the repository being worked on:
 ```text
 .workflow/research/<research-id>/RESEARCH.md
 .workflow/research/<research-id>/metadata.json
-.workflow/active_workflow.json
+.workflow/active.json
 ```
 
 notrace evidence remains under `.notrace/` and should only be linked from `RESEARCH.md`.

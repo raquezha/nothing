@@ -24,7 +24,7 @@
 - **🛡️ Privacy First**: Always-on credential and secret guard via `@raquezha/noleaks`.
 - **🎩 Persona "Hats"**: Instant switching between Triage, PM, Dev, and Meta engineering modes.
 - **🗜️ Context Optimization**: Integrated local [Headroom](https://github.com/headroom-ai/headroom) compression via `@raquezha/noheadroom`.
-- **🔄 Workflow Platform**: A generic [Workflow Contract](./docs/workflow.md) with RPIV for execution and Research for discovery.
+- **🔄 Workflow Platform**: A generic [Workflow Contract](./docs/workflow.md) focusing on 3 Real Modes (Chat, Research, RPIV), using a centralized `.workflow/active.json` to manage state locally without over-engineering.
 - **🧾 Retrospective Memory**: Versioned `notrace.json` session evidence plus HTML reports via `@raquezha/notrace`, with optional extension telemetry.
 - **🐎 Simplicity Pressure**: Optional Ponytail modifier for YAGNI-first, stdlib-first, minimal-diff behavior.
 - **🔄 RPIV Workflow**: A formal Frame → Plan → Implement → Verify → Sync cycle for reliable agentic output.

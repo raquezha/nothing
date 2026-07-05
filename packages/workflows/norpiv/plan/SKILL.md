@@ -10,7 +10,7 @@ description: Create or revise vertical implementation slices in the active WORK.
 Map the "how" into tracer-bullet vertical slices.
 
 ## Guardrails
-- READ: `.workflow/active_workflow.json` / `.workflow/active_task.json` then active `WORK.md` `[BRIEF]` and `[GRILL]`.
+- READ: `.workflow/active.json` / `.workflow/active_task.json` then active `WORK.md` `[BRIEF]` and `[GRILL]`.
 - WRITE: `WORK.md` -> `[PLAN]` and append to `[LOG]` only.
 - NEVER: implement code during planning.
 - NEVER: create standalone `PLAN.md`.
