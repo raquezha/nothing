@@ -1,5 +1,11 @@
 # @raquezha/noheadroom
 
+## 0.3.2
+
+### Patch Changes
+
+- 17a6f66: Fix stale UI footer by clearing stats when context is passed through uncompressed, show last vs total Headroom savings in the footer, and base savings on applied tool-result text instead of proxy-reported payload totals.
+
 ## 0.3.1
 
 ### Patch Changes
