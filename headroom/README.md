@@ -32,7 +32,7 @@ docker run -d \
   -v headroom-data:/data \
   -e HEADROOM_TELEMETRY=off \
   -e HEADROOM_SAVINGS_PATH=/data/proxy_savings.json \
-  ghcr.io/chopratejas/headroom:latest \
+  ghcr.io/chopratejas/headroom:0.27.0 \
   --host 0.0.0.0 --port 8787 --no-cache
 ```
 
@@ -50,7 +50,7 @@ curl http://127.0.0.1:8788/health
 
 ## 🛠 Service Details
 
-- **Image**: `ghcr.io/chopratejas/headroom:latest`
+- **Image**: `ghcr.io/chopratejas/headroom:0.27.0`
 - **Port**: `8788` (Internal `8787`)
 - **Data Persistence**: Stats are stored in `${HOME}/.local/share/headroom`.
 - **Mode**: `token` (optimized for maximum reduction).

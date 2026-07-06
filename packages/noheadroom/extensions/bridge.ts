@@ -61,6 +61,8 @@ export function applyCompressionResult(
 
 	const nextMessages = structuredClone(originalMessages) as AgentMessage[];
 	let appliedMessages = 0;
+	let appliedTokensBefore = 0;
+	let appliedTokensAfter = 0;
 
 	for (let index = 0; index < mappings.length; index++) {
 		const mapping = mappings[index];
@@ -84,14 +86,28 @@ export function applyCompressionResult(
 		if (!hasContent(target) || !replaceTextContent(target, nextText)) {
 			return { ok: false, reason: "target-content-unreplaceable" };
 		}
+		appliedTokensBefore += estimateTokens(mapping.originalText);
+		appliedTokensAfter += estimateTokens(nextText);
 		appliedMessages++;
 	}
 
 	if (appliedMessages === 0) {
 		return { ok: false, reason: "no-applicable-message-changed" };
 	}
+	const appliedTokensSaved = Math.max(0, appliedTokensBefore - appliedTokensAfter);
+	if (appliedTokensSaved === 0) {
+		return { ok: false, reason: "no-estimated-token-savings" };
+	}
 
-	return { ok: true, messages: nextMessages, appliedMessages };
+	return {
+		ok: true,
+		messages: nextMessages,
+		appliedMessages,
+		appliedTokensBefore,
+		appliedTokensAfter,
+		appliedTokensSaved,
+		appliedCompressionRatio: appliedTokensAfter / appliedTokensBefore,
+	};
 }
 
 export function convertMessage(message: AnyMessage): OpenAIMessage | undefined {
@@ -265,6 +281,11 @@ function readStringProperty(value: unknown, key: string): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function estimateTokens(text: string): number {
+	// ponytail: cheap local estimate; exact tokenizer would add a heavy dependency for a footer number.
+	return text.length === 0 ? 0 : Math.max(1, Math.ceil(text.length / 4));
 }
 
 function naturalizeHeadroomMarkers(text: string): string {

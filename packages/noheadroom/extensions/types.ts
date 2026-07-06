@@ -108,5 +108,13 @@ export interface ApplyCompressionOptions {
 }
 
 export type ApplyCompressionResult =
-	| { ok: true; messages: AgentMessage[]; appliedMessages: number }
+	| {
+			ok: true;
+			messages: AgentMessage[];
+			appliedMessages: number;
+			appliedTokensBefore: number;
+			appliedTokensAfter: number;
+			appliedTokensSaved: number;
+			appliedCompressionRatio: number;
+	  }
 	| { ok: false; reason: string };

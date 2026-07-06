@@ -270,10 +270,18 @@ async function handleContextCompression(
 ): Promise<{ messages?: AgentMessage[] } | undefined> {
 	if (runtime.state.processing) return undefined;
 
+	const bypassUncompressed = () => {
+		if (runtime.state.stats.last) {
+			runtime.state.stats.last = undefined;
+			runtime.refreshStatus(ctx);
+		}
+		return undefined;
+	};
+
 	// Throttle: max 1 compression attempt per 3 seconds to kill infinite loops
 	const now = Date.now();
 	if (now - runtime.state.lastCompressionTime < 3000) {
-		return undefined;
+		return bypassUncompressed();
 	}
 
 	// Content-based guards to prevent infinite recursion
@@ -286,25 +294,26 @@ async function handleContextCompression(
 
 	// 2. If this input matches our previous input, it didn't change. Stop.
 	if (runtime.state.lastInputFingerprint === inputFingerprint) {
-		return undefined;
+		return bypassUncompressed();
 	}
 
-	if (shouldSkipBeforePayload(runtime, ctx)) return undefined;
+	if (shouldSkipBeforePayload(runtime, ctx)) return bypassUncompressed();
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
-	if (payload.candidateCount === 0) return undefined;
+	if (payload.candidateCount === 0) return bypassUncompressed();
 
 	// 3. If eligible candidates haven't changed since the last skip/no-savings result,
 	// don't spend another proxy call just because surrounding conversation changed.
 	const candidateFingerprint = generateCandidateFingerprint(event.messages, payload);
 	if (runtime.state.lastGuardSkipCandidateFingerprint === candidateFingerprint) {
-		return undefined;
+		return bypassUncompressed();
 	}
 	if (allCandidateContentSeen(runtime.state, payload)) {
-		return undefined;
+		return bypassUncompressed();
 	}
+	ignoreSeenCandidateContent(runtime.state, payload);
 	if (runtime.state.proxyOnline !== true) {
 		void ensureProxyInBackground(runtime, ctx);
-		return undefined;
+		return bypassUncompressed();
 	}
 
 	runtime.state.processing = true;
@@ -318,10 +327,7 @@ async function handleContextCompression(
 			// until the actual compressible candidate material changes.
 			runtime.state.lastInputFingerprint = inputFingerprint;
 			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
-			// ponytail: clear stats.last so renderFooterStatus shows idle instead of stale savings
-			runtime.state.stats.last = undefined;
-			runtime.refreshStatus(ctx);
-			return undefined;
+			return bypassUncompressed();
 		}
 
 		const applied = applyCompressionResult(event.messages, payload.mappings, result.messages, {
@@ -336,24 +342,30 @@ async function handleContextCompression(
 			recordGuardSkip(runtime.state.stats, applied.reason);
 			emitNotraceTelemetry(runtime);
 			announceGuardSkip(ctx, applied.reason, result, runtime.config.mode);
-			runtime.refreshStatus(ctx);
-			return undefined;
+			return bypassUncompressed();
 		}
 
 		// Store fingerprints to break the feedback loop
 		runtime.state.lastInputFingerprint = inputFingerprint;
 		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 		runtime.state.lastGuardSkipCandidateFingerprint = null;
-		recordSeenCandidateContent(runtime.state, payload, result.messages);
+		recordSeenCandidateContent(runtime.state, payload, applied.messages);
+		const appliedResult = {
+			...result,
+			tokensBefore: applied.appliedTokensBefore,
+			tokensAfter: applied.appliedTokensAfter,
+			tokensSaved: applied.appliedTokensSaved,
+			compressionRatio: applied.appliedCompressionRatio,
+		};
 
-		recordAppliedCompression(runtime.state.stats, result, applied.appliedMessages);
+		recordAppliedCompression(runtime.state.stats, appliedResult, applied.appliedMessages);
 		emitNotraceTelemetry(runtime);
-		announceAppliedCompression(runtime.pi, ctx, result, applied.appliedMessages, runtime.config.mode);
+		announceAppliedCompression(runtime.pi, ctx, appliedResult, applied.appliedMessages, runtime.config.mode);
 		runtime.refreshStatus(ctx);
 		return { messages: applied.messages };
 	} catch (error) {
 		recordCompressionError(runtime, ctx, error);
-		return undefined;
+		return bypassUncompressed();
 	} finally {
 		runtime.state.processing = false;
 	}
@@ -366,18 +378,26 @@ function allCandidateContentSeen(state: HeadroomRuntimeState, payload: Compressi
 	return hashes.length > 0 && hashes.every((hash) => seen.has(hash));
 }
 
+function ignoreSeenCandidateContent(state: HeadroomRuntimeState, payload: CompressionPayload): void {
+	const seen = state.seenCandidateContentFingerprints;
+	if (!seen?.size) return;
+	for (const mapping of payload.mappings) {
+		if (mapping.applyTo && seen.has(stableHash(mapping.originalText))) mapping.applyTo = null;
+	}
+}
+
 function recordSeenCandidateContent(
 	state: HeadroomRuntimeState,
 	payload: CompressionPayload,
-	compressedMessages: CompressionPayload["messages"],
+	appliedMessages: AgentMessage[],
 ): void {
 	state.seenCandidateContentFingerprints ??= new Set();
 	state.seenCandidateContentOrder ??= [];
-	payload.mappings.forEach((mapping, index) => {
+	payload.mappings.forEach((mapping) => {
 		if (!mapping.applyTo) return;
 		addSeenCandidateHash(state, stableHash(mapping.originalText));
-		const compressed = compressedMessages[index];
-		if (compressed) addSeenCandidateHash(state, stableHash(extractOpenAIText(compressed)));
+		const applied = convertMessage(appliedMessages[mapping.sourceIndex]);
+		if (applied) addSeenCandidateHash(state, stableHash(extractOpenAIText(applied)));
 	});
 }
 
@@ -472,7 +492,7 @@ function recordAppliedCompression(stats: HeadroomStats, result: CompressResult, 
 function summarizeTelemetry(state: HeadroomRuntimeState): string | null {
 	if (state.stats.last) {
 		const pct = Math.round((1 - state.stats.last.compressionRatio) * 100);
-		return `compressed ${state.stats.last.tokensBefore.toLocaleString()} to ${state.stats.last.tokensAfter.toLocaleString()} tokens; saved ${state.stats.last.tokensSaved.toLocaleString()} tokens across ${state.stats.last.appliedMessages} tool results (-${pct}%)`;
+		return `last compression estimated about ${state.stats.last.tokensSaved.toLocaleString()} tokens saved (-${pct}%) across ${state.stats.last.appliedMessages} tool results; local session estimate about ${state.stats.tokensSaved.toLocaleString()} tokens saved`;
 	}
 	if (!state.enabled) return "headroom loaded but disabled for this session";
 	if (state.stats.lastSkipReason) return `compression not applied; last guard skip: ${state.stats.lastSkipReason}`;
@@ -524,7 +544,7 @@ function announceAppliedCompression(
 ): void {
 	if (mode === "quiet" || mode === "silent") return;
 	const pct = Math.round((1 - result.compressionRatio) * 100);
-	const summary = `compressed ${result.tokensBefore.toLocaleString()} → ${result.tokensAfter.toLocaleString()} tokens (-${pct}%, saved ${result.tokensSaved.toLocaleString()}, messages ${appliedMessages})`;
+	const summary = `compressed ${appliedMessages} tool results; estimated ~${result.tokensSaved.toLocaleString()} tokens saved (-${pct}%)`;
 	const line = `noheadroom: ${summary}`;
 	ctx.ui.notify(line, "info");
 	// Note: we no longer use pi.appendEntry or pi.sendMessage here because
@@ -661,12 +681,7 @@ function renderFooterStatus(ctx: ExtensionContext, config: HeadroomConfig, state
 	if (state.proxyStarting) return paint("dim", "⏳ Headroom starting");
 	if (state.proxyOnline === false) return paint("dim", "○ Headroom not running");
 	if (state.proxyOnline === null && !state.stats.last) return paint("dim", "○ Headroom idle");
-	if (!state.stats.last) return paint("success", "✓") + paint("dim", " Headroom");
-
-	const pct = Math.round((1 - state.stats.last.compressionRatio) * 100);
-	return (
-		paint("success", "✓") + paint("dim", ` Headroom -${pct}% (${state.stats.last.tokensSaved.toLocaleString()} saved)`)
-	);
+	return paint("success", "✓") + paint("dim", " Headroom active");
 }
 
 async function showProxyStats(
@@ -706,7 +721,8 @@ function renderStatus(config: HeadroomConfig, state: HeadroomRuntimeState): stri
 		`  Attempts:     ${stats.attempts}`,
 		`  Applied:      ${stats.applied}`,
 		`  Guard skips:  ${stats.guardSkips}`,
-		`  Tokens saved: ${stats.tokensSaved.toLocaleString()}`,
+		`  Estimated tokens saved: ~${stats.tokensSaved.toLocaleString()}`,
+		`  Note: local estimate; proxy /stats does not track Pi extension /v1/compress calls.`,
 	];
 	if (stats.last) {
 		const pct = Math.round((1 - stats.last.compressionRatio) * 100);

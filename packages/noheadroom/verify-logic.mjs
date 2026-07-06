@@ -178,6 +178,40 @@ async function testRepeatedReadContentLoop() {
   console.log("✓ Repeated read content loop test passed\n");
 }
 
+async function testMixedSeenAndNewCandidatesOnlyCountsNew() {
+  console.log("Testing Mixed Seen + New Candidate Accounting...");
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, seenCandidateContentFingerprints: new Set(), seenCandidateContentOrder: [], lastCompressionTime: 0, stats: { attempts:0, applied:0, guardSkips:0, tokensSaved:0 } },
+    refreshStatus: () => {}
+  };
+
+  const oldFile = "old-file-line\n".repeat(1000);
+  const first = [
+    { role: "user", content: "read old" },
+    { role: "toolResult", toolCallId: "old-1", toolName:"read", content: oldFile }
+  ];
+  const compressed = await handleContextCompression(runtime, { messages: first }, createMockCtx(first));
+  assert(compressed !== undefined, "Should compress first old result");
+  const firstSaved = runtime.state.stats.tokensSaved;
+
+  runtime.state.lastCompressionTime = 0;
+  const newFile = "new-file-line\n".repeat(1000);
+  const mixed = [
+    ...compressed.messages,
+    { role: "user", content: "read new" },
+    { role: "toolResult", toolCallId: "new-1", toolName:"read", content: newFile }
+  ];
+  await handleContextCompression(runtime, { messages: mixed }, createMockCtx(mixed));
+  const secondSaved = runtime.state.stats.tokensSaved - firstSaved;
+
+  assert(client.calls === 2, "Should call Headroom for the new candidate only once");
+  assert(secondSaved === firstSaved, `Second save should count only new content, got ${secondSaved} vs ${firstSaved}`);
+  assert(runtime.state.stats.tokensSaved === firstSaved * 2, "Total should be old + new, not old counted again");
+  console.log("✓ Mixed seen + new candidate accounting passed\n");
+}
+
 async function testSeenCandidateMemoryCap() {
   console.log("Testing Seen Candidate Memory Cap...");
   const client = new MockClient();
@@ -518,6 +552,7 @@ async function runAll() {
     await testOutputModes();
     await testLoopPrevention();
     await testRepeatedReadContentLoop();
+    await testMixedSeenAndNewCandidatesOnlyCountsNew();
     await testSeenCandidateMemoryCap();
     await testFingerprintIncludesContent();
     await testThrottle();
