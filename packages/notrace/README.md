@@ -84,7 +84,7 @@ If an extension is present, it can contribute a structured summary such as:
 
 ## Capture modes
 
-Default capture mode is **full**.
+Default capture mode is **redacted**.
 
 ```bash
 pi --extension ./packages/notrace
@@ -99,9 +99,9 @@ NOTRACE_CAPTURE=full pi --extension ./packages/notrace
 ```
 
 Mode meanings:
-- `full`: full captured payloads; best for local debugging; highest sensitivity
-- `redacted`: captured payloads with common secret-like values redacted
+- `redacted`: captured payloads with common secret-like values redacted; default
 - `metadata`: minimal capture, no prompt/tool bodies
+- `full`: full captured payloads; best for local debugging; highest sensitivity
 
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 

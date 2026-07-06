@@ -50,12 +50,12 @@ type ExtensionTelemetryPayload = {
   details?: Record<string, unknown>;
 };
 
-let currentMode: NotraceCaptureMode = "full";
+let currentMode: NotraceCaptureMode = "redacted";
 
 function getInitialMode(): NotraceCaptureMode {
   const env = process.env.NOTRACE_CAPTURE?.toLowerCase();
-  if (env === "metadata" || env === "redacted") return env;
-  return "full";
+  if (env === "metadata" || env === "redacted" || env === "full") return env;
+  return "redacted";
 }
 
 const SENSITIVE_KEY_RE = /(authorization|cookie|setcookie|password|passwd|pwd|secret|token|apikey|accesskey|accesskeyid|accessid|accesstoken|privatekey|session|credential|refreshtoken|idtoken)/i;
@@ -191,7 +191,11 @@ function toTaskInfo(context: WorkflowContext | null): NotraceRunRecord["task"] {
   };
 }
 
-function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath: string): Record<string, unknown> {
+function relativeArtifactPath(notraceDir: string, filePath: string): string {
+  return path.relative(notraceDir, filePath).split(path.sep).join("/");
+}
+
+function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath: string, notraceDir: string): Record<string, unknown> {
   return {
     sessionId: record.traceId,
     repositoryName: record.repository.name,
@@ -202,8 +206,8 @@ function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
-      html: htmlPath,
-      record: recordPath,
+      html: relativeArtifactPath(notraceDir, htmlPath),
+      record: relativeArtifactPath(notraceDir, recordPath),
     },
   };
 }
@@ -319,7 +323,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
 
       if (!isGhostSession) {
-        sessions.push(createIndexEntry(record, htmlPath, recordPath));
+        sessions.push(createIndexEntry(record, htmlPath, recordPath, deps.notraceDir));
       }
 
       writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
