@@ -20,8 +20,11 @@ export type AntigravityApiKey = {
 	projectId: string;
 };
 
-export const DEFAULT_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
-export const ENDPOINT_FALLBACKS = [DEFAULT_ENDPOINT];
+export const DEFAULT_ENDPOINT = "https://cloudcode-pa.googleapis.com";
+export const ENDPOINT_FALLBACKS = [
+	DEFAULT_ENDPOINT,
+	"https://daily-cloudcode-pa.sandbox.googleapis.com",
+];
 export const REDIRECT_URI = "http://localhost:51121/oauth-callback";
 
 export function antigravityEnv(name: string): string | undefined {
@@ -218,26 +221,47 @@ function summarizeModelCandidate(value: any): string {
 	return JSON.stringify(out).slice(0, 1200);
 }
 
-function findGemini35Model(value: any): string | undefined {
+export type DynamicModelInfo = { id: string; experiments?: string[]; apiProvider?: string; modelProvider?: string };
+
+function findDynamicModel(value: any, requestedId: string): DynamicModelInfo | undefined {
 	if (!value) return undefined;
-	if (typeof value === "string") return /gemini[- ]3\.5[- ]flash|Gemini 3\.5 Flash/i.test(value) ? value : undefined;
+	
+	let targetRegex: RegExp;
+	const req = requestedId.toLowerCase();
+	if (req === "gemini-3.5-flash-low") targetRegex = /gemini[- ]3\.5[- ]flash \(low\)/i;
+	else if (req === "gemini-3.5-flash-medium") targetRegex = /gemini[- ]3\.5[- ]flash \(medium\)/i;
+	else if (req === "gemini-3.5-flash-high") targetRegex = /gemini[- ]3\.5[- ]flash \(high\)/i;
+	else if (req.includes("claude-opus-4-6")) targetRegex = /claude.*opus.*4\.6/i;
+	else if (req.includes("claude-sonnet-4-6")) targetRegex = /claude.*sonnet.*4\.6/i;
+	else if (req.includes("gpt-oss-120b")) targetRegex = /gpt.*oss.*120b/i;
+	else if (req === "gemini-3.1-pro-low") targetRegex = /gemini[- ]3\.1[- ]pro \(low\)/i;
+	else if (req === "gemini-3.1-pro-high") targetRegex = /gemini[- ]3\.1[- ]pro \(high\)/i;
+	else if (req.includes("gemini-2.5-pro")) targetRegex = /gemini[- ]2\.5[- ]pro/i;
+	else if (req.includes("gemini-2.5-flash")) targetRegex = /gemini[- ]2\.5[- ]flash/i;
+	else targetRegex = new RegExp(req.replace(/-/g, ".*"), "i");
+
+	if (typeof value === "string") return targetRegex.test(value) ? { id: value } : undefined;
 	if (Array.isArray(value)) {
 		for (const item of value) {
-			const found = findGemini35Model(item);
+			const found = findDynamicModel(item, requestedId);
 			if (found) return found;
 		}
 		return undefined;
 	}
 	if (typeof value === "object") {
 		const label = value.label ?? value.displayName ?? value.name ?? value.modelId ?? value.id ?? value.model;
-		if (typeof label === "string" && /gemini[- ]3\.5[- ]flash|Gemini 3\.5 Flash/i.test(label)) {
+		if (typeof label === "string" && targetRegex.test(label)) {
 			lastMatchedModelDebug = summarizeModelCandidate(value);
-			const candidate = String(value.modelId ?? value.id ?? value.model ?? label);
-			return candidate;
+			return { 
+				id: String(value.modelId ?? value.id ?? value.model ?? label),
+				experiments: value.modelExperiments,
+				apiProvider: value.apiProvider,
+				modelProvider: value.modelProvider
+			};
 		}
 		for (const nested of Object.values(value)) {
 			if (nested && typeof nested === "object") {
-				const found = findGemini35Model(nested);
+				const found = findDynamicModel(nested, requestedId);
 				if (found) return found;
 			}
 		}
@@ -245,7 +269,7 @@ function findGemini35Model(value: any): string | undefined {
 	return undefined;
 }
 
-export async function fetchAvailableRuntimeModel(token: string, projectId: string): Promise<string | undefined> {
+export async function fetchAvailableRuntimeModel(token: string, projectId: string, requestedRuntimeModel: string): Promise<DynamicModelInfo | undefined> {
 	const bodies = [{}, { cloudaicompanionProject: projectId }, { project: projectId }];
 	for (const endpoint of endpointCandidates()) {
 		for (const candidateBody of bodies) {
@@ -261,7 +285,7 @@ export async function fetchAvailableRuntimeModel(token: string, projectId: strin
 				const data = await res.json();
 				const labels = [...new Set(collectModelLabels(data))].slice(0, 12);
 				lastAvailableModels = labels.join(",");
-				return findGemini35Model(data);
+				return findDynamicModel(data, requestedRuntimeModel);
 			} catch (error) {
 				lastError = safeError(error);
 			}

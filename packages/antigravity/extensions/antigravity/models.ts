@@ -70,14 +70,15 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 		defaultRequestId: "gemini-3.1-flash-lite",
 	},
 	"gemini-3.5-flash": {
-		off: "gemini-3.5-flash-medium",
+		off: "gemini-3.5-flash-extra-low",
 		routing: {
-			minimal: "gemini-3.5-flash-medium",
-			low: "gemini-3.5-flash-medium",
-			medium: "gemini-3.5-flash-medium",
-			high: "gemini-3.5-flash-high",
+			minimal: "gemini-3.5-flash-extra-low",
+			low: "gemini-3.5-flash-low",
+			medium: "gemini-3.5-flash-low",
+			high: "gemini-3-flash-agent",
+			xhigh: "gemini-3-flash-agent",
 		},
-		defaultRequestId: "gemini-3.5-flash-medium",
+		defaultRequestId: "gemini-3.5-flash-extra-low",
 	},
 	"gpt-oss-120b": {
 		off: "gpt-oss-120b-medium",

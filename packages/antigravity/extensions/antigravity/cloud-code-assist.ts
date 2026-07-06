@@ -166,10 +166,10 @@ function buildRequest(model: any, context: any, projectId: string, options: any,
 	// (e.g. claude-sonnet-4-6 or gemini-3.5-flash-low). Sending thinkingConfig explicitly is rejected by the API.
 	
 	if (Object.keys(generationConfig).length) request.generationConfig = generationConfig;
-	const tools = convertTools(context.tools, runtimeModel.startsWith("claude-"));
+	const tools = convertTools(context.tools, model.id.startsWith("claude-"));
 	if (tools) {
 		request.tools = tools;
-		if (runtimeModel.startsWith("claude-")) {
+		if (model.id.startsWith("claude-")) {
 			request.toolConfig = options?.toolChoice
 				? {
 						functionCallingConfig: {
@@ -190,13 +190,62 @@ function buildRequest(model: any, context: any, projectId: string, options: any,
 		}
 	}
 	if (options?.sessionId) request.sessionId = options.sessionId;
-	return { project: projectId, model: runtimeModel, request, requestType: "agent", userAgent: "antigravity", requestId: nowRequestId() };
+	const payload: any = { project: projectId, model: runtimeModel, request, requestType: "agent", userAgent: "antigravity", requestId: nowRequestId() };
+	
+	return payload;
 }
 
 function mapStopReason(reason: string | undefined): "stop" | "length" | "toolUse" | "error" {
 	if (reason === "STOP") return "stop";
 	if (reason === "MAX_TOKENS") return "length";
 	return reason ? "error" : "stop";
+}
+
+function friendlyAntigravityError(status: number | undefined, text: string): string {
+	const msg = jsonOrTextError(text);
+	if (status === 400) {
+		if (/API key not valid|API_KEY_INVALID/i.test(msg)) return "Antigravity login expired or credentials are invalid. Next: run /login antigravity, then retry.";
+		if (/Invalid JSON payload|Unknown name/i.test(msg)) return "Antigravity request format was rejected by the backend. Next: switch to a simpler model or retry after updating the extension.";
+		if (/Request contains an invalid argument/i.test(msg)) return "Antigravity rejected this request. Next: retry once; if it keeps failing, switch models or re-login.";
+		return `Bad request from Antigravity. Next: retry once, then run /login antigravity if it keeps failing. Backend said: ${msg}`;
+	}
+	if (status === 401) {
+		return "Antigravity authentication failed. Next: run /login antigravity, then retry.";
+	}
+	if (status === 403) {
+		if (/permission|forbidden|access/i.test(msg)) return "Antigravity access was denied for this account or project. Next: try another model, re-login, or use an account with access.";
+		return `Antigravity denied this request. Next: re-login or try another model. Backend said: ${msg}`;
+	}
+	if (status === 404) {
+		if (/Requested entity was not found/i.test(msg)) return "This model is not available right now. Next: switch to gemini-3.5-flash, gemini-3.1-pro, or another working model.";
+		return `Antigravity could not find the requested resource. Next: retry or switch models. Backend said: ${msg}`;
+	}
+	if (status === 408) {
+		return "Antigravity timed out. Next: retry the same request.";
+	}
+	if (status === 409) {
+		return "Antigravity reported a conflict for this request. Next: retry once or start a new chat session.";
+	}
+	if (status === 429) {
+		const wait = msg.match(/Resets? in ([^.\n]+)/i)?.[1]?.trim();
+		if (/Individual quota reached/i.test(msg)) return `Quota reached. Please wait ${wait || "for reset"}. Next: switch models or try again after reset.`;
+		if (/quota/i.test(msg)) return `Quota reached.${wait ? ` Please wait ${wait}.` : ""} Next: switch models or retry later.`;
+		return `Rate limited by Antigravity. Next: wait a bit and retry.${wait ? ` Reset: ${wait}.` : ""}`;
+	}
+	if (status === 500) {
+		return "Antigravity had an internal server error. Next: retry in a moment or switch models.";
+	}
+	if (status === 502) {
+		return "Antigravity returned a bad gateway error. Next: retry in a moment.";
+	}
+	if (status === 503) {
+		if (/No capacity available/i.test(msg)) return "This model has no capacity right now. Next: retry later or switch to another model.";
+		return "Antigravity is temporarily unavailable. Next: retry in a moment or switch models.";
+	}
+	if (status === 504) {
+		return "Antigravity timed out upstream. Next: retry in a moment.";
+	}
+	return msg;
 }
 
 function createOutput(model: any): any {
@@ -326,17 +375,19 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 			const warmedProject = await loadCodeAssist(creds.token);
 			const projectId = antigravityEnv("PROJECT_ID")?.trim() || warmedProject || creds.projectId || DEFAULT_PROJECT_ID;
 			setLastProjectId(projectId);
-			await fetchAvailableRuntimeModel(creds.token, projectId);
-
 			// Dynamic effort-based model routing
 			const effort = options?.reasoning ?? "off";
-			const runtimeModel = antigravityEnv("RUNTIME_MODEL")?.trim() || getAntigravityRequestModelId(model.id, effort);
+			const baseRuntimeModel = antigravityEnv("RUNTIME_MODEL")?.trim() || getAntigravityRequestModelId(model.id, effort);
+			
+			await fetchAvailableRuntimeModel(creds.token, projectId, baseRuntimeModel);
+			const runtimeModel = baseRuntimeModel;
+			
 			setLastResolvedRuntimeModel(runtimeModel);
 
 			const body = JSON.stringify(buildRequest(model, context, projectId, options || {}, runtimeModel));
 			
 			// Claude interleaving beta header if using a Claude reasoning model
-			const isClaudeReasoning = runtimeModel.startsWith("claude-") && model.reasoning;
+			const isClaudeReasoning = model.id.startsWith("claude-") && model.reasoning;
 			const requestHeaders: Record<string, string> = {
 				...antigravityHeaders(creds.token),
 				...(isClaudeReasoning ? { "anthropic-beta": "interleaved-thinking-2025-05-14" } : {}),
@@ -365,11 +416,14 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 					setLastStatus(response.status);
 					if (response.ok) break;
 					lastText = await response.text();
+					if (response.status === 429 && /Individual quota reached/i.test(lastText)) break;
 					if (![403, 404, 429, 500, 502, 503, 504].includes(response.status)) break;
 				}
 
 				if (!response || !response.ok) {
-					throw new Error(`Antigravity API error (${response?.status ?? "no response"}, endpoint=${lastEndpoint || "unknown"}, project=${projectId}, runtimeModel=${runtimeModel}, matched=${lastMatchedModelDebug || "none"}, available=${lastAvailableModels || "unknown"}): ${jsonOrTextError(lastText)}`);
+					const friendly = friendlyAntigravityError(response?.status, lastText);
+					if (response?.status === 429 && /Quota reached\./i.test(friendly)) throw new Error(friendly);
+					throw new Error(`Antigravity API error (${response?.status ?? "no response"}, endpoint=${lastEndpoint || "unknown"}, project=${projectId}, runtimeModel=${runtimeModel}, matched=${lastMatchedModelDebug || "none"}, available=${lastAvailableModels || "unknown"}): ${friendly}`);
 				}
 
 				// Reset output contents before retry

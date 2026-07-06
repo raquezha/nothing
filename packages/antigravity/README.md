@@ -48,7 +48,7 @@ npm install -g @raquezha/antigravity
   - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`
 - Migration note:
   - old public ids like `gemini-3.5-flash-high`, `gemini-3.5-flash-low`, `gemini-3.1-pro-low`, `gemini-3.1-pro-high`, `claude-sonnet-4-6-thinking`, and `gpt-oss-120b-medium` were replaced by cleaner public ids plus internal routing.
-- Default endpoint: `https://daily-cloudcode-pa.googleapis.com`
+- Default endpoint: `https://cloudcode-pa.googleapis.com` (fallback: `https://daily-cloudcode-pa.sandbox.googleapis.com`)
 
 ## Diagnostics
 
