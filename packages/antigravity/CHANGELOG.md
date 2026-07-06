@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.0.9
+
+### Patch Changes
+
+- 98f3291: Fix Antigravity endpoint defaults, restore Gemini 3.5 Flash internal routing, and make common backend errors easier to read.
+
 ## 0.0.8
 
 ### Patch Changes
