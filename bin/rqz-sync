@@ -11,9 +11,9 @@ Usage: rqz-sync [--dry-run|--safe] [--help]
 Sync Git repos under RQZ_SYNC_ROOTS.
 
 Modes:
-  --dry-run   Report repo state only. Default.
+  --dry-run   Report repo state only.
   --safe      Pull/push clean repos only. Dirty repos are left alone.
-  (no flag)   Commit all dirty changes with a Pi-generated message, then sync.
+  (no flag)   Commit all dirty changes with a Pi-generated message, then sync. Default.
 EOF
 }
 
