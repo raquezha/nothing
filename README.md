@@ -87,6 +87,18 @@ pi --ponytail    # load Ponytail's minimal-diff rules and commands
 pi --tkmx        # THE COMBO: --antigravity + --headroom + --caveman + --rtk + --notrace + --ponytail
 ```
 
+## 🔄 Multi-machine Git sync
+
+After bootstrap, use:
+
+```bash
+rqz-sync --dry-run  # inspect every repo under ~/RQZ
+rqz-sync --safe     # only pull/push clean repos
+rqz-sync            # commit dirty tracked branches, then sync
+```
+
+See [rqz-sync](docs/rqz-sync.md) for its upstream-branch policy and stop conditions.
+
 ## 🧩 Standalone Usage
 
 Don't want the full setup? You can still use the skills and packages independently.

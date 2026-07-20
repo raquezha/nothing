@@ -1,0 +1,5 @@
+# rqz-sync machine config.
+# Copied to ~/.config/nothing/rqz-sync by bootstrap if missing.
+
+RQZ_SYNC_ROOTS="$HOME/RQZ"
+RQZ_SYNC_SKIP=""
