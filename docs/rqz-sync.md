@@ -1,6 +1,6 @@
 # rqz-sync
 
-`rqz-sync` is the planned RQZ multi-machine Git sync helper.
+`rqz-sync` is the RQZ multi-machine Git sync helper.
 
 It is intentionally boring:
 
@@ -8,7 +8,7 @@ It is intentionally boring:
 - installed by `./bootstrap.sh`
 - manual command, not a daemon
 - Git owns repo state
-- Pi/agent will only write commit messages in a later phase
+- Pi/agent only writes a commit subject; shell owns Git
 
 ## Install
 
@@ -36,13 +36,19 @@ Bootstrap never runs sync.
 rqz-sync --dry-run
 ```
 
-Reports repo state under `RQZ_SYNC_ROOTS`. This is the default.
+Reports repo state under `RQZ_SYNC_ROOTS` without changing anything.
 
 ```bash
 rqz-sync --safe
 ```
 
 Only pulls/pushes clean repos. Dirty repos are reported and left untouched.
+
+```bash
+rqz-sync
+```
+
+Stages **all** dirty changes in each eligible repo, rejects obvious secret files/content, asks Pi for one commit subject from the staged diff, commits, rebases, then pushes. If Pi fails, the repo is left staged for review.
 
 ## Branch policy
 
@@ -68,10 +74,12 @@ Global sync stops per repo when Git says the repo needs human attention:
 
 No force push. No auto conflict resolution.
 
-## Later phase
+## Commit policy
 
-Full dirty-repo sync should stage changes, ask Pi for a meaningful commit message from the staged diff, commit, rebase, and push.
+Pi receives the staged status, stat, and diff, then returns one imperative subject no longer than 72 characters. It has no tools, extensions, skills, or context files for this call.
 
-If Pi cannot produce a message, skip the repo. Do not use junk messages like `sync changes`.
+The script never invents a fallback like `sync changes`. If Pi cannot produce a valid subject, it stops that repo with changes staged.
+
+The secret check is deliberately conservative: it stops for `.env`, private-key-like filenames, private-key content, or obvious `TOKEN`/`SECRET`/`API_KEY`/`PASSWORD` assignments. Review and unstage false positives manually.
 
 Refs #61
