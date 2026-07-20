@@ -91,7 +91,7 @@ done
 AGENT_DIR="$HOME/.pi/agent"
 SECRETS_FILE="$HOME/.pi-secrets/.env"
 
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 CURRENT_STEP=0
 
 print_logo() {
@@ -118,6 +118,7 @@ print_plan() {
   printf '   headroom backend     %s\n' "$([[ "$INSTALL_HEADROOM" == true ]] && printf yes || printf no)"
   printf '   package source        checkout\n'
   printf '   repo git hooks       pre-push verify-repo\n'
+  printf '   rqz-sync helper      installed to ~/.local/bin\n'
   printf '   global AGENTS.md      bootstrap-managed\n'
 }
 
@@ -301,6 +302,23 @@ install_shell_integration() {
   else
     printf '\n# nothing shell integration\n%s\n' "$line" >> "$rc"
     ok "Added nothing shell integration to $(basename "$rc")"
+  fi
+}
+
+install_rqz_sync() {
+  local bin_dir="$HOME/.local/bin"
+  local config_dir="$HOME/.config/nothing"
+  local config_file="$config_dir/rqz-sync"
+
+  link_item "$SCRIPT_DIR/bin/rqz-sync" "$bin_dir/rqz-sync" "rqz-sync"
+  run mkdir -p "$config_dir"
+  if [[ -f "$config_file" ]]; then
+    ok "rqz-sync config already exists"
+  elif [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] install rqz-sync config at %s\n' "$config_file"
+  else
+    cp "$SCRIPT_DIR/config/rqz-sync.example" "$config_file"
+    ok "Installed rqz-sync config"
   fi
 }
 
@@ -512,7 +530,7 @@ build_local_packages() {
 }
 
 chmod_bundled_scripts() {
-  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" -type f \( -name '*.sh' -o -name '*.cjs' \) -exec chmod +x {} \;
+  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/bin" -type f \( -name '*.sh' -o -name '*.cjs' -o -name 'rqz-sync' \) -exec chmod +x {} \;
 }
 
 configure_headroom() {
@@ -687,6 +705,9 @@ install_repo_git_hooks
 
 step "Install shell integration"
 install_shell_integration
+
+step "Install rqz-sync helper"
+install_rqz_sync
 
 step "Install global AGENTS.md guardrails"
 install_global_agents_md

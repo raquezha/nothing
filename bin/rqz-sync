@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG_FILE="${RQZ_SYNC_CONFIG:-$HOME/.config/nothing/rqz-sync}"
+MODE="dry-run"
+
+usage() {
+  cat <<'EOF'
+Usage: rqz-sync [--dry-run|--safe] [--help]
+
+Sync helper for Git repos under RQZ_SYNC_ROOTS.
+
+Modes:
+  --dry-run   Report repo state only. Default.
+  --safe      Pull/push clean repos only. Dirty repos are reported, not committed.
+
+Full dirty-repo auto-commit is intentionally not enabled yet.
+EOF
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run|-n) MODE="dry-run" ;;
+    --safe) MODE="safe" ;;
+    --help|-h) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+RQZ_SYNC_ROOTS="${RQZ_SYNC_ROOTS:-$HOME/RQZ}"
+RQZ_SYNC_SKIP="${RQZ_SYNC_SKIP:-}"
+RQZ_SYNC_PUBLISH_NEW_BRANCHES="${RQZ_SYNC_PUBLISH_NEW_BRANCHES:-0}"
+
+if [[ -f "$CONFIG_FILE" ]]; then
+  # shellcheck source=/dev/null
+  source "$CONFIG_FILE"
+fi
+
+is_skipped() {
+  local repo="$1" skip
+  for skip in $RQZ_SYNC_SKIP; do
+    [[ "$repo" == "$skip" ]] && return 0
+  done
+  return 1
+}
+
+repo_label() {
+  local repo="$1"
+  printf '%s' "${repo/#$HOME/~}"
+}
+
+print_row() {
+  local state="$1" repo="$2" detail="${3:-}"
+  printf '%-11s %-48s %s\n' "$state" "$(repo_label "$repo")" "$detail"
+}
+
+in_progress_reason() {
+  local gitdir="$1"
+  [[ -f "$gitdir/MERGE_HEAD" ]] && { printf 'merge in progress'; return 0; }
+  [[ -d "$gitdir/rebase-merge" || -d "$gitdir/rebase-apply" ]] && { printf 'rebase in progress'; return 0; }
+  [[ -f "$gitdir/CHERRY_PICK_HEAD" ]] && { printf 'cherry-pick in progress'; return 0; }
+  return 1
+}
+
+sync_clean_repo() {
+  local repo="$1" ahead="$2" behind="$3"
+
+  if [[ "$behind" -gt 0 ]]; then
+    if ! git -C "$repo" pull --rebase; then
+      print_row "stop" "$repo" "pull/rebase failed; fix manually"
+      return 1
+    fi
+  fi
+
+  if [[ "$ahead" -gt 0 ]]; then
+    if ! git -C "$repo" push; then
+      print_row "stop" "$repo" "push failed; run git status"
+      return 1
+    fi
+  fi
+
+  print_row "synced" "$repo" "clean"
+}
+
+handle_repo() {
+  local repo="$1" gitdir branch upstream reason status dirty counts ahead behind
+
+  if is_skipped "$repo"; then
+    print_row "skip" "$repo" "configured skip"
+    return 0
+  fi
+
+  gitdir="$(git -C "$repo" rev-parse --git-dir 2>/dev/null || true)"
+  [[ -n "$gitdir" && "$gitdir" != /* ]] && gitdir="$repo/$gitdir"
+
+  if [[ -z "$gitdir" ]]; then
+    print_row "skip" "$repo" "not a normal git repo"
+    return 0
+  fi
+
+  if reason="$(in_progress_reason "$gitdir")"; then
+    print_row "stop" "$repo" "$reason"
+    return 1
+  fi
+
+  if git -C "$repo" diff --name-only --diff-filter=U | grep -q .; then
+    print_row "stop" "$repo" "unmerged files"
+    return 1
+  fi
+
+  branch="$(git -C "$repo" branch --show-current)"
+  if [[ -z "$branch" ]]; then
+    print_row "skip" "$repo" "detached HEAD"
+    return 0
+  fi
+
+  upstream="$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+  if [[ -z "$upstream" ]]; then
+    print_row "skip" "$repo" "no upstream; run: git push -u origin $branch"
+    return 0
+  fi
+
+  status="$(git -C "$repo" status --porcelain)"
+  if [[ -n "$status" ]]; then
+    dirty="$(printf '%s\n' "$status" | wc -l | tr -d ' ')"
+    print_row "dirty" "$repo" "$dirty paths; commit mode not enabled yet"
+    return 0
+  fi
+
+  counts="$(git -C "$repo" rev-list --left-right --count HEAD..."$upstream" 2>/dev/null || true)"
+  if [[ -z "$counts" ]]; then
+    print_row "stop" "$repo" "cannot compare with $upstream"
+    return 1
+  fi
+  read -r ahead behind <<< "$counts"
+
+  if [[ "$ahead" -eq 0 && "$behind" -eq 0 ]]; then
+    print_row "clean" "$repo" "up to date on $branch"
+  elif [[ "$MODE" == "safe" ]]; then
+    sync_clean_repo "$repo" "$ahead" "$behind"
+  elif [[ "$ahead" -gt 0 && "$behind" -gt 0 ]]; then
+    print_row "diverged" "$repo" "ahead $ahead, behind $behind"
+  elif [[ "$behind" -gt 0 ]]; then
+    print_row "pull" "$repo" "behind $behind"
+  else
+    print_row "push" "$repo" "ahead $ahead"
+  fi
+}
+
+main() {
+  local root gitdir repo failures=0 found=0
+
+  printf 'rqz-sync mode=%s config=%s\n' "$MODE" "${CONFIG_FILE/#$HOME/~}"
+
+  for root in $RQZ_SYNC_ROOTS; do
+    root="${root/#\~/$HOME}"
+    if [[ ! -d "$root" ]]; then
+      printf 'skip root: %s (missing)\n' "$root" >&2
+      continue
+    fi
+
+    while IFS= read -r gitdir; do
+      repo="${gitdir%/.git}"
+      found=$((found + 1))
+      handle_repo "$repo" || failures=$((failures + 1))
+    done < <(find "$root" -type d -name .git -prune)
+  done
+
+  printf '\nsummary: repos=%d failures=%d\n' "$found" "$failures"
+  [[ "$failures" -eq 0 ]]
+}
+
+main "$@"
