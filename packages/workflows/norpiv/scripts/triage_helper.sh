@@ -207,6 +207,7 @@ lines = text.splitlines()
 header_re = re.compile(r"^(## )?\[[A-Z0-9_-]+\]\s*$")
 meta_re = re.compile(r"^(## )?\[META\]\s*$")
 
+
 def section_body(section):
     header = re.compile(rf"^(## )?\[{re.escape(section)}\]\s*$")
     start = next((i for i, line in enumerate(lines) if header.match(line)), None)
@@ -219,9 +220,11 @@ def section_body(section):
             break
     return "\n".join(lines[start + 1:end]).strip()
 
+
 def meaningful(section):
     body = section_body(section)
     return any(line.strip() and line.strip() not in {"-", "- [ ]"} for line in body.splitlines())
+
 
 phase = "planned" if meaningful("PLAN") else "grilled" if meaningful("GRILL") else "framed" if meaningful("BRIEF") else "triaged"
 
@@ -249,6 +252,165 @@ for i in range(start + 1, len(lines)):
 
 updated = lines[:start] + new_block + lines[end:]
 path.write_text("\n".join(updated).rstrip() + "\n")
+PY
+}
+
+write_work_snapshot() {
+    python3 - "$WORK_MD" "$METADATA_JSON" "$SOURCE" "$ID" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+work_md, metadata_json, source, raw_id = sys.argv[1:]
+
+try:
+    metadata = json.loads(Path(metadata_json).read_text())
+    if not isinstance(metadata, dict):
+        metadata = {}
+except Exception:
+    metadata = {}
+
+
+def first_text(*values, fallback=""):
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return fallback
+
+
+def clean_line(line):
+    stripped = line.strip()
+    if not stripped:
+        return ""
+    if re.match(r"^(## )?\[[A-Z0-9_-]+\]\s*$", stripped):
+        return ""
+    if stripped.startswith("```"):
+        return ""
+    return stripped
+
+
+def summarize_body(body):
+    if not isinstance(body, str):
+        return ""
+    lines = [clean_line(line) for line in body.splitlines()]
+    lines = [line for line in lines if line]
+    if not lines:
+        return ""
+    picked = []
+    for line in lines:
+        if line.startswith("#"):
+            continue
+        picked.append(line)
+        if len(" ".join(picked)) >= 280:
+            break
+    text = " ".join(picked).strip()
+    return text[:280].rstrip() + ("..." if len(text) > 280 else "")
+
+
+def labels_list(data):
+    labels = data.get("labels")
+    if isinstance(labels, list):
+        names = []
+        for item in labels:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("title") or item.get("label")
+                if name:
+                    names.append(str(name))
+            elif isinstance(item, str):
+                names.append(item)
+        return names
+    return []
+
+
+title = ""
+url = ""
+tracker_updated = ""
+summary = ""
+children = "None noted"
+related = "None noted"
+
+if source == "github":
+    title = first_text(metadata.get("title"), fallback=f"GitHub #{raw_id}")
+    url = first_text(metadata.get("url"), fallback=f"https://github.com/issues/{raw_id}")
+    summary = summarize_body(metadata.get("body")) or title
+    tracker_updated = first_text(metadata.get("updatedAt"), metadata.get("createdAt"))
+    sub_issues = metadata.get("subIssues") or metadata.get("sub_issues")
+    if isinstance(sub_issues, list) and sub_issues:
+        names = []
+        for item in sub_issues:
+            if isinstance(item, dict):
+                names.append(first_text(item.get("id"), item.get("title"), item.get("number")))
+            else:
+                names.append(str(item))
+        children = ", ".join([name for name in names if name]) or children
+    labels = labels_list(metadata)
+    related = ", ".join(labels) if labels else related
+elif source == "gitlab":
+    title = first_text(metadata.get("title"), metadata.get("references", {}).get("full"), fallback=f"GitLab #{raw_id}")
+    url = first_text(metadata.get("web_url"), metadata.get("url"))
+    summary = summarize_body(metadata.get("description")) or title
+    tracker_updated = first_text(metadata.get("updated_at"), metadata.get("created_at"))
+elif source == "jira":
+    fields = metadata.get("fields") if isinstance(metadata.get("fields"), dict) else {}
+    title = first_text(fields.get("summary"), metadata.get("key"), fallback=f"Jira {raw_id}")
+    url = first_text(metadata.get("self"))
+    description = fields.get("description")
+    if isinstance(description, dict):
+        description = json.dumps(description, ensure_ascii=False)
+    summary = summarize_body(description) or title
+    tracker_updated = first_text(fields.get("updated"), metadata.get("updated"))
+else:
+    title = first_text(metadata.get("title"), fallback=f"Local Task {raw_id}")
+    summary = summarize_body(metadata.get("body")) or f"Local task `{raw_id}` initialized for RPIV execution."
+
+lines = [
+    f"# WORK: {title}",
+    "",
+    "## [META]",
+    "- Branch: `pending-triage-meta-refresh`",
+    "- Status: `active`",
+    "- Phase: `triaged`",
+    f"- Source: `{source}:{raw_id}`",
+]
+if url:
+    lines.append(f"- URL: {url}")
+if tracker_updated:
+    lines.append(f"- Tracker updated: `{tracker_updated}`")
+
+lines += [
+    "",
+    "## [INTAKE]",
+    "### Outcome",
+    summary,
+    "",
+    "### Acceptance Criteria",
+    "- [ ] Confirm concrete acceptance criteria from tracker or refine them during `/frame`.",
+    "",
+    "### Scope / Non-goals",
+    "- Keep local execution state concise; do not copy raw tracker or CLI rendering into `WORK.md`.",
+    "",
+    "### Dependencies / Blockers",
+    "- None noted from intake snapshot.",
+    "",
+    "### Tracker Structure",
+    "- Parent: None noted",
+    f"- Children: {children}",
+    f"- Related: {related}",
+    "",
+    "## [BRIEF]",
+    "- ",
+    "",
+    "## [GRILL]",
+    "- ",
+    "",
+    "## [PLAN]",
+    "- [ ] ",
+    "",
+    "## [LOG]",
+]
+
+Path(work_md).write_text("\n".join(lines).rstrip() + "\n")
 PY
 }
 
@@ -283,24 +445,25 @@ create_task() {
         github)
             command -v gh >/dev/null 2>&1 || { echo "ERROR: gh CLI is required for github tasks."; exit 1; }
             echo "Fetching GitHub Issue #$ID..."
-            gh issue view "$ID" --json title,body,author,labels,comments > "$METADATA_JSON"
-            echo "# WORK: GitHub #$ID" > "$WORK_MD"
-            gh issue view "$ID" >> "$WORK_MD"
+            gh issue view "$ID" --json title,body,author,labels,url,number,createdAt,updatedAt > "$METADATA_JSON"
             ;;
         gitlab)
             command -v glab >/dev/null 2>&1 || { echo "ERROR: glab CLI is required for gitlab tasks."; exit 1; }
             echo "Fetching GitLab Issue #$ID..."
-            glab issue view "$ID" > "$WORK_MD"
-            echo '{}' > "$METADATA_JSON"
+            if ! glab issue view "$ID" --output json > "$METADATA_JSON" 2>/dev/null; then
+                echo '{}' > "$METADATA_JSON"
+                json_upsert "$METADATA_JSON" "title=GitLab Issue $ID"
+            fi
             ;;
         jira)
             echo "Fetching Jira Ticket $ID..."
             if command -v jira >/dev/null 2>&1; then
-                jira issue view "$ID" > "$WORK_MD"
                 jira issue view "$ID" --raw > "$METADATA_JSON"
             elif command -v acli >/dev/null 2>&1; then
-                acli jira workitem view "$ID" > "$WORK_MD"
-                echo '{}' > "$METADATA_JSON"
+                if ! acli jira workitem view "$ID" --json > "$METADATA_JSON" 2>/dev/null; then
+                    echo '{}' > "$METADATA_JSON"
+                    json_upsert "$METADATA_JSON" "title=Jira $ID"
+                fi
             else
                 echo "ERROR: jira or acli CLI is required for jira tasks."
                 exit 1
@@ -308,8 +471,8 @@ create_task() {
             ;;
         local)
             echo "Initializing local task workspace: $ID..."
-            echo "# WORK: Local Task $ID" > "$WORK_MD"
             echo '{}' > "$METADATA_JSON"
+            json_upsert "$METADATA_JSON" "title=Local Task $ID"
             ;;
         *)
             echo "Unknown source: $SOURCE"
@@ -317,11 +480,8 @@ create_task() {
             ;;
     esac
 
-    set_metadata_status_phase "active" "triaged"
-    ensure_section "BRIEF" "- "
-    ensure_section "GRILL" "- "
-    ensure_section "PLAN" "- [ ] "
-    ensure_section "LOG" ""
+    set_metadata_status_phase "active"
+    write_work_snapshot
     update_work_meta
     append_log "Task initialized via /triage"
     write_active_pointer

@@ -176,6 +176,11 @@ function verifyRpivWorkflowPointer() {
     assert(activeWorkflow.id === "local-smoke", "active_workflow id matches task folder");
     assert(activeWorkflow.taskId === "local-smoke", "active_workflow taskId matches task folder");
     assert(activeWorkflow.stateFile === ".workflow/tasks/local-smoke/WORK.md", "active_workflow points to WORK.md state file");
+
+    const workMd = readFileSync(path.join(temp, ".workflow", "tasks", "local-smoke", "WORK.md"), "utf8");
+    assert(workMd.includes("## [INTAKE]"), "rpiv local task writes normalized intake section");
+    assert(workMd.includes("## [BRIEF]") && workMd.includes("## [GRILL]") && workMd.includes("## [PLAN]") && workMd.includes("## [LOG]"), "rpiv local task writes guarded workflow sections");
+    assert(!workMd.includes("title:\t") && !workMd.includes("state:\t"), "rpiv local task avoids raw tracker cli rendering in WORK.md");
   } catch (error) {
     fail(`rpiv workflow pointer test failed: ${error.message}`);
   } finally {
