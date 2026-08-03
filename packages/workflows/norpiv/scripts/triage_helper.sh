@@ -272,113 +272,48 @@ except Exception:
     metadata = {}
 
 
-def first_text(*values, fallback=""):
+def pick(*values, fallback=""):
     for value in values:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return fallback
 
 
-def clean_line(line):
-    stripped = line.strip()
-    if not stripped:
+def squash(value):
+    if isinstance(value, dict):
+        value = json.dumps(value, ensure_ascii=False)
+    if not isinstance(value, str):
         return ""
-    if re.match(r"^(## )?\[[A-Z0-9_-]+\]\s*$", stripped):
-        return ""
-    if stripped.startswith("```"):
-        return ""
-    return stripped
-
-
-def summarize_body(body):
-    if not isinstance(body, str):
-        return ""
-    lines = [clean_line(line) for line in body.splitlines()]
-    lines = [line for line in lines if line]
-    if not lines:
-        return ""
-    picked = []
-    for line in lines:
-        if line.startswith("#"):
-            continue
-        picked.append(line)
-        if len(" ".join(picked)) >= 280:
-            break
-    text = " ".join(picked).strip()
+    text = re.sub(r"```.*?```", " ", value, flags=re.S)
+    text = re.sub(r"^(## )?\[[A-Z0-9_-]+\]\s*$", " ", text, flags=re.M)
+    text = re.sub(r"\s+", " ", text).strip()
     return text[:280].rstrip() + ("..." if len(text) > 280 else "")
 
 
-def labels_list(data):
-    labels = data.get("labels")
-    if isinstance(labels, list):
-        names = []
-        for item in labels:
-            if isinstance(item, dict):
-                name = item.get("name") or item.get("title") or item.get("label")
-                if name:
-                    names.append(str(name))
-            elif isinstance(item, str):
-                names.append(item)
-        return names
-    return []
-
-
-title = ""
-url = ""
-tracker_updated = ""
-summary = ""
-children = "None noted"
-related = "None noted"
-
-if source == "github":
-    title = first_text(metadata.get("title"), fallback=f"GitHub #{raw_id}")
-    url = first_text(metadata.get("url"), fallback=f"https://github.com/issues/{raw_id}")
-    summary = summarize_body(metadata.get("body")) or title
-    tracker_updated = first_text(metadata.get("updatedAt"), metadata.get("createdAt"))
-    sub_issues = metadata.get("subIssues") or metadata.get("sub_issues")
-    if isinstance(sub_issues, list) and sub_issues:
-        names = []
-        for item in sub_issues:
-            if isinstance(item, dict):
-                names.append(first_text(item.get("id"), item.get("title"), item.get("number")))
-            else:
-                names.append(str(item))
-        children = ", ".join([name for name in names if name]) or children
-    labels = labels_list(metadata)
-    related = ", ".join(labels) if labels else related
-elif source == "gitlab":
-    title = first_text(metadata.get("title"), metadata.get("references", {}).get("full"), fallback=f"GitLab #{raw_id}")
-    url = first_text(metadata.get("web_url"), metadata.get("url"))
-    summary = summarize_body(metadata.get("description")) or title
-    tracker_updated = first_text(metadata.get("updated_at"), metadata.get("created_at"))
-elif source == "jira":
-    fields = metadata.get("fields") if isinstance(metadata.get("fields"), dict) else {}
-    title = first_text(fields.get("summary"), metadata.get("key"), fallback=f"Jira {raw_id}")
-    url = first_text(metadata.get("self"))
-    description = fields.get("description")
-    if isinstance(description, dict):
-        description = json.dumps(description, ensure_ascii=False)
-    summary = summarize_body(description) or title
-    tracker_updated = first_text(fields.get("updated"), metadata.get("updated"))
-else:
-    title = first_text(metadata.get("title"), fallback=f"Local Task {raw_id}")
-    summary = summarize_body(metadata.get("body")) or f"Local task `{raw_id}` initialized for RPIV execution."
+fields = metadata.get("fields") if isinstance(metadata.get("fields"), dict) else {}
+title = {
+    "github": pick(metadata.get("title"), fallback=f"GitHub #{raw_id}"),
+    "gitlab": pick(metadata.get("title"), fallback=f"GitLab #{raw_id}"),
+    "jira": pick(fields.get("summary"), metadata.get("key"), fallback=f"Jira {raw_id}"),
+}.get(source, pick(metadata.get("title"), fallback=f"Local Task {raw_id}"))
+url = {
+    "github": pick(metadata.get("url"), fallback=f"https://github.com/issues/{raw_id}"),
+    "gitlab": pick(metadata.get("web_url"), metadata.get("url")),
+    "jira": pick(metadata.get("self")),
+}.get(source, "")
+summary = {
+    "github": squash(metadata.get("body")),
+    "gitlab": squash(metadata.get("description")),
+    "jira": squash(fields.get("description")),
+}.get(source, squash(metadata.get("body"))) or title
+tracker_updated = {
+    "github": pick(metadata.get("updatedAt"), metadata.get("createdAt")),
+    "gitlab": pick(metadata.get("updated_at"), metadata.get("created_at")),
+    "jira": pick(fields.get("updated"), metadata.get("updated")),
+}.get(source, "")
 
 lines = [
     f"# WORK: {title}",
-    "",
-    "## [META]",
-    "- Branch: `pending-triage-meta-refresh`",
-    "- Status: `active`",
-    "- Phase: `triaged`",
-    f"- Source: `{source}:{raw_id}`",
-]
-if url:
-    lines.append(f"- URL: {url}")
-if tracker_updated:
-    lines.append(f"- Tracker updated: `{tracker_updated}`")
-
-lines += [
     "",
     "## [INTAKE]",
     "### Outcome",
@@ -393,10 +328,10 @@ lines += [
     "### Dependencies / Blockers",
     "- None noted from intake snapshot.",
     "",
-    "### Tracker Structure",
-    "- Parent: None noted",
-    f"- Children: {children}",
-    f"- Related: {related}",
+    "### Tracker Context",
+    f"- Task: `{source}:{raw_id}`",
+    f"- URL: {url}" if url else "- URL: None noted",
+    f"- Tracker updated: `{tracker_updated}`" if tracker_updated else "- Tracker updated: None noted",
     "",
     "## [BRIEF]",
     "- ",
