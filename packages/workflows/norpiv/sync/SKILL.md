@@ -15,6 +15,8 @@ Maintains consistency between local `.workflow` state and the remote source of t
 - **Integrity**: Do not modify `[BRIEF]` or `[GRILL]` sections.
 - **Idempotency**: If the remote Pi status already reflects the current local state, do not post or update.
 - **Human safety**: NEVER edit human-authored comments. Only update comments/notes containing the Pi sync marker.
+- **Target ownership**: Sync the executable child issue/MR/PR that the work completed, not the umbrella parent, unless the user explicitly asks for parent status. If the active GitHub issue has sub-issues, verify the PR/body/current request points to the right child before posting.
+- **Shell safety**: Never pass markdown bodies inline through shell strings. Write bodies to files and use `--body-file` or JSON `--input` API calls so backticks and `$()` cannot execute.
 
 ## Living status marker
 Every sync body MUST include this marker at the end:
@@ -47,6 +49,11 @@ Do **not** use latest-comment ownership as the primary decision. Latest-comment-
 
 ### 1. Discovery & State Loading
 - Identify the platform and ID from `.workflow/active.json`, falling back to compatibility `.workflow/active_task.json` only when required.
+- For GitHub, check hierarchy before syncing umbrella issues:
+  ```bash
+  gh issue view <id> --json parent,subIssues --jq '{parent:.parent, subIssues:.subIssues}'
+  ```
+  If the issue has sub-issues and the work maps to one child, switch the sync target to that child or ask once. Do not sync a child deliverable to the parent just because the active task points at the parent.
 - Extract **Slices** from `[PLAN]`, **Status** from `[LOG]`, and **Artifacts** such as PR/MR links, commit hashes, and verification output.
 
 ### 2. Payload Preparation
@@ -81,8 +88,9 @@ gh api repos/:owner/:repo/issues/<id>/comments --paginate \
 
 Update:
 ```bash
+jq -n --rawfile body body.md '{body: $body}' > body.json
 gh api -X PATCH repos/:owner/:repo/issues/comments/<comment_id> \
-  -f body=@body.md
+  --input body.json
 ```
 
 Create:
@@ -94,6 +102,7 @@ Rules:
 - update only a comment containing the marker
 - no-op when normalized body is already current
 - create only when no marker comment exists
+- keep markdown in files; do not use inline `-f body="$(cat body.md)"` or shell-expanded PR/comment bodies
 
 #### GitLab Issues / MRs
 Use notes API for issues or merge requests.

@@ -30,6 +30,8 @@ When changing a skill name, command, or directory:
 
 ### Package Issue Closure Rule
 - PR bodies: use `Refs #ISSUE`, not `Closes/Fixes` (close after npm publish)
+- For parent issues with child tasks, link the PR to the executable child issue; keep the parent as umbrella status only.
+- Edit PR/comment markdown via body files or JSON `--input`, never inline shell strings with backticks.
 - Add changeset: `npx changeset add`
 
 ### AI Commit Attribution
