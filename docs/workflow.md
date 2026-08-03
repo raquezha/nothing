@@ -83,6 +83,8 @@ entry: /triage
 activePointer: .workflow/active.json
 compatPointer: .workflow/active_task.json
 stateFile: .workflow/tasks/<task-id>/WORK.md
+preEntry:
+  - /refine (optional, upstream tracker readiness)
 phases:
   - triage
   - frame
@@ -146,8 +148,10 @@ Individual packages can still be standalone and npm-installable. A package that 
 For `@raquezha/norpiv` specifically:
 
 - RPIV remains handoff-friendly through `norpiv-install` and `npx skills add`.
-- `.workflow/active_task.json` remains as compatibility state.
-- `.workflow/active.json` is additive generic state, not a breaking replacement.
+- `/refine` lives in the norpiv bundle as an optional upstream tracker-readiness skill.
+- `.workflow/active.json` is the canonical active pointer.
+- `.workflow/active_task.json` is legacy compatibility state during migration.
+- `/triage` should project normalized intake into `WORK.md` and keep structured tracker snapshots in `metadata.json`.
 - Research is kept as a local workflow bundle under `packages/workflows/noresearch` for now; it is not published to npm yet.
 
 ## Domain Boundaries (Hats)

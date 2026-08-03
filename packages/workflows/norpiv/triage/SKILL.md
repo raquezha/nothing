@@ -10,10 +10,10 @@ description: "Ingest or resume a tracked/local task in the RPIV workspace. Use w
 Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 
 ## Guardrails
-- READ: user argument, `.workflow/active.json` / `.workflow/active_task.json` if present, target `metadata.json`, and target `WORK.md` if resuming.
-- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active.json`, `.workflow/active_task.json`; optional `.reposcry/` cache files only if RepoScry is installed.
+- READ: user argument, `.workflow/active.json` first and compatibility `.workflow/active_task.json` only if present/needed, target `metadata.json`, and target `WORK.md` if resuming.
+- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active.json`; optional `.reposcry/` cache files only if RepoScry is installed.
 - On **create**, initialize required guarded sections only if absent: `[BRIEF]`, `[GRILL]`, `[PLAN]`, `[LOG]`, `[META]`.
-- On **resume**, only update `.workflow/active.json`, `.workflow/active_task.json`, metadata timestamps/state as needed, and `[META]`, then append one concise `[LOG]` entry.
+- On **resume**, only update `.workflow/active.json`, metadata timestamps/state as needed, and `[META]`, then append one concise `[LOG]` entry.
 - NEVER: duplicate guarded sections.
 - NEVER: overwrite existing `[BRIEF]`, `[GRILL]`, or `[PLAN]` during triage.
 - NEVER: create `PROBLEM.md`, `PRD.md`, `PLAN.md`, or `EVIDENCE.md`.
@@ -61,16 +61,17 @@ Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 3. Read the resulting active pointer, metadata, and `WORK.md`.
 4. Determine action based on helper output and task state: `created`, `resumed`, `reopened`, `refused`, `fresh/reset`.
 5. Optional RepoScry bootstrap: if bundled `../scripts/reposcry-bootstrap.sh` available, run it to seed `.reposcry/` for later `/frame` and `/grill-with-docs`.
+6. New task creation should store structured tracker facts in `metadata.json` and write a concise normalized intake snapshot into `WORK.md`; never paste raw tracker CLI rendering.
    - Run `../scripts/reposcry-bootstrap.sh --pulse` to determine "Repo Pulse" (Warm/Cold/Missing) for the output contract.
    - Run `../scripts/reposcry-bootstrap.sh` to ensure the local cache is initialized.
    - The helper must ensure `.reposcry/` is ignored, must stop if `.reposcry/` tracked/staged, and continue normally if RepoScry is unavailable.
-6. Verify branch: ensure current branch matches metadata `branch` (or is `main`/`master` for planning).
-7. If task was newly created, infer classification:
+7. Verify branch: ensure current branch matches metadata `branch` (or is `main`/`master` for planning).
+8. If task was newly created, infer classification:
    - `github:`, `gitlab:`, `jira:` labels/type often indicate Problem (bug) or Proposal (feature).
    - Local tasks default to Proposal unless specified.
-8. If resuming, check `[BRIEF]` and `[PLAN]` completion status.
-9. **Final Guidance**: record current branch in `[META]`. For `jira:` tasks, also preserve the Jira key in `[META]` and mention `/implement` must use it in the commit subject. Planning on `main`/`master` allowed; implementation will use `/implement` branch enforcement.
-10. End by recommending next valid command:
+9. If resuming, check `[BRIEF]` and `[PLAN]` completion status.
+10. **Final Guidance**: record current branch in `[META]`. For `jira:` tasks, preserve the Jira key in `[META]`. Planning on `main`/`master` allowed; implementation will use `/implement` branch enforcement.
+11. End by recommending next valid command:
     - newly created -> `/frame`
     - existing empty `[BRIEF]` -> `/frame`
     - framed but not grilled -> `/grill-with-docs`

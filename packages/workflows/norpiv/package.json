@@ -12,6 +12,7 @@
     "distill",
     "frame",
     "grill-with-docs",
+    "refine",
     "implement",
     "plan",
     "scripts",
@@ -36,6 +37,7 @@
   },
   "pi": {
     "skills": [
+      "refine",
       "triage",
       "frame",
       "grill-with-docs",

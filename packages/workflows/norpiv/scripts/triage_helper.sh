@@ -120,21 +120,12 @@ PY
 
 write_active_pointer() {
     mkdir -p ".workflow"
-    python3 - ".workflow/active_task.json" ".workflow/active.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
+    python3 - ".workflow/active.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-active_task_path, active_workflow_path, active_task, source, raw_id, task_path, state_file, branch, now = sys.argv[1:]
-legacy_data = {
-    "active_task": active_task,
-    "source": source,
-    "id": raw_id,
-    "sourceId": raw_id,
-    "taskPath": task_path,
-    "path": task_path,
-    "branch": branch,
-}
+active_workflow_path, active_task, source, raw_id, task_path, state_file, branch, now = sys.argv[1:]
 workflow_data = {
     "workflow": "rpiv",
     "id": active_task,
@@ -147,9 +138,7 @@ workflow_data = {
     "branch": branch,
     "startedAt": now,
     "updatedAt": now,
-    "compatPointer": ".workflow/active_task.json",
 }
-Path(active_task_path).write_text(json.dumps(legacy_data, indent=2) + "\n")
 Path(active_workflow_path).write_text(json.dumps(workflow_data, indent=2) + "\n")
 PY
 }
@@ -202,23 +191,42 @@ PY
 }
 
 update_work_meta() {
-    local status phase
+    local status
     status=$(json_get "$METADATA_JSON" status)
-    phase=$(json_get "$METADATA_JSON" phase)
     status=${status:-active}
-    phase=${phase:-triaged}
 
-    python3 - "$WORK_MD" "$BRANCH_NAME" "$status" "$phase" "$SOURCE" "$ID" <<'PY'
+    python3 - "$WORK_MD" "$BRANCH_NAME" "$status" "$SOURCE" "$ID" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-branch, status, phase, source, raw_id = sys.argv[2:]
+branch, status, source, raw_id = sys.argv[2:]
 text = path.read_text() if path.exists() else ""
 lines = text.splitlines()
 header_re = re.compile(r"^(## )?\[[A-Z0-9_-]+\]\s*$")
 meta_re = re.compile(r"^(## )?\[META\]\s*$")
+
+
+def section_body(section):
+    header = re.compile(rf"^(## )?\[{re.escape(section)}\]\s*$")
+    start = next((i for i, line in enumerate(lines) if header.match(line)), None)
+    if start is None:
+        return ""
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if header_re.match(lines[i]):
+            end = i
+            break
+    return "\n".join(lines[start + 1:end]).strip()
+
+
+def meaningful(section):
+    body = section_body(section)
+    return any(line.strip() and line.strip() not in {"-", "- [ ]"} for line in body.splitlines())
+
+
+phase = "planned" if meaningful("PLAN") else "grilled" if meaningful("GRILL") else "framed" if meaningful("BRIEF") else "triaged"
 
 new_block = [
     "## [META]",
@@ -247,6 +255,100 @@ path.write_text("\n".join(updated).rstrip() + "\n")
 PY
 }
 
+write_work_snapshot() {
+    python3 - "$WORK_MD" "$METADATA_JSON" "$SOURCE" "$ID" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+work_md, metadata_json, source, raw_id = sys.argv[1:]
+
+try:
+    metadata = json.loads(Path(metadata_json).read_text())
+    if not isinstance(metadata, dict):
+        metadata = {}
+except Exception:
+    metadata = {}
+
+
+def pick(*values, fallback=""):
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return fallback
+
+
+def squash(value):
+    if isinstance(value, dict):
+        value = json.dumps(value, ensure_ascii=False)
+    if not isinstance(value, str):
+        return ""
+    text = re.sub(r"```.*?```", " ", value, flags=re.S)
+    text = re.sub(r"^(## )?\[[A-Z0-9_-]+\]\s*$", " ", text, flags=re.M)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:280].rstrip() + ("..." if len(text) > 280 else "")
+
+
+fields = metadata.get("fields") if isinstance(metadata.get("fields"), dict) else {}
+title = {
+    "github": pick(metadata.get("title"), fallback=f"GitHub #{raw_id}"),
+    "gitlab": pick(metadata.get("title"), fallback=f"GitLab #{raw_id}"),
+    "jira": pick(fields.get("summary"), metadata.get("key"), fallback=f"Jira {raw_id}"),
+}.get(source, pick(metadata.get("title"), fallback=f"Local Task {raw_id}"))
+url = {
+    "github": pick(metadata.get("url"), fallback=f"https://github.com/issues/{raw_id}"),
+    "gitlab": pick(metadata.get("web_url"), metadata.get("url")),
+    "jira": pick(metadata.get("self")),
+}.get(source, "")
+summary = {
+    "github": squash(metadata.get("body")),
+    "gitlab": squash(metadata.get("description")),
+    "jira": squash(fields.get("description")),
+}.get(source, squash(metadata.get("body"))) or title
+tracker_updated = {
+    "github": pick(metadata.get("updatedAt"), metadata.get("createdAt")),
+    "gitlab": pick(metadata.get("updated_at"), metadata.get("created_at")),
+    "jira": pick(fields.get("updated"), metadata.get("updated")),
+}.get(source, "")
+
+lines = [
+    f"# WORK: {title}",
+    "",
+    "## [INTAKE]",
+    "### Outcome",
+    summary,
+    "",
+    "### Acceptance Criteria",
+    "- [ ] Confirm concrete acceptance criteria from tracker or refine them during `/frame`.",
+    "",
+    "### Scope / Non-goals",
+    "- Keep local execution state concise; do not copy raw tracker or CLI rendering into `WORK.md`.",
+    "",
+    "### Dependencies / Blockers",
+    "- None noted from intake snapshot.",
+    "",
+    "### Tracker Context",
+    f"- Task: `{source}:{raw_id}`",
+    f"- URL: {url}" if url else "- URL: None noted",
+    f"- Tracker updated: `{tracker_updated}`" if tracker_updated else "- Tracker updated: None noted",
+    "",
+    "## [BRIEF]",
+    "- ",
+    "",
+    "## [GRILL]",
+    "- ",
+    "",
+    "## [PLAN]",
+    "- [ ] ",
+    "",
+    "## [LOG]",
+]
+
+Path(work_md).write_text("\n".join(lines).rstrip() + "\n")
+PY
+}
+
 backfill_metadata() {
     json_upsert "$METADATA_JSON" \
         "id=$ID" \
@@ -254,21 +356,18 @@ backfill_metadata() {
         "branch=$BRANCH_NAME" \
         "taskFolder=$TASK_FOLDER" \
         "?status=active" \
-        "?phase=triaged" \
         "createdAt=$ISO_NOW" \
         "updatedAt=$ISO_NOW"
 }
 
 set_metadata_status_phase() {
     local status="$1"
-    local phase="$2"
     json_upsert "$METADATA_JSON" \
         "id=$ID" \
         "source=$SOURCE" \
         "branch=$BRANCH_NAME" \
         "taskFolder=$TASK_FOLDER" \
         "status=$status" \
-        "phase=$phase" \
         "createdAt=$ISO_NOW" \
         "updatedAt=$ISO_NOW"
 }
@@ -281,24 +380,25 @@ create_task() {
         github)
             command -v gh >/dev/null 2>&1 || { echo "ERROR: gh CLI is required for github tasks."; exit 1; }
             echo "Fetching GitHub Issue #$ID..."
-            gh issue view "$ID" --json title,body,author,labels,comments > "$METADATA_JSON"
-            echo "# WORK: GitHub #$ID" > "$WORK_MD"
-            gh issue view "$ID" >> "$WORK_MD"
+            gh issue view "$ID" --json title,body,author,labels,url,number,createdAt,updatedAt > "$METADATA_JSON"
             ;;
         gitlab)
             command -v glab >/dev/null 2>&1 || { echo "ERROR: glab CLI is required for gitlab tasks."; exit 1; }
             echo "Fetching GitLab Issue #$ID..."
-            glab issue view "$ID" > "$WORK_MD"
-            echo '{}' > "$METADATA_JSON"
+            if ! glab issue view "$ID" --output json > "$METADATA_JSON" 2>/dev/null; then
+                echo '{}' > "$METADATA_JSON"
+                json_upsert "$METADATA_JSON" "title=GitLab Issue $ID"
+            fi
             ;;
         jira)
             echo "Fetching Jira Ticket $ID..."
             if command -v jira >/dev/null 2>&1; then
-                jira issue view "$ID" > "$WORK_MD"
                 jira issue view "$ID" --raw > "$METADATA_JSON"
             elif command -v acli >/dev/null 2>&1; then
-                acli jira workitem view "$ID" > "$WORK_MD"
-                echo '{}' > "$METADATA_JSON"
+                if ! acli jira workitem view "$ID" --json > "$METADATA_JSON" 2>/dev/null; then
+                    echo '{}' > "$METADATA_JSON"
+                    json_upsert "$METADATA_JSON" "title=Jira $ID"
+                fi
             else
                 echo "ERROR: jira or acli CLI is required for jira tasks."
                 exit 1
@@ -306,8 +406,8 @@ create_task() {
             ;;
         local)
             echo "Initializing local task workspace: $ID..."
-            echo "# WORK: Local Task $ID" > "$WORK_MD"
             echo '{}' > "$METADATA_JSON"
+            json_upsert "$METADATA_JSON" "title=Local Task $ID"
             ;;
         *)
             echo "Unknown source: $SOURCE"
@@ -315,11 +415,8 @@ create_task() {
             ;;
     esac
 
-    set_metadata_status_phase "active" "triaged"
-    ensure_section "BRIEF" "- "
-    ensure_section "GRILL" "- "
-    ensure_section "PLAN" "- [ ] "
-    ensure_section "LOG" ""
+    set_metadata_status_phase "active"
+    write_work_snapshot
     update_work_meta
     append_log "Task initialized via /triage"
     write_active_pointer

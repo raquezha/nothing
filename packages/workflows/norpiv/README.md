@@ -12,6 +12,7 @@ The RPIV engine splits task execution into separate, focused phases:
 
 | Phase | Command | Purpose | Input / Output Files |
 | :--- | :--- | :--- | :--- |
+| **0. Refine (optional)** | `/refine [source]:[id]` | Repair tracker readiness before RPIV when outcome, acceptance criteria, or decomposition are still unclear. | Proposes tracker edits/child work; no `.workflow/` state |
 | **1. Ingest** | `/triage [source]:[id]` | Initial task verification and workspace setup. | Creates `.workflow/tasks/[source-id]/WORK.md` & `metadata.json` |
 | **2. Scoping** | `/frame` | Author a clear, structured task brief. | Populates `WORK.md` ➔ `[BRIEF]` section |
 | **3. Interrogate**| `/grill-with-docs` | Stress-test brief against rules and docs. | Records decisions in `WORK.md` ➔ `[GRILL]` |
@@ -46,6 +47,8 @@ Rules:
 - **Measure Twice, Cut Once**: Never implement code during scoping or planning. The agent will wait for an explicit `EXECUTE` statement before modifying files.
 - **One Source of Truth**: All task state belongs in `.workflow/tasks/[source-id]/WORK.md`. Avoid creating separate `PROBLEM.md` or `PLAN.md` files.
 - **Safe Branching**: Triage and planning happen on the main branch. Create the feature branch (`feat/*` or `fix/*`) only when starting `/implement`.
+- **Canonical Pointer**: `.workflow/active.json` is the active RPIV pointer. Legacy `active_task.json` is compatibility-only during migration.
+- **Normalized Intake**: `/triage` writes a small local projection into `WORK.md`; tracker snapshots live in `metadata.json`, not raw CLI dumps.
 
 ## 📦 Install as a skill bundle
 
@@ -55,7 +58,7 @@ Best for trying or handing off RPIV skills without installing the full `nothing`
 
 ```bash
 npx -y skills add raquezha/nothing --full-depth -g -a pi \
-  -s triage frame grill-with-docs plan implement verify sync post-merge-prune update-docs distill \
+  -s refine triage frame grill-with-docs plan implement verify sync post-merge-prune update-docs distill \
   -y
 ```
 
@@ -88,7 +91,7 @@ Targets:
 
 | Hat | Purpose |
 | :--- | :--- |
-| `pi --rpiv` | Full RPIV workflow. Loads triage, frame, grill-with-docs, plan, implement, verify, sync, post-merge-prune, and update-docs. |
+| `pi --rpiv` | Full RPIV workflow. Loads refine, triage, frame, grill-with-docs, plan, implement, verify, sync, post-merge-prune, and update-docs. |
 | `pi --notes` | Conversation distiller. Saves useful thinking to Obsidian without RPIV ceremony. |
 
 ## 📝 Pre-RPIV note capture
@@ -127,34 +130,39 @@ Research is a separate local workflow bundle in `packages/workflows/noresearch` 
 
    If installed via `npx skills add` or `norpiv-install`, invoke the skills directly in your agent instead.
 
-2. **Triage an Issue**:
+2. **Optional Tracker Refinement**:
+   ```text
+   /refine github:45
+   ```
+
+3. **Triage an Issue**:
    ```text
    /triage github:45
    ```
 
-3. **Frame the Work**:
+4. **Frame the Work**:
    ```text
    /frame
    ```
 
-4. **Verify Constraints**:
+5. **Verify Constraints**:
    ```text
    /grill-with-docs
    ```
 
-5. **Write the Plan Slices**:
+6. **Write the Plan Slices**:
    ```text
    /plan
    ```
 
-6. **Authorize Execution**:
+7. **Authorize Execution**:
    Provide the agent explicit permission to implement:
    ```text
    EXECUTE
    /implement
    ```
 
-7. **Verify & Close**:
+8. **Verify & Close**:
    ```text
    /verify
    /sync

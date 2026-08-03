@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # validate_active_task.sh
-# Lightweight, print-only validation of .workflow/active_task.json and related files.
+# Lightweight, print-only validation of .workflow/active.json and compatibility .workflow/active_task.json.
 # This script never mutates task state; it only reports inconsistencies and suggested fixes.
 
 set -euo pipefail
@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIAGE_HELPER="$SCRIPT_DIR/triage_helper.sh"
 REPO_ROOT=$(git rev-parse --show-toplevel)
+ACTIVE_JSON="$REPO_ROOT/.workflow/active.json"
 ATF="$REPO_ROOT/.workflow/active_task.json"
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
 WORK_MD=""
@@ -152,28 +153,51 @@ print_json_field_report() {
   done
 }
 
-if [[ ! -f "$ATF" ]]; then
-  error "No active_task.json found at $ATF"
+POINTER_LABEL=""
+TASK_PATH=""
+TASK_SOURCE=""
+TASK_ID=""
+ACTIVE_TASK=""
+POINTER_BRANCH=""
+
+if [[ -f "$ACTIVE_JSON" ]]; then
+  if ! python3 -m json.tool "$ACTIVE_JSON" >/dev/null 2>&1; then
+    error "active.json is not valid JSON: $ACTIVE_JSON"
+    exit 1
+  fi
+  POINTER_LABEL="active.json"
+  echo "Active workflow file: $ACTIVE_JSON"
+  json_pretty "$ACTIVE_JSON" || true
+
+  TASK_PATH=$(json_read "$ACTIVE_JSON" '.taskPath // .path')
+  TASK_SOURCE=$(json_read "$ACTIVE_JSON" '.source')
+  TASK_ID=$(json_read "$ACTIVE_JSON" '.sourceId // .id')
+  ACTIVE_TASK=$(json_read "$ACTIVE_JSON" '.taskId // .id')
+  POINTER_BRANCH=$(json_read "$ACTIVE_JSON" '.branch')
+
+  print_json_field_report "active.json" "$ACTIVE_JSON" workflow id taskId source sourceId taskPath path branch stateFile
+elif [[ -f "$ATF" ]]; then
+  if ! python3 -m json.tool "$ATF" >/dev/null 2>&1; then
+    error "active_task.json is not valid JSON: $ATF"
+    exit 1
+  fi
+  POINTER_LABEL="active_task.json"
+  echo "Legacy active task file: $ATF"
+  json_pretty "$ATF" || true
+
+  TASK_PATH=$(json_read "$ATF" '.taskPath // .path')
+  TASK_SOURCE=$(json_read "$ATF" '.source')
+  TASK_ID=$(json_read "$ATF" '.sourceId // .id')
+  ACTIVE_TASK=$(json_read "$ATF" '.active_task')
+  POINTER_BRANCH=$(json_read "$ATF" '.branch')
+
+  print_json_field_report "active_task.json" "$ATF" active_task source id sourceId taskPath path branch
+else
+  error "No active workflow pointer found at $ACTIVE_JSON or $ATF"
   echo "Suggested fixes (dry):"
   echo "  - Run: $TRIAGE_HELPER <source> <id>"
   exit 1
 fi
-
-if ! python3 -m json.tool "$ATF" >/dev/null 2>&1; then
-  error "active_task.json is not valid JSON: $ATF"
-  exit 1
-fi
-
-echo "Active task file: $ATF"
-json_pretty "$ATF" || true
-
-TASK_PATH=$(json_read "$ATF" '.taskPath // .path')
-TASK_SOURCE=$(json_read "$ATF" '.source')
-TASK_ID=$(json_read "$ATF" '.sourceId // .id')
-ACTIVE_TASK=$(json_read "$ATF" '.active_task')
-POINTER_BRANCH=$(json_read "$ATF" '.branch')
-
-print_json_field_report "active_task.json" "$ATF" active_task source id sourceId taskPath path branch
 
 echo
 if [[ -n "$TASK_PATH" ]]; then
@@ -184,7 +208,7 @@ if [[ -n "$TASK_PATH" ]]; then
   fi
   echo "Using taskPath -> checking: $WORK_MD"
 elif [[ -n "$TASK_ID" ]]; then
-  echo "No taskPath in active_task.json; attempting to derive from source+id"
+  echo "No taskPath in $POINTER_LABEL; attempting to derive from source+id"
   if [[ -n "$TASK_SOURCE" ]]; then
     TASK_FOLDER="$TASK_SOURCE-$TASK_ID"
   else
@@ -193,7 +217,7 @@ elif [[ -n "$TASK_ID" ]]; then
   WORK_MD="$REPO_ROOT/.workflow/tasks/$TASK_FOLDER/WORK.md"
   echo "Derived path: $WORK_MD"
 else
-  error "Neither taskPath/path nor sourceId/id present in active_task.json"
+  error "Neither taskPath/path nor sourceId/id present in $POINTER_LABEL"
 fi
 
 if [[ -n "$WORK_MD" && -f "$WORK_MD" ]]; then
@@ -209,7 +233,7 @@ if [[ -n "$ACTIVE_TASK" && -n "$TASK_DIR" ]]; then
   if [[ "$ACTIVE_TASK" == "$ACTUAL_TASK_FOLDER" ]]; then
     ok "active_task matches task folder ($ACTIVE_TASK)"
   else
-    warn "active_task ($ACTIVE_TASK) differs from task folder ($ACTUAL_TASK_FOLDER)"
+    warn "pointer task id ($ACTIVE_TASK) differs from task folder ($ACTUAL_TASK_FOLDER)"
   fi
 fi
 
@@ -225,8 +249,8 @@ META_ID=""
 META_SOURCE=""
 META_TASK_FOLDER=""
 META_STATUS=""
-META_PHASE=""
 META_BRANCH=""
+DERIVED_PHASE=""
 
 if [[ -n "$META" ]]; then
   if [[ -f "$META" ]]; then
@@ -234,20 +258,19 @@ if [[ -n "$META" ]]; then
       echo
       echo "Metadata file: $META"
       json_pretty "$META" || true
-      print_json_field_report "metadata.json" "$META" id source taskFolder status phase branch createdAt updatedAt
+      print_json_field_report "metadata.json" "$META" id source taskFolder status branch createdAt updatedAt
 
       META_ID=$(json_read "$META" '.id')
       META_SOURCE=$(json_read "$META" '.source')
       META_TASK_FOLDER=$(json_read "$META" '.taskFolder')
       META_STATUS=$(json_read "$META" '.status')
-      META_PHASE=$(json_read "$META" '.phase')
       META_BRANCH=$(json_read "$META" '.branch')
 
       if [[ -n "$META_ID" && -n "$TASK_ID" && "$META_ID" != "$TASK_ID" ]]; then
-        warn "metadata.id ($META_ID) differs from active_task id/sourceId ($TASK_ID)"
+        warn "metadata.id ($META_ID) differs from pointer id/sourceId ($TASK_ID)"
       fi
       if [[ -n "$META_SOURCE" && -n "$TASK_SOURCE" && "$META_SOURCE" != "$TASK_SOURCE" ]]; then
-        warn "metadata.source ($META_SOURCE) differs from active_task.source ($TASK_SOURCE)"
+        warn "metadata.source ($META_SOURCE) differs from pointer source ($TASK_SOURCE)"
       fi
       if [[ -n "$META_TASK_FOLDER" && -n "$TASK_DIR" && "$META_TASK_FOLDER" != "$(basename "$TASK_DIR")" ]]; then
         warn "metadata.taskFolder ($META_TASK_FOLDER) differs from task folder ($(basename "$TASK_DIR"))"
@@ -275,16 +298,19 @@ if [[ -n "$WORK_MD" && -f "$WORK_MD" ]]; then
     esac
   done
 
-  if [[ "$META_PHASE" =~ ^(planned|implementing|verifying|synced|closed)$ ]]; then
-    if [[ "$(has_plan_checkbox "$WORK_MD")" == "yes" ]]; then
-      ok "[PLAN] contains checkboxes for phase=$META_PHASE"
-    else
-      warn "phase=$META_PHASE but [PLAN] has no checkboxes"
-    fi
+  if [[ "$(section_body_nonempty "PLAN" "$WORK_MD")" == "yes" ]]; then
+    DERIVED_PHASE="planned"
+  elif [[ "$(section_body_nonempty "GRILL" "$WORK_MD")" == "yes" ]]; then
+    DERIVED_PHASE="grilled"
+  elif [[ "$(section_body_nonempty "BRIEF" "$WORK_MD")" == "yes" ]]; then
+    DERIVED_PHASE="framed"
+  else
+    DERIVED_PHASE="triaged"
   fi
+  ok "derived phase from WORK.md: $DERIVED_PHASE"
 
-  if [[ "$META_PHASE" == "triaged" && "$(section_body_nonempty "BRIEF" "$WORK_MD")" == "yes" ]]; then
-    warn "phase=triaged but [BRIEF] appears populated; consider updating phase metadata"
+  if [[ "$DERIVED_PHASE" == "planned" && "$(has_plan_checkbox "$WORK_MD")" != "yes" ]]; then
+    warn "derived phase=planned but [PLAN] has no checkboxes"
   fi
 fi
 
@@ -296,12 +322,12 @@ echo
 echo "Suggested fixes (dry):"
 if [[ -n "$WORK_MD" && ! -f "$WORK_MD" ]]; then
   echo "  - Re-run triage: $TRIAGE_HELPER <source> <id>"
-  echo "  - Or update .workflow/active_task.json to include a correct taskPath or source+id"
+  echo "  - Or update the active workflow pointer to include a correct taskPath or source+id"
 fi
 if [[ -n "$META" && ! -f "$META" ]]; then
   echo "  - Resume/backfill metadata: $TRIAGE_HELPER ${TASK_SOURCE:-local} ${TASK_ID:-task} resume"
 elif [[ -n "$META" && -f "$META" ]]; then
-  if [[ -z "$META_STATUS" || -z "$META_PHASE" || -z "$(json_read "$META" '.createdAt')" || -z "$(json_read "$META" '.updatedAt')" ]]; then
+  if [[ -z "$META_STATUS" || -z "$(json_read "$META" '.createdAt')" || -z "$(json_read "$META" '.updatedAt')" ]]; then
     echo "  - Backfill missing metadata fields: $TRIAGE_HELPER ${TASK_SOURCE:-local} ${TASK_ID:-task} resume"
   fi
 fi

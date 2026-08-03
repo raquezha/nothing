@@ -44,22 +44,32 @@ json_pretty() {
 
 # Find repo root to ensure paths are absolute and reliable
 REPO_ROOT=$(git rev-parse --show-toplevel)
+ACTIVE_WORKFLOW_FILE="$REPO_ROOT/.workflow/active.json"
+# Deprecated compatibility fallback during active.json migration. Remove once all readers stop depending on active_task.json.
 ACTIVE_TASK_FILE="$REPO_ROOT/.workflow/active_task.json"
+POINTER_FILE=""
+POINTER_LABEL=""
 
-if [[ ! -f "$ACTIVE_TASK_FILE" ]]; then
-    echo "ERROR: No active task found at $ACTIVE_TASK_FILE."
+if [[ -f "$ACTIVE_WORKFLOW_FILE" ]]; then
+    POINTER_FILE="$ACTIVE_WORKFLOW_FILE"
+    POINTER_LABEL="active.json"
+elif [[ -f "$ACTIVE_TASK_FILE" ]]; then
+    POINTER_FILE="$ACTIVE_TASK_FILE"
+    POINTER_LABEL="active_task.json"
+else
+    echo "ERROR: No active task found at $ACTIVE_WORKFLOW_FILE or $ACTIVE_TASK_FILE."
     echo "Please run /triage [source]:[id] first."
     exit 1
 fi
 
 # Read canonical active task fields
-TASK_SOURCE=$(json_read "$ACTIVE_TASK_FILE" '.source // empty')
-TASK_ID=$(json_read "$ACTIVE_TASK_FILE" '.sourceId // .id // empty')
-TASK_PATH=$(json_read "$ACTIVE_TASK_FILE" '.taskPath // .path // empty')
+TASK_SOURCE=$(json_read "$POINTER_FILE" '.source // empty')
+TASK_ID=$(json_read "$POINTER_FILE" '.sourceId // .id // empty')
+TASK_PATH=$(json_read "$POINTER_FILE" '.taskPath // .path // empty')
 
 # Prefer explicit taskPath when available (most reliable)
 if [[ -n "$TASK_PATH" ]]; then
-    echo "INFO: Using taskPath from active_task.json: $TASK_PATH"
+    echo "INFO: Using taskPath from $POINTER_LABEL: $TASK_PATH"
     if [[ "$TASK_PATH" = /* ]]; then
         WORK_MD="$TASK_PATH/WORK.md"
     else
@@ -77,9 +87,9 @@ elif [[ -n "$TASK_ID" ]]; then
     WORK_MD="$REPO_ROOT/.workflow/tasks/$TASK_FOLDER/WORK.md"
 
 else
-    echo "ERROR: No 'sourceId' or 'taskPath' found in $ACTIVE_TASK_FILE."
-    echo "Please run /triage [source]:[id] to initialize a task. Here are the file contents for debugging:" 
-    json_pretty "$ACTIVE_TASK_FILE" || true
+    echo "ERROR: No 'sourceId' or 'taskPath' found in $POINTER_LABEL."
+    echo "Please run /triage [source]:[id] to initialize a task. Here are the file contents for debugging:"
+    json_pretty "$POINTER_FILE" || true
     exit 1
 fi
 
@@ -88,8 +98,8 @@ echo "DEBUG: Computed WORK.md path: $WORK_MD"
 
 if [[ ! -f "$WORK_MD" ]]; then
     echo "ERROR: WORK.md not found at $WORK_MD."
-    echo "Checked active_task.json values:" 
-    json_pretty "$ACTIVE_TASK_FILE" || true
+    echo "Checked $POINTER_LABEL values:"
+    json_pretty "$POINTER_FILE" || true
     echo "Please ensure the task was initialized with /triage and that WORK.md exists." 
     exit 1
 fi
