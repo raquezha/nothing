@@ -168,16 +168,14 @@ function verifyRpivWorkflowPointer() {
 
     const activeTaskPath = path.join(temp, ".workflow", "active_task.json");
     const activeWorkflowPath = path.join(temp, ".workflow", "active.json");
-    assert(existsSync(activeTaskPath), "rpiv writes compatibility active_task.json");
+    assert(!existsSync(activeTaskPath), "rpiv does not dual-write legacy active_task.json");
     assert(existsSync(activeWorkflowPath), "rpiv writes generic active.json");
 
-    const activeTask = JSON.parse(readFileSync(activeTaskPath, "utf8"));
     const activeWorkflow = JSON.parse(readFileSync(activeWorkflowPath, "utf8"));
-    assert(activeTask.active_task === "local-smoke", "active_task pointer uses source-id task folder");
     assert(activeWorkflow.workflow === "rpiv", "active_workflow identifies rpiv workflow");
     assert(activeWorkflow.id === "local-smoke", "active_workflow id matches task folder");
+    assert(activeWorkflow.taskId === "local-smoke", "active_workflow taskId matches task folder");
     assert(activeWorkflow.stateFile === ".workflow/tasks/local-smoke/WORK.md", "active_workflow points to WORK.md state file");
-    assert(activeWorkflow.compatPointer === ".workflow/active_task.json", "active_workflow records legacy compatibility pointer");
   } catch (error) {
     fail(`rpiv workflow pointer test failed: ${error.message}`);
   } finally {

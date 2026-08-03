@@ -25,6 +25,8 @@ When changing a skill name, command, or directory:
 - `npm test`
 - `./bootstrap.sh --dry-run`
 - `npm run changeset:status` when package contents changed
+- `shellcheck <changed .sh files>` when shell scripts changed
+- Add a changeset before push for package-affecting work: `npx changeset add` or `npx changeset add --empty`
 
 ### Package Issue Closure Rule
 - PR bodies: use `Refs #ISSUE`, not `Closes/Fixes` (close after npm publish)

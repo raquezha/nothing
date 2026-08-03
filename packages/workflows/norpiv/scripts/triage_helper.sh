@@ -120,21 +120,12 @@ PY
 
 write_active_pointer() {
     mkdir -p ".workflow"
-    python3 - ".workflow/active_task.json" ".workflow/active.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
+    python3 - ".workflow/active.json" "$TASK_FOLDER" "$SOURCE" "$ID" "$TASK_DIR" "$WORK_MD" "$BRANCH_NAME" "$ISO_NOW" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-active_task_path, active_workflow_path, active_task, source, raw_id, task_path, state_file, branch, now = sys.argv[1:]
-legacy_data = {
-    "active_task": active_task,
-    "source": source,
-    "id": raw_id,
-    "sourceId": raw_id,
-    "taskPath": task_path,
-    "path": task_path,
-    "branch": branch,
-}
+active_workflow_path, active_task, source, raw_id, task_path, state_file, branch, now = sys.argv[1:]
 workflow_data = {
     "workflow": "rpiv",
     "id": active_task,
@@ -147,9 +138,7 @@ workflow_data = {
     "branch": branch,
     "startedAt": now,
     "updatedAt": now,
-    "compatPointer": ".workflow/active_task.json",
 }
-Path(active_task_path).write_text(json.dumps(legacy_data, indent=2) + "\n")
 Path(active_workflow_path).write_text(json.dumps(workflow_data, indent=2) + "\n")
 PY
 }
@@ -202,23 +191,39 @@ PY
 }
 
 update_work_meta() {
-    local status phase
+    local status
     status=$(json_get "$METADATA_JSON" status)
-    phase=$(json_get "$METADATA_JSON" phase)
     status=${status:-active}
-    phase=${phase:-triaged}
 
-    python3 - "$WORK_MD" "$BRANCH_NAME" "$status" "$phase" "$SOURCE" "$ID" <<'PY'
+    python3 - "$WORK_MD" "$BRANCH_NAME" "$status" "$SOURCE" "$ID" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
-branch, status, phase, source, raw_id = sys.argv[2:]
+branch, status, source, raw_id = sys.argv[2:]
 text = path.read_text() if path.exists() else ""
 lines = text.splitlines()
 header_re = re.compile(r"^(## )?\[[A-Z0-9_-]+\]\s*$")
 meta_re = re.compile(r"^(## )?\[META\]\s*$")
+
+def section_body(section):
+    header = re.compile(rf"^(## )?\[{re.escape(section)}\]\s*$")
+    start = next((i for i, line in enumerate(lines) if header.match(line)), None)
+    if start is None:
+        return ""
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if header_re.match(lines[i]):
+            end = i
+            break
+    return "\n".join(lines[start + 1:end]).strip()
+
+def meaningful(section):
+    body = section_body(section)
+    return any(line.strip() and line.strip() not in {"-", "- [ ]"} for line in body.splitlines())
+
+phase = "planned" if meaningful("PLAN") else "grilled" if meaningful("GRILL") else "framed" if meaningful("BRIEF") else "triaged"
 
 new_block = [
     "## [META]",
@@ -254,21 +259,18 @@ backfill_metadata() {
         "branch=$BRANCH_NAME" \
         "taskFolder=$TASK_FOLDER" \
         "?status=active" \
-        "?phase=triaged" \
         "createdAt=$ISO_NOW" \
         "updatedAt=$ISO_NOW"
 }
 
 set_metadata_status_phase() {
     local status="$1"
-    local phase="$2"
     json_upsert "$METADATA_JSON" \
         "id=$ID" \
         "source=$SOURCE" \
         "branch=$BRANCH_NAME" \
         "taskFolder=$TASK_FOLDER" \
         "status=$status" \
-        "phase=$phase" \
         "createdAt=$ISO_NOW" \
         "updatedAt=$ISO_NOW"
 }
