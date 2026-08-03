@@ -267,10 +267,10 @@ if [[ -n "$META" ]]; then
       META_BRANCH=$(json_read "$META" '.branch')
 
       if [[ -n "$META_ID" && -n "$TASK_ID" && "$META_ID" != "$TASK_ID" ]]; then
-        warn "metadata.id ($META_ID) differs from active_task id/sourceId ($TASK_ID)"
+        warn "metadata.id ($META_ID) differs from pointer id/sourceId ($TASK_ID)"
       fi
       if [[ -n "$META_SOURCE" && -n "$TASK_SOURCE" && "$META_SOURCE" != "$TASK_SOURCE" ]]; then
-        warn "metadata.source ($META_SOURCE) differs from active_task.source ($TASK_SOURCE)"
+        warn "metadata.source ($META_SOURCE) differs from pointer source ($TASK_SOURCE)"
       fi
       if [[ -n "$META_TASK_FOLDER" && -n "$TASK_DIR" && "$META_TASK_FOLDER" != "$(basename "$TASK_DIR")" ]]; then
         warn "metadata.taskFolder ($META_TASK_FOLDER) differs from task folder ($(basename "$TASK_DIR"))"
@@ -322,7 +322,7 @@ echo
 echo "Suggested fixes (dry):"
 if [[ -n "$WORK_MD" && ! -f "$WORK_MD" ]]; then
   echo "  - Re-run triage: $TRIAGE_HELPER <source> <id>"
-  echo "  - Or update .workflow/active_task.json to include a correct taskPath or source+id"
+  echo "  - Or update the active workflow pointer to include a correct taskPath or source+id"
 fi
 if [[ -n "$META" && ! -f "$META" ]]; then
   echo "  - Resume/backfill metadata: $TRIAGE_HELPER ${TASK_SOURCE:-local} ${TASK_ID:-task} resume"

@@ -87,7 +87,7 @@ elif [[ -n "$TASK_ID" ]]; then
     WORK_MD="$REPO_ROOT/.workflow/tasks/$TASK_FOLDER/WORK.md"
 
 else
-    echo "ERROR: No 'sourceId' or 'taskPath' found in $ACTIVE_TASK_FILE."
+    echo "ERROR: No 'sourceId' or 'taskPath' found in $POINTER_LABEL."
     echo "Please run /triage [source]:[id] to initialize a task. Here are the file contents for debugging:"
     json_pretty "$POINTER_FILE" || true
     exit 1

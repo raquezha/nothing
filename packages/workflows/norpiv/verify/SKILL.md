@@ -10,7 +10,7 @@ description: Verify the active slice or task against WORK.md, quality gates, and
 The final gate for a slice or task. Verify truth before reporting progress.
 
 ## Guardrails
-- READ: `.workflow/active.json` / `.workflow/active_task.json`, active `WORK.md` `[BRIEF]`, `[PLAN]`, and `[LOG]`.
+- READ: `.workflow/active.json` first, then compatibility `.workflow/active_task.json` only if needed, plus active `WORK.md` `[BRIEF]`, `[PLAN]`, and `[LOG]`.
 - WRITE: `WORK.md` -> `[PLAN]` checkboxes and append to `[LOG]` only.
 - NEVER: add `Signed-off-by`; tell the human to sign if needed.
 - NEVER: transition tracker state if verification fails.
@@ -21,7 +21,7 @@ The final gate for a slice or task. Verify truth before reporting progress.
 2. Run stated verification commands and available quality gates.
 3. If RepoScry is available, optionally add graph-aware evidence with commands such as `reposcry validate main HEAD` and `reposcry --repo . get_affected_flows main HEAD`. Treat RepoScry as supplemental evidence, not a hard requirement. Verify `.reposcry/` is not staged or tracked before reporting review readiness.
 4. Check for AI artifacts: placeholder comments, fake APIs, dead code, inconsistent naming.
-5. Confirm commit messages include Conventional Commit format. When AI contributed, you MUST append an `Assisted-by` trailer. Do NOT guess or hallucinate the model name from your system prompt. You must run `bash ~/RQZ/personal/nothing/packages/norpiv/scripts/get-pi-model.sh` and use its exact output to construct the trailer: `Assisted-by: <EXACT_OUTPUT> [tools]`.
+5. Confirm commits and PR/MR metadata satisfy the repository's own hooks, CI, and release policies. Do not invent or enforce extra RPIV-specific formatting here.
 6. If passing, mark the slice checkbox complete in `[PLAN]` and append verification evidence to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).
 7. Recommend `/sync` for tracker update, or `/post-merge-prune` if the task is fully merged and user approves.
 

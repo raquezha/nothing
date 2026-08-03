@@ -10,12 +10,10 @@ description: Implement the next approved vertical slice from the active WORK.md 
 Execute one functional vertical slice and hand it to the human for review.
 
 ## Guardrails
-- READ: `.workflow/active.json` / `.workflow/active_task.json` then active `WORK.md` `[PLAN]`, `[BRIEF]`, and relevant `[LOG]` evidence.
+- READ: `.workflow/active.json` first, then compatibility `.workflow/active_task.json` only if needed, then active `WORK.md` `[PLAN]`, `[BRIEF]`, and relevant `[LOG]` evidence.
 - WRITE: code changes and `WORK.md` -> append to `[LOG]` only; optional `.reposcry/` cache refresh when RepoScry is installed.
 - NEVER: edit `[BRIEF]` or `[GRILL]`.
 - NEVER: implement without explicit user instruction.
-- NEVER: commit a Jira-tracked task with a Jira-less subject; if the active task source is `jira`, the commit subject MUST include the Jira key from `.workflow/active_task.json` (e.g. `fix(PROJ-123): ...`).
-- NEVER: hide the Jira key only in the commit body/footer when the task is Jira-tracked; the subject itself must carry the key.
 - NEVER: add `Signed-off-by`; only the human can certify DCO.
 - NEVER: freestyle PR/MR descriptions; use the Draft PR/MR body contract below.
 
@@ -31,11 +29,10 @@ Execute one functional vertical slice and hand it to the human for review.
 5. Implement test-first where practical; otherwise document why not in `[LOG]`.
 6. After each edit batch, if the bundled `../scripts/reposcry-refresh.sh` helper is present and `reposcry-update` is installed, run it. RepoScry refresh failure should not block implementation. Never stage or commit `.reposcry/`; it is generated cache. `.reposcryignore` may be committed only after review as indexing policy.
 7. Run the slice verification command and available quality gates.
-8. Commit with a Conventional Commit header and `Assisted-by: [AGENT]:[MODEL] [tools]` footer (populating the agent name and model ID from the current session context).
-   - For Jira-tracked tasks, the header MUST include the Jira key in the scope position: `fix(PROJ-123): ...` or `feat(PROJ-123): ...`.
-   - If release-note tooling also needs the key in parsed text, add `Refs: PROJ-123` in the body/footer as well.
+8. Commit using the repository's normal conventions and hooks/CI rules.
+   - If the repo or tracker expects a Jira key, preserve it where that repository normally requires it.
+   - If AI attribution trailers are required, obtain them from the repository's documented policy rather than hard-coding RPIV-specific formatting.
 9. Push and open a Draft PR/MR with `gh` or `glab` when a remote exists.
-   - For Jira-tracked tasks, the PR/MR title MUST also include the Jira key and should mirror the commit subject.
 10. Use a temporary body file (`--body-file` or API equivalent) for PR/MR descriptions to avoid shell quoting and markdown escaping bugs.
 11. Append summary, commit hash, and PR/MR link to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).
 
