@@ -7,6 +7,7 @@
     "android": {
       "skills": [
         "nosearch",
+        "norpiv/refine",
         "norpiv/triage",
         "norpiv/frame",
         "norpiv/grill-with-docs",
@@ -26,6 +27,7 @@
     "pm": {
       "skills": [
         "nosearch",
+        "norpiv/refine",
         "norpiv/triage",
         "norpiv/frame",
         "norpiv/grill-with-docs",
@@ -41,6 +43,7 @@
       "skills": [
         "nosearch",
         "nometa/agent-os",
+        "norpiv/refine",
         "norpiv/triage",
         "norpiv/frame",
         "norpiv/grill-with-docs",
@@ -60,6 +63,7 @@
     "rpiv": {
       "skills": [
         "nosearch",
+        "norpiv/refine",
         "norpiv/triage",
         "norpiv/frame",
         "norpiv/grill-with-docs",

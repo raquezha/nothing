@@ -102,6 +102,7 @@ function verifyInstallers() {
   try {
     const norpivDest = path.join(temp, "norpiv");
     execFileSync("node", [path.join(root, "packages/workflows/norpiv/bin/norpiv-install.cjs"), "--dest", norpivDest, "--copy"], { cwd: root, stdio: "pipe" });
+    assert(existsSync(path.join(norpivDest, "refine", "SKILL.md")), "norpiv installer copies refine skill");
     assert(existsSync(path.join(norpivDest, "triage", "SKILL.md")), "norpiv installer copies triage skill");
     assert(!existsSync(path.join(norpivDest, "research", "SKILL.md")), "norpiv installer does not copy local noresearch skill");
     assert(existsSync(path.join(norpivDest, "scripts", "triage_helper.sh")), "norpiv installer copies shared scripts");
@@ -249,7 +250,7 @@ function verifyPackageManifests() {
     "packages/noheadroom/package.json": { extensions: ["extensions"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
-    "packages/workflows/norpiv/package.json": { skills: ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
+    "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {
