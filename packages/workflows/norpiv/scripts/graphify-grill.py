@@ -4,7 +4,7 @@ import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
-LIMIT = 100
+EDGE_LIMIT = 100
 
 
 def normalize_edge(edge):
@@ -16,7 +16,7 @@ def normalize_edge(edge):
     }
 
 
-def render_evidence(graph, limit=LIMIT):
+def render_evidence(graph, limit=EDGE_LIMIT):
     edges = graph.get("edges", [])[:limit]
     return {
         "edges": [normalize_edge(edge) for edge in edges],
