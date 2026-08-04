@@ -2,7 +2,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
 const root = process.cwd();
@@ -475,9 +475,9 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
-  assert(output.includes("Provision project-local Graphify"), "bootstrap provisions project-local Graphify");
-  assert(output.includes(".graphify/venv/bin/python -m pip install --upgrade graphifyy"), "bootstrap installs Graphify into the project environment");
-  assert(!output.includes("graphify install"), "bootstrap does not register Graphify globally");
+  assert(output.includes("Provision machine-wide Graphify"), "bootstrap provisions machine-wide Graphify");
+  assert(output.includes(`rm -rf ${homedir()}/.graphify/venv`), "bootstrap wipes stale Graphify venv before reinstall");
+  assert(output.includes(`${homedir()}/.graphify/venv/bin/python -m pip install --upgrade graphifyy`), "bootstrap installs Graphify into the home environment");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
   assert(output.includes("--research"), "bootstrap documents research hat");
   assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");

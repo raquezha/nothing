@@ -461,11 +461,12 @@ install_tools() {
 }
 
 configure_graphify() {
-  local venv="$SCRIPT_DIR/.graphify/venv"
+  local venv="$HOME/.graphify/venv"
   if ! command -v python3 >/dev/null 2>&1; then
     warn "Python 3 not found; Graphify will remain unavailable."
     return
   fi
+  run rm -rf "$venv"
   run python3 -m venv "$venv"
   if [[ "$DRY_RUN" == true ]]; then
     printf '[dry-run] %q -m pip install --upgrade graphifyy\n' "$venv/bin/python"
@@ -662,7 +663,7 @@ install_tools
 step "Synchronize workspace dependencies and build packages"
 build_local_packages
 
-step "Provision project-local Graphify"
+step "Provision machine-wide Graphify"
 configure_graphify
 
 step "Validate npm global prefix"
