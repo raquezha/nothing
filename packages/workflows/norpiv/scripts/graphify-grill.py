@@ -1,6 +1,7 @@
 """Emit bounded structural Graphify evidence from a disposable archive."""
 import json
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 
 root = Path(sys.argv[1])
@@ -9,7 +10,8 @@ out = root / "graphify-out"
 try:
     from graphify.extract import collect_files, extract
 
-    graph = extract(collect_files(root), cache_root=out, root=root, parallel=False)
+    with redirect_stdout(sys.stderr):
+        graph = extract(collect_files(root), cache_root=out, root=root, parallel=False)
     edges = graph.get("edges", [])[:100]
     evidence = [
         {

@@ -20,4 +20,5 @@ Thumbs.db
 .workflow/
 .notrace/
 .reposcry/
+.graphify/
 active_task.json

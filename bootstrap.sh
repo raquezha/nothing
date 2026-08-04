@@ -91,7 +91,7 @@ done
 AGENT_DIR="$HOME/.pi/agent"
 SECRETS_FILE="$HOME/.pi-secrets/.env"
 
-TOTAL_STEPS=14
+TOTAL_STEPS=16
 CURRENT_STEP=0
 
 print_logo() {
@@ -276,7 +276,7 @@ ensure_global_gitignore() {
   fi
   file="${file/#\~/$HOME}"
   run touch "$file"
-  for entry in ".workflow/" ".reposcry/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
+  for entry in ".workflow/" ".graphify/" ".reposcry/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
     if [[ "$DRY_RUN" == true ]]; then
       grep -qxF "$entry" "$file" 2>/dev/null || printf '[dry-run] append %s to %s\n' "$entry" "$file"
     elif ! grep -qxF "$entry" "$file" 2>/dev/null; then
@@ -463,6 +463,20 @@ install_tools() {
       ;;
     *) warn "Unsupported OS: $os. Continuing with repo setup only." ;;
   esac
+}
+
+configure_graphify() {
+  local venv="$SCRIPT_DIR/.graphify/venv"
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "Python 3 not found; Graphify will remain unavailable."
+    return
+  fi
+  run python3 -m venv "$venv"
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] %q -m pip install --upgrade graphifyy\n' "$venv/bin/python"
+  elif ! "$venv/bin/python" -m pip install --upgrade graphifyy; then
+    warn "Graphify install failed; grilling will fall back to source reading."
+  fi
 }
 
 ensure_npm_global_prefix() {
@@ -652,6 +666,9 @@ install_tools
 
 step "Synchronize workspace dependencies and build packages"
 build_local_packages
+
+step "Provision project-local Graphify"
+configure_graphify
 
 step "Validate npm global prefix"
 ensure_npm_global_prefix

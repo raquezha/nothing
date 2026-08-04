@@ -471,6 +471,9 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
+  assert(output.includes("Provision project-local Graphify"), "bootstrap provisions project-local Graphify");
+  assert(output.includes(".graphify/venv/bin/python -m pip install --upgrade graphifyy"), "bootstrap installs Graphify into the project environment");
+  assert(!output.includes("graphify install"), "bootstrap does not register Graphify globally");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
   assert(output.includes("--research"), "bootstrap documents research hat");
   assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");

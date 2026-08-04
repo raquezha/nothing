@@ -10,15 +10,14 @@ description: Define the task brief inside the active WORK.md. Use after /triage 
 Turn raw task context into the stable "what/why" brief.
 
 ## Guardrails
-- READ: `.workflow/active.json` / `.workflow/active_task.json`, active `WORK.md`, and `.reposcry/AI_CONTEXT.md` when present.
-- WRITE: `WORK.md` -> `[BRIEF]` section and append to `[LOG]` only; optional `.reposcry/AI_CONTEXT.md` when RepoScry is installed.
+- READ: `.workflow/active.json` / `.workflow/active_task.json` and active `WORK.md`.
+- WRITE: `WORK.md` -> `[BRIEF]` section and append to `[LOG]` only.
 - NEVER: create `PROBLEM.md`, `PRD.md`, or extra planning files.
 - NEVER: overwrite `[PLAN]` or `[GRILL]`.
 - NEVER: ask whether to frame if the user invoked `/frame`; do it.
 
 ## Workflow
 1. Read the active task and remote metadata.
-2. If RepoScry is available, run the bundled `../scripts/reposcry-task-context.sh "<task summary>"` helper to generate `.reposcry/AI_CONTEXT.md`, then use that file as supplemental repo context. The helper path must preserve RepoScry guardrails: `.reposcry/` ignored, cache never tracked, `.reposcryignore` treated as reviewable indexing policy. Continue normally when unavailable.
 3. Determine brief type:
    - **Problem** for bugs, regressions, crashes, broken behavior.
    - **Proposal** for features, enhancements, refactors, new behavior.

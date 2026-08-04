@@ -11,7 +11,7 @@ Execute one functional vertical slice and hand it to the human for review.
 
 ## Guardrails
 - READ: `.workflow/active.json` first, then compatibility `.workflow/active_task.json` only if needed, then active `WORK.md` `[PLAN]`, `[BRIEF]`, and relevant `[LOG]` evidence.
-- WRITE: code changes and `WORK.md` -> append to `[LOG]` only; optional `.reposcry/` cache refresh when RepoScry is installed.
+- WRITE: code changes and `WORK.md` -> append to `[LOG]` only.
 - NEVER: edit `[BRIEF]` or `[GRILL]`.
 - NEVER: implement without explicit user instruction.
 - NEVER: add `Signed-off-by`; only the human can certify DCO.
@@ -25,9 +25,7 @@ Execute one functional vertical slice and hand it to the human for review.
    - This script prevents accidental implementation on `main`/`master`.
    - If the script switches branches, you must update the `[META]` section of `WORK.md` to reflect the new branch name.
    - If the script fails, STOP and ask the human for help. Do not proceed with code changes.
-4. Optional RepoScry blast-radius pass: if `reposcry` is available, inspect impact before wide edits (`reposcry --repo . get_impact_radius <symbol> --depth 4` or related graph queries). Continue normally when RepoScry is absent.
 5. Implement test-first where practical; otherwise document why not in `[LOG]`.
-6. After each edit batch, if the bundled `../scripts/reposcry-refresh.sh` helper is present and `reposcry-update` is installed, run it. RepoScry refresh failure should not block implementation. Never stage or commit `.reposcry/`; it is generated cache. `.reposcryignore` may be committed only after review as indexing policy.
 7. Run the slice verification command and available quality gates.
 8. Commit using the repository's normal conventions and hooks/CI rules.
    - If the repo or tracker expects a Jira key, preserve it where that repository normally requires it.
