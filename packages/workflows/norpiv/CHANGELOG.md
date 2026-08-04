@@ -1,5 +1,18 @@
 # @raquezha/norpiv
 
+## 0.0.8
+
+### Patch Changes
+
+- 82a5634: Add a fail-open Graphify helper that analyzes only a temporary archive of committed `HEAD`. Refs #66.
+- b0c4c93: Install Graphify machine-wide in `~/.graphify/venv` and let the RPIV grill helper prefer that shared environment with repo-local fallback.
+- 2efb686: Refine `/refine` ownership/dependency guidance and clarify that remote tracker items move to in-progress only when `/implement` starts.
+- a6dabbb: Prefer `.workflow/active.json` as the canonical RPIV pointer in workflow helpers and derive phase from `WORK.md` state instead of metadata phase storage.
+- 31df5f7: Harden sync guidance to verify child issue targets before posting status and require file-based markdown updates.
+
+  Refs #63
+  Refs #65
+
 ## 0.0.7
 
 ### Patch Changes
