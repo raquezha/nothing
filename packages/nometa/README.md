@@ -12,7 +12,7 @@ This package is intentionally local-first inside `nothing`. For public handoff, 
 | `agent-os` | Seed or sync `AGENTS.md` and `CONTEXT.md` in a repo. |
 | `nothing-bootstrap` | Bootstrap, migrate, or restore the `nothing` agent environment. |
 | `nohtml` | Convert markdown/transcripts/plain text into self-contained HTML pages. |
-| `pulse` | Quick health check of the agentic environment (RepoScry, Headroom, notrace). |
+| `pulse` | Quick health check of the agentic environment (Headroom, notrace, active workflow). |
 
 ## Use from the full nothing setup
 

@@ -23,7 +23,7 @@ function assert(condition, message) {
 }
 
 async function walk(dir, options = {}) {
-  const ignore = new Set(options.ignore ?? [".git", "node_modules", "dist", ".reposcry", "vendor"]);
+  const ignore = new Set(options.ignore ?? [".git", "node_modules", "dist", ".graphify", "vendor"]);
   const out = [];
   async function visit(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {
@@ -69,7 +69,7 @@ function resolveExtension(spec) {
 
 async function containsSkillMd(dir) {
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
-  const files = await walk(dir, { ignore: [".git", "node_modules", "dist", ".reposcry"] });
+  const files = await walk(dir, { ignore: [".git", "node_modules", "dist", ".graphify"] });
   return files.some((file) => path.basename(file) === "SKILL.md");
 }
 
@@ -106,6 +106,7 @@ function verifyInstallers() {
     assert(existsSync(path.join(norpivDest, "triage", "SKILL.md")), "norpiv installer copies triage skill");
     assert(!existsSync(path.join(norpivDest, "research", "SKILL.md")), "norpiv installer does not copy local noresearch skill");
     assert(existsSync(path.join(norpivDest, "scripts", "triage_helper.sh")), "norpiv installer copies shared scripts");
+    assert(existsSync(path.join(norpivDest, "scripts", "graphify-grill.sh")), "norpiv installer copies Graphify helper");
 
     const nosearchDest = path.join(temp, "nosearch");
     execFileSync("node", [path.join(root, "packages/nosearch/bin/nosearch-install.cjs"), "--dest", nosearchDest, "--copy"], { cwd: root, stdio: "pipe" });

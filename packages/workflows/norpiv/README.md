@@ -175,39 +175,24 @@ The bundle includes helper scripts used by the workflow skills:
 
 - `scripts/triage_helper.sh`
 - `scripts/validate_active_task.sh`
-- `scripts/reposcry-bootstrap.sh`
-- `scripts/reposcry-task-context.sh`
-- `scripts/reposcry-refresh.sh`
+- `scripts/graphify-grill.sh`
+- `scripts/graphify-grill.py`
 
 When skills are loaded directly from this package, relative references like `../scripts/...` resolve against the package root. When skills are installed with `norpiv-install`, the same layout is recreated under the target runtime.
 
-## 🔎 Optional RepoScry integration
+## 🔎 Optional Graphify grilling
 
-RepoScry is an optional repo-memory layer for RPIV. norpiv does **not** require it.
+Graphify is an optional grill-only evidence layer for RPIV. norpiv does **not** require it.
 
-If `reposcry` is installed:
+If bootstrap provisions `.graphify/venv`, `/grill-with-docs` may run:
 
 ```bash
-./scripts/reposcry-bootstrap.sh
-./scripts/reposcry-task-context.sh "fix dependency graph rebuild"
-# edit code
-./scripts/reposcry-refresh.sh main
-reposcry validate main HEAD
+./scripts/graphify-grill.sh
 ```
 
-Typical usage by phase:
+Guardrails:
 
-- `/triage`: optionally seed `.reposcry/` with `scripts/reposcry-bootstrap.sh`
-- `/frame`: optionally generate `.reposcry/AI_CONTEXT.md` with `scripts/reposcry-task-context.sh`
-- `/grill-with-docs`: optionally use `reposcry query_graph`, `get_architecture_overview`, and `get_impact_radius`
-- `/implement`: optionally run `scripts/reposcry-refresh.sh` after edit batches
-- `/verify`: optionally add `reposcry validate main HEAD` and affected-flow output as extra evidence
-
-If RepoScry is absent, the helpers no-op and RPIV continues with normal repo reading, grep, and tests.
-
-RepoScry guardrails:
-
-- `.reposcry/` is generated local cache and must not be committed.
-- `scripts/reposcry-bootstrap.sh` automatically adds `.reposcry/` to the project `.gitignore` before initializing RepoScry.
-- If `.reposcry/` is already tracked or staged, bootstrap stops and tells you to remove it from the index.
-- `.reposcryignore` is indexing policy, not cache. Review and commit it when you want stable RepoScry behavior across machines.
+- input is a temporary `git archive HEAD` extraction, not the live repository root
+- extraction is structural only by default
+- Graphify warnings never block grilling; normal source reading remains the fallback
+- `INFERRED` or `AMBIGUOUS` edges are leads that still require source verification
