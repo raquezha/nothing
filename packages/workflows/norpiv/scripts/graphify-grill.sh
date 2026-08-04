@@ -3,13 +3,16 @@
 set -u
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "WARN: Graphify skipped: not a git repository." >&2; exit 0; }
-python=${GRAPHIFY_PYTHON:-"$repo_root/.graphify/venv/bin/python"}
+python=${GRAPHIFY_PYTHON:-"$HOME/.graphify/venv/bin/python"}
+if [[ ! -x "$python" ]]; then
+  python="$repo_root/.graphify/venv/bin/python"
+fi
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 temp=$(mktemp -d "${TMPDIR:-/tmp}/norpiv-graphify.XXXXXX") || { echo "WARN: Graphify skipped: cannot create temporary directory." >&2; exit 0; }
 trap 'rm -rf "$temp"' EXIT
 
 if [[ ! -x "$python" ]]; then
-  echo "WARN: Graphify skipped: project-local Python is unavailable." >&2
+  echo "WARN: Graphify skipped: machine-wide or repo-local Python is unavailable." >&2
   exit 0
 fi
 if ! git -C "$repo_root" archive HEAD | tar -x -C "$temp"; then

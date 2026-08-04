@@ -184,7 +184,7 @@ When skills are loaded directly from this package, relative references like `../
 
 Graphify is an optional grill-only evidence layer for RPIV. norpiv does **not** require it.
 
-If bootstrap provisions `.graphify/venv`, `/grill-with-docs` may run:
+If bootstrap provisions `~/.graphify/venv`, `/grill-with-docs` may run:
 
 ```bash
 ./scripts/graphify-grill.sh
