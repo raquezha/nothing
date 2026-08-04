@@ -124,6 +124,9 @@ function run(cmd, args, cwd, options = {}) {
 }
 
 function verifyGraphifyGuardrails() {
+  const pythonCheck = run("python3", ["-B", path.join(root, "packages/workflows/norpiv/scripts/test_graphify_grill.py")], root);
+  assert(pythonCheck.status === 0, "Graphify helper self-check passes");
+
   const script = path.join(root, "packages/workflows/norpiv/scripts/graphify-grill.sh");
   const temp = mkdtempSync(path.join(tmpdir(), "nothing-graphify-"));
   try {

@@ -10,7 +10,7 @@ description: Stress-test the active WORK.md brief against docs, code, and domain
 Challenge the brief before planning. This replaces passive ubiquitous-language collection with active clarification.
 
 ## Guardrails
-- READ: `.workflow/active.json` / `.workflow/active_task.json`, active `WORK.md` `[BRIEF]`, `CONTEXT.md`, and relevant `docs/agents/*`.
+- READ: `.workflow/active.json` first, then legacy compatibility `.workflow/active_task.json` only if needed, plus active `WORK.md` `[BRIEF]`, `CONTEXT.md`, and relevant `docs/agents/*`.
 - WRITE: `WORK.md` -> append to `[GRILL]` and `[LOG]` only; durable docs only when a stable rule is confirmed.
 - NEVER: edit `[BRIEF]` silently; propose brief changes if contradictions are found.
 - NEVER: plan or implement during grilling.

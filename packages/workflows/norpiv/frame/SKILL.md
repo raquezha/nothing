@@ -10,7 +10,7 @@ description: Define the task brief inside the active WORK.md. Use after /triage 
 Turn raw task context into the stable "what/why" brief.
 
 ## Guardrails
-- READ: `.workflow/active.json` / `.workflow/active_task.json` and active `WORK.md`.
+- READ: `.workflow/active.json` first, then legacy compatibility `.workflow/active_task.json` only if needed, and active `WORK.md`.
 - WRITE: `WORK.md` -> `[BRIEF]` section and append to `[LOG]` only.
 - NEVER: create `PROBLEM.md`, `PRD.md`, or extra planning files.
 - NEVER: overwrite `[PLAN]` or `[GRILL]`.
