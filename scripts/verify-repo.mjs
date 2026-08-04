@@ -122,35 +122,42 @@ function run(cmd, args, cwd, options = {}) {
   return spawnSync(cmd, args, { cwd, encoding: "utf8", ...options });
 }
 
-function verifyReposcryGuardrails() {
-  const script = path.join(root, "packages/workflows/norpiv/scripts/reposcry-bootstrap.sh");
-  const temp = mkdtempSync(path.join(tmpdir(), "nothing-reposcry-"));
+function verifyGraphifyGuardrails() {
+  const script = path.join(root, "packages/workflows/norpiv/scripts/graphify-grill.sh");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-graphify-"));
   try {
     run("git", ["init", "-q"], temp);
     run("git", ["config", "user.email", "test@example.com"], temp);
     run("git", ["config", "user.name", "Test"], temp);
-    const result = run("bash", [script], temp);
-    assert(result.status === 0, "reposcry bootstrap succeeds in temp git repo");
-    const gitignore = readFileSync(path.join(temp, ".gitignore"), "utf8");
-    assert(gitignore.split(/\r?\n/).includes(".reposcry/"), "reposcry bootstrap adds .reposcry/ to repo .gitignore");
-    assert(!gitignore.includes(".reposcryignore"), "reposcry bootstrap does not ignore .reposcryignore");
+    writeFileSync(path.join(temp, "tracked.txt"), "tracked\n");
+    run("git", ["add", "tracked.txt"], temp);
+    run("git", ["commit", "-q", "-m", "init"], temp);
+    writeFileSync(path.join(temp, ".gitignore"), "ignored.txt\n");
+    writeFileSync(path.join(temp, "ignored.txt"), "ignored\n");
+    writeFileSync(path.join(temp, "untracked.txt"), "untracked\n");
+    const marker = path.join(temp, "checked");
+    const fakePython = path.join(temp, "python");
+    writeFileSync(fakePython, "#!/usr/bin/env bash\ntest -f \"$2/tracked.txt\" && test ! -e \"$2/ignored.txt\" && test ! -e \"$2/untracked.txt\" && touch \"$CHECK_FILE\"\n");
+    chmodSync(fakePython, 0o755);
+    const result = run("bash", [script], temp, { env: { ...process.env, GRAPHIFY_PYTHON: fakePython, CHECK_FILE: marker } });
+    assert(result.status === 0, "Graphify helper succeeds with committed HEAD archive");
+    assert(existsSync(marker), "Graphify input excludes ignored and untracked content");
   } catch (error) {
-    fail(`reposcry guardrail bootstrap test failed: ${error.message}`);
+    fail(`Graphify archive guardrail test failed: ${error.message}`);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
 
-  const trackedTemp = mkdtempSync(path.join(tmpdir(), "nothing-reposcry-tracked-"));
+  const missingTemp = mkdtempSync(path.join(tmpdir(), "nothing-graphify-missing-"));
   try {
-    run("git", ["init", "-q"], trackedTemp);
-    run("bash", ["-lc", "mkdir -p .reposcry && echo cache > .reposcry/cache.db && git add -f .reposcry/cache.db"], trackedTemp);
-    const result = run("bash", [script], trackedTemp);
-    assert(result.status !== 0, "reposcry bootstrap refuses tracked/staged .reposcry cache");
-    assert(`${result.stdout}${result.stderr}`.includes("must not be committed"), "reposcry refusal explains cache must not be committed");
+    run("git", ["init", "-q"], missingTemp);
+    const result = run("bash", [script], missingTemp, { env: { ...process.env, GRAPHIFY_PYTHON: path.join(missingTemp, "missing-python") } });
+    assert(result.status === 0, "Graphify helper fails open when unavailable");
+    assert(`${result.stdout}${result.stderr}`.includes("Graphify skipped"), "Graphify unavailable warning explains fallback");
   } catch (error) {
-    fail(`reposcry tracked-cache test failed: ${error.message}`);
+    fail(`Graphify fail-open test failed: ${error.message}`);
   } finally {
-    rmSync(trackedTemp, { recursive: true, force: true });
+    rmSync(missingTemp, { recursive: true, force: true });
   }
 }
 
@@ -491,7 +498,7 @@ function verifyWorkflowFiles() {
 await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
-verifyReposcryGuardrails();
+verifyGraphifyGuardrails();
 verifyRpivWorkflowPointer();
 verifyResearchWorkflowHelper();
 verifyPackageLockWorkspaceVersions();
