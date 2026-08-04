@@ -98,6 +98,10 @@ doneSignal: /sync
 notraceHook: attach artifact/review references to WORK.md [LOG]
 ```
 
+Status rule:
+- `/refine`, `/triage`, `/frame`, and `/plan` mean the work is being prepared, not actively implemented.
+- Remote Jira/GitHub/GitLab work should move to an in-progress state only when `/implement` actually starts.
+
 ## Research implementation
 
 ```yaml
