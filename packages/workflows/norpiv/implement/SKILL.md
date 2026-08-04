@@ -19,20 +19,25 @@ Execute one functional vertical slice and hand it to the human for review.
 
 ## Workflow
 1. Identify the first approved unchecked slice in `[PLAN]`.
-2. Move tracked task to **In Progress** only when implementation actually starts.
-3. **Mandatory Branch Check**: You MUST run the branch enforcement script before modifying any code.
+2. **Mandatory Branch Check**: You MUST run the branch enforcement script before modifying any code.
    - Use the absolute path if possible: `<skill_location>/scripts/enforce-branch.sh`.
    - This script prevents accidental implementation on `main`/`master`.
    - If the script switches branches, you must update the `[META]` section of `WORK.md` to reflect the new branch name.
    - If the script fails, STOP and ask the human for help. Do not proceed with code changes.
+3. Select the executable child item, not an umbrella parent; if it is unclear, STOP and ask.
+4. Move that remote item to **In Progress** immediately before code changes.
+   - Jira: transition only when an `In Progress`-style state exists.
+   - GitHub / GitLab: use an existing repository-specific status mapping only; do not invent a label, comment, or MR change. If none exists, leave the item unchanged and record why in `[LOG]`.
+   - If a configured transition fails, STOP and ask the human; do not begin code changes.
+   - Do not mark work in progress during `/refine`, `/triage`, `/frame`, or `/plan`.
 5. Implement test-first where practical; otherwise document why not in `[LOG]`.
-7. Run the slice verification command and available quality gates.
-8. Commit using the repository's normal conventions and hooks/CI rules.
+6. Run the slice verification command and available quality gates.
+7. Commit using the repository's normal conventions and hooks/CI rules.
    - If the repo or tracker expects a Jira key, preserve it where that repository normally requires it.
    - If AI attribution trailers are required, obtain them from the repository's documented policy rather than hard-coding RPIV-specific formatting.
-9. Push and open a Draft PR/MR with `gh` or `glab` when a remote exists.
-10. Use a temporary body file (`--body-file` or API equivalent) for PR/MR descriptions to avoid shell quoting and markdown escaping bugs.
-11. Append summary, commit hash, and PR/MR link to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).
+8. Push and open a Draft PR/MR with `gh` or `glab` when a remote exists.
+9. Use a temporary body file (`--body-file` or API equivalent) for PR/MR descriptions to avoid shell quoting and markdown escaping bugs.
+10. Append summary, commit hash, and PR/MR link to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).
 
 ## Draft PR/MR body contract
 

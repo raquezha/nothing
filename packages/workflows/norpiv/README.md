@@ -12,7 +12,7 @@ The RPIV engine splits task execution into separate, focused phases:
 
 | Phase | Command | Purpose | Input / Output Files |
 | :--- | :--- | :--- | :--- |
-| **0. Refine (optional)** | `/refine [source]:[id]` | Repair tracker readiness before RPIV when outcome, acceptance criteria, or decomposition are still unclear. | Proposes tracker edits/child work; no `.workflow/` state |
+| **0. Refine (optional)** | `/refine [source]:[id]` | Repair tracker readiness before RPIV when outcome, acceptance criteria, ownership, dependencies, or decomposition are still unclear. | Proposes tracker edits/child work with ownership/dependency recommendations; no `.workflow/` state |
 | **1. Ingest** | `/triage [source]:[id]` | Initial task verification and workspace setup. | Creates `.workflow/tasks/[source-id]/WORK.md` & `metadata.json` |
 | **2. Scoping** | `/frame` | Author a clear, structured task brief. | Populates `WORK.md` ➔ `[BRIEF]` section |
 | **3. Interrogate**| `/grill-with-docs` | Stress-test brief against rules and docs. | Records decisions in `WORK.md` ➔ `[GRILL]` |
@@ -47,6 +47,8 @@ Rules:
 - **Measure Twice, Cut Once**: Never implement code during scoping or planning. The agent will wait for an explicit `EXECUTE` statement before modifying files.
 - **One Source of Truth**: All task state belongs in `.workflow/tasks/[source-id]/WORK.md`. Avoid creating separate `PROBLEM.md` or `PLAN.md` files.
 - **Safe Branching**: Triage and planning happen on the main branch. Create the feature branch (`feat/*` or `fix/*`) only when starting `/implement`.
+- **Real In-Progress Starts at Implement**: `/refine`, `/triage`, `/frame`, and `/plan` are preparation, not execution. Move the remote Jira/GitHub/GitLab work item to an in-progress state only when `/implement` actually begins.
+- **Refine Preserves Intent**: `/refine` should preserve product-authored text, append acceptance criteria instead of rewriting it, and only assign or link child work when ownership/dependency signals are clear.
 - **Canonical Pointer**: `.workflow/active.json` is the active RPIV pointer. Legacy `active_task.json` is compatibility-only during migration.
 - **Normalized Intake**: `/triage` writes a small local projection into `WORK.md`; tracker snapshots live in `metadata.json`, not raw CLI dumps.
 
