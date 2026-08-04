@@ -11,7 +11,7 @@ Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 
 ## Guardrails
 - READ: user argument, `.workflow/active.json` first and compatibility `.workflow/active_task.json` only if present/needed, target `metadata.json`, and target `WORK.md` if resuming.
-- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active.json`; optional `.reposcry/` cache files only if RepoScry is installed.
+- WRITE: `.workflow/tasks/[source-id]/WORK.md`, `.workflow/tasks/[source-id]/metadata.json`, `.workflow/active.json`.
 - On **create**, initialize required guarded sections only if absent: `[BRIEF]`, `[GRILL]`, `[PLAN]`, `[LOG]`, `[META]`.
 - On **resume**, only update `.workflow/active.json`, metadata timestamps/state as needed, and `[META]`, then append one concise `[LOG]` entry.
 - NEVER: duplicate guarded sections.
@@ -60,11 +60,7 @@ Start RPIV by creating, resuming, or explicitly reopening a task workspace.
    - Preferred absolute path: `<skill_dir>/../scripts/triage_helper.sh`.
 3. Read the resulting active pointer, metadata, and `WORK.md`.
 4. Determine action based on helper output and task state: `created`, `resumed`, `reopened`, `refused`, `fresh/reset`.
-5. Optional RepoScry bootstrap: if bundled `../scripts/reposcry-bootstrap.sh` available, run it to seed `.reposcry/` for later `/frame` and `/grill-with-docs`.
 6. New task creation should store structured tracker facts in `metadata.json` and write a concise normalized intake snapshot into `WORK.md`; never paste raw tracker CLI rendering.
-   - Run `../scripts/reposcry-bootstrap.sh --pulse` to determine "Repo Pulse" (Warm/Cold/Missing) for the output contract.
-   - Run `../scripts/reposcry-bootstrap.sh` to ensure the local cache is initialized.
-   - The helper must ensure `.reposcry/` is ignored, must stop if `.reposcry/` tracked/staged, and continue normally if RepoScry is unavailable.
 7. Verify branch: ensure current branch matches metadata `branch` (or is `main`/`master` for planning).
 8. If task was newly created, infer classification:
    - `github:`, `gitlab:`, `jira:` labels/type often indicate Problem (bug) or Proposal (feature).
@@ -86,6 +82,5 @@ End with:
 - **Status**: active / blocked / done / archived / unknown
 - **Phase**: triaged / framed / grilled / planned / implementing / verifying / synced / closed / unknown
 - **Branch**: current branch
-- **Repo Pulse**: Warm / Cold / Missing / Not applicable
 - **Classification**: Problem / Proposal
 - **Next step**: `/frame`, `/grill-with-docs`, `/plan`, `/implement`, or explicit reopen/fresh choice

@@ -24,11 +24,6 @@ for arg in "$@"; do
     --pulse)
       printf '\n\x1b[1m\x1b[38;5;208m[nothing] Environment Pulse\x1b[0m\n'
       printf '\x1b[38;5;244m--------------------------------------------------\x1b[0m\n'
-      RS_BOOTSTRAP="$SCRIPT_DIR/packages/norpiv/scripts/reposcry-bootstrap.sh"
-      if [[ -f "$RS_BOOTSTRAP" ]]; then
-        PULSE=$(bash "$RS_BOOTSTRAP" --pulse)
-        printf '\x1b[1mRepoScry:\x1b[0m    %s\n' "${PULSE#PULSE: }"
-      fi
       if command -v docker >/dev/null 2>&1; then
         if docker ps --format '{{.Names}}' | grep -q "headroom"; then
           printf '\x1b[1mHeadroom:\x1b[0m    \x1b[32mOnline\x1b[0m\n'
@@ -41,9 +36,9 @@ for arg in "$@"; do
         SESSIONS=$(jq '.sessions | length' "$NT_INDEX")
         printf '\x1b[1mNotrace:\x1b[0m     \x1b[32mActive\x1b[0m (%d sessions)\n' "$SESSIONS"
       fi
-      ACTIVE_TASK="$REPO_ROOT/.workflow/active_task.json"
-      if [[ -f "$ACTIVE_TASK" ]]; then
-        TASK_ID=$(jq -r '.active_task // "none"' "$ACTIVE_TASK")
+      ACTIVE_WORKFLOW="$REPO_ROOT/.workflow/active.json"
+      if [[ -f "$ACTIVE_WORKFLOW" ]]; then
+        TASK_ID=$(jq -r '.taskId // .id // "none"' "$ACTIVE_WORKFLOW")
         printf '\x1b[1mActive Task:\x1b[0m %s\n' "$TASK_ID"
       fi
       printf '\x1b[38;5;244m--------------------------------------------------\x1b[0m\n'
@@ -91,7 +86,7 @@ done
 AGENT_DIR="$HOME/.pi/agent"
 SECRETS_FILE="$HOME/.pi-secrets/.env"
 
-TOTAL_STEPS=14
+TOTAL_STEPS=16
 CURRENT_STEP=0
 
 print_logo() {
@@ -276,7 +271,7 @@ ensure_global_gitignore() {
   fi
   file="${file/#\~/$HOME}"
   run touch "$file"
-  for entry in ".workflow/" ".reposcry/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
+  for entry in ".workflow/" ".graphify/" ".pi-settings.json" ".pi-models.json" ".pi-*.json"; do
     if [[ "$DRY_RUN" == true ]]; then
       grep -qxF "$entry" "$file" 2>/dev/null || printf '[dry-run] append %s to %s\n' "$entry" "$file"
     elif ! grep -qxF "$entry" "$file" 2>/dev/null; then
@@ -463,6 +458,20 @@ install_tools() {
       ;;
     *) warn "Unsupported OS: $os. Continuing with repo setup only." ;;
   esac
+}
+
+configure_graphify() {
+  local venv="$SCRIPT_DIR/.graphify/venv"
+  if ! command -v python3 >/dev/null 2>&1; then
+    warn "Python 3 not found; Graphify will remain unavailable."
+    return
+  fi
+  run python3 -m venv "$venv"
+  if [[ "$DRY_RUN" == true ]]; then
+    printf '[dry-run] %q -m pip install --upgrade graphifyy\n' "$venv/bin/python"
+  elif ! "$venv/bin/python" -m pip install --upgrade graphifyy; then
+    warn "Graphify install failed; grilling will fall back to source reading."
+  fi
 }
 
 ensure_npm_global_prefix() {
@@ -652,6 +661,9 @@ install_tools
 
 step "Synchronize workspace dependencies and build packages"
 build_local_packages
+
+step "Provision project-local Graphify"
+configure_graphify
 
 step "Validate npm global prefix"
 ensure_npm_global_prefix

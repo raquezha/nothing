@@ -23,7 +23,7 @@ function assert(condition, message) {
 }
 
 async function walk(dir, options = {}) {
-  const ignore = new Set(options.ignore ?? [".git", "node_modules", "dist", ".reposcry", "vendor"]);
+  const ignore = new Set(options.ignore ?? [".git", "node_modules", "dist", ".graphify", "vendor"]);
   const out = [];
   async function visit(current) {
     for (const entry of await readdir(current, { withFileTypes: true })) {
@@ -69,7 +69,7 @@ function resolveExtension(spec) {
 
 async function containsSkillMd(dir) {
   if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
-  const files = await walk(dir, { ignore: [".git", "node_modules", "dist", ".reposcry"] });
+  const files = await walk(dir, { ignore: [".git", "node_modules", "dist", ".graphify"] });
   return files.some((file) => path.basename(file) === "SKILL.md");
 }
 
@@ -106,6 +106,7 @@ function verifyInstallers() {
     assert(existsSync(path.join(norpivDest, "triage", "SKILL.md")), "norpiv installer copies triage skill");
     assert(!existsSync(path.join(norpivDest, "research", "SKILL.md")), "norpiv installer does not copy local noresearch skill");
     assert(existsSync(path.join(norpivDest, "scripts", "triage_helper.sh")), "norpiv installer copies shared scripts");
+    assert(existsSync(path.join(norpivDest, "scripts", "graphify-grill.sh")), "norpiv installer copies Graphify helper");
 
     const nosearchDest = path.join(temp, "nosearch");
     execFileSync("node", [path.join(root, "packages/nosearch/bin/nosearch-install.cjs"), "--dest", nosearchDest, "--copy"], { cwd: root, stdio: "pipe" });
@@ -122,35 +123,45 @@ function run(cmd, args, cwd, options = {}) {
   return spawnSync(cmd, args, { cwd, encoding: "utf8", ...options });
 }
 
-function verifyReposcryGuardrails() {
-  const script = path.join(root, "packages/workflows/norpiv/scripts/reposcry-bootstrap.sh");
-  const temp = mkdtempSync(path.join(tmpdir(), "nothing-reposcry-"));
+function verifyGraphifyGuardrails() {
+  const pythonCheck = run("python3", ["-B", path.join(root, "packages/workflows/norpiv/scripts/test_graphify_grill.py")], root);
+  assert(pythonCheck.status === 0, "Graphify helper self-check passes");
+
+  const script = path.join(root, "packages/workflows/norpiv/scripts/graphify-grill.sh");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-graphify-"));
   try {
     run("git", ["init", "-q"], temp);
     run("git", ["config", "user.email", "test@example.com"], temp);
     run("git", ["config", "user.name", "Test"], temp);
-    const result = run("bash", [script], temp);
-    assert(result.status === 0, "reposcry bootstrap succeeds in temp git repo");
-    const gitignore = readFileSync(path.join(temp, ".gitignore"), "utf8");
-    assert(gitignore.split(/\r?\n/).includes(".reposcry/"), "reposcry bootstrap adds .reposcry/ to repo .gitignore");
-    assert(!gitignore.includes(".reposcryignore"), "reposcry bootstrap does not ignore .reposcryignore");
+    writeFileSync(path.join(temp, "tracked.txt"), "tracked\n");
+    run("git", ["add", "tracked.txt"], temp);
+    run("git", ["commit", "-q", "-m", "init"], temp);
+    writeFileSync(path.join(temp, ".gitignore"), "ignored.txt\n");
+    writeFileSync(path.join(temp, "ignored.txt"), "ignored\n");
+    writeFileSync(path.join(temp, "untracked.txt"), "untracked\n");
+    const marker = path.join(temp, "checked");
+    const fakePython = path.join(temp, "python");
+    writeFileSync(fakePython, "#!/usr/bin/env bash\ntest -f \"$2/tracked.txt\" && test ! -e \"$2/ignored.txt\" && test ! -e \"$2/untracked.txt\" && touch \"$CHECK_FILE\"\n");
+    chmodSync(fakePython, 0o755);
+    const result = run("bash", [script], temp, { env: { ...process.env, GRAPHIFY_PYTHON: fakePython, CHECK_FILE: marker } });
+    assert(result.status === 0, "Graphify helper succeeds with committed HEAD archive");
+    assert(existsSync(marker), "Graphify input excludes ignored and untracked content");
   } catch (error) {
-    fail(`reposcry guardrail bootstrap test failed: ${error.message}`);
+    fail(`Graphify archive guardrail test failed: ${error.message}`);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
 
-  const trackedTemp = mkdtempSync(path.join(tmpdir(), "nothing-reposcry-tracked-"));
+  const missingTemp = mkdtempSync(path.join(tmpdir(), "nothing-graphify-missing-"));
   try {
-    run("git", ["init", "-q"], trackedTemp);
-    run("bash", ["-lc", "mkdir -p .reposcry && echo cache > .reposcry/cache.db && git add -f .reposcry/cache.db"], trackedTemp);
-    const result = run("bash", [script], trackedTemp);
-    assert(result.status !== 0, "reposcry bootstrap refuses tracked/staged .reposcry cache");
-    assert(`${result.stdout}${result.stderr}`.includes("must not be committed"), "reposcry refusal explains cache must not be committed");
+    run("git", ["init", "-q"], missingTemp);
+    const result = run("bash", [script], missingTemp, { env: { ...process.env, GRAPHIFY_PYTHON: path.join(missingTemp, "missing-python") } });
+    assert(result.status === 0, "Graphify helper fails open when unavailable");
+    assert(`${result.stdout}${result.stderr}`.includes("Graphify skipped"), "Graphify unavailable warning explains fallback");
   } catch (error) {
-    fail(`reposcry tracked-cache test failed: ${error.message}`);
+    fail(`Graphify fail-open test failed: ${error.message}`);
   } finally {
-    rmSync(trackedTemp, { recursive: true, force: true });
+    rmSync(missingTemp, { recursive: true, force: true });
   }
 }
 
@@ -464,6 +475,9 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("norpiv-install.cjs --target pi"), "bootstrap does not globally install norpiv skills by default");
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
+  assert(output.includes("Provision project-local Graphify"), "bootstrap provisions project-local Graphify");
+  assert(output.includes(".graphify/venv/bin/python -m pip install --upgrade graphifyy"), "bootstrap installs Graphify into the project environment");
+  assert(!output.includes("graphify install"), "bootstrap does not register Graphify globally");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
   assert(output.includes("--research"), "bootstrap documents research hat");
   assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");
@@ -491,7 +505,7 @@ function verifyWorkflowFiles() {
 await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
-verifyReposcryGuardrails();
+verifyGraphifyGuardrails();
 verifyRpivWorkflowPointer();
 verifyResearchWorkflowHelper();
 verifyPackageLockWorkspaceVersions();
