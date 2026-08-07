@@ -1,5 +1,12 @@
 # @raquezha/antigravity
 
+## 0.0.10
+
+### Patch Changes
+
+- f5592bf: Prune 8 stale model catalog entries from ANTIGRAVITY_ROUTING and ANTIGRAVITY_MODELS that don't map to active agy backend models.
+- 61233c8: Add gemini-3.6-flash, fix gemini-3.5-flash stale backend IDs, add claude-sonnet-4-6, fix thinkingLevelMap accuracy for shift-tab cycling, update README routing examples.
+
 ## 0.0.9
 
 ### Patch Changes
