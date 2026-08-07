@@ -8,7 +8,7 @@ This document records the current product boundary for Nochestra v1. GitHub issu
 
 Nochestra is an optional control plane for Pi.
 
-It lets a user begin with a natural conversation and later move into research, notes, refinement, triage, implementation, verification, or publication without manually reconstructing the useful context.
+It lets a user begin with a natural conversation and later move into research, notes, refinement, triage, implementation, verification, or publication without manually reconstructing useful context.
 
 One visible conversation does not mean one permanently growing model prompt.
 
@@ -24,13 +24,7 @@ Nochestra starts as an optional entry point:
 pi --nochestra
 ```
 
-The first rollout must preserve:
-
-1. Plain Pi
-2. `pi --rpiv`
-3. `pi --research`
-4. `pi --notes`
-5. Existing `.workflow` state and durable artifacts
+The first rollout must preserve plain Pi, `pi --rpiv`, `pi --research`, `pi --notes`, existing `.workflow` state, and existing durable artifacts.
 
 Making Nochestra the default Pi entry point is a separate potentially breaking decision.
 
@@ -56,18 +50,7 @@ The human provides intent, resolves genuine product decisions, and approves cons
 
 ### Nochestra
 
-Nochestra is the foreman.
-
-It may:
-
-1. Inspect workspace and workflow state
-2. Maintain compact accepted intent
-3. Recommend a route
-4. Build a bounded worker handoff
-5. Request approval
-6. Dispatch and supervise workers
-7. Judge structured results
-8. Decide whether another attempt is justified
+Nochestra is the foreman. It may inspect workspace and workflow state, maintain compact accepted intent, recommend a route, build a bounded handoff, request approval, dispatch and supervise workers, and judge structured results.
 
 Nochestra does not directly perform repository or note edits in v1.
 
@@ -85,9 +68,7 @@ More specialized role names remain provisional until the first vertical slice pr
 
 ### Notrace
 
-Notrace observes and records evidence.
-
-It does not decide routes, context boundaries, approvals, retries, or model selection.
+Notrace observes and records evidence. It does not decide routes, context boundaries, approvals, retries, or model selection.
 
 ## Product routes
 
@@ -220,19 +201,7 @@ Preserved but never sent automatically:
 
 A worker receives a bounded task packet instead of the complete parent transcript.
 
-A handoff may contain:
-
-```text
-assignment
-current artifact snapshot
-accepted decisions
-constraints
-open questions
-selected skills
-permissions
-context budget
-result schema
-```
+A handoff may contain assignment, current artifact snapshot, accepted decisions, constraints, open questions, selected skills, permissions, context budget, and result schema.
 
 Worker results should be compact and structured. The exact protocol remains provisional.
 
@@ -282,20 +251,7 @@ V1 should prove:
 
 ## Non goals
 
-V1 does not include:
-
-1. Arbitrary agent generation
-2. Generic workflow graph engine
-3. Permanent domain packs
-4. Nested worker hierarchies
-5. Peer to peer worker communication
-6. Worktree orchestration
-7. Swarm execution
-8. Mandatory Sandcastle or Docker execution
-9. Full Notrace analytics UI
-10. Universal cross harness memory protocol
-11. Nochestra as the default Pi entry point
-12. A final public worker or runtime API
+V1 does not include arbitrary agent generation, a generic workflow graph engine, permanent domain packs, nested worker hierarchies, peer to peer worker communication, worktree orchestration, swarm execution, mandatory Sandcastle or Docker execution, a full Notrace analytics UI, a universal cross harness memory protocol, Nochestra as the default Pi entry point, or a final public worker or runtime API.
 
 ## Success measures
 
@@ -355,15 +311,6 @@ Exact context thresholds and quota policies require measurement.
 
 ## Does not establish
 
-This document does not define:
-
-1. A final cross harness protocol
-2. A permanent storage format
-3. A final public worker API
-4. A final runtime adapter API
-5. Exact context thresholds
-6. Exact epoch identifiers
-7. A universal memory framework
-8. Default behavior outside the optional Nochestra entry point
+This document does not define a final cross harness protocol, permanent storage format, final public worker API, final runtime adapter API, exact context thresholds, exact epoch identifiers, a universal memory framework, or default behavior outside the optional Nochestra entry point.
 
 Implementation details become accepted only after evidence, review, and an explicit decision update.
