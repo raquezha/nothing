@@ -129,6 +129,36 @@ notraceHook: attach artifact/review references to RESEARCH.md [TRACE]
 
 Workflow files may link to notrace artifacts, but notrace owns the artifacts.
 
+## GitHub Issues and Projects contract
+
+GitHub Issues define the work. GitHub Projects reflect delivery state.
+
+When work associated with a Project item changes state, the agent must synchronize the corresponding Project fields after the repository and issue state are updated.
+
+### Allowed status transitions (executable work)
+
+```text
+Backlog → Ready → In progress → Review → Done
+```
+
+An agent can safely move a Project item through these statuses as a consequence of actual work.
+
+### Disallowed planning changes (require human approval)
+
+An agent must not silently:
+
+- Change priority (e.g., Normal → Urgent)
+- Change phase or track (e.g., Foundation → Rollout)
+- Add or remove milestones
+- Move items between project columns representing roadmap commitments
+- Create new Project items
+
+These are planning decisions. They require human approval.
+
+### Approval boundary
+
+Updating status, phase, or other delivery-state metadata is allowed as part of an explicitly approved workflow. Creating new scope, changing priority, changing milestones, or materially altering roadmap commitments requires human approval.
+
 ```text
 .notrace/sessions/<session-id>/notrace.json
 .notrace/sessions/<session-id>/notrace.html

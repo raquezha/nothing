@@ -34,6 +34,7 @@ npm install -g @raquezha/antigravity
 
 - Provider id: `antigravity`
 - Public model ids:
+  - `gemini-3.6-flash`
   - `gemini-3.5-flash`
   - `gemini-3.1-pro`
   - `claude-sonnet-4-6`
@@ -41,9 +42,9 @@ npm install -g @raquezha/antigravity
   - `gpt-oss-120b`
   - plus additional Gemini / Claude catalog entries exposed by the package
 - Runtime routing examples:
-  - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-extra-low`, `gemini-3.5-flash-low`, or `gemini-3-flash-agent`
+  - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-low`, `gemini-3.5-flash-medium`, or `gemini-3.5-flash-high`
   - `gemini-3.1-pro` -> routes internally to `gemini-3.1-pro-low` or `gemini-pro-agent`
-  - `claude-sonnet-4-6` -> routes to `claude-sonnet-4-6`
+  - `claude-sonnet-4-6` -> routes to `claude-sonnet-4-6` (always-on thinking)
   - `claude-opus-4-6` -> routes to `claude-opus-4-6-thinking`
   - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`
 - Migration note:
