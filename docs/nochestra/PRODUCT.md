@@ -1,8 +1,8 @@
-# Nochestra v1 Product and Architecture Brief
+# Nochestra Product and Architecture Brief
 
 Status: Draft
 
-This document records the current product boundary for Nochestra v1. GitHub issues manage delivery. Decisions marked provisional must not become permanent contracts without implementation evidence.
+This document records the current product boundary for Nochestra. GitHub issues manage delivery. Decisions marked provisional must not become permanent contracts without implementation evidence.
 
 ## Product summary
 
@@ -24,7 +24,7 @@ Nochestra starts as an optional entry point:
 pi --nochestra
 ```
 
-The first rollout must preserve plain Pi, `pi --rpiv`, `pi --research`, `pi --notes`, existing `.workflow` state, and existing durable artifacts.
+The initial rollout must preserve plain Pi, `pi --rpiv`, `pi --research`, `pi --notes`, existing `.workflow` state, and existing durable artifacts.
 
 Making Nochestra the default Pi entry point is a separate potentially breaking decision.
 
@@ -52,13 +52,13 @@ The human provides intent, resolves genuine product decisions, and approves cons
 
 Nochestra is the foreman. It may inspect workspace and workflow state, maintain compact accepted intent, recommend a route, build a bounded handoff, request approval, dispatch and supervise workers, and judge structured results.
 
-Nochestra does not directly perform repository or note edits in v1.
+Nochestra does not directly perform repository or note edits in the initial rollout.
 
 ### Workers
 
 Workers execute bounded assignments.
 
-V1 only requires three conceptual roles:
+The initial model only requires three conceptual roles:
 
 1. Parent
 2. Executor
@@ -72,7 +72,7 @@ Notrace observes and records evidence. It does not decide routes, context bounda
 
 ## Product routes
 
-V1 uses four product routes:
+The initial product model uses four routes:
 
 1. Chat: discussion with no durable mutation
 2. Notes: durable knowledge writing and revision
@@ -207,7 +207,7 @@ Worker results should be compact and structured. The exact protocol remains prov
 
 ## Concurrency boundary
 
-V1 uses a flat topology.
+The initial rollout uses a flat topology.
 
 Accepted boundaries:
 
@@ -216,7 +216,7 @@ Accepted boundaries:
 3. Read only workers may run in parallel when safe
 4. Deterministic verification should run before an additional premium judgment call where practical
 
-Worktrees, nested workers, peer communication, swarm execution, and mandatory sandbox runtimes are outside v1.
+Worktrees, nested workers, peer communication, swarm execution, and mandatory sandbox runtimes are outside the initial rollout.
 
 ## Primary vertical slice
 
@@ -234,9 +234,9 @@ The first proposed product proof is conversational Jira refinement followed by t
 
 This vertical slice remains provisional until its implementation issue is accepted.
 
-## V1 scope
+## Initial scope
 
-V1 should prove:
+The first rollout should prove:
 
 1. Optional Nochestra parent
 2. Rolling checkpoint
@@ -251,11 +251,11 @@ V1 should prove:
 
 ## Non goals
 
-V1 does not include arbitrary agent generation, a generic workflow graph engine, permanent domain packs, nested worker hierarchies, peer to peer worker communication, worktree orchestration, swarm execution, mandatory Sandcastle or Docker execution, a full Notrace analytics UI, a universal cross harness memory protocol, Nochestra as the default Pi entry point, or a final public worker or runtime API.
+The initial rollout does not include arbitrary agent generation, a generic workflow graph engine, permanent domain packs, nested worker hierarchies, peer to peer worker communication, worktree orchestration, swarm execution, mandatory Sandcastle or Docker execution, a full Notrace analytics UI, a universal cross harness memory protocol, Nochestra as the default Pi entry point, or a final public worker or runtime API.
 
 ## Success measures
 
-V1 succeeds when evidence shows:
+The initial rollout succeeds when evidence shows:
 
 1. A user can move from discussion into a durable workflow without restating accepted decisions
 2. A fresh worker can complete its assignment without the full parent transcript
@@ -293,7 +293,7 @@ Exact context thresholds and quota policies require measurement.
 5. Which Pi hooks expose reliable compaction boundaries
 6. Which Jira adapter and approval interaction form the first vertical slice
 7. How archived conversation retrieval works without automatic replay
-8. Whether Notes belongs in the first release or a later vertical slice
+8. Whether Notes belongs in the initial rollout or a later vertical slice
 
 ## Decision log
 
@@ -305,12 +305,12 @@ Exact context thresholds and quota policies require measurement.
 | 2026 08 06 | Older epoch content is not automatically replayed | Accepted | Controls cumulative input and irrelevant context |
 | 2026 08 06 | One shared checkout writer operates at a time | Accepted | Avoids conflicting writes without requiring worktrees |
 | 2026 08 06 | Approval authorizes a bounded assignment rather than every individual edit | Accepted | Preserves control without making execution unusable |
-| 2026 08 06 | Nochestra starts as `pi --nochestra` | Accepted for v1 | Preserves existing workflows during rollout |
+| 2026 08 06 | Nochestra starts as `pi --nochestra` | Accepted for initial rollout | Preserves existing workflows during rollout |
 | 2026 08 06 | The first product proof is Jira refine then triage | Provisional | Strong end to end example with clear approval boundaries |
 | 2026 08 06 | Context thresholds are chosen from measurement | Provisional | Technical and economic limits vary by provider and model |
 
 ## Does not establish
 
-This document does not define a final cross harness protocol, permanent storage format, final public worker API, final runtime adapter API, exact context thresholds, exact epoch identifiers, a universal memory framework, or default behavior outside the optional Nochestra entry point.
+This document does not define a release or version number for the Nochestra track, a final cross harness protocol, permanent storage format, final public worker API, final runtime adapter API, exact context thresholds, exact epoch identifiers, a universal memory framework, or default behavior outside the optional Nochestra entry point.
 
 Implementation details become accepted only after evidence, review, and an explicit decision update.
