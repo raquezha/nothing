@@ -9,14 +9,13 @@ export interface WorkflowAdapter {
   attach(context: WorkflowContext, artifacts: { html: string; record: string }): void;
 }
 
-function appendWorkLogEntry(taskDir: string, message: string): void {
-  const workMd = path.join(taskDir, "WORK.md");
-  if (!existsSync(workMd)) return;
+function appendLogEntry(filePath: string, message: string): void {
+  if (!existsSync(filePath)) return;
   try {
-    const text = readFileSync(workMd, "utf-8");
+    const text = readFileSync(filePath, "utf-8");
     const entry = `- ${new Date().toISOString()}: ${message}`;
     if (!/^(## )?\[LOG\]\s*$/m.test(text)) {
-      writeFileSync(workMd, `${text.trimEnd()}\n\n## [LOG]\n${entry}\n`);
+      writeFileSync(filePath, `${text.trimEnd()}\n\n## [LOG]\n${entry}\n`);
       return;
     }
     const lines = text.split("\n");
@@ -34,8 +33,35 @@ function appendWorkLogEntry(taskDir: string, message: string): void {
       before.pop();
     }
     before.push(entry);
-    writeFileSync(workMd, `${[...before, ...after].join("\n").replace(/\n*$/, "\n")}`);
+    writeFileSync(filePath, `${[...before, ...after].join("\n").replace(/\n*$/, "\n")}`);
   } catch { }
+}
+
+function appendWorkLogEntry(taskDir: string, message: string): void {
+  appendLogEntry(path.join(taskDir, "WORK.md"), message);
+}
+
+export class ActiveWorkflowAdapter implements WorkflowAdapter {
+  name = "workflow";
+  detect(cwd: string): boolean {
+    return existsSync(path.join(cwd, ".workflow", "active_workflow.json"));
+  }
+  getContext(cwd: string): WorkflowContext | null {
+    try {
+      const content = JSON.parse(readFileSync(path.join(cwd, ".workflow", "active_workflow.json"), "utf-8"));
+      const taskPath = typeof content.stateFile === "string" ? content.stateFile : null;
+      return {
+        workflow: typeof content.workflow === "string" ? content.workflow : this.name,
+        taskId: typeof content.id === "string" ? content.id : null,
+        taskPath,
+        taskDir: taskPath ? path.dirname(path.resolve(cwd, taskPath)) : null
+      };
+    } catch { return null; }
+  }
+  attach(context: WorkflowContext, artifacts: { html: string; record: string }): void {
+    if (!context.taskPath || !context.taskDir) return;
+    appendLogEntry(path.join(context.taskDir, path.basename(context.taskPath)), `notrace retrospective: ${artifacts.html}`);
+  }
 }
 
 export class NorpivAdapter implements WorkflowAdapter {
@@ -84,7 +110,7 @@ export class GenericAdapter implements WorkflowAdapter {
   attach() { }
 }
 
-const ADAPTERS: WorkflowAdapter[] = [new NorpivAdapter(), new ResearchAdapter(), new GenericAdapter()];
+const ADAPTERS: WorkflowAdapter[] = [new ActiveWorkflowAdapter(), new NorpivAdapter(), new ResearchAdapter(), new GenericAdapter()];
 
 export function getActiveAdapter(cwd: string): WorkflowAdapter {
   return ADAPTERS.find(a => a.detect(cwd)) || new GenericAdapter();
