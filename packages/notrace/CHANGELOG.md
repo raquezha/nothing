@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.2.1
+
+### Patch Changes
+
+- d017f01: Default captures to redacted mode, store index artifact paths relative to `.notrace`, and honor generic `active_workflow.json` before legacy RPIV task detection.
+
 ## 0.2.0
 
 ### Minor Changes
