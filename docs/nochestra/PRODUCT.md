@@ -270,19 +270,13 @@ Exact context thresholds and quota policies require measurement.
 
 ## Issue map
 
-### Nochestra
+Delivery management, active vertical slices, child tasks, and execution state are tracked in [GitHub Project: Nothing v2](https://github.com/users/raquezha/projects/3).
 
-1. [#74](https://github.com/raquezha/nothing/issues/74): parent product and delivery track
-2. [#76](https://github.com/raquezha/nothing/issues/76): product brief and architecture map
+### Parent track issues
 
-### Notrace
-
-1. [#56](https://github.com/raquezha/nothing/issues/56): session anchored architecture track
-2. [#75](https://github.com/raquezha/nothing/issues/75): urgent metadata capture safety fix
-
-### RPIV
-
-1. [#73](https://github.com/raquezha/nothing/issues/73): design and specification evidence gate track
+1. [#74](https://github.com/raquezha/nothing/issues/74): Nochestra parent product and delivery track
+2. [#56](https://github.com/raquezha/nothing/issues/56): Notrace session-anchored architecture track
+3. [#73](https://github.com/raquezha/nothing/issues/73): RPIV design and specification evidence gate track
 
 ## Open decisions
 
