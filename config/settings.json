@@ -1,6 +1,8 @@
 {
   "defaultProvider": "groq",
   "theme": "dracula-vibrant",
-  "packages": [],
+  "packages": [
+    "npm:pi-mcp-adapter@2.11.0"
+  ],
   "noleaks": true
 }

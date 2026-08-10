@@ -133,31 +133,23 @@ Workflow files may link to notrace artifacts, but notrace owns the artifacts.
 
 GitHub Issues define the work. GitHub Projects reflect delivery state.
 
-When work associated with a Project item changes state, the agent must synchronize the corresponding Project fields after the repository and issue state are updated.
+### Automatic execution metadata
 
-### Allowed status transitions (executable work)
+`Status` (`Backlog` → `Ready` → `In progress` → `Review` → `Done`) is execution metadata. When work associated with a Project item transitions as a consequence of actual approved execution, the agent automatically synchronizes the `Status` field after repository and issue state are updated.
 
-```text
-Backlog → Ready → In progress → Review → Done
-```
+### Human-approved planning metadata
 
-An agent can safely move a Project item through these statuses as a consequence of actual work.
+The following planning metadata require explicit human approval and must never be mutated silently by an agent:
 
-### Disallowed planning changes (require human approval)
+- `Track`
+- `Work type`
+- `Priority`
+- `Phase`
+- `Milestones`
+- Issue `Scope` / acceptance criteria / outcomes
+- Project `Membership` (adding or removing items)
 
-An agent must not silently:
-
-- Change priority (e.g., Normal → Urgent)
-- Change phase or track (e.g., Foundation → Rollout)
-- Add or remove milestones
-- Move items between project columns representing roadmap commitments
-- Create new Project items
-
-These are planning decisions. They require human approval.
-
-### Approval boundary
-
-Updating status, phase, or other delivery-state metadata is allowed as part of an explicitly approved workflow. Creating new scope, changing priority, changing milestones, or materially altering roadmap commitments requires human approval.
+Creating new scope, altering roadmap commitments, changing track/phase/priority, assigning milestones, or modifying project membership are planning decisions reserved for human approval.
 
 ```text
 .notrace/sessions/<session-id>/notrace.json
