@@ -447,6 +447,14 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.includes("/research.log found source"), "--research preserves explicit slash command");
 
     writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --notes hello`], root, { env });
+    assert(result.status === 0, "--notes runs with fake pi");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/workflows/norpiv/distill")), "--notes loads distill skill");
+    assert(!args.some((arg) => arg.endsWith("/packages/workflows/norpiv/plan")), "--notes does not load full RPIV execution workflow");
+    assert(args.includes("hello"), "--notes forwards arguments untouched");
+
+    writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --meta --tkmx hello`], root, { env });
     assert(result.status === 0, "--meta --tkmx is a valid combination");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];

@@ -98,6 +98,13 @@
         "antigravity"
       ]
     },
+    "notes": {
+      "skills": [
+        "nosearch",
+        "norpiv/distill"
+      ],
+      "extensions": []
+    },
     "research": {
       "skills": ["nosearch", "noresearch/research", "norpiv/distill"],
       "extensions": ["notrace", "noleaks", "antigravity"]
