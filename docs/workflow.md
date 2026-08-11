@@ -115,6 +115,9 @@ RPIV classifies task evidence requirements during `/frame` and validates them du
    - `present` requires explicit formula specifications, truth tables, or exact logic definitions on the ticket.
 5. **Backend-safe Exemption**:
    - Backend-safe tasks use evidence status `n/a` and proceed without extra ceremony.
+6. **Execution Gating**:
+   - `/plan` preserves blocked state on incomplete slices (`[BLOCKED: missing UI/formula evidence]`) instead of marking them ready for implementation.
+   - `/implement` rejects code execution on blocked slices and prompts for missing direct links/specs or explicit human override.
 artifact: merge request / tracker update
 doneSignal: /sync
 notraceHook: attach artifact/review references to WORK.md [LOG]
