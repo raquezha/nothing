@@ -554,12 +554,28 @@ function verifyWorkflowFiles() {
   assert(!publish.includes("pending_changesets"), "publish workflow does not deadlock on pending changesets");
 }
 
+function verifyRpivEvidenceClassificationRules() {
+  const frameSkill = readFileSync(path.join(root, "packages/workflows/norpiv/frame/SKILL.md"), "utf8");
+  assert(frameSkill.includes("UI-sensitive") && frameSkill.includes("Formula-sensitive") && frameSkill.includes("Backend-safe"), "frame skill defines evidence classification categories");
+  assert(frameSkill.includes("present") && frameSkill.includes("missing"), "frame skill defines evidence statuses");
+
+  const grillSkill = readFileSync(path.join(root, "packages/workflows/norpiv/grill-with-docs/SKILL.md"), "utf8");
+  assert(grillSkill.includes("zpl.io") && grillSkill.includes("node-id"), "grill skill validates direct Zeplin and Figma links");
+
+  const workflowDoc = readFileSync(path.join(root, "docs/workflow.md"), "utf8");
+  assert(workflowDoc.includes("Evidence Classification Contract"), "docs/workflow.md documents evidence classification contract");
+
+  const norpivReadme = readFileSync(path.join(root, "packages/workflows/norpiv/README.md"), "utf8");
+  assert(norpivReadme.includes("Evidence Classification"), "packages/workflows/norpiv/README.md documents evidence classification");
+}
+
 await fileContainsDeprecatedPiNamespace();
 await verifyMindsets();
 verifyInstallers();
 verifyGraphifyGuardrails();
 verifyRpivWorkflowPointer();
 verifyTaskEvidenceIsolation();
+verifyRpivEvidenceClassificationRules();
 verifyResearchWorkflowHelper();
 verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();
