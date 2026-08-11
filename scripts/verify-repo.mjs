@@ -193,8 +193,49 @@ function verifyRpivWorkflowPointer() {
     assert(workMd.includes("## [INTAKE]"), "rpiv local task writes normalized intake section");
     assert(workMd.includes("## [BRIEF]") && workMd.includes("## [GRILL]") && workMd.includes("## [PLAN]") && workMd.includes("## [LOG]"), "rpiv local task writes guarded workflow sections");
     assert(!workMd.includes("title:\t") && !workMd.includes("state:\t"), "rpiv local task avoids raw tracker cli rendering in WORK.md");
+    assert(existsSync(path.join(temp, ".workflow", "tasks", "local-smoke", "evidence")), "rpiv triage helper provisions task evidence directory");
   } catch (error) {
     fail(`rpiv workflow pointer test failed: ${error.message}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+function verifyTaskEvidenceIsolation() {
+  const script = path.join(root, "packages/workflows/norpiv/scripts/triage_helper.sh");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-evidence-isolation-"));
+  try {
+    run("git", ["init", "-q"], temp);
+    run("git", ["config", "user.email", "test@example.com"], temp);
+    run("git", ["config", "user.name", "Test"], temp);
+    writeFileSync(path.join(temp, "README.md"), "# smoke\n");
+    run("git", ["add", "README.md"], temp);
+    run("git", ["commit", "-q", "-m", "init"], temp);
+
+    writeFileSync(path.join(temp, "design.png"), "root-design");
+
+    let res = run("bash", [script, "local", "task-a"], temp);
+    assert(res.status === 0, "triage helper creates task-a");
+    const evidenceDirA = path.join(temp, ".workflow", "tasks", "local-task-a", "evidence");
+    assert(existsSync(evidenceDirA), "triage helper provisions evidence/ directory for task-a");
+    writeFileSync(path.join(evidenceDirA, "design.png"), "task-a-design");
+
+    res = run("bash", [script, "local", "task-b"], temp);
+    assert(res.status === 0, "triage helper creates task-b");
+    const evidenceDirB = path.join(temp, ".workflow", "tasks", "local-task-b", "evidence");
+    assert(existsSync(evidenceDirB), "triage helper provisions evidence/ directory for task-b");
+    writeFileSync(path.join(evidenceDirB, "design.png"), "task-b-design");
+
+    assert(readFileSync(path.join(temp, "design.png"), "utf8") === "root-design", "root design.png is preserved");
+    assert(readFileSync(path.join(evidenceDirA, "design.png"), "utf8") === "task-a-design", "task-a evidence design.png is isolated");
+    assert(readFileSync(path.join(evidenceDirB, "design.png"), "utf8") === "task-b-design", "task-b evidence design.png is isolated");
+
+    const activeWorkflow = JSON.parse(readFileSync(path.join(temp, ".workflow", "active.json"), "utf8"));
+    const activeEvidenceDir = path.join(temp, activeWorkflow.taskPath, "evidence");
+    assert(activeEvidenceDir === evidenceDirB, "active task evidence resolves to active task workspace");
+    assert(readFileSync(path.join(activeEvidenceDir, "design.png"), "utf8") === "task-b-design", "active task evidence resolution isolates active content");
+  } catch (error) {
+    fail(`task evidence isolation test failed: ${error.message}`);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
@@ -518,6 +559,7 @@ await verifyMindsets();
 verifyInstallers();
 verifyGraphifyGuardrails();
 verifyRpivWorkflowPointer();
+verifyTaskEvidenceIsolation();
 verifyResearchWorkflowHelper();
 verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();

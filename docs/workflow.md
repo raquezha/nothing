@@ -36,6 +36,7 @@ A branch or worktree is the execution lane. The active workflow pointer declares
     <task-id>/
       WORK.md
       metadata.json
+      evidence/
   research/
     <research-id>/
       RESEARCH.md
@@ -93,6 +94,12 @@ phases:
   - implement
   - verify
   - sync
+
+### Task Evidence Isolation
+Task-acquired evidence (screenshots, tracker attachments, design exports, downloaded specifications, PDFs, images) is strictly owned by the active task workspace at `.workflow/tasks/<task-id>/evidence/`.
+- Evidence-dependent RPIV phases (plan, replan, critique, resume, verify) resolve task evidence through `.workflow/tasks/<task-id>/evidence/` or explicit references in task state.
+- RPIV phases must not implicitly treat arbitrary repository-root or non-task files as task evidence.
+- Repository-owned source code and documentation continue to resolve normally from repository paths.
 artifact: merge request / tracker update
 doneSignal: /sync
 notraceHook: attach artifact/review references to WORK.md [LOG]

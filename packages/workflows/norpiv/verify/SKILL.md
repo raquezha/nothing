@@ -15,6 +15,7 @@ The final gate for a slice or task. Verify truth before reporting progress.
 - NEVER: add `Signed-off-by`; tell the human to sign if needed.
 - NEVER: transition tracker state if verification fails.
 - NEVER: delete `.workflow` task folders without explicit user approval.
+- EVIDENCE ISOLATION: Resolve task evidence from active task workspace `.workflow/tasks/<task-id>/evidence/` or task state. Do not scan arbitrary repository files as task evidence.
 
 ## Workflow
 1. Compare code changes against `[BRIEF]` and the current `[PLAN]` slice.

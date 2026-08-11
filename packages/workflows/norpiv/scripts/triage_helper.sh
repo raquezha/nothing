@@ -373,7 +373,7 @@ set_metadata_status_phase() {
 }
 
 create_task() {
-    mkdir -p "$TASK_DIR"
+    mkdir -p "$TASK_DIR/evidence"
     echo "Creating task workspace in $TASK_DIR..."
 
     case "$SOURCE" in
