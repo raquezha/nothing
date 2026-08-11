@@ -44,17 +44,24 @@ function appendWorkLogEntry(taskDir: string, message: string): void {
 export class ActiveWorkflowAdapter implements WorkflowAdapter {
   name = "workflow";
   detect(cwd: string): boolean {
-    return existsSync(path.join(cwd, ".workflow", "active_workflow.json"));
+    return existsSync(path.join(cwd, ".workflow", "active.json")) || existsSync(path.join(cwd, ".workflow", "active_workflow.json"));
   }
   getContext(cwd: string): WorkflowContext | null {
     try {
-      const content = JSON.parse(readFileSync(path.join(cwd, ".workflow", "active_workflow.json"), "utf-8"));
+      const activePath = existsSync(path.join(cwd, ".workflow", "active.json"))
+        ? path.join(cwd, ".workflow", "active.json")
+        : path.join(cwd, ".workflow", "active_workflow.json");
+      const content = JSON.parse(readFileSync(activePath, "utf-8"));
       const taskPath = typeof content.stateFile === "string" ? content.stateFile : null;
+      const rawTaskId = typeof content.taskId === "string" ? content.taskId : (typeof content.id === "string" ? content.id : null);
+      const rawTaskDir = typeof content.taskPath === "string"
+        ? path.resolve(cwd, content.taskPath)
+        : (taskPath ? path.dirname(path.resolve(cwd, taskPath)) : null);
       return {
         workflow: typeof content.workflow === "string" ? content.workflow : this.name,
-        taskId: typeof content.id === "string" ? content.id : null,
+        taskId: rawTaskId,
         taskPath,
-        taskDir: taskPath ? path.dirname(path.resolve(cwd, taskPath)) : null
+        taskDir: rawTaskDir
       };
     } catch { return null; }
   }
