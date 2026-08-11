@@ -51,6 +51,7 @@ Rules:
 - **Refine Preserves Intent**: `/refine` should preserve product-authored text, append acceptance criteria instead of rewriting it, and only assign or link child work when ownership/dependency signals are clear.
 - **Canonical Pointer**: `.workflow/active.json` is the active RPIV pointer. Legacy `active_task.json` is compatibility-only during migration.
 - **Normalized Intake**: `/triage` writes a small local projection into `WORK.md`; tracker snapshots live in `metadata.json`, not raw CLI dumps.
+- **Evidence Classification**: `/frame` classifies task evidence requirements into `UI-sensitive`, `Formula-sensitive`, or `Backend-safe`, and records evidence status as `present`, `missing`, or `n/a`. Direct Zeplin screen links (`https://zpl.io/<id>`) or Figma frame URLs (`node-id`) are required for UI-sensitive work; attachments, generic links, and parent ticket links do not mark evidence `present`. Backend-safe work uses status `n/a`.
 
 ## 📦 Install as a skill bundle
 

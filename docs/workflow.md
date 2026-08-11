@@ -95,11 +95,26 @@ phases:
   - verify
   - sync
 
-### Task Evidence Isolation
+### Task Evidence & Classification
 Task-acquired evidence (screenshots, tracker attachments, design exports, downloaded specifications, PDFs, images) is strictly owned by the active task workspace at `.workflow/tasks/<task-id>/evidence/`.
 - Evidence-dependent RPIV phases (plan, replan, critique, resume, verify) resolve task evidence through `.workflow/tasks/<task-id>/evidence/` or explicit references in task state.
 - RPIV phases must not implicitly treat arbitrary repository-root or non-task files as task evidence.
 - Repository-owned source code and documentation continue to resolve normally from repository paths.
+
+#### Evidence Classification Contract
+RPIV classifies task evidence requirements during `/frame` and validates them during `/grill-with-docs`:
+1. **Categories**:
+   - `UI-sensitive`: Tasks modifying UI components, screens, layout, or visual flows.
+   - `Formula-sensitive`: Tasks involving math, rate tables, financial calculations, or tier rules.
+   - `Backend-safe`: Pure backend, refactoring, infra, dev/build tools with no UI or formula dependency.
+2. **Evidence States**: `present`, `missing`, or `n/a`.
+3. **UI Evidence Requirement**:
+   - `present` requires an explicit, direct Zeplin screen URL (`https://zpl.io/<id>` or `*.zeplin.io/.../screen/...`) or direct Figma screen/frame URL (`https://figma.com/design/...` with `node-id` / frame parameter) on the source ticket.
+   - Attachments, screenshots, generic design links, and links present only on parent/linked tickets do NOT satisfy `present` (parent links are reported in context log as repair recommendations).
+4. **Formula Evidence Requirement**:
+   - `present` requires explicit formula specifications, truth tables, or exact logic definitions on the ticket.
+5. **Backend-safe Exemption**:
+   - Backend-safe tasks use evidence status `n/a` and proceed without extra ceremony.
 artifact: merge request / tracker update
 doneSignal: /sync
 notraceHook: attach artifact/review references to WORK.md [LOG]
