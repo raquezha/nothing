@@ -15,6 +15,7 @@ Challenge the brief before planning. This replaces passive ubiquitous-language c
 - NEVER: edit `[BRIEF]` silently; propose brief changes if contradictions are found.
 - NEVER: plan or implement during grilling.
 - NEVER: ask questions the codebase can answer; inspect first.
+- EVIDENCE ISOLATION: Resolve task evidence from `.workflow/tasks/<task-id>/evidence/` or explicit active state references. Do not substitute arbitrary repository-root files as task evidence.
 
 ## Workflow
 1. **Context Loading**: Read the active brief, `CONTEXT.md`, and relevant `docs/agents/*`.

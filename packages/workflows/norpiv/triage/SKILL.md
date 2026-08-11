@@ -21,6 +21,7 @@ Start RPIV by creating, resuming, or explicitly reopening a task workspace.
 - NEVER: guess source from `#123`; require explicit `jira:`, `github:`, `gitlab:`, or `local:`.
 - NEVER: strip or hide the Jira key for `jira:` tasks; preserve it in `[META]` and in the triage log so `/implement` can require it in the commit subject.
 - NEVER: mutate `done` or `archived` tasks unless the user explicitly requested `reopen`, `fresh`, or `reset`.
+- TASK EVIDENCE: Store task-acquired evidence (screenshots, attachments, PDFs, specs) under `.workflow/tasks/[source-id]/evidence/`.
 
 ## Command forms
 

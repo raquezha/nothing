@@ -15,6 +15,7 @@ Map the "how" into tracer-bullet vertical slices.
 - NEVER: implement code during planning.
 - NEVER: create standalone `PLAN.md`.
 - NEVER: ask whether to plan if the user invoked `/plan`; produce the plan.
+- EVIDENCE ISOLATION: Resolve task evidence from active workspace `.workflow/tasks/<task-id>/evidence/` or task state. Do not scan arbitrary repository files as task evidence.
 
 ## Workflow
 1. Read the brief and grill decisions.
