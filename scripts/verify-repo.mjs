@@ -562,6 +562,12 @@ function verifyRpivEvidenceClassificationRules() {
   const grillSkill = readFileSync(path.join(root, "packages/workflows/norpiv/grill-with-docs/SKILL.md"), "utf8");
   assert(grillSkill.includes("zpl.io") && grillSkill.includes("node-id"), "grill skill validates direct Zeplin and Figma links");
 
+  const planSkill = readFileSync(path.join(root, "packages/workflows/norpiv/plan/SKILL.md"), "utf8");
+  assert(planSkill.includes("EVIDENCE BLOCKING GATE") && planSkill.includes("BLOCKED: missing UI/formula evidence"), "plan skill enforces evidence blocking gate");
+
+  const implementSkill = readFileSync(path.join(root, "packages/workflows/norpiv/implement/SKILL.md"), "utf8");
+  assert(implementSkill.includes("EVIDENCE REJECTION GATE") && implementSkill.includes("refuse code changes"), "implement skill enforces evidence rejection gate");
+
   const workflowDoc = readFileSync(path.join(root, "docs/workflow.md"), "utf8");
   assert(workflowDoc.includes("Evidence Classification Contract"), "docs/workflow.md documents evidence classification contract");
 

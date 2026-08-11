@@ -15,6 +15,7 @@ Map the "how" into tracer-bullet vertical slices.
 - NEVER: implement code during planning.
 - NEVER: create standalone `PLAN.md`.
 - NEVER: ask whether to plan if the user invoked `/plan`; produce the plan.
+- EVIDENCE BLOCKING GATE: If task evidence status is `missing` for `UI-sensitive` or `Formula-sensitive` work, `/plan` MUST flag dependent slices as `[BLOCKED: missing UI/formula evidence]` and preserve blocked status instead of marking slices ready for implementation.
 - EVIDENCE ISOLATION: Resolve task evidence from active workspace `.workflow/tasks/<task-id>/evidence/` or task state. Do not scan arbitrary repository files as task evidence.
 
 ## Workflow
@@ -25,7 +26,7 @@ Map the "how" into tracer-bullet vertical slices.
    - **AFK**: agent can implement with clear checks.
    - **HITL**: human judgment, product decision, external access, or manual review required.
 5. Include dependencies and verification command(s) per slice.
-6. Write the plan into `[PLAN]` with checkboxes.
+6. Write the plan into `[PLAN]` with checkboxes. If evidence status is `missing`, mark the slice as `[BLOCKED: missing UI/formula evidence]` and explain what is needed (direct Zeplin `https://zpl.io/<id>` screen URL, direct Figma `node-id` frame URL, or formula spec).
 7. **Log Activity**: Append a timestamped entry to `[LOG]` summarizing the plan or revision (Format: `YYYY-MM-DD hh:mm AM/PM`).
 8. Recommend `/sync` if the task has a tracker, then `/implement`.
 

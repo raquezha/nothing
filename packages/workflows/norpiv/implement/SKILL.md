@@ -14,11 +14,12 @@ Execute one functional vertical slice and hand it to the human for review.
 - WRITE: code changes and `WORK.md` -> append to `[LOG]` only.
 - NEVER: edit `[BRIEF]` or `[GRILL]`.
 - NEVER: implement without explicit user instruction.
+- EVIDENCE REJECTION GATE: Before modifying code, `/implement` MUST verify that the target slice is not flagged `[BLOCKED: missing UI/formula evidence]` and evidence status is not `missing`. If blocked, STOP immediately, refuse code changes, surface what evidence is missing (direct Zeplin screen link `https://zpl.io/<id>`, direct Figma frame URL, or formula spec), and ask the human for explicit clarification or override. Never guess product UI or formula truth around a blocked state.
 - NEVER: add `Signed-off-by`; only the human can certify DCO.
 - NEVER: freestyle PR/MR descriptions; use the Draft PR/MR body contract below.
 
 ## Workflow
-1. Identify the first approved unchecked slice in `[PLAN]`.
+1. Identify the first approved unchecked slice in `[PLAN]`. Verify the slice is not marked `[BLOCKED: missing UI/formula evidence]`. If blocked, STOP and ask the human for missing direct evidence or explicit override.
 2. **Mandatory Branch Check**: You MUST run the branch enforcement script before modifying any code.
    - Use the absolute path if possible: `<skill_location>/scripts/enforce-branch.sh`.
    - This script prevents accidental implementation on `main`/`master`.
