@@ -2,16 +2,16 @@
 
 Deterministic design preflight CLI for Android UI work.
 
-`nodesign` is the pre-flight step before any coding agent starts design work.
+Use `nodesign` before design or UI implementation.
 
-Use it like this:
-1. give the agent the Jira/GitHub/GitLab task context
+Flow:
+1. give the agent the task context
 2. run `nodesign` on the repo
-3. paste the `nodesign` output back into the agent
-4. let the agent combine both before it plans or edits anything
+3. paste the output back into the agent
+4. plan from the task plus the repo scan
 
-What it answers:
-- does this look like Compose, Views, mixed, KMP Compose, ambiguous, or non-UI?
+It answers:
+- is this Compose, Views, mixed, KMP Compose, ambiguous, or non-UI?
 - are there reusable files under `ui/components/`?
 - can we emit stable text or JSON output without guessing?
 
@@ -208,13 +208,11 @@ It reports file paths only. It does not yet parse component APIs or rank reuse q
 
 ## Team workflow
 
-A typical teammate flow looks like this:
-
 ```bash
 nodesign preflight --json --path . --task jira:ANDROID-123
 ```
 
-Then paste the output into Claude alongside the task context. That keeps the plan grounded in the repo instead of guesses.
+Paste the output into your agent alongside the task context. That keeps the plan grounded in the repo instead of guesses.
 
 ## Automation behavior
 
@@ -258,11 +256,7 @@ Current tests cover:
 
 ## Monorepo note
 
-If you are working inside the `nothing` monorepo, this package also lives at:
-
-```text
-packages/nodesign/
-```
+If you are working inside the `nothing` monorepo, the source lives at `packages/nodesign/`.
 
 Local repo usage before publish:
 
