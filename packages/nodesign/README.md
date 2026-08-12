@@ -1,80 +1,54 @@
 # nodesign
 
-Deterministic design preflight CLI for RPIV and Android UI work.
+Deterministic design preflight CLI for Android UI work.
 
-`nodesign` is a small standalone package that answers one question before UI implementation starts:
+`nodesign` inspects a repository and answers a few practical questions before implementation starts:
 
-- what UI stack does this repo appear to use?
-- are there reusable UI components already in the codebase?
-- can we emit a stable machine-readable and human-readable preflight result without guessing?
+- does this look like Compose, Views, mixed, KMP Compose, ambiguous, or non-UI?
+- are there reusable files under `ui/components/`?
+- can we emit stable text or JSON output for humans and automation?
 
-Current scope is intentionally narrow:
-- Android Compose / XML Views / mixed / KMP Compose Multiplatform / ambiguous / n/a detection
-- reusable `ui/components` file discovery
-- deterministic CLI behavior suitable for automation
+It is intentionally small and deterministic.
 
-Not in scope yet:
-- live Figma API calls
-- live Zeplin API calls
-- credential storage implementation
-- asset export
-- code generation
+## Install
 
-## What bootstrap does
-
-`./bootstrap.sh` will build this workspace locally when it installs workspace dependencies and runs workspace builds.
-
-That means this always works from this checkout:
-
-```bash
-cd /Users/raquezha/RQZ/personal/nothing
-node packages/nodesign/bin/nodesign.js --help
-```
-
-If you run bootstrap in published-package install mode, it also installs `@raquezha/nodesign` globally the same way it installs the other published `@raquezha/*` packages.
-
-So after publish, bootstrap can make `nodesign` available everywhere on your machine.
-
-If you want `nodesign` available everywhere manually, use one of these after publish:
+Use without installing:
 
 ```bash
 npx @raquezha/nodesign --help
+```
+
+Install globally:
+
+```bash
 npm install -g @raquezha/nodesign
+nodesign --help
 ```
 
-Or for local dev only, from this repo:
+## Quick start
+
+Inspect the current repo:
 
 ```bash
-cd packages/nodesign
-npm install
-npm run build
-node bin/nodesign.js --help
+nodesign preflight --path .
 ```
 
-## Usage
-
-### Show help
+Get JSON for automation:
 
 ```bash
-node packages/nodesign/bin/nodesign.js --help
+nodesign preflight --json --path . --task github:101
 ```
 
-### Run preflight on the current repo
+Inspect another repo:
 
 ```bash
-node packages/nodesign/bin/nodesign.js preflight --json --path . --task github:101
+nodesign preflight --json --path ~/src/android-app --task local:smoke
 ```
 
-### Run preflight on another repo
+Show version:
 
 ```bash
-node packages/nodesign/bin/nodesign.js preflight --json --path ~/src/android-app --task local:smoke
-```
-
-### Version
-
-```bash
-node packages/nodesign/bin/nodesign.js --version
+nodesign --version
 ```
 
 ## Commands
@@ -84,20 +58,20 @@ node packages/nodesign/bin/nodesign.js --version
 Inspect a target directory and emit a design preflight result.
 
 Options:
-- `--json` output JSON instead of human-readable text
-- `--path <dir>` target directory to inspect
+- `--json` output JSON instead of text
+- `--path <dir>` directory to inspect
 - `--task <id>` task identifier included in output
 
 Examples:
 
 ```bash
-node packages/nodesign/bin/nodesign.js preflight --path .
-node packages/nodesign/bin/nodesign.js preflight --json --path . --task github:101
+nodesign preflight --path .
+nodesign preflight --json --path . --task github:101
 ```
 
 ### `extract`
 
-Reserved for later design-source extraction work.
+Reserved for later design-source extraction.
 
 Current behavior:
 - stub command
@@ -106,7 +80,7 @@ Current behavior:
 
 ### `auth login`
 
-Reserved for later credential storage work.
+Reserved for later credential storage.
 
 Current behavior:
 - stub command
@@ -116,8 +90,6 @@ Current behavior:
 ## Output
 
 ### Human-readable
-
-Example:
 
 ```text
 Design Brief: github:101
@@ -135,8 +107,6 @@ Notes:
 ```
 
 ### JSON
-
-Example shape:
 
 ```json
 {
@@ -160,9 +130,9 @@ Example shape:
 }
 ```
 
-## Detection rules
+## Detection model
 
-`androidUIStack` currently reports one of:
+`androidUIStack` is one of:
 - `compose`
 - `views`
 - `mixed`
@@ -170,15 +140,15 @@ Example shape:
 - `ambiguous`
 - `n/a`
 
-High-level rules:
+Current rules:
 - `compose`: Android Compose signals in Gradle
-- `views`: Android `res/layout` or qualified `layout-*` XML directories
+- `views`: `res/layout` or qualified `layout-*` XML dirs
 - `mixed`: both Compose and Views signals present
 - `kmp`: Compose Multiplatform signals, not just any `commonMain`
 - `ambiguous`: Android project signals exist, but stack is unclear
 - `n/a`: no Android/KMP UI signals found
 
-Guardrails built in:
+Guardrails:
 - ignores generated dirs like `build/` and `.gradle/`
 - invalid commands fail non-zero
 - invalid `--path` fails non-zero
@@ -188,13 +158,13 @@ Guardrails built in:
 
 ## Reusable component scanning
 
-`nodesign` currently scans for files under:
+`nodesign` currently scans files under:
 
 ```text
 ui/components/
 ```
 
-Recognized component file types:
+Recognized file types:
 - `.kt`
 - `.kts`
 - `.xml`
@@ -203,7 +173,27 @@ Recognized component file types:
 - `.jsx`
 - `.js`
 
-The scanner reports file paths only. It does not yet parse component signatures or rank reuse quality.
+It reports file paths only. It does not yet parse component APIs or rank reuse quality.
+
+## Automation behavior
+
+`nodesign` is meant to be safe for scripts:
+- unknown commands fail
+- malformed auth invocations fail
+- invalid paths fail
+- missing option values fail
+- JSON mode is stable and machine-readable
+
+## Limitations
+
+Deliberate limits for now:
+- no live Figma API calls
+- no live Zeplin API calls
+- no auth backend yet
+- no asset export
+- no code generation
+- detection is heuristic, not a full Gradle model parser
+- component discovery is path-based, not semantic
 
 ## Development
 
@@ -225,44 +215,18 @@ Current tests cover:
 - component extension filtering
 - CLI failure modes for invalid commands and paths
 
-## Limitations
+## Monorepo note
 
-Current limitations are deliberate:
-- no real Android repo smoke test is baked into the package
-- no live design provider integrations yet
-- no auth backend yet
-- detection is heuristic, not a full Gradle model parser
-- component discovery is path-based, not semantic
+If you are working inside the `nothing` monorepo, this package also lives at:
 
-## Recommended rollout for teammates
+```text
+packages/nodesign/
+```
 
-### From this repo
-
-Use this when working inside the monorepo before npm publish:
+Local repo usage before publish:
 
 ```bash
-cd /Users/raquezha/RQZ/personal/nothing
 node packages/nodesign/bin/nodesign.js preflight --json --path .
 ```
 
-### After publish
-
-Use this when you want `nodesign` everywhere:
-
-```bash
-npx @raquezha/nodesign preflight --json --path ~/src/android-app
-# or
-npm install -g @raquezha/nodesign
-nodesign preflight --json --path ~/src/android-app
-```
-
-### Bootstrap note
-
-Global bootstrap install depends on the package being published to npm first.
-If `@raquezha/nodesign` is not published yet, bootstrap can still build the local workspace copy, but the global `npm install -g @raquezha/nodesign` step will not succeed.
-
-## Package metadata
-
-- package: `@raquezha/nodesign`
-- binary: `nodesign`
-- source: `packages/nodesign/`
+The repo bootstrap can also install published `@raquezha/nodesign` globally when run in published-package install mode.
