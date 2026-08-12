@@ -3,6 +3,8 @@ import path from "node:path";
 import type { AndroidInspection, AndroidUIStack, ComponentFact } from "./types.js";
 
 const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".gradle", "build"]);
+const COMPONENT_EXTENSIONS = /\.(kt|kts|xml|tsx|ts|jsx|js)$/i;
+const TEXT_EXTENSIONS = /\.(kt|kts|java|xml|properties|txt|md)$/i;
 
 function walk(rootPath: string): string[] {
   const out: string[] = [];
@@ -29,7 +31,7 @@ function readText(filePath: string): string {
   }
 }
 
-export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
+function inspectFiles(rootPath: string): AndroidInspection {
   const files = walk(rootPath);
   const gradleFiles = files.filter((file) =>
     file.endsWith(".gradle") ||
@@ -42,11 +44,11 @@ export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
   const hasComposeResources = files.some((file) => file.includes(`${path.sep}composeResources${path.sep}`));
   const hasKmpComposeUsage = files.some((file) => {
     if (!file.includes(`${path.sep}commonMain${path.sep}`)) return false;
+    if (!TEXT_EXTENSIONS.test(file)) return false;
     const text = readText(file);
     return text.includes("@Composable") || text.includes("androidx.compose") || text.includes("org.jetbrains.compose");
   });
   const hasKmpComposeGradle = gradleTexts.some((text) => text.includes("org.jetbrains.compose"));
-  if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) return "kmp";
 
   const hasViews = files.some((file) =>
     file.includes(`${path.sep}res${path.sep}`) &&
@@ -59,10 +61,6 @@ export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
     text.includes("compose true"),
   );
 
-  if (hasCompose && hasViews) return "mixed";
-  if (hasCompose) return "compose";
-  if (hasViews) return "views";
-
   const hasAndroidManifest = files.some((file) => file.endsWith("AndroidManifest.xml"));
   const hasAndroidGradlePlugin = gradleTexts.some((text) =>
     text.includes("com.android.application") ||
@@ -71,30 +69,40 @@ export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
     text.includes("libs.plugins.android.") ||
     text.includes("libs.plugins.kotlin.android"),
   );
-  return hasAndroidManifest || hasAndroidGradlePlugin ? "ambiguous" : "n/a";
-}
 
-export function scanUiComponents(rootPath: string): ComponentFact[] {
-  const files = walk(rootPath);
-  return files
+  const components = files
     .filter((file) => file.includes(`${path.sep}ui${path.sep}components${path.sep}`))
-    .filter((file) => /\.(kt|kts|xml|tsx|ts|jsx|js)$/i.test(file))
+    .filter((file) => COMPONENT_EXTENSIONS.test(file))
     .map((file) => ({
       name: path.basename(file).replace(/\.[^.]+$/, ""),
       path: path.relative(rootPath, file),
     }))
     .sort((a, b) => a.path.localeCompare(b.path));
-}
 
-export function inspectAndroidProject(rootPath: string): AndroidInspection {
-  const androidUIStack = detectAndroidUIStack(rootPath);
-  const components = scanUiComponents(rootPath);
+  let androidUIStack: AndroidUIStack = "n/a";
+  if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) androidUIStack = "kmp";
+  else if (hasCompose && hasViews) androidUIStack = "mixed";
+  else if (hasCompose) androidUIStack = "compose";
+  else if (hasViews) androidUIStack = "views";
+  else if (hasAndroidManifest || hasAndroidGradlePlugin) androidUIStack = "ambiguous";
+
   const notes: string[] = [];
-
   if (androidUIStack === "n/a") notes.push("No Android or KMP UI signals detected");
   if (androidUIStack === "ambiguous") notes.push("Android project found, but Compose/XML/KMP signals are ambiguous");
   if (components.length === 0) notes.push("No reusable ui/components files detected");
   else notes.push(`Found ${components.length} reusable ui/components file(s)`);
 
   return { androidUIStack, components, notes };
+}
+
+export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
+  return inspectFiles(rootPath).androidUIStack;
+}
+
+export function scanUiComponents(rootPath: string): ComponentFact[] {
+  return inspectFiles(rootPath).components;
+}
+
+export function inspectAndroidProject(rootPath: string): AndroidInspection {
+  return inspectFiles(rootPath);
 }
