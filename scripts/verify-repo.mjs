@@ -286,7 +286,7 @@ function verifyResearchWorkflowHelper() {
 
 function verifyPackageLockWorkspaceVersions() {
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  const workspaces = ["packages/antigravity", "packages/nofooter", "packages/noheadroom", "packages/noleaks", "packages/workflows/norpiv", "packages/nosearch", "packages/notrace"];
+  const workspaces = ["packages/antigravity", "packages/nofooter", "packages/noheadroom", "packages/noleaks", "packages/nodesign", "packages/workflows/norpiv", "packages/nosearch", "packages/notrace"];
   for (const workspace of workspaces) {
     const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
     const lockPkg = lock.packages?.[workspace];
@@ -303,6 +303,7 @@ function verifyPackageManifests() {
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
     "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
+    "packages/nodesign/package.json": {},
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {

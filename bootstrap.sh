@@ -674,7 +674,7 @@ spin_run "Installing @earendil-works/pi-coding-agent" npm install -g @earendil-w
 
 step "Process optional published @raquezha packages"
 if [[ "$INSTALL_PUBLISHED_PACKAGES" == true ]]; then
-  spin_run "Installing published @raquezha packages" npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/antigravity @raquezha/nofooter @raquezha/norpiv
+  spin_run "Installing published @raquezha packages" npm install -g @raquezha/notrace @raquezha/noleaks @raquezha/nosearch @raquezha/antigravity @raquezha/nofooter @raquezha/norpiv @raquezha/nodesign
 else
   info "Skipping published package install; hats use this checkout's built packages."
 fi
