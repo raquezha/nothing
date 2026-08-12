@@ -30,7 +30,7 @@ try {
   assert.equal(inspectAndroidProject(compose).components[0].name, "PrimaryButton");
 
   const views = makeProject("views", {
-    "app/src/main/res/layout/activity_main.xml": "<LinearLayout />",
+    "app/src/main/res/layout-land/activity_main.xml": "<LinearLayout />",
   });
   roots.push(views);
   assert.equal(detectAndroidUIStack(views), "views");
@@ -67,6 +67,13 @@ try {
   });
   roots.push(plainJvmGradle);
   assert.equal(detectAndroidUIStack(plainJvmGradle), "n/a");
+
+  const generated = makeProject("generated", {
+    "build/intermediates/merged_manifest/debug/AndroidManifest.xml": "<manifest />",
+    ".gradle/cache/build.gradle.kts": 'plugins { id("com.android.application") }',
+  });
+  roots.push(generated);
+  assert.equal(detectAndroidUIStack(generated), "n/a");
 
   const nonUi = makeProject("non-ui", {
     "README.md": "hello",

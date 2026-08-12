@@ -41,7 +41,7 @@ export interface PreflightResult {
   /** Direct links to design screens/frames. */
   designLinks: DesignLink[];
   /** Existing reusable UI components discovered in the repo. */
-  components?: ComponentFact[];
+  components: ComponentFact[];
   /** Human-readable notes about what is missing or ambiguous. */
   notes: string[];
 }

@@ -1,8 +1,17 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { PreflightResult } from "./types.js";
 import { formatDesignBrief } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
 
-const VERSION = "0.0.1";
+function getVersion(): string {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const pkgPath = path.resolve(moduleDir, "..", "package.json");
+  return JSON.parse(readFileSync(pkgPath, "utf8")).version ?? "0.0.0";
+}
+
+const VERSION = getVersion();
 
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
@@ -34,8 +43,25 @@ interface ParsedArgs {
   url: string;
 }
 
+function fail(message: string): never {
+  throw new Error(message);
+}
+
+function requireValue(args: string[], index: number, flag: string): string {
+  const value = args[index + 1];
+  if (!value || value.startsWith("-")) fail(`Missing value for ${flag}`);
+  return value;
+}
+
+function validatePath(rootPath: string): string {
+  const resolved = path.resolve(rootPath);
+  if (!existsSync(resolved)) fail(`Path does not exist: ${rootPath}`);
+  if (!statSync(resolved).isDirectory()) fail(`Path is not a directory: ${rootPath}`);
+  return resolved;
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
-  const args = argv.slice(2); // skip node + script
+  const args = argv.slice(2);
   const result: ParsedArgs = {
     command: "preflight",
     json: false,
@@ -45,17 +71,17 @@ function parseArgs(argv: string[]): ParsedArgs {
   };
 
   let i = 0;
-  // First non-flag token is the command
   if (args[0] && !args[0].startsWith("-")) {
     const cmd = args[0];
     if (cmd === "preflight" || cmd === "extract") {
       result.command = cmd;
       i = 1;
     } else if (cmd === "auth") {
+      if (args[1] !== "login") fail("Only `nodesign auth login` is supported");
       result.command = "auth";
-      i = 2; // skip "auth login"
+      i = 2;
     } else {
-      result.command = "preflight";
+      fail(`Unknown command: ${cmd}`);
     }
   }
 
@@ -67,20 +93,29 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.command = "version";
     } else if (arg === "--json") {
       result.json = true;
-    } else if (arg === "--path" && i + 1 < args.length) {
-      result.path = args[++i];
-    } else if (arg === "--task" && i + 1 < args.length) {
-      result.task = args[++i];
-    } else if (arg === "--url" && i + 1 < args.length) {
-      result.url = args[++i];
+    } else if (arg === "--path") {
+      result.path = requireValue(args, i, "--path");
+      i += 1;
+    } else if (arg === "--task") {
+      result.task = requireValue(args, i, "--task");
+      i += 1;
+    } else if (arg === "--url") {
+      result.url = requireValue(args, i, "--url");
+      i += 1;
+    } else {
+      fail(`Unknown argument: ${arg}`);
     }
   }
+
+  if (result.command === "preflight") result.path = validatePath(result.path);
+  if (result.command === "extract" && !result.url) fail("Missing value for --url");
 
   return result;
 }
 
 export function run(argv: string[] = process.argv): void {
-  const args = parseArgs(argv);
+  try {
+    const args = parseArgs(argv);
 
   switch (args.command) {
     case "help":
@@ -114,5 +149,10 @@ export function run(argv: string[] = process.argv): void {
       console.log(formatDesignBrief(args.task, preflight, format));
       return;
     }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`nodesign: ${message}`);
+    process.exitCode = 1;
   }
 }

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { AndroidInspection, AndroidUIStack, ComponentFact } from "./types.js";
 
-const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow"]);
+const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".gradle", "build"]);
 
 function walk(rootPath: string): string[] {
   const out: string[] = [];
@@ -49,7 +49,8 @@ export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
   if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) return "kmp";
 
   const hasViews = files.some((file) =>
-    file.includes(`${path.sep}res${path.sep}layout${path.sep}`) && file.endsWith(".xml"),
+    file.includes(`${path.sep}res${path.sep}`) &&
+    /(?:^|[\\/])layout(?:-[^\\/]+)?[\\/][^\\/]+\.xml$/i.test(file),
   );
 
   const hasCompose = gradleTexts.some((text) =>
