@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { AndroidInspection, AndroidUIStack, ComponentFact } from "./types.js";
 
@@ -31,41 +31,46 @@ function readText(filePath: string): string {
 
 export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
   const files = walk(rootPath);
-  const hasKmp = files.some((file) =>
-    file.includes(`${path.sep}commonMain${path.sep}`) ||
-    file.includes(`${path.sep}composeResources${path.sep}`),
-  );
-  if (hasKmp) return "kmp";
-
-  const hasViews = files.some((file) =>
-    file.includes(`${path.sep}res${path.sep}layout${path.sep}`) && file.endsWith(".xml"),
-  );
-
   const gradleFiles = files.filter((file) =>
     file.endsWith(".gradle") ||
     file.endsWith(".gradle.kts") ||
     file.endsWith("libs.versions.toml"),
   );
-  const hasCompose = gradleFiles.some((file) => {
+  const gradleTexts = gradleFiles.map(readText);
+
+  const hasCommonMain = files.some((file) => file.includes(`${path.sep}commonMain${path.sep}`));
+  const hasComposeResources = files.some((file) => file.includes(`${path.sep}composeResources${path.sep}`));
+  const hasKmpComposeUsage = files.some((file) => {
+    if (!file.includes(`${path.sep}commonMain${path.sep}`)) return false;
     const text = readText(file);
-    return (
-      text.includes("androidx.compose") ||
-      text.includes("org.jetbrains.compose") ||
-      text.includes("compose = true") ||
-      text.includes("compose true")
-    );
+    return text.includes("@Composable") || text.includes("androidx.compose") || text.includes("org.jetbrains.compose");
   });
+  const hasKmpComposeGradle = gradleTexts.some((text) => text.includes("org.jetbrains.compose"));
+  if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) return "kmp";
+
+  const hasViews = files.some((file) =>
+    file.includes(`${path.sep}res${path.sep}layout${path.sep}`) && file.endsWith(".xml"),
+  );
+
+  const hasCompose = gradleTexts.some((text) =>
+    text.includes("androidx.compose") ||
+    text.includes("compose = true") ||
+    text.includes("compose true"),
+  );
 
   if (hasCompose && hasViews) return "mixed";
   if (hasCompose) return "compose";
   if (hasViews) return "views";
 
-  const hasAndroidSignals = files.some((file) =>
-    file.endsWith("AndroidManifest.xml") ||
-    file.endsWith("build.gradle") ||
-    file.endsWith("build.gradle.kts"),
+  const hasAndroidManifest = files.some((file) => file.endsWith("AndroidManifest.xml"));
+  const hasAndroidGradlePlugin = gradleTexts.some((text) =>
+    text.includes("com.android.application") ||
+    text.includes("com.android.library") ||
+    text.includes("com.android.kotlin.multiplatform.library") ||
+    text.includes("libs.plugins.android.") ||
+    text.includes("libs.plugins.kotlin.android"),
   );
-  return hasAndroidSignals ? "ambiguous" : "n/a";
+  return hasAndroidManifest || hasAndroidGradlePlugin ? "ambiguous" : "n/a";
 }
 
 export function scanUiComponents(rootPath: string): ComponentFact[] {

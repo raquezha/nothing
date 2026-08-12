@@ -43,7 +43,8 @@ try {
   assert.equal(detectAndroidUIStack(mixed), "mixed");
 
   const kmp = makeProject("kmp", {
-    "shared/src/commonMain/kotlin/App.kt": "fun app() = Unit",
+    "shared/build.gradle.kts": 'plugins { id("org.jetbrains.compose") }',
+    "shared/src/commonMain/kotlin/App.kt": "@Composable fun App() = Unit",
     "shared/src/commonMain/composeResources/values/strings.xml": "<resources />",
   });
   roots.push(kmp);
@@ -54,6 +55,18 @@ try {
   });
   roots.push(ambiguous);
   assert.equal(detectAndroidUIStack(ambiguous), "ambiguous");
+
+  const plainKmp = makeProject("plain-kmp", {
+    "shared/src/commonMain/kotlin/Domain.kt": "class Domain",
+  });
+  roots.push(plainKmp);
+  assert.equal(detectAndroidUIStack(plainKmp), "n/a");
+
+  const plainJvmGradle = makeProject("plain-jvm-gradle", {
+    "build.gradle.kts": 'plugins { kotlin("jvm") version "2.0.0" }',
+  });
+  roots.push(plainJvmGradle);
+  assert.equal(detectAndroidUIStack(plainJvmGradle), "n/a");
 
   const nonUi = makeProject("non-ui", {
     "README.md": "hello",
