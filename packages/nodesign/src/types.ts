@@ -17,6 +17,19 @@ export interface DesignLink {
   label?: string;
 }
 
+/** Existing reusable UI component discovered in the repo. */
+export interface ComponentFact {
+  name: string;
+  path: string;
+}
+
+/** Android/KMP inspection result. */
+export interface AndroidInspection {
+  androidUIStack: AndroidUIStack;
+  components: ComponentFact[];
+  notes: string[];
+}
+
 /** Normalized preflight result from a nodesign run. */
 export interface PreflightResult {
   /** Is this task UI-sensitive? */
@@ -27,6 +40,8 @@ export interface PreflightResult {
   evidenceStatus: EvidenceStatus;
   /** Direct links to design screens/frames. */
   designLinks: DesignLink[];
+  /** Existing reusable UI components discovered in the repo. */
+  components?: ComponentFact[];
   /** Human-readable notes about what is missing or ambiguous. */
   notes: string[];
 }

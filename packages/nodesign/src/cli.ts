@@ -1,5 +1,6 @@
 import type { PreflightResult } from "./types.js";
 import { formatDesignBrief } from "./brief.js";
+import { inspectAndroidProject } from "./android.js";
 
 const VERSION = "0.0.1";
 
@@ -99,13 +100,14 @@ export function run(argv: string[] = process.argv): void {
       return;
 
     case "preflight": {
-      // Stub preflight: reports n/a state until android.ts and real inspectors land
+      const inspection = inspectAndroidProject(args.path);
       const preflight: PreflightResult = {
-        uiSensitive: false,
-        androidUIStack: "n/a",
+        uiSensitive: inspection.androidUIStack !== "n/a",
+        androidUIStack: inspection.androidUIStack,
         evidenceStatus: "missing",
         designLinks: [],
-        notes: ["Preflight stub: no inspectors implemented yet"],
+        components: inspection.components,
+        notes: inspection.notes,
       };
 
       const format = args.json ? "json" : "human";

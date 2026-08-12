@@ -32,6 +32,13 @@ export function formatDesignBrief(
     }
   }
 
+  if ((preflight.components?.length ?? 0) > 0) {
+    lines.push("", "UI Components:");
+    for (const component of preflight.components ?? []) {
+      lines.push(`  - ${component.name} (${component.path})`);
+    }
+  }
+
   if (preflight.notes.length > 0) {
     lines.push("", "Notes:");
     for (const note of preflight.notes) {
