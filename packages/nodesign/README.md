@@ -2,11 +2,18 @@
 
 Deterministic design preflight CLI for Android UI work.
 
-`nodesign` inspects a repository and answers a few practical questions before implementation starts:
+`nodesign` is the pre-flight step before Claude starts design work.
 
+Use it like this:
+1. give Claude the Jira/GitHub/GitLab task context
+2. run `nodesign` on the repo
+3. paste the `nodesign` output back into Claude
+4. let Claude combine both before it plans or edits anything
+
+What it answers:
 - does this look like Compose, Views, mixed, KMP Compose, ambiguous, or non-UI?
 - are there reusable files under `ui/components/`?
-- can we emit stable text or JSON output for humans and automation?
+- can we emit stable text or JSON output without guessing?
 
 It is intentionally small and deterministic.
 
@@ -44,6 +51,30 @@ Inspect another repo:
 ```bash
 nodesign preflight --json --path ~/src/android-app --task local:smoke
 ```
+
+## Task IDs
+
+`--task` is an opaque identifier echoed back in the output.
+Use it to connect the repo scan to the work item Claude is already reading.
+
+Common examples:
+
+```bash
+# GitHub issue or PR
+nodesign preflight --json --path . --task github:101
+
+# Jira issue
+nodesign preflight --json --path . --task jira:ANDROID-123
+
+# GitLab issue or MR
+nodesign preflight --json --path . --task gitlab:group/project#456
+
+# Local ad-hoc work
+nodesign preflight --json --path . --task local:checkout-redesign
+```
+
+`nodesign` does not fetch tracker data from GitHub, Jira, or GitLab from the task ID alone.
+The value is carried through so the task context and repo scan stay linked in the brief Claude sees.
 
 Show version:
 
@@ -174,6 +205,16 @@ Recognized file types:
 - `.js`
 
 It reports file paths only. It does not yet parse component APIs or rank reuse quality.
+
+## Team workflow
+
+A typical teammate flow looks like this:
+
+```bash
+nodesign preflight --json --path . --task jira:ANDROID-123
+```
+
+Then paste the output into Claude alongside the task context. That keeps the plan grounded in the repo instead of guesses.
 
 ## Automation behavior
 
