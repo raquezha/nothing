@@ -32,7 +32,27 @@ try {
 
   const emptyInspection = inspectJiraTaskText("No design links here");
   assert.equal(emptyInspection.designLinks.length, 0);
-  assert(emptyInspection.notes[0].includes("No direct Zeplin or Figma design links found"));
+  assert(emptyInspection.notes[0].includes("No direct Zeplin, Figma, or attachment design links found"));
+
+  const jsonJiraWithAttachments = JSON.stringify({
+    key: "S3-6345",
+    fields: {
+      description: "No zeplin link in description",
+      attachment: [
+        { filename: "Screenshot_1.png", content: "https://jira/attachment/1" },
+        { filename: "Screenshot_2.png", content: "https://jira/attachment/2" },
+      ],
+      customfield_10058: [
+        { displayName: "Figma Flow", url: "https://www.figma.com/file/ABC?node-id=1-2" },
+      ],
+    },
+  });
+
+  const jsonInspection = inspectJiraTaskText(jsonJiraWithAttachments);
+  assert.equal(jsonInspection.designLinks.length, 3);
+  assert.equal(jsonInspection.designLinks[0].provider, "figma");
+  assert.equal(jsonInspection.designLinks[1].provider, "other");
+  assert.equal(jsonInspection.designLinks[1].label, "Attachment: Screenshot_1.png");
 
   const unknownContext = inspectJiraContext("unknown");
   assert.equal(unknownContext.designLinks.length, 0);

@@ -32,8 +32,31 @@ export function inspectJiraTaskText(text: string): JiraInspectionResult {
   const designLinks = extractDesignLinksFromText(text);
   const notes: string[] = [];
 
+  // Parse structured Jira JSON if present to extract attachments
+  try {
+    if (text.trim().startsWith("{")) {
+      const data = JSON.parse(text);
+      const attachments = data?.fields?.attachment || data?.attachments || [];
+      if (Array.isArray(attachments)) {
+        for (const att of attachments) {
+          const url = att.content || att.url || att.self;
+          const filename = att.filename || att.name || "Attachment";
+          if (url && !designLinks.some((l) => l.url === url)) {
+            designLinks.push({
+              provider: "other",
+              url,
+              label: `Attachment: ${filename}`,
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore JSON parse errors for non-JSON raw text
+  }
+
   if (designLinks.length === 0) {
-    notes.push("No direct Zeplin or Figma design links found in Jira text");
+    notes.push("No direct Zeplin, Figma, or attachment design links found in Jira text");
   } else {
     notes.push(`Discovered ${designLinks.length} design link(s) in Jira text`);
   }
