@@ -1,4 +1,40 @@
-import type { PreflightResult, DesignBrief } from "./types.js";
+import type { DesignBrief, DesignLink, EvidenceStatus, PreflightResult } from "./types.js";
+
+/** Parse a raw design link URL into a structured DesignLink and EvidenceStatus. */
+export function parseDesignLink(rawUrl: string): { link: DesignLink; status: EvidenceStatus; note?: string } {
+  const url = rawUrl.trim();
+  if (url.includes("figma.com")) {
+    const hasNodeId = url.includes("node-id=") || url.includes("node_id=");
+    return {
+      link: { provider: "figma", url, label: hasNodeId ? "Figma frame" : "Figma file/canvas" },
+      status: hasNodeId ? "ready" : "ambiguous",
+      note: hasNodeId ? undefined : "Figma URL missing node-id parameter for direct layout truth",
+    };
+  }
+
+  if (url.includes("zpl.io") || url.includes("zeplin.io")) {
+    return {
+      link: { provider: "zeplin", url, label: "Zeplin screen" },
+      status: "ready",
+    };
+  }
+
+  return {
+    link: { provider: "other", url, label: "Design attachment" },
+    status: "ambiguous",
+    note: "Attachment or unparsed URL treated as ambiguous design evidence",
+  };
+}
+
+/** Determine overall evidence status from a list of links and UI sensitivity. */
+export function determineEvidenceStatus(links: DesignLink[], uiSensitive: boolean): EvidenceStatus {
+  if (!uiSensitive) return "ready";
+  if (links.length === 0) return "missing";
+  const statuses = links.map((link) => parseDesignLink(link.url).status);
+  if (statuses.includes("ready")) return "ready";
+  if (statuses.includes("ambiguous")) return "ambiguous";
+  return "missing";
+}
 
 /** Format a PreflightResult as a DesignBrief in JSON or human-readable text. */
 export function formatDesignBrief(

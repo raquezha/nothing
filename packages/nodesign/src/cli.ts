@@ -1,9 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PreflightResult } from "./types.js";
-import { formatDesignBrief } from "./brief.js";
+import type { DesignLink, PreflightResult } from "./types.js";
+import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
+import { resolveCredentials, storeCredential } from "./auth.js";
 
 function getVersion(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,7 @@ const VERSION = getVersion();
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
-  nodesign preflight [--json] [--path <dir>] [--task <id>]
+  nodesign preflight [--json] [--path <dir>] [--task <id>] [--url <design-url>]
   nodesign extract   [--json] [--url <design-url>]
   nodesign auth login
   nodesign --help
@@ -24,13 +25,14 @@ Usage:
 
 Commands:
   preflight   Run design preflight checks (default)
-  extract     Extract design details from a URL (stub)
-  auth login  Store credentials in OS keychain (stub)
+  extract     Extract design details from a URL
+  auth login  Store credentials in OS keychain
 
 Options:
   --json      Output machine-readable JSON
   --path      Project root to inspect (default: cwd)
   --task      Task identifier for the brief
+  --url       Design URL (Figma, Zeplin)
   --help      Show this help
   --version   Show version
 `;
@@ -99,8 +101,8 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (arg === "--task") {
       result.task = requireValue(args, i, "--task");
       i += 1;
-    } else if (arg === "--url") {
-      result.url = requireValue(args, i, "--url");
+    } else if (arg === "--url" || arg === "--design") {
+      result.url = requireValue(args, i, arg);
       i += 1;
     } else {
       fail(`Unknown argument: ${arg}`);
@@ -117,38 +119,62 @@ export function run(argv: string[] = process.argv): void {
   try {
     const args = parseArgs(argv);
 
-  switch (args.command) {
-    case "help":
-      process.stdout.write(HELP);
-      return;
+    switch (args.command) {
+      case "help":
+        process.stdout.write(HELP);
+        return;
 
-    case "version":
-      console.log(VERSION);
-      return;
+      case "version":
+        console.log(VERSION);
+        return;
 
-    case "auth":
-      console.log("nodesign auth: stub - credential storage not yet implemented");
-      return;
+      case "auth": {
+        const creds = resolveCredentials();
+        const f = creds.figmaToken ? "configured" : "missing";
+        const z = creds.zeplinToken ? "configured" : "missing";
+        console.log(`nodesign auth: figmaToken=${f}, zeplinToken=${z}`);
+        return;
+      }
 
-    case "extract":
-      console.log("nodesign extract: stub - design extraction not yet implemented");
-      return;
+      case "extract": {
+        const parsed = parseDesignLink(args.url);
+        if (args.json) {
+          console.log(JSON.stringify(parsed, null, 2));
+        } else {
+          console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
+          console.log(`Status: ${parsed.status}`);
+          if (parsed.note) console.log(`Note: ${parsed.note}`);
+        }
+        return;
+      }
 
-    case "preflight": {
-      const inspection = inspectAndroidProject(args.path);
-      const preflight: PreflightResult = {
-        uiSensitive: inspection.androidUIStack !== "n/a",
-        androidUIStack: inspection.androidUIStack,
-        evidenceStatus: "missing",
-        designLinks: [],
-        components: inspection.components,
-        notes: inspection.notes,
-      };
+      case "preflight": {
+        const inspection = inspectAndroidProject(args.path);
+        const designLinks: DesignLink[] = [];
+        const notes = [...inspection.notes];
 
-      const format = args.json ? "json" : "human";
-      console.log(formatDesignBrief(args.task, preflight, format));
-      return;
-    }
+        if (args.url) {
+          const parsed = parseDesignLink(args.url);
+          designLinks.push(parsed.link);
+          if (parsed.note) notes.push(parsed.note);
+        }
+
+        const uiSensitive = inspection.androidUIStack !== "n/a";
+        const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
+
+        const preflight: PreflightResult = {
+          uiSensitive,
+          androidUIStack: inspection.androidUIStack,
+          evidenceStatus,
+          designLinks,
+          components: inspection.components,
+          notes,
+        };
+
+        const format = args.json ? "json" : "human";
+        console.log(formatDesignBrief(args.task, preflight, format));
+        return;
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
