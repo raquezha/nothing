@@ -68,6 +68,28 @@ export function formatDesignBrief(
     }
   }
 
+  if (preflight.resolvedScreens?.length) {
+    lines.push("", "Resolved Screens:");
+    for (const screen of preflight.resolvedScreens) {
+      lines.push(`  - status=${screen.status}`);
+      if (screen.screen) {
+        lines.push(`    name=${screen.screen.name} id=${screen.screen.id} ${screen.screen.width}x${screen.screen.height}`);
+        if (screen.screen.colors.length) {
+          lines.push(`    colors=${screen.screen.colors.map((color) => color.hex).join(", ")}`);
+        }
+        if (screen.screen.layerNames.length) {
+          lines.push(`    layers=${screen.screen.layerNames.join(", ")}`);
+        }
+      }
+      if (screen.savedAssets?.length) {
+        lines.push(`    savedAssets=${screen.savedAssets.join(", ")}`);
+      }
+      if (screen.note) {
+        lines.push(`    note=${screen.note}`);
+      }
+    }
+  }
+
   if ((preflight.components?.length ?? 0) > 0) {
     lines.push("", "UI Components:");
     for (const component of preflight.components ?? []) {

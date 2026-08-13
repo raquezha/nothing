@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
 import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
+import { inspectJiraContext } from "./jira.js";
+import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveCredentials, storeCredential } from "./auth.js";
 
 function getVersion(): string {
@@ -43,6 +45,10 @@ interface ParsedArgs {
   path: string;
   task: string;
   url: string;
+}
+
+interface RunDeps {
+  fetchFn?: typeof fetch;
 }
 
 function fail(message: string): never {
@@ -115,9 +121,42 @@ function parseArgs(argv: string[]): ParsedArgs {
   return result;
 }
 
-export function run(argv: string[] = process.argv): void {
-  try {
-    const args = parseArgs(argv);
+function findWorkflowTaskPath(startDir: string): string | undefined {
+  let current = path.resolve(startDir);
+  while (true) {
+    const activePath = path.join(current, ".workflow", "active.json");
+    if (existsSync(activePath)) {
+      try {
+        const active = JSON.parse(readFileSync(activePath, "utf8"));
+        if (active?.taskPath) return path.resolve(current, active.taskPath);
+      } catch {
+        return undefined;
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
+  const taskPath = findWorkflowTaskPath(process.cwd());
+  const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
+  const results = [];
+
+  for (const link of designLinks) {
+    if (link.provider !== "zeplin") continue;
+    results.push(await resolveZeplinScreen(link.url, undefined, outputDir, fetchFn));
+  }
+
+  return results;
+}
+
+export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
+  void (async () => {
+    try {
+      const args = parseArgs(argv);
+      const fetchFn = deps.fetchFn || globalThis.fetch;
 
     switch (args.command) {
       case "help":
@@ -138,12 +177,25 @@ export function run(argv: string[] = process.argv): void {
 
       case "extract": {
         const parsed = parseDesignLink(args.url);
+        const zeplin = parsed.link.provider === "zeplin"
+          ? await resolveZeplinScreen(parsed.link.url, undefined, findWorkflowTaskPath(process.cwd()) ? path.join(findWorkflowTaskPath(process.cwd()) as string, "evidence") : undefined, fetchFn)
+          : undefined;
+
         if (args.json) {
-          console.log(JSON.stringify(parsed, null, 2));
+          console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}) }, null, 2));
         } else {
           console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
           console.log(`Status: ${parsed.status}`);
           if (parsed.note) console.log(`Note: ${parsed.note}`);
+          if (zeplin) {
+            console.log(`Zeplin Resolution: ${zeplin.status}`);
+            if (zeplin.screen) {
+              console.log(`Screen: ${zeplin.screen.name} (${zeplin.screen.width}x${zeplin.screen.height})`);
+              if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
+            }
+            if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
+            if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
+          }
         }
         return;
       }
@@ -159,7 +211,30 @@ export function run(argv: string[] = process.argv): void {
           if (parsed.note) notes.push(parsed.note);
         }
 
-        const uiSensitive = inspection.androidUIStack !== "n/a";
+        if (args.task && args.task !== "unknown") {
+          const jiraKey = args.task.startsWith("jira:")
+            ? args.task.slice(5)
+            : /^[A-Z0-9]+-[0-9]+$/i.test(args.task)
+            ? args.task
+            : undefined;
+
+          if (jiraKey) {
+            const jiraResult = inspectJiraContext(jiraKey);
+            for (const link of jiraResult.designLinks) {
+              if (!designLinks.some((l) => l.url === link.url)) {
+                designLinks.push(link);
+              }
+            }
+            notes.push(...jiraResult.notes);
+          }
+        }
+
+        const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn);
+        for (const screen of resolvedScreens) {
+          if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
+        }
+
+        const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
         const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
 
         const preflight: PreflightResult = {
@@ -167,6 +242,7 @@ export function run(argv: string[] = process.argv): void {
           androidUIStack: inspection.androidUIStack,
           evidenceStatus,
           designLinks,
+          resolvedScreens,
           components: inspection.components,
           notes,
         };
@@ -176,9 +252,10 @@ export function run(argv: string[] = process.argv): void {
         return;
       }
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`nodesign: ${message}`);
-    process.exitCode = 1;
-  }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`nodesign: ${message}`);
+      process.exitCode = 1;
+    }
+  })();
 }
