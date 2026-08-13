@@ -178,7 +178,7 @@ export function run(argv: string[] = process.argv): void {
           }
         }
 
-        const uiSensitive = inspection.androidUIStack !== "n/a";
+        const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
         const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
 
         const preflight: PreflightResult = {
