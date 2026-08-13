@@ -88,6 +88,18 @@ try {
     androidUIStack: "compose",
     evidenceStatus: "ready",
     designLinks: [{ provider: "zeplin", url: "https://zpl.io/AOGOKp6", label: "Zeplin screen" }],
+    resolvedScreens: [{
+      status: "SUCCESS",
+      screen: {
+        id: "AOGOKp6",
+        name: "Reports Screen",
+        width: 360,
+        height: 640,
+        colors: [{ r: 40, g: 120, b: 240, a: 1, hex: "#2878F0" }],
+        layerNames: ["Header"],
+      },
+      savedAssets: [".workflow/tasks/github-99/evidence/ic_reports.svg"],
+    }],
     components: [{ name: "PrimaryButton", path: "ui/components/PrimaryButton.kt" }],
     notes: ["Found 1 reusable ui/components file(s)"],
   };
@@ -96,6 +108,8 @@ try {
   assert(humanBrief.includes("Design Brief: github:101"));
   assert(humanBrief.includes("UI Sensitive: yes"));
   assert(humanBrief.includes("Android UI Stack: compose"));
+  assert(humanBrief.includes("Reports Screen"));
+  assert(humanBrief.includes("#2878F0"));
   assert(humanBrief.includes("PrimaryButton"));
 
   const jsonBriefStr = formatDesignBrief("github:101", samplePreflight, "json");

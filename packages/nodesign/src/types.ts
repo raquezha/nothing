@@ -1,3 +1,5 @@
+import type { ZeplinResolutionResult } from "./zeplin.js";
+
 /** Evidence status for design assets. */
 export type EvidenceStatus = "missing" | "ambiguous" | "ready";
 
@@ -40,6 +42,8 @@ export interface PreflightResult {
   evidenceStatus: EvidenceStatus;
   /** Direct links to design screens/frames. */
   designLinks: DesignLink[];
+  /** Zeplin screen resolutions collected during preflight. */
+  resolvedScreens?: ZeplinResolutionResult[];
   /** Existing reusable UI components discovered in the repo. */
   components: ComponentFact[];
   /** Human-readable notes about what is missing or ambiguous. */
