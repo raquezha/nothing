@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
 import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
+import { inspectJiraContext } from "./jira.js";
 import { resolveCredentials, storeCredential } from "./auth.js";
 
 function getVersion(): string {
@@ -157,6 +158,24 @@ export function run(argv: string[] = process.argv): void {
           const parsed = parseDesignLink(args.url);
           designLinks.push(parsed.link);
           if (parsed.note) notes.push(parsed.note);
+        }
+
+        if (args.task && args.task !== "unknown") {
+          const jiraKey = args.task.startsWith("jira:")
+            ? args.task.slice(5)
+            : /^[A-Z0-9]+-[0-9]+$/i.test(args.task)
+            ? args.task
+            : undefined;
+
+          if (jiraKey) {
+            const jiraResult = inspectJiraContext(jiraKey);
+            for (const link of jiraResult.designLinks) {
+              if (!designLinks.some((l) => l.url === link.url)) {
+                designLinks.push(link);
+              }
+            }
+            notes.push(...jiraResult.notes);
+          }
         }
 
         const uiSensitive = inspection.androidUIStack !== "n/a";
