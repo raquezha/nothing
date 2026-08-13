@@ -87,10 +87,10 @@ function inspectFiles(rootPath: string): AndroidInspection {
   else if (hasAndroidManifest || hasAndroidGradlePlugin) androidUIStack = "ambiguous";
 
   const notes: string[] = [];
-  if (androidUIStack === "n/a") notes.push("No Android or KMP UI signals detected");
-  if (androidUIStack === "ambiguous") notes.push("Android project found, but Compose/XML/KMP signals are ambiguous");
-  if (components.length === 0) notes.push("No reusable ui/components files detected");
-  else notes.push(`Found ${components.length} reusable ui/components file(s)`);
+  if (androidUIStack === "n/a") notes.push(`No Android or KMP UI signals detected in ${rootPath}`);
+  if (androidUIStack === "ambiguous") notes.push(`Android project found in ${rootPath}, but Compose/XML/KMP signals are ambiguous`);
+  if (components.length === 0) notes.push(`No reusable ui/components files detected in ${rootPath}`);
+  else notes.push(`Found ${components.length} reusable ui/components file(s) in ${rootPath}`);
 
   return { androidUIStack, components, notes };
 }
