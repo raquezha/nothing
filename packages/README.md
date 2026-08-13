@@ -8,6 +8,7 @@ This folder contains the local package and skill bundles that make up the `nothi
 |---|---|---|---|---|
 | `antigravity/` | `@raquezha/antigravity` | Pi extension | Experimental | Google Antigravity-compatible provider with OAuth login and `/antigravity.doctor`. |
 | `nofooter/` | `@raquezha/nofooter` | Pi extension | Usable | Powerline-style Pi footer/theme with token, cost, context, model, provider, and Git branch status. |
+| `nodesign/` | `@raquezha/nodesign` | CLI package | Usable | Deterministic design preflight CLI, Android/KMP UI stack detector, and design brief formatter. |
 | `noleaks/` | `@raquezha/noleaks` | Pi extension | Usable defense-in-depth | Credentials guard and DLP shield that blocks sensitive files and redacts secret-looking output. |
 | `nometa/` | Local skill bundle | Skills | Local-first | Meta/setup skills for maintaining `nothing`, creating skills, bootstrapping repos, and converting content to HTML. |
 | `norpiv/` | `@raquezha/norpiv` | Skill bundle | Usable workflow | RPIV task lifecycle skills: triage, frame, grill-with-docs, plan, implement, verify, sync, update-docs, and post-merge-prune. |

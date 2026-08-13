@@ -37,6 +37,7 @@
 | **Privacy** | [`@raquezha/noleaks`](./packages/noleaks) | credential & secret protection |
 | **Optimization** | [`headroom/`](./headroom), [`@raquezha/noheadroom`](./packages/noheadroom) | local context compression |
 | **Workflow** | [`@raquezha/norpiv`](./packages/workflows/norpiv), [`noresearch`](./packages/workflows/noresearch), [`docs/workflow.md`](./docs/workflow.md) | RPIV execution workflow, local Research workflow, and platform workflow contract |
+| **Design** | [`@raquezha/nodesign`](./packages/nodesign) | deterministic design preflight & Android UI stack detector |
 | **Search** | [`@raquezha/nosearch`](./packages/nosearch) | Brave & Firecrawl subagent |
 | **UI/UX** | [`@raquezha/notrace`](./packages/notrace), [`nofooter`](./packages/nofooter) | retrospective run records, HTML reports, and powerline footer |
 | **Providers** | [`@raquezha/antigravity`](./packages/antigravity) | Google Antigravity model support |
