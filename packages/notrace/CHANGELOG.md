@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.2.2
+
+### Patch Changes
+
+- ac8aa47: Recognize canonical `.workflow/active.json` workflow pointer in Notrace ActiveWorkflowAdapter.
+
 ## 0.2.1
 
 ### Patch Changes
