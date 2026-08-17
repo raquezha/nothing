@@ -1,5 +1,20 @@
 # @raquezha/norpiv
 
+## 0.1.0
+
+### Minor Changes
+
+- 5fdcdea: Consume NoDesign preflight before planning UI-sensitive work and expand non-Jira design link resolution.
+
+  Refs #100
+
+### Patch Changes
+
+- b77b3ce: Block planning and implementation when required UI or formula evidence is missing (#87).
+- c69a8f6: Add evidence classification for UI-sensitive, formula-sensitive, and backend-safe tasks (#86).
+- 1e6332d: Add Pi MCP adapter (`npm:pi-mcp-adapter@2.11.0`) auto-installation to environment bootstrap.
+- 8957bcd: Isolate task evidence under `.workflow/tasks/<task-id>/evidence/` to prevent cross-task evidence collisions and cwd substitute discovery.
+
 ## 0.0.8
 
 ### Patch Changes

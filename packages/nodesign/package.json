@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nodesign",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Deterministic design preflight and normalized brief for RPIV",
   "main": "dist/index.js",
   "type": "module",
