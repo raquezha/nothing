@@ -70,6 +70,7 @@ Base hats load repo-local skills and personas:
 ```bash
 pi --rpiv        # standard RPIV workflow (Frame -> Implement -> Verify)
 pi --research    # intentional research workflow (or: pi --research "topic")
+pi --nochestra   # optional Nochestra control-plane entrypoint scaffold
 pi --pm          # research, planning, and sync persona
 pi --dev         # implementation and verification focus
 pi --android     # Android development expert; loads local Android CLI skill cache only

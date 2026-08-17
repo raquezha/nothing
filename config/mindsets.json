@@ -109,6 +109,10 @@
       "skills": ["nosearch", "noresearch/research", "norpiv/distill"],
       "extensions": ["notrace", "noleaks", "antigravity"]
     },
+    "nochestra": {
+      "skills": ["nochestra/nochestra"],
+      "extensions": []
+    },
     "antigravity": {
       "skills": [],
       "extensions": [
