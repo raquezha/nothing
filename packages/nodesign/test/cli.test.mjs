@@ -64,6 +64,10 @@ try {
   const repoRoot = mkdtempSync(path.join(tmpdir(), "nodesign-repo-"));
   mkdirSync(path.join(repoRoot, ".workflow", "tasks", "github-99", "evidence"), { recursive: true });
   writeFileSync(
+    path.join(repoRoot, ".workflow", "tasks", "github-99", "WORK.md"),
+    "# WORK\n\nDesign link: https://zpl.io/AOGOKp6\n",
+  );
+  writeFileSync(
     path.join(repoRoot, ".workflow", "active.json"),
     JSON.stringify({ taskPath: ".workflow/tasks/github-99" }),
   );
@@ -82,7 +86,7 @@ try {
   process.env.ZEPLIN_TOKEN = "dummy-token";
 
   runCli(
-    ["node", "nodesign", "preflight", "--json", "--path", path.join(repoRoot, "app"), "--url", "https://zpl.io/AOGOKp6"],
+    ["node", "nodesign", "preflight", "--json", "--path", path.join(repoRoot, "app")],
     {
       fetchFn: makeMockFetch({
         "/screens/AOGOKp6/assets": { status: 200, json: [] },

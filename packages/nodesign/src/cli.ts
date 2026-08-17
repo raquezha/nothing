@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
 import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
-import { inspectJiraContext } from "./jira.js";
+import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
 import { resolveCredentials, storeCredential } from "./auth.js";
@@ -247,6 +247,35 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               }
             }
             notes.push(...jiraResult.notes);
+          }
+        }
+
+        const taskPath = findWorkflowTaskPath(args.path);
+        if (taskPath && existsSync(taskPath)) {
+          const taskLinks: DesignLink[] = [];
+          const metaFile = path.join(taskPath, "metadata.json");
+          if (existsSync(metaFile)) {
+            try {
+              const metaText = readFileSync(metaFile, "utf8");
+              taskLinks.push(...inspectJiraTaskText(metaText).designLinks);
+            } catch {}
+          }
+          const workFile = path.join(taskPath, "WORK.md");
+          if (existsSync(workFile)) {
+            try {
+              const workText = readFileSync(workFile, "utf8");
+              taskLinks.push(...extractDesignLinksFromText(workText));
+            } catch {}
+          }
+          let addedCount = 0;
+          for (const link of taskLinks) {
+            if (!designLinks.some((l) => l.url === link.url)) {
+              designLinks.push(link);
+              addedCount++;
+            }
+          }
+          if (addedCount > 0) {
+            notes.push(`Discovered ${addedCount} design link(s) in active task workspace`);
           }
         }
 
