@@ -29,3 +29,11 @@ pi --nochestra
 - `pi --nochestra` is an optional entrypoint.
 - Existing workflows (`pi --rpiv`, `pi --research`, `pi --notes`) remain unchanged.
 - Product brief lives at `docs/nochestra/PRODUCT.md`.
+
+## Telemetry & Context Accounting
+
+Nochestra relies on Notrace (`@raquezha/notrace`) to observe session evidence without modifying active conversation context:
+- Context accounting records active tokens, peak active context, model context window, and message count per session.
+- Session/task role markers (`role: "parent"` | `"worker"`) allow distinguishing parent context from dispatched worker runs.
+- Missing provider metrics are represented as unavailable (`null`) rather than invented.
+- Measurement evidence supports future checkpointing and epoch policies without establishing a hard permanent cross-provider schema.

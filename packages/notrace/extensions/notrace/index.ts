@@ -122,7 +122,13 @@ function validateRunRecord(record: NotraceRunRecord): void {
   if (!Array.isArray(record.events)) throw new Error("notrace record validation failed: events must be an array");
 }
 
-function collectActivity(events: NotraceEvent[], startedAt: number, endedAt: number): NotraceActivity {
+function collectActivity(
+  events: NotraceEvent[],
+  startedAt: number,
+  endedAt: number,
+  contextSnapshot?: ContextUsageSnapshot
+): NotraceActivity {
+  let messageCountFromEvents = 0;
   const activity: NotraceActivity = {
     turnCount: 0,
     llmCallCount: 0,
@@ -137,12 +143,19 @@ function collectActivity(events: NotraceEvent[], startedAt: number, endedAt: num
       totalTokens: 0,
       totalCostUsd: 0,
     },
+    context: {
+      activeTokens: contextSnapshot?.activeTokens ?? null,
+      peakTokens: contextSnapshot?.peakTokens ?? null,
+      contextWindow: contextSnapshot?.contextWindow ?? null,
+      messageCount: contextSnapshot?.messageCount ?? null,
+    },
   };
 
   for (const e of events) {
     if (e.type === "turn_start") activity.turnCount++;
     if (e.type === "tool_start") activity.toolCallCount++;
     if (e.type === "tool_end" && e.isError) activity.toolErrorCount++;
+    if (e.type === "message_start" || e.type === "message_end") messageCountFromEvents++;
     if (e.type === "llm_completion") {
       activity.llmCallCount++;
       const usage = normalizeUsage(e.usage);
@@ -153,6 +166,10 @@ function collectActivity(events: NotraceEvent[], startedAt: number, endedAt: num
       activity.totals.totalTokens += usage.totalTokens;
       activity.totals.totalCostUsd += usage.totalCostUsd;
     }
+  }
+
+  if (activity.context.messageCount == null && messageCountFromEvents > 0) {
+    activity.context.messageCount = messageCountFromEvents;
   }
 
   return activity;
@@ -188,6 +205,7 @@ function toTaskInfo(context: WorkflowContext | null): NotraceRunRecord["task"] {
     id: context.taskId,
     path: context.taskPath,
     dir: context.taskDir,
+    role: context.role ?? process.env.NOCHESTRA_ROLE ?? process.env.PI_ROLE ?? null,
   };
 }
 
@@ -212,6 +230,13 @@ function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath
   };
 }
 
+export type ContextUsageSnapshot = {
+  activeTokens?: number | null;
+  peakTokens?: number | null;
+  contextWindow?: number | null;
+  messageCount?: number | null;
+};
+
 export type SessionShutdownDeps = {
   events: NotraceEvent[];
   startTime: number;
@@ -220,6 +245,7 @@ export type SessionShutdownDeps = {
   captureMode: NotraceCaptureMode;
   notraceDir: string;
   adapter: WorkflowAdapter;
+  contextSnapshot?: ContextUsageSnapshot;
 };
 
 export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutdownDeps): Promise<void> {
@@ -257,12 +283,13 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     }
   }
 
-  const activity = collectActivity(mergedEvents, originalStartedAt, endedAt);
+  const activity = collectActivity(mergedEvents, originalStartedAt, endedAt, deps.contextSnapshot);
   
   // Do not index purely empty ghost sessions
   const isGhostSession = activity.llmCallCount === 0 && activity.toolCallCount === 0 && activity.totals.totalTokens === 0;
 
   const telemetry = Object.fromEntries([...deps.extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
+  const role = context?.role ?? process.env.NOCHESTRA_ROLE ?? process.env.PI_ROLE ?? null;
 
   const record: NotraceRunRecord = {
     kind: "notrace-run",
@@ -279,6 +306,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       endedAt: new Date(endedAt).toISOString(),
       durationMs: activity.durationMs,
       shutdownReason,
+      role,
     },
     task: toTaskInfo(context) || originalTask,
     captureMode: deps.captureMode,
@@ -378,6 +406,27 @@ function normalizeTelemetryPayload(raw: unknown): { extension: string; telemetry
 }
 
 export default function (pi: ExtensionAPI) {
+  let activeTokens: number | null = null;
+  let peakTokens: number | null = null;
+  let contextWindow: number | null = null;
+  let messageCount = 0;
+
+  function updateContextUsage(ctx: any) {
+    if (typeof ctx?.getContextUsage === 'function') {
+      try {
+        const u = ctx.getContextUsage();
+        if (u && typeof u.tokens === 'number') {
+          activeTokens = u.tokens;
+          if (peakTokens === null || u.tokens > peakTokens) {
+            peakTokens = u.tokens;
+          }
+        }
+        if (u && typeof u.contextWindow === 'number') {
+          contextWindow = u.contextWindow;
+        }
+      } catch {}
+    }
+  }
   const events: NotraceEvent[] = [];
   const startTime = Date.now();
   let traceId = "";
@@ -409,9 +458,13 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start" as any, async (_e: any, ctx: any) => {
     traceId = ctx.sessionManager.getSessionId() || `s-${Date.now()}`;
     events.push({ type: "session_start", timestamp: Date.now() });
+    updateContextUsage(ctx);
   });
 
-  pi.on("turn_start" as any, async () => events.push({ type: "turn_start", timestamp: Date.now() }));
+  pi.on("turn_start" as any, async (_e: any, ctx: any) => {
+    events.push({ type: "turn_start", timestamp: Date.now() });
+    updateContextUsage(ctx);
+  });
 
   pi.on("tool_execution_start" as any, async (e: any) => {
     events.push({ type: "tool_start", toolName: e.toolName, args: sanitizeTraceValue(e.args), timestamp: Date.now() });
@@ -425,7 +478,9 @@ export default function (pi: ExtensionAPI) {
     activeLlmPayload = sanitizeTraceValue(e.payload);
   });
 
-  pi.on("message_end" as any, async (e: any) => {
+  pi.on("message_end" as any, async (e: any, ctx: any) => {
+    messageCount++;
+    updateContextUsage(ctx);
     if (e.message.role === "assistant") {
       events.push({
         type: "llm_completion",
@@ -443,7 +498,14 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown" as any, async (e: any, ctx: any) => {
+    updateContextUsage(ctx);
     await handleSessionShutdown(e, ctx, {
+      contextSnapshot: {
+        activeTokens,
+        peakTokens,
+        contextWindow,
+        messageCount: messageCount > 0 ? messageCount : null,
+      },
       events,
       startTime,
       traceId,
