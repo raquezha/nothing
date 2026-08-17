@@ -6,6 +6,11 @@ export type {
   AndroidInspection,
   PreflightResult,
   DesignBrief,
+  UiPropertyType,
+  UiPropertyStatus,
+  UiPropertyInput,
+  UiPropertyComparison,
+  PropertyVerificationResult,
 } from "./types.js";
 
 export type {
@@ -27,4 +32,9 @@ export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } f
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
 export { resolveCredentials, storeCredential } from "./auth.js";
+export {
+  compareUiProperty,
+  verifyUiProperties,
+  normalizePropertyValue,
+} from "./properties.js";
 export { run } from "./cli.js";

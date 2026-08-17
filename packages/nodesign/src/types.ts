@@ -53,6 +53,75 @@ export interface PreflightResult {
   notes: string[];
 }
 
+/** Supported Android UI property types for design evidence comparison. */
+export type UiPropertyType =
+  | "iconWidth"
+  | "iconHeight"
+  | "iconColor"
+  | "textSize"
+  | "fontFamily"
+  | "fontWeight"
+  | "textColor"
+  | "backgroundColor"
+  | "padding"
+  | "margin"
+  | "spacing"
+  | "dimensions"
+  | "cornerRadius"
+  | "stroke"
+  | "opacity";
+
+/** Verification result status for a single UI property. */
+export type UiPropertyStatus =
+  | "MATCH"
+  | "MISMATCH"
+  | "UNKNOWN"
+  | "EXPLICITLY_WAIVED";
+
+/** Input specification for a UI property comparison. */
+export interface UiPropertyInput {
+  property: UiPropertyType;
+  expected: string;
+  actual?: string;
+  /** Resolved concrete value of expected token (e.g. #6200EE). */
+  resolvedExpected?: string;
+  /** Resolved concrete value of actual token (e.g. #000000). */
+  resolvedActual?: string;
+  /** Style or theme token name if used (e.g. MaterialTheme.colorScheme.primary). */
+  tokenName?: string;
+  /** Actual style or theme token name used in implementation if different. */
+  actualTokenName?: string;
+  /** Optional waiver flag or reason. */
+  waived?: boolean | string;
+}
+
+/** Result of comparing a single UI property. */
+export interface UiPropertyComparison {
+  property: UiPropertyType;
+  expected: string;
+  actual?: string;
+  resolvedExpected: string;
+  resolvedActual?: string;
+  status: UiPropertyStatus;
+  tokenName?: string;
+  actualTokenName?: string;
+  waiverReason?: string;
+  notes?: string;
+}
+
+/** Result summary of exact Android UI property verification. */
+export interface PropertyVerificationResult {
+  exactFidelityRequired: boolean;
+  passed: boolean;
+  comparisons: UiPropertyComparison[];
+  summary: {
+    match: number;
+    mismatch: number;
+    unknown: number;
+    waived: number;
+  };
+}
+
 /** Full design brief emitted by nodesign. */
 export interface DesignBrief {
   taskId: string;

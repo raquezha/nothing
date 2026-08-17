@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node test/android.test.mjs && node test/cli.test.mjs && node test/nodesign.test.mjs && node test/jira.test.mjs && node test/zeplin.test.mjs && node test/figma.test.mjs",
+    "test": "npm run build && node test/android.test.mjs && node test/cli.test.mjs && node test/nodesign.test.mjs && node test/jira.test.mjs && node test/zeplin.test.mjs && node test/figma.test.mjs && node test/properties.test.mjs",
     "prepare": "npm run build"
   },
   "keywords": [
