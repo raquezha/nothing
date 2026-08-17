@@ -1,5 +1,5 @@
 ---
-"@raquezha/nodesign": minor
+"@raquezha/nodesign": patch
 ---
 
-feat(nodesign): verify exact Android UI properties against design evidence
+Add exact Android UI property verification reporting and formatting helper in NoDesign.

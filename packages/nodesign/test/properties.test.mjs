@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   compareUiProperty,
   verifyUiProperties,
+  formatPropertyVerification,
   normalizePropertyValue,
 } from "../dist/index.js";
 
@@ -108,5 +109,14 @@ assert.equal(resultFailed.summary.unknown, 1);
 // Non-exact fidelity override
 const resultNonExact = verifyUiProperties(failedInputs, { exactFidelityRequired: false });
 assert.equal(resultNonExact.passed, true);
+
+// 8. Formatted reports
+const humanReport = formatPropertyVerification(resultFailed, "human");
+assert.equal(humanReport.includes("Property Verification: FAILED"), true);
+assert.equal(humanReport.includes("1 mismatch"), true);
+
+const jsonReport = JSON.parse(formatPropertyVerification(resultPassed, "json"));
+assert.equal(jsonReport.passed, true);
+assert.equal(jsonReport.summary.match, 2);
 
 console.log("properties verification suite test ok");

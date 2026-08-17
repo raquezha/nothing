@@ -124,3 +124,30 @@ export function verifyUiProperties(
     summary,
   };
 }
+
+/** Format a PropertyVerificationResult into human-readable text or JSON string. */
+export function formatPropertyVerification(
+  result: PropertyVerificationResult,
+  format: "json" | "human" = "human",
+): string {
+  if (format === "json") {
+    return JSON.stringify(result, null, 2);
+  }
+
+  const lines: string[] = [
+    `Property Verification: ${result.passed ? "PASSED" : "FAILED"}`,
+    `Exact Fidelity Required: ${result.exactFidelityRequired ? "yes" : "no"}`,
+    `Summary: ${result.summary.match} match, ${result.summary.mismatch} mismatch, ${result.summary.unknown} unknown, ${result.summary.waived} waived`,
+  ];
+
+  if (result.comparisons.length > 0) {
+    lines.push("", "Comparisons:");
+    for (const c of result.comparisons) {
+      lines.push(`  - [${c.status}] ${c.property}: expected='${c.expected}', actual='${c.actual ?? "unspecified"}'`);
+      if (c.notes) lines.push(`    note=${c.notes}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+

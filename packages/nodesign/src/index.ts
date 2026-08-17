@@ -35,6 +35,7 @@ export { resolveCredentials, storeCredential } from "./auth.js";
 export {
   compareUiProperty,
   verifyUiProperties,
+  formatPropertyVerification,
   normalizePropertyValue,
 } from "./properties.js";
 export { run } from "./cli.js";
