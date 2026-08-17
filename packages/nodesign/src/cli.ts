@@ -6,6 +6,7 @@ import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./b
 import { inspectAndroidProject } from "./android.js";
 import { inspectJiraContext } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
+import { resolveFigmaLink } from "./figma.js";
 import { resolveCredentials, storeCredential } from "./auth.js";
 
 function getVersion(): string {
@@ -152,6 +153,17 @@ async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fet
   return results;
 }
 
+async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
+  const results = [];
+
+  for (const link of designLinks) {
+    if (link.provider !== "figma") continue;
+    results.push(await resolveFigmaLink(link.url, undefined, fetchFn));
+  }
+
+  return results;
+}
+
 export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
   void (async () => {
     try {
@@ -180,9 +192,12 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
         const zeplin = parsed.link.provider === "zeplin"
           ? await resolveZeplinScreen(parsed.link.url, undefined, findWorkflowTaskPath(process.cwd()) ? path.join(findWorkflowTaskPath(process.cwd()) as string, "evidence") : undefined, fetchFn)
           : undefined;
+        const figma = parsed.link.provider === "figma"
+          ? await resolveFigmaLink(parsed.link.url, undefined, fetchFn)
+          : undefined;
 
         if (args.json) {
-          console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}) }, null, 2));
+          console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}), ...(figma ? { figma } : {}) }, null, 2));
         } else {
           console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
           console.log(`Status: ${parsed.status}`);
@@ -195,6 +210,12 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
             if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
+          }
+          if (figma) {
+            console.log(`Figma Resolution: ${figma.status}`);
+            if (figma.fileKey) console.log(`File Key: ${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}`);
+            if (figma.name) console.log(`Name: ${figma.name}`);
+            if (figma.note) console.log(`Figma Note: ${figma.note}`);
           }
         }
         return;
@@ -234,6 +255,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
         }
 
+        const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn);
+        for (const fig of resolvedFigma) {
+          if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
+        }
+
         const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
         const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
 
@@ -243,6 +269,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           evidenceStatus,
           designLinks,
           resolvedScreens,
+          resolvedFigma,
           components: inspection.components,
           notes,
         };

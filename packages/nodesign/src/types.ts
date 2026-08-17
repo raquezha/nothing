@@ -1,4 +1,5 @@
 import type { ZeplinResolutionResult } from "./zeplin.js";
+import type { FigmaResolutionResult } from "./figma.js";
 
 /** Evidence status for design assets. */
 export type EvidenceStatus = "missing" | "ambiguous" | "ready";
@@ -44,6 +45,8 @@ export interface PreflightResult {
   designLinks: DesignLink[];
   /** Zeplin screen resolutions collected during preflight. */
   resolvedScreens?: ZeplinResolutionResult[];
+  /** Figma link resolutions collected during preflight. */
+  resolvedFigma?: FigmaResolutionResult[];
   /** Existing reusable UI components discovered in the repo. */
   components: ComponentFact[];
   /** Human-readable notes about what is missing or ambiguous. */

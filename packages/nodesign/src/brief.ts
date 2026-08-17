@@ -2,7 +2,7 @@ import type { DesignBrief, DesignLink, EvidenceStatus, PreflightResult } from ".
 
 /** Parse a raw design link URL into a structured DesignLink and EvidenceStatus. */
 export function parseDesignLink(rawUrl: string): { link: DesignLink; status: EvidenceStatus; note?: string } {
-  const url = rawUrl.trim();
+  const url = rawUrl.trim().replace(/[.,;)]+$/, "");
   if (url.includes("figma.com")) {
     const hasNodeId = url.includes("node-id=") || url.includes("node_id=");
     return {
@@ -87,6 +87,16 @@ export function formatDesignBrief(
       if (screen.note) {
         lines.push(`    note=${screen.note}`);
       }
+    }
+  }
+
+  if (preflight.resolvedFigma?.length) {
+    lines.push("", "Resolved Figma Links:");
+    for (const fig of preflight.resolvedFigma) {
+      lines.push(`  - status=${fig.status} url=${fig.url}`);
+      if (fig.fileKey) lines.push(`    fileKey=${fig.fileKey}${fig.nodeId ? ` nodeId=${fig.nodeId}` : ""}`);
+      if (fig.name) lines.push(`    name=${fig.name}`);
+      if (fig.note) lines.push(`    note=${fig.note}`);
     }
   }
 
