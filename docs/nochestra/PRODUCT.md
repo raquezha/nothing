@@ -300,6 +300,7 @@ Delivery management, active vertical slices, child tasks, and execution state ar
 | 2026 08 06 | One shared checkout writer operates at a time | Accepted | Avoids conflicting writes without requiring worktrees |
 | 2026 08 06 | Approval authorizes a bounded assignment rather than every individual edit | Accepted | Preserves control without making execution unusable |
 | 2026 08 06 | Nochestra starts as `pi --nochestra` | Accepted for initial rollout | Preserves existing workflows during rollout |
+| 2026 08 17 | Nochestra canonical local home is `packages/workflows/nochestra` | Accepted | Established in #94 as reversible workflow bundle scaffold |
 | 2026 08 06 | The first product proof is Jira refine then triage | Provisional | Strong end to end example with clear approval boundaries |
 | 2026 08 06 | Context thresholds are chosen from measurement | Provisional | Technical and economic limits vary by provider and model |
 

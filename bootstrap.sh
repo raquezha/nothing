@@ -752,7 +752,7 @@ printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shel
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "updates" "pi update refreshes Pi plus nothing-managed lazy caches"
-printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --antigravity"
+printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --nochestra | --antigravity"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --leanctx | --notrace | --ponytail"
 printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace + ponytail)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/workflows/norpiv/scripts/"
