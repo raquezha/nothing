@@ -565,6 +565,8 @@ function verifyRpivEvidenceClassificationRules() {
 
   const planSkill = readFileSync(path.join(root, "packages/workflows/norpiv/plan/SKILL.md"), "utf8");
   assert(planSkill.includes("EVIDENCE BLOCKING GATE") && planSkill.includes("BLOCKED: missing UI/formula evidence"), "plan skill enforces evidence blocking gate");
+  assert(planSkill.includes("AUTOMATIC NODESIGN PREFLIGHT") && planSkill.includes("nodesign preflight"), "plan skill enforces automatic NoDesign preflight");
+  assert(planSkill.includes("HUMAN WAIVER") && planSkill.includes("waived:"), "plan skill documents human waiver recording");
 
   const implementSkill = readFileSync(path.join(root, "packages/workflows/norpiv/implement/SKILL.md"), "utf8");
   assert(implementSkill.includes("EVIDENCE REJECTION GATE") && implementSkill.includes("refuse code changes"), "implement skill enforces evidence rejection gate");
