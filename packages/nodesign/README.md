@@ -226,10 +226,9 @@ Paste the output into your agent alongside the task context. That keeps the plan
 ## Limitations
 
 Deliberate limits for now:
-- no live Figma API calls
-- no live Zeplin API calls
-- no auth backend yet
-- no asset export
+- minimal Figma reachability resolution only (no full document analysis or asset export)
+- minimal Zeplin screen resolution (no project-wide sync)
+- no asset export for Figma
 - no code generation
 - detection is heuristic, not a full Gradle model parser
 - component discovery is path-based, not semantic

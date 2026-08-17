@@ -16,9 +16,15 @@ export type {
   ZeplinResolutionResult,
 } from "./zeplin.js";
 
+export type {
+  FigmaErrorStatus,
+  FigmaResolutionResult,
+} from "./figma.js";
+
 export { inspectAndroidProject, detectAndroidUIStack, scanUiComponents } from "./android.js";
 export { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
+export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
 export { resolveCredentials, storeCredential } from "./auth.js";
 export { run } from "./cli.js";

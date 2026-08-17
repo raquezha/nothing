@@ -32,7 +32,7 @@ export function inspectJiraTaskText(text: string): JiraInspectionResult {
   const designLinks = extractDesignLinksFromText(text);
   const notes: string[] = [];
 
-  // Parse structured Jira JSON if present to extract attachments
+  // Parse structured Jira JSON if present to extract attachments and nested URL values
   try {
     if (text.trim().startsWith("{")) {
       const data = JSON.parse(text);
@@ -50,6 +50,31 @@ export function inspectJiraTaskText(text: string): JiraInspectionResult {
           }
         }
       }
+
+      // Scan nested string values in JSON for any direct Figma or Zeplin URLs that regex on raw text might miss
+      const scanObject = (obj: unknown, depth = 0): void => {
+        if (depth > 6 || !obj) return;
+        if (typeof obj === "string") {
+          const nestedLinks = extractDesignLinksFromText(obj);
+          for (const nl of nestedLinks) {
+            if (!designLinks.some((l) => l.url === nl.url)) {
+              designLinks.push(nl);
+            }
+          }
+          return;
+        }
+        if (Array.isArray(obj)) {
+          for (const item of obj) scanObject(item, depth + 1);
+          return;
+        }
+        if (typeof obj === "object") {
+          for (const key of Object.keys(obj as Record<string, unknown>)) {
+            scanObject((obj as Record<string, unknown>)[key], depth + 1);
+          }
+        }
+      };
+
+      scanObject(data);
     }
   } catch {
     // Ignore JSON parse errors for non-JSON raw text
