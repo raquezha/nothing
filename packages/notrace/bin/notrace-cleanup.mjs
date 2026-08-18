@@ -72,14 +72,24 @@ function listSessions(directory) {
 function listStaleArtifacts(directory, now = Date.now()) {
   const candidates = [];
   const rootEntries = existsSync(directory) ? readdirSync(directory, { withFileTypes: true }) : [];
+
   for (const entry of rootEntries) {
-    if (entry.isDirectory()) continue;
+    const isCandidateFile = !entry.isDirectory() && (entry.name.endsWith(".tmp") || entry.name === "index.json.lock");
+    if (!isCandidateFile) continue;
+
     const filePath = join(directory, entry.name);
-    if (!entry.name.endsWith(".tmp") && entry.name !== "index.json.lock") continue;
     const stat = statSync(filePath);
-    if (now - stat.mtimeMs < STALE_MS) continue;
-    candidates.push({ path: filePath, reason: entry.name === "index.json.lock" ? "stale-lock" : "stale-temp", totalBytes: stat.size });
+    const isStale = now - stat.mtimeMs >= STALE_MS;
+
+    if (isStale) {
+      candidates.push({
+        path: filePath,
+        reason: entry.name === "index.json.lock" ? "stale-lock" : "stale-temp",
+        totalBytes: stat.size,
+      });
+    }
   }
+
   return candidates;
 }
 
@@ -126,29 +136,23 @@ function collectRetentionCandidates(summary, options = {}) {
   const candidates = [];
   const sessions = [...summary.sessions].sort((a, b) => b.timestampMs - a.timestampMs);
   const now = Date.now();
+  const cutoffMs = options.maxAgeDays == null ? null : now - (options.maxAgeDays * 24 * 60 * 60 * 1000);
+  let keptBytes = 0;
 
-  if (options.maxAgeDays != null) {
-    const cutoffMs = now - (options.maxAgeDays * 24 * 60 * 60 * 1000);
-    for (const session of sessions) {
-      if (!session.preserved && session.timestampMs < cutoffMs) {
-        candidates.push({ path: session.path, type: "session", reason: "max-age", totalBytes: session.totalBytes, sessionId: session.id });
-      }
-    }
-  }
+  for (const session of sessions) {
+    const isExpiredByAge = cutoffMs != null && !session.preserved && session.timestampMs < cutoffMs;
+    const fitsSizeBudget = options.maxTotalBytes == null || session.preserved || keptBytes + session.totalBytes <= options.maxTotalBytes;
 
-  if (options.maxTotalBytes != null) {
-    let keptBytes = 0;
-    for (const session of sessions) {
-      if (session.preserved) {
-        keptBytes += session.totalBytes;
-        continue;
-      }
-      if (keptBytes + session.totalBytes <= options.maxTotalBytes) {
-        keptBytes += session.totalBytes;
-        continue;
-      }
-      candidates.push({ path: session.path, type: "session", reason: "max-total-bytes", totalBytes: session.totalBytes, sessionId: session.id });
+    if (isExpiredByAge) {
+      candidates.push({ path: session.path, type: "session", reason: "max-age", totalBytes: session.totalBytes, sessionId: session.id });
     }
+
+    if (fitsSizeBudget) {
+      keptBytes += session.totalBytes;
+      continue;
+    }
+
+    candidates.push({ path: session.path, type: "session", reason: "max-total-bytes", totalBytes: session.totalBytes, sessionId: session.id });
   }
 
   for (const artifact of summary.staleArtifacts) {
