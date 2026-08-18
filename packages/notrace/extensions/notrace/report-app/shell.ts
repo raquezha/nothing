@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { escapeHtml } from "./escape.js";
 import { STYLES } from "./styles.js";
 
@@ -15,10 +16,49 @@ export function copyButton(value: string, label: string, className = "copy-btn")
 }
 
 export function exportButton(data: any): string {
-  const payload = JSON.stringify({ kind: "notrace-export", traceId: data.traceId, repository: data.repository?.name, branch: data.repository?.branch, task: data.task, metrics: data.activity?.totals, summary: data.telemetry?.extensions?.noheadroom?.summary, events: (data.events || []).filter((e: any) => e.type === "llm_completion").map((e: any) => ({ model: e.model, input: e.inputPayload?.messages, output: e.outputContent })) });
+  const payload = JSON.stringify({
+    kind: "notrace-export",
+    traceId: data.traceId,
+    repository: data.repository?.name,
+    branch: data.repository?.branch,
+    task: data.task,
+    metrics: data.activity?.totals,
+    summary: data.telemetry?.extensions?.noheadroom?.summary,
+    events: (data.events || [])
+      .filter((e: any) => e.type === "llm_completion")
+      .map((e: any) => ({
+        model: e.model,
+        input: e.inputPayload?.messages,
+        output: e.outputContent,
+      })),
+  });
   return `<button class="export-btn" type="button" data-copy-value="${escapeHtml(payload)}" title="Copy session data for LLM/Agent context"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg><span>Export</span></button>`;
 }
 
+function createNonce(): string {
+  return randomBytes(16).toString("base64");
+}
+
+export function safeHref(value: unknown, fallback = "#"): string {
+  const href = String(value ?? "").trim();
+  if (!href) return fallback;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("//")) return fallback;
+  return href;
+}
+
 export function shell(title: string, body: string, script = ""): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:;"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><link rel="icon" href="${faviconHref()}"><style>${STYLES}</style></head><body>${body}${script ? `<script>${script}</script>` : ""}</body></html>`;
+  const nonce = createNonce();
+  const csp = [
+    "default-src 'none'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "frame-src 'none'",
+    "connect-src 'none'",
+    "img-src data:",
+    "font-src data:",
+    "style-src 'unsafe-inline'",
+    `script-src 'nonce-${nonce}'`,
+  ].join("; ");
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><link rel="icon" href="${faviconHref()}"><style>${STYLES}</style></head><body>${body}${script ? `<script nonce="${nonce}">${script}</script>` : ""}</body></html>`;
 }

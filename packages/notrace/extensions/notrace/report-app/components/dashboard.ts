@@ -8,7 +8,7 @@ import {
   workflowClassName,
   workflowDisplayName,
 } from "../format.js";
-import { wordmarkSvg } from "../shell.js";
+import { safeHref, wordmarkSvg } from "../shell.js";
 
 function renderDateCell(value: string | number): string {
   const date = parseDate(value);
@@ -18,11 +18,14 @@ function renderDateCell(value: string | number): string {
 
 function renderSessionRow(s: any, index: number, totalCount: number): string {
   const rowNumber = totalCount - index;
-  const link = s.artifacts?.record
-    ? s.artifacts.record
-    : s.artifacts?.html
-      ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
-      : "#";
+  const htmlArtifact = s.artifacts?.html;
+  const link = safeHref(
+    htmlArtifact
+      ? (htmlArtifact.startsWith(".notrace/") ? htmlArtifact.substring(9) : htmlArtifact)
+      : s.artifacts?.record
+        ? s.artifacts.record
+        : "#"
+  );
 
   const workflow = s.task?.workflow || "generic";
   const workflowLabel = workflowDisplayName(workflow);
@@ -139,7 +142,7 @@ export function renderDashboardBody(sessions: any[], options: any = {}): string 
   const reversed = sessions.slice().reverse();
   const totalCost = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalCostUsd || 0), 0);
   const totalTokens = sessions.reduce((sum, s) => sum + Number(s.activity?.totals?.totalTokens || 0), 0);
-  const homeHref = options?.indexHref || "index.html";
+  const homeHref = safeHref(options?.indexHref, "index.html");
 
   const heroHtml = renderDashboardHero(sessions.length, homeHref);
   const metricsHtml = renderDashboardMetrics(sessions.length, totalTokens, totalCost);

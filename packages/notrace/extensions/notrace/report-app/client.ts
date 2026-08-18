@@ -34,8 +34,18 @@ export const COPY_SCRIPT = `(() => {
         if (!details.open) return;
         if (details.querySelector('.event-body')) return;
         const html = decodeURIComponent(details.getAttribute('data-lazy-event-body') || '');
-        details.insertAdjacentHTML('beforeend', html);
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        details.appendChild(template.content.cloneNode(true));
       }, { once: false });
+    });
+
+    document.querySelectorAll('[data-back-link="true"]').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        if (window.history.length <= 1) return;
+        event.preventDefault();
+        window.history.back();
+      });
     });
 
     const topBtn = document.querySelector('.back-to-top');

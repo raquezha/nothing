@@ -116,6 +116,14 @@ Trace sizes measured on a 25-turn synthetic session (prompt/tool payloads, assis
 
 Default mode remains `redacted` so payload histories are available for local debugging by default. Any change to `metadata` as default remains deferred pending stakeholder review of body availability needs vs storage savings.
 
+### Report/runtime invariants
+
+- Missing or invalid `NOTRACE_CAPTURE` falls back to `redacted`.
+- Non-ghost sessions emit both `notrace.json` and `notrace.html`.
+- Dashboard/index entries carry both `artifacts.html` and `artifacts.record`.
+- Dashboard links should open per-session HTML reports, not raw JSON, when HTML exists.
+- Static reports allow only local relative navigation links; scheme URLs are blocked.
+
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
 ## Cleanup
