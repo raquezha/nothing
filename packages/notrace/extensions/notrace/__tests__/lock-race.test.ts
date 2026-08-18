@@ -168,9 +168,8 @@ if (isMainThread) {
       expect(index.sessions).toHaveLength(1);
       expect(index.sessions[0].sessionId).toBe(sessionId);
       expect(index.sessions[0].repositoryName).toBe(path.basename(process.cwd()));
-      expect(path.isAbsolute(index.sessions[0].artifacts.html)).toBe(false);
       expect(path.isAbsolute(index.sessions[0].artifacts.record)).toBe(false);
-      expect(existsSync(path.join(notraceDir, index.sessions[0].artifacts.html))).toBe(true);
+      expect(existsSync(path.join(notraceDir, "index.html"))).toBe(true);
       expect(existsSync(path.join(notraceDir, index.sessions[0].artifacts.record))).toBe(true);
     });
   });
