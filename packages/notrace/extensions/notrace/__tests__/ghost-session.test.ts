@@ -60,7 +60,6 @@ describe("handleSessionShutdown ghost sessions", () => {
     );
 
     const dir = sessionDir(notraceDir, sessionId);
-    expect(existsSync(path.join(dir, "notrace.html"))).toBe(false);
     expect(existsSync(path.join(dir, "notrace.json"))).toBe(false);
 
     const indexPath = path.join(notraceDir, "index.json");
@@ -91,9 +90,7 @@ describe("handleSessionShutdown ghost sessions", () => {
     );
 
     const dir = sessionDir(notraceDir, sessionId);
-    const htmlPath = path.join(dir, "notrace.html");
     const recordPath = path.join(dir, "notrace.json");
-    expect(existsSync(htmlPath)).toBe(true);
     expect(existsSync(recordPath)).toBe(true);
 
     const index = readJson(path.join(notraceDir, "index.json"));

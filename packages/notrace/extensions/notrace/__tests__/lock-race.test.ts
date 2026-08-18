@@ -129,7 +129,6 @@ if (isMainThread) {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining("Could not acquire index lock"));
       expect(readJson(indexPath)).toEqual(seed);
       expect(existsSync(path.join(sessionDir(notraceDir, "skipped-session"), "notrace.json"))).toBe(true);
-      expect(existsSync(path.join(sessionDir(notraceDir, "skipped-session"), "notrace.html"))).toBe(true);
       expect(existsSync(lockPath)).toBe(true);
       expect(log).toHaveBeenCalled();
     });

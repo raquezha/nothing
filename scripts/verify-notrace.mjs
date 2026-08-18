@@ -112,18 +112,18 @@ async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
   await emit("session_shutdown", { reason: "quit" });
 
   const outputDir = join(cwd, ".notrace", "sessions", withActiveTask ? "notrace-task-session" : "notrace-plain-session");
-  const reportPath = join(outputDir, "notrace.html");
   const recordPath = join(outputDir, "notrace.json");
   const indexPath = join(cwd, ".notrace", "index.json");
+  const dashboardPath = join(cwd, ".notrace", "index.html");
 
-  if (!existsSync(reportPath)) throw new Error(`Expected notrace report at ${reportPath}`);
   if (!existsSync(recordPath)) throw new Error(`Expected notrace record at ${recordPath}`);
   if (!existsSync(indexPath)) throw new Error(`Expected notrace index at ${indexPath}`);
+  if (!existsSync(dashboardPath)) throw new Error(`Expected notrace dashboard at ${dashboardPath}`);
 
-  const html = readFileSync(reportPath, "utf8");
+  const html = readFileSync(dashboardPath, "utf8");
   const expectedSessionId = withActiveTask ? "notrace-task-session" : "notrace-plain-session";
-  if (!html.includes("<html") || !html.includes("notrace") || !html.includes(expectedSessionId)) {
-    throw new Error("Generated notrace report is missing expected HTML markers.");
+  if (!html.includes("<html") || !html.includes("notrace")) {
+    throw new Error("Generated notrace dashboard is missing expected HTML markers.");
   }
 
   const record = JSON.parse(readFileSync(recordPath, "utf8"));

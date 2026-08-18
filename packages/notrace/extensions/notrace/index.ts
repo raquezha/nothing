@@ -213,7 +213,7 @@ function relativeArtifactPath(notraceDir: string, filePath: string): string {
   return path.relative(notraceDir, filePath).split(path.sep).join("/");
 }
 
-function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath: string, notraceDir: string): Record<string, unknown> {
+function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceDir: string): Record<string, unknown> {
   return {
     sessionId: record.traceId,
     repositoryName: record.repository.name,
@@ -225,7 +225,6 @@ function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
-      html: relativeArtifactPath(notraceDir, htmlPath),
       record: relativeArtifactPath(notraceDir, recordPath),
     },
   };
@@ -320,12 +319,9 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   };
 
   validateRunRecord(record);
-  const htmlPath = path.join(outputDir, "notrace.html");
 
   if (!isGhostSession) {
-    const html = generateHtmlReport(record);
     mkdirSync(outputDir, { recursive: true });
-    writePrivateFileAtomic(htmlPath, html);
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
   }
 
@@ -354,7 +350,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
 
       if (!isGhostSession) {
-        sessions.push(createIndexEntry(record, htmlPath, recordPath, deps.notraceDir));
+        sessions.push(createIndexEntry(record, recordPath, deps.notraceDir));
       }
 
       writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
@@ -366,18 +362,19 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     }
   }
 
+  const dashboardHtmlPath = path.join(deps.notraceDir, "index.html");
   if (context && !isGhostSession) {
-    const displayPath = htmlPath.startsWith(os.homedir()) 
-      ? `~${htmlPath.slice(os.homedir().length)}` 
-      : htmlPath;
+    const displayPath = dashboardHtmlPath.startsWith(os.homedir()) 
+      ? `~${dashboardHtmlPath.slice(os.homedir().length)}` 
+      : dashboardHtmlPath;
     deps.adapter.attach(context, {
-      html: displayPath,
+      html: `${displayPath}?session=${finalTraceId}`,
       record: recordPath
     });
   }
 
   if (!isGhostSession) {
-    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${htmlPath}\x1b[0m\n`);
+    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${dashboardHtmlPath}?session=${finalTraceId}\x1b[0m\n`);
   }
 }
 

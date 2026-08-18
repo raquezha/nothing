@@ -93,10 +93,8 @@ describe("Pi Compaction & Epoch Boundaries Integration", () => {
     expect(record.activity.context.peakTokens).toBe(150000);
     expect(record.activity.context.activeTokens).toBe(35000);
 
-    const htmlPath = path.join(notraceDir, "sessions", sessionId, "notrace.html");
-    expect(existsSync(htmlPath)).toBe(true);
-    const html = readFileSync(htmlPath, "utf-8");
-    expect(html).toContain("badge-epoch");
+    const dashboardPath = path.join(notraceDir, "index.html");
+    expect(existsSync(dashboardPath)).toBe(true);
 
     cleanupTempNotraceDir(notraceDir);
   });
