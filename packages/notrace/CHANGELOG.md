@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.2.3
+
+### Patch Changes
+
+- 9dfea92: Measure active tokens, peak context, context window, message count, and session role markers in session retrospective records
+
 ## 0.2.2
 
 ### Patch Changes
