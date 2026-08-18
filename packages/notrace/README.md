@@ -59,6 +59,7 @@ The record is versioned and centers on:
 - `repository`
 - `session`
 - `task`
+- `correlation` (optional Nochestra correlation fields)
 - `captureMode`
 - `conditions`
 - `activity`

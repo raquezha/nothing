@@ -12,7 +12,7 @@ import type {
   NotraceRunRecord,
   WorkflowContext,
 } from "./types.js";
-import { getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
+import { extractCorrelation, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
 import { generateHtmlReport } from "./report-app/report.js";
 import { generateDashboardHtml } from "./report-app/dashboard-report.js";
 
@@ -221,6 +221,7 @@ function createIndexEntry(record: NotraceRunRecord, htmlPath: string, recordPath
     endedAt: record.session.endedAt,
     captureMode: record.captureMode,
     task: record.task,
+    correlation: record.correlation ?? null,
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
@@ -290,6 +291,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
 
   const telemetry = Object.fromEntries([...deps.extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
   const role = context?.role ?? process.env.NOCHESTRA_ROLE ?? process.env.PI_ROLE ?? null;
+  const correlation = context?.correlation ?? extractCorrelation();
 
   const record: NotraceRunRecord = {
     kind: "notrace-run",
@@ -309,6 +311,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       role,
     },
     task: toTaskInfo(context) || originalTask,
+    correlation: correlation ?? null,
     captureMode: deps.captureMode,
     conditions: buildConditions(mergedEvents, telemetry),
     activity,

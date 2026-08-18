@@ -6,12 +6,21 @@ export type NotraceMetrics = {
   toolErrorCount: number;
 };
 
+export type NotraceCorrelationInfo = {
+  runId?: string | null;
+  workItemId?: string | null;
+  workerId?: string | null;
+  sessionId?: string | null;
+  epochId?: string | null;
+};
+
 export type WorkflowContext = {
   workflow: string;
   taskId: string | null;
   taskPath: string | null;
   taskDir: string | null;
   role?: string | null;
+  correlation?: NotraceCorrelationInfo | null;
 };
 
 export type NotraceEvent = {
@@ -112,6 +121,7 @@ export type NotraceRunRecord = {
   repository: NotraceRepositoryInfo;
   session: NotraceSessionInfo;
   task: NotraceTaskInfo | null;
+  correlation?: NotraceCorrelationInfo | null;
   captureMode: NotraceCaptureMode;
   conditions: NotraceConditions;
   activity: NotraceActivity;
