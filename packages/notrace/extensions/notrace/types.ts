@@ -11,6 +11,7 @@ export type WorkflowContext = {
   taskId: string | null;
   taskPath: string | null;
   taskDir: string | null;
+  role?: string | null;
 };
 
 export type NotraceEvent = {
@@ -45,6 +46,7 @@ export type NotraceSessionInfo = {
   endedAt: string;
   durationMs: number;
   shutdownReason: string | null;
+  role?: string | null;
 };
 
 export type NotraceTaskInfo = {
@@ -52,6 +54,7 @@ export type NotraceTaskInfo = {
   id: string | null;
   path: string | null;
   dir: string | null;
+  role?: string | null;
 };
 
 export type NotraceConditions = {
@@ -70,6 +73,13 @@ export type NotraceActivityTotals = {
   totalCostUsd: number;
 };
 
+export type NotraceActivityContext = {
+  activeTokens: number | null;
+  peakTokens: number | null;
+  contextWindow: number | null;
+  messageCount: number | null;
+};
+
 export type NotraceActivity = {
   turnCount: number;
   llmCallCount: number;
@@ -77,6 +87,7 @@ export type NotraceActivity = {
   toolErrorCount: number;
   durationMs: number;
   totals: NotraceActivityTotals;
+  context: NotraceActivityContext;
 };
 
 export type NotraceExtensionTelemetryStatus = "absent" | "loaded-disabled" | "loaded-inactive" | "active" | "unknown";

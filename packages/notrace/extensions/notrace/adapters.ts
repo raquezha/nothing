@@ -98,11 +98,16 @@ export class ActiveWorkflowAdapter implements WorkflowAdapter {
         taskDir = path.dirname(path.resolve(cwd, stateFile));
       }
 
+      const role = typeof content.role === "string"
+        ? content.role
+        : (process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null);
+
       return {
         workflow: typeof content.workflow === "string" ? content.workflow : this.name,
         taskId,
         taskPath: stateFile,
         taskDir,
+        role,
       };
     } catch {
       return null;
@@ -139,11 +144,16 @@ export class NorpivAdapter implements WorkflowAdapter {
       const taskId = content.active_task || "unknown";
       const taskDir = taskPath ? path.resolve(cwd, taskPath) : null;
 
+      const role = typeof content.role === "string"
+        ? content.role
+        : (process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null);
+
       return {
         workflow: this.name,
         taskId,
         taskPath,
         taskDir,
+        role,
       };
     } catch {
       return null;
@@ -182,6 +192,7 @@ export class ResearchAdapter implements WorkflowAdapter {
         taskId: `branch:${branch}`,
         taskPath: null,
         taskDir: null,
+        role: process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null,
       };
     } catch {
       return null;
