@@ -1,5 +1,14 @@
 # @raquezha/notrace
 
+## 0.2.4
+
+### Patch Changes
+
+- 3bb5407: Add explicit Notrace cleanup retention controls, preserve markers, and cleanup documentation.
+- 892773d: Add a `notrace-cleanup` CLI for local disk-usage inspection and dry-run cleanup previews.
+- 57015e6: Store session trace events in canonical `notrace.json` without creating duplicate per-session HTML report files.
+- 41b1a99: Record Pi compaction and context epoch boundaries as passive telemetry events.
+
 ## 0.2.3
 
 ### Patch Changes
