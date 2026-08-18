@@ -20,5 +20,5 @@ export function exportButton(data: any): string {
 }
 
 export function shell(title: string, body: string, script = ""): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><link rel="icon" href="${faviconHref()}"><style>${STYLES}</style></head><body>${body}${script ? `<script>${script}</script>` : ""}</body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src data:;"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><link rel="icon" href="${faviconHref()}"><style>${STYLES}</style></head><body>${body}${script ? `<script>${script}</script>` : ""}</body></html>`;
 }

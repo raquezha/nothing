@@ -22,8 +22,10 @@ const record = {
 };
 
 describe("report-app report", () => {
-  it("renders structural markers", () => {
+  it("renders structural markers and offline CSP meta tag", () => {
     const html = generateHtmlReport(record as any);
+    expect(html).toContain("Content-Security-Policy");
+    expect(html).toContain("default-src 'none'");
     expect(html).toContain("Session retrospective");
     expect(html).toContain("Run Summary");
     expect(html).toContain("Timeline");
