@@ -6,6 +6,48 @@ import { fileURLToPath } from "node:url";
 
 const STALE_MS = 24 * 60 * 60 * 1000;
 const PRESERVE_FILE = ".preserve";
+const MAX_TEXT_CANDIDATES = 20;
+const ANSI = {
+  reset: "\u001b[0m",
+  bold: "\u001b[1m",
+  dim: "\u001b[2m",
+  cyan: "\u001b[36m",
+  green: "\u001b[32m",
+  yellow: "\u001b[33m",
+  magenta: "\u001b[35m",
+  red: "\u001b[31m",
+};
+
+function paint(style, text) {
+  return `${style}${text}${ANSI.reset}`;
+}
+
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+function visibleLength(text) {
+  return stripAnsi(text).length;
+}
+
+function rule(color = ANSI.dim, char = "─", width = 56) {
+  return paint(color, char.repeat(width));
+}
+
+function boxLine(left, fill, right, color, width = 56) {
+  return paint(color, `${left}${fill.repeat(width)}${right}`);
+}
+
+function boxRow(text, color = ANSI.cyan, width = 56) {
+  const len = visibleLength(text);
+  const pad = Math.max(0, width - 2 - len);
+  return `${paint(color, "│ ")}${text}${" ".repeat(pad)}${paint(color, "│")}`;
+}
+
+function boxPair(label, value, color = ANSI.cyan, width = 56) {
+  const raw = `${label} ${value}`;
+  return boxRow(raw, color, width);
+}
 
 export function defaultNotraceDir() {
   return process.env.NOTRACE_DIR || join(os.homedir(), ".notrace");
@@ -209,9 +251,10 @@ export function applyReport(report) {
   return { deletedCount: deleted.length, deleted };
 }
 
-function usage() {
-  console.error("Usage: notrace-cleanup [--dir <path>] [--dry-run] [--apply] [--max-age-days <n>] [--max-total-mb <n>] [--max-total-bytes <n>] [--json]");
-  process.exit(1);
+function usage(exitCode = 1) {
+  console.error(`${paint(ANSI.bold + ANSI.cyan, "notrace cleanup")} ${paint(ANSI.dim, "Usage")}`);
+  console.error("  notrace-cleanup [--dir <path>] [--dry-run] [--apply] [--max-age-days <n>] [--max-total-mb <n>] [--max-total-bytes <n>] [--json]");
+  process.exit(exitCode);
 }
 
 function parseNumber(value, flag) {
@@ -261,7 +304,7 @@ export function parseArgs(argv) {
       maxTotalBytes = parseNumber(argv[++i], arg) * 1024 * 1024;
       continue;
     }
-    if (arg === "--help" || arg === "-h") usage();
+    if (arg === "--help" || arg === "-h") usage(0);
     usage();
   }
 
@@ -271,37 +314,54 @@ export function parseArgs(argv) {
 }
 
 export function renderText(report, result = null) {
+  const existsText = report.exists ? paint(ANSI.green, "yes") : paint(ANSI.red, "no");
+  const candidates = report.candidates.slice(0, MAX_TEXT_CANDIDATES);
+  const hiddenCount = report.candidates.length - candidates.length;
+
   const lines = [
-    "notrace cleanup",
+    `${paint(ANSI.bold + ANSI.cyan, "notrace cleanup")}  ${paint(ANSI.dim, "local trace retention & cleanup preview")}`,
+    rule(ANSI.cyan, "─", 64),
     "",
-    `Directory : ${report.directory}`,
-    `Exists    : ${report.exists ? "yes" : "no"}`,
-    `Sessions  : ${report.sessionCount}`,
-    `Files     : ${report.fileCount}`,
-    `Total     : ${formatBytes(report.totalBytes)}`,
+    `  📁 Directory   ${paint(ANSI.dim, report.directory)}`,
+    `  ✅ Exists      ${existsText}`,
+    `  🧾 Sessions    ${paint(ANSI.bold, String(report.sessionCount))}`,
+    `  📄 Files       ${paint(ANSI.bold, String(report.fileCount))}`,
+    `  💽 Total       ${paint(ANSI.bold + ANSI.magenta, formatBytes(report.totalBytes))}`,
   ];
 
   if (report.dryRun.enabled) {
     lines.push(
       "",
-      "Dry run",
-      `Would delete: ${formatBytes(report.dryRun.wouldDeleteBytes)}`,
-      `Candidates  : ${report.candidates.length}`,
-      ...report.dryRun.notes,
+      `  ${paint(ANSI.bold + ANSI.yellow, "⚠ Dry run")}`,
+      `  🗑  Would delete  ${paint(ANSI.bold, formatBytes(report.dryRun.wouldDeleteBytes))}`,
+      `  📌 Candidates    ${paint(ANSI.bold, String(report.candidates.length))}`,
+      ...report.dryRun.notes.map((note) => `  ℹ  ${paint(ANSI.dim, note)}`),
     );
   }
 
   if (result) {
-    lines.push("", `Deleted   : ${result.deletedCount}`);
+    lines.push(
+      "",
+      `  ${paint(ANSI.bold + ANSI.green, "🧹 Cleanup applied")}`,
+      `  Deleted          ${paint(ANSI.bold + ANSI.green, String(result.deletedCount))}`,
+    );
   }
 
   if (report.candidates.length) {
-    lines.push("", "Candidates");
-    for (const candidate of report.candidates) {
-      lines.push(`- ${candidate.reason}: ${candidate.path} (${formatBytes(candidate.totalBytes)})`);
+    lines.push("", `  ${paint(ANSI.bold, "Candidates")}`);
+
+    for (const candidate of candidates) {
+      const reasonColor = candidate.reason === "stale-lock" || candidate.reason === "stale-temp" ? ANSI.yellow : ANSI.red;
+      const tag = paint(reasonColor, candidate.reason.padEnd(15));
+      lines.push(`  • ${tag} ${candidate.path} ${paint(ANSI.dim, `(${formatBytes(candidate.totalBytes)})`)}`);
+    }
+
+    if (hiddenCount > 0) {
+      lines.push(`  ${paint(ANSI.dim, `… ${hiddenCount} more candidate(s); use --json for the full list`)}`);
     }
   }
 
+  lines.push("", rule(ANSI.cyan, "─", 64));
   return `${lines.join("\n")}\n`;
 }
 
