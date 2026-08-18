@@ -11,6 +11,7 @@
     "render:samples": "npm run build && node ./templates/render-samples.mjs",
     "review": "node ./bin/notrace-review.mjs",
     "compare": "node ./bin/notrace-compare.mjs",
+    "cleanup": "node ./bin/notrace-cleanup.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {
@@ -38,6 +39,7 @@
   },
   "bin": {
     "notrace-review": "./bin/notrace-review.mjs",
-    "notrace-compare": "./bin/notrace-compare.mjs"
+    "notrace-compare": "./bin/notrace-compare.mjs",
+    "notrace-cleanup": "./bin/notrace-cleanup.mjs"
   }
 }
