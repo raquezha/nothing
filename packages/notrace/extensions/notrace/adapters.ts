@@ -1,6 +1,26 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import type { WorkflowContext } from "./types.js";
+import type { NotraceCorrelationInfo, WorkflowContext } from "./types.js";
+
+export function extractCorrelation(content?: any): NotraceCorrelationInfo | null {
+  const runId = process.env.NOCHESTRA_RUN_ID || content?.runId || content?.run_id || content?.correlation?.runId || null;
+  const workItemId = process.env.NOCHESTRA_WORK_ITEM_ID || content?.workItemId || content?.work_item_id || content?.correlation?.workItemId || null;
+  const workerId = process.env.NOCHESTRA_WORKER_ID || content?.workerId || content?.worker_id || content?.correlation?.workerId || null;
+  const sessionId = process.env.NOCHESTRA_SESSION_ID || content?.sessionId || content?.session_id || content?.correlation?.sessionId || null;
+  const epochId = process.env.NOCHESTRA_EPOCH_ID || content?.epochId || content?.epoch_id || content?.correlation?.epochId || null;
+
+  if (!runId && !workItemId && !workerId && !sessionId && !epochId) {
+    return null;
+  }
+
+  const corr: NotraceCorrelationInfo = {};
+  if (runId) corr.runId = String(runId);
+  if (workItemId) corr.workItemId = String(workItemId);
+  if (workerId) corr.workerId = String(workerId);
+  if (sessionId) corr.sessionId = String(sessionId);
+  if (epochId) corr.epochId = String(epochId);
+  return corr;
+}
 
 export interface WorkflowAdapter {
   name: string;
@@ -102,12 +122,15 @@ export class ActiveWorkflowAdapter implements WorkflowAdapter {
         ? content.role
         : (process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null);
 
+      const correlation = extractCorrelation(content);
+
       return {
         workflow: typeof content.workflow === "string" ? content.workflow : this.name,
         taskId,
         taskPath: stateFile,
         taskDir,
         role,
+        correlation,
       };
     } catch {
       return null;
@@ -148,12 +171,15 @@ export class NorpivAdapter implements WorkflowAdapter {
         ? content.role
         : (process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null);
 
+      const correlation = extractCorrelation(content);
+
       return {
         workflow: this.name,
         taskId,
         taskPath,
         taskDir,
         role,
+        correlation,
       };
     } catch {
       return null;
@@ -193,6 +219,7 @@ export class ResearchAdapter implements WorkflowAdapter {
         taskPath: null,
         taskDir: null,
         role: process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null,
+        correlation: extractCorrelation(),
       };
     } catch {
       return null;
@@ -212,6 +239,17 @@ export class GenericAdapter implements WorkflowAdapter {
   }
 
   getContext(): WorkflowContext | null {
+    const correlation = extractCorrelation();
+    if (correlation) {
+      return {
+        workflow: "generic",
+        taskId: null,
+        taskPath: null,
+        taskDir: null,
+        role: process.env.NOCHESTRA_ROLE || process.env.PI_ROLE || null,
+        correlation,
+      };
+    }
     return null;
   }
 

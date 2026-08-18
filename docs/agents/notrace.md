@@ -73,6 +73,11 @@ Rules:
 - do not scrape UI strings for canonical evidence
 - prefer side-channel integration over conversation/session mutation during compression-sensitive flows
 
+## Correlation model
+
+`notrace` accepts optional Nochestra correlation fields (`runId`, `workItemId`, `workerId`, `sessionId`, `epochId`) attached via context pointers or `NOCHESTRA_*` environment variables.
+`notrace` only records supplied correlation fields and does not control worker lifecycle or epoch policies.
+
 ## Retrospective spine
 
 A session is complete only when it follows the spine:
