@@ -45,8 +45,8 @@ export function renderEventBody(ev: any): string {
 }
 
 export function renderEventCard(ev: any, index?: number, standalone: boolean = false): string {
-  if (standalone || index == null) {
-    return `<details class="event" data-lazy-event-body="${escapeHtml(encodeURIComponent(renderEventBody(ev)))}"><summary><div class="event-main"><span class="${eventBadgeClass(ev)}">${escapeHtml(ev.type)}</span><span class="event-title">${escapeHtml(eventTitle(ev))}</span></div><span class="event-time">${escapeHtml(formatTimeSeconds(ev.timestamp))}</span></summary></details>`;
-  }
-  return `<details class="event" data-lazy-event-index="${index}"><summary><div class="event-main"><span class="${eventBadgeClass(ev)}">${escapeHtml(ev.type)}</span><span class="event-title">${escapeHtml(eventTitle(ev))}</span></div><span class="event-time">${escapeHtml(formatTimeSeconds(ev.timestamp))}</span></summary></details>`;
+  const attr = standalone || index == null
+    ? `data-lazy-event-body="${escapeHtml(encodeURIComponent(renderEventBody(ev)))}"`
+    : `data-lazy-event-index="${index}"`;
+  return `<details class="event" ${attr}><summary><div class="event-main"><span class="${eventBadgeClass(ev)}">${escapeHtml(ev.type)}</span><span class="event-title">${escapeHtml(eventTitle(ev))}</span></div><span class="event-time">${escapeHtml(formatTimeSeconds(ev.timestamp))}</span></summary></details>`;
 }
