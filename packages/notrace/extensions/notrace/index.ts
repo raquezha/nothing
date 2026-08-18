@@ -323,7 +323,8 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   const htmlPath = path.join(outputDir, "notrace.html");
 
   if (!isGhostSession) {
-    const html = generateHtmlReport(record);
+    const standalone = process.env.NOTRACE_STANDALONE_HTML === "true";
+    const html = generateHtmlReport(record, { standalone });
     mkdirSync(outputDir, { recursive: true });
     writePrivateFileAtomic(htmlPath, html);
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
