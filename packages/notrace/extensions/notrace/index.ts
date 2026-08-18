@@ -13,7 +13,6 @@ import type {
   WorkflowContext,
 } from "./types.js";
 import { extractCorrelation, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
-import { generateHtmlReport } from "./report-app/report.js";
 import { generateDashboardHtml } from "./report-app/dashboard-report.js";
 
 const REDACTED = "[REDACTED by notrace]";
@@ -213,12 +212,7 @@ function relativeArtifactPath(notraceDir: string, filePath: string): string {
   return path.relative(notraceDir, filePath).split(path.sep).join("/");
 }
 
-function createIndexEntry(
-  record: NotraceRunRecord,
-  recordPath: string,
-  htmlPath: string,
-  notraceDir: string
-): Record<string, unknown> {
+function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceDir: string): Record<string, unknown> {
   return {
     sessionId: record.traceId,
     repositoryName: record.repository.name,
@@ -230,7 +224,6 @@ function createIndexEntry(
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
-      html: relativeArtifactPath(notraceDir, htmlPath),
       record: relativeArtifactPath(notraceDir, recordPath),
     },
   };
@@ -268,7 +261,6 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     // not a git repo or no commits yet
   }
   const recordPath = path.join(outputDir, "notrace.json");
-  const reportPath = path.join(outputDir, "notrace.html");
 
   let mergedEvents = deps.events;
   let originalStartedAt = deps.startTime;
@@ -330,7 +322,6 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   if (!isGhostSession) {
     mkdirSync(outputDir, { recursive: true });
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
-    writePrivateFileAtomic(reportPath, generateHtmlReport({ ...record, navigation: { indexHref: "../../index.html" } }));
   }
 
   const indexPath = path.join(deps.notraceDir, "index.json");
@@ -358,7 +349,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
 
       if (!isGhostSession) {
-        sessions.push(createIndexEntry(record, recordPath, reportPath, deps.notraceDir));
+        sessions.push(createIndexEntry(record, recordPath, deps.notraceDir));
       }
 
       writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);

@@ -18,12 +18,11 @@ function renderDateCell(value: string | number): string {
 
 function renderSessionRow(s: any, index: number, totalCount: number): string {
   const rowNumber = totalCount - index;
-  const htmlArtifact = s.artifacts?.html;
   const link = safeHref(
-    htmlArtifact
-      ? (htmlArtifact.startsWith(".notrace/") ? htmlArtifact.substring(9) : htmlArtifact)
-      : s.artifacts?.record
-        ? s.artifacts.record
+    s.artifacts?.record
+      ? s.artifacts.record
+      : s.artifacts?.html
+        ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
         : "#"
   );
 
