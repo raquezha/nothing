@@ -43,14 +43,14 @@ When shutdown output appears mixed together, treat `notrace`, Pi core, and dynam
 
 ## Capture modes
 
-Current default is **full** unless `NOTRACE_CAPTURE` is set.
+Current default is **redacted** unless `NOTRACE_CAPTURE` is set.
 
 Supported modes:
 - `full`
 - `redacted`
 - `metadata`
 
-Use `redacted` or `metadata` when reduced sensitivity is more important than deep debugging.
+Use `metadata` when reduced sensitivity is more important than payload-level debugging.
 Use `full` when debugging local extension/runtime behavior and you accept the higher sensitivity.
 
 ## Metric families

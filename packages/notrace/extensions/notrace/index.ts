@@ -52,8 +52,8 @@ type ExtensionTelemetryPayload = {
 
 let currentMode: NotraceCaptureMode = "redacted";
 
-function getInitialMode(): NotraceCaptureMode {
-  const env = process.env.NOTRACE_CAPTURE?.toLowerCase();
+export function getInitialMode(envValue = process.env.NOTRACE_CAPTURE): NotraceCaptureMode {
+  const env = envValue?.toLowerCase();
   if (env === "metadata" || env === "redacted" || env === "full") return env;
   return "redacted";
 }
@@ -66,15 +66,15 @@ function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_RE.test(normalized);
 }
 
-function sanitizeTraceValue(value: unknown): unknown {
-  if (currentMode === "metadata") return { omitted: true, reason: "metadata-capture" };
-  if (currentMode === "full") return value;
+export function sanitizeTraceValue(value: unknown, mode: NotraceCaptureMode = currentMode): unknown {
+  if (mode === "metadata") return { omitted: true, reason: "metadata-capture" };
+  if (mode === "full") return value;
   if (value == null || typeof value !== "object") {
     return typeof value === "string" ? value.replace(SENSITIVE_VALUE_RE, REDACTED).slice(0, 10000) : value;
   }
-  if (Array.isArray(value)) return value.slice(0, 100).map(sanitizeTraceValue);
+  if (Array.isArray(value)) return value.slice(0, 100).map((item) => sanitizeTraceValue(item, mode));
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value).slice(0, 100)) out[k] = isSensitiveKey(k) ? REDACTED : sanitizeTraceValue(v);
+  for (const [k, v] of Object.entries(value).slice(0, 100)) out[k] = isSensitiveKey(k) ? REDACTED : sanitizeTraceValue(v, mode);
   return out;
 }
 

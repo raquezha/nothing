@@ -11,5 +11,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["extensions/notrace/index.ts", "extensions/notrace/report-app/**/*.ts"]
+  "include": ["extensions/notrace/**/*.ts"],
+  "exclude": ["extensions/notrace/**/__tests__/*"]
 }
