@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { analyzeNotraceDir, applyReport, createReport } from "./notrace-cleanup.mjs";
+import { analyzeNotraceDir, applyReport, createReport, renderText } from "./notrace-cleanup.mjs";
 
 const binDir = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(binDir, "..");
@@ -83,5 +83,33 @@ describe("notrace-cleanup", () => {
     expect(report.dryRun.retentionConfigured).toBe(true);
     expect(report.candidates.some((candidate) => candidate.sessionId === "old")).toBe(true);
     expect(report.candidates.some((candidate) => candidate.path.endsWith("index.json.lock"))).toBe(true);
+  });
+
+  it("prints help with a zero exit code", () => {
+    expect(() => execFileSync(
+      "node",
+      ["./bin/notrace-cleanup.mjs", "--help"],
+      { cwd: packageDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    )).not.toThrow();
+  });
+
+  it("truncates long candidate lists in text mode", () => {
+    const report = {
+      directory: "/tmp/notrace",
+      exists: true,
+      sessionCount: 30,
+      fileCount: 30,
+      totalBytes: 3000,
+      dryRun: { enabled: true, wouldDeleteBytes: 3000, retentionConfigured: true, notes: [] },
+      candidates: Array.from({ length: 25 }, (_, index) => ({
+        reason: "max-total-bytes",
+        path: `/tmp/notrace/sessions/${index}`,
+        totalBytes: 100,
+      })),
+    };
+
+    const text = renderText(report);
+    expect(text).toContain("5 more candidate(s); use --json for the full list");
+    expect(text).not.toContain("/tmp/notrace/sessions/24");
   });
 });
