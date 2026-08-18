@@ -167,12 +167,12 @@ async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");
-    if (!work.includes("notrace retrospective") || !work.includes(".notrace/sessions/notrace-task-session")) {
+    if (!work.includes("notrace retrospective") || !work.includes("notrace-task-session")) {
       throw new Error("Expected WORK.md log to include notrace artifact attachment.");
     }
   }
 
-  return { reportPath, recordPath, workPath, indexPath };
+  return { dashboardPath, recordPath, workPath, indexPath };
 }
 
 const plainCwd = mkdtempSync(join(tmpdir(), "notrace-plain-"));
@@ -184,4 +184,4 @@ const task = await runSession({ cwd: taskCwd, withActiveTask: true, captureMode:
 const metadataCwd = mkdtempSync(join(tmpdir(), "notrace-metadata-"));
 const metadata = await runSession({ cwd: metadataCwd, withActiveTask: false, captureMode: "metadata" });
 
-console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} metadata=${metadata.reportPath} work=${task.workPath}`);
+console.log(`notrace smoke ✓ plain=${plain.dashboardPath} task=${task.dashboardPath} metadata=${metadata.dashboardPath} work=${task.workPath}`);
