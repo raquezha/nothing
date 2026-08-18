@@ -14,8 +14,13 @@ This folder is the canonical local implementation home established in GitHub iss
 
 ```text
 packages/workflows/nochestra/
+  checkpoint.mjs
   nochestra/SKILL.md
   README.md
+  test/
+    checkpoint-contract.test.mjs
+    fixtures/
+      checkpoint.json
 ```
 
 ## Commands
@@ -37,3 +42,11 @@ Nochestra relies on Notrace (`@raquezha/notrace`) to observe session evidence wi
 - Session/task role markers (`role: "parent"` | `"worker"`) allow distinguishing parent context from dispatched worker runs.
 - Missing provider metrics are represented as unavailable (`null`) rather than invented.
 - Measurement evidence supports future checkpointing and epoch policies without establishing a hard permanent cross-provider schema.
+
+## Rolling Checkpoint Contract
+
+Nochestra maintains a single replaceable rolling checkpoint contract (`checkpoint.mjs`):
+- Overwrites active state in place rather than appending or accumulating transcript/turn history.
+- Preserves subject, goal, accepted decisions, constraints, open questions, rejected options, current route, and suggested next route.
+- Isolates accepted truth from raw transcript turns.
+- Final storage path, worker dispatch, and public schema remain provisional.

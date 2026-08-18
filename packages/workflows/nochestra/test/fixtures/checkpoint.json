@@ -1,0 +1,18 @@
+{
+  "subject": "Jira ABC-123",
+  "goal": "Prepare and deliver the ticket",
+  "decisions": [
+    "Use replace-in-place rolling checkpoint contract"
+  ],
+  "constraints": [
+    "Do not accumulate prior checkpoint bodies"
+  ],
+  "openQuestions": [
+    "What is the final storage path?"
+  ],
+  "rejectedOptions": [
+    "Append-only transcript log"
+  ],
+  "currentRoute": "chat",
+  "suggestedNextRoute": "delivery"
+}
