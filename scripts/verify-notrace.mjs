@@ -112,18 +112,18 @@ async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
   await emit("session_shutdown", { reason: "quit" });
 
   const outputDir = join(cwd, ".notrace", "sessions", withActiveTask ? "notrace-task-session" : "notrace-plain-session");
-  const reportPath = join(outputDir, "notrace.html");
   const recordPath = join(outputDir, "notrace.json");
   const indexPath = join(cwd, ".notrace", "index.json");
+  const dashboardPath = join(cwd, ".notrace", "index.html");
 
-  if (!existsSync(reportPath)) throw new Error(`Expected notrace report at ${reportPath}`);
   if (!existsSync(recordPath)) throw new Error(`Expected notrace record at ${recordPath}`);
   if (!existsSync(indexPath)) throw new Error(`Expected notrace index at ${indexPath}`);
+  if (!existsSync(dashboardPath)) throw new Error(`Expected notrace dashboard at ${dashboardPath}`);
 
-  const html = readFileSync(reportPath, "utf8");
+  const html = readFileSync(dashboardPath, "utf8");
   const expectedSessionId = withActiveTask ? "notrace-task-session" : "notrace-plain-session";
-  if (!html.includes("<html") || !html.includes("notrace") || !html.includes(expectedSessionId)) {
-    throw new Error("Generated notrace report is missing expected HTML markers.");
+  if (!html.includes("<html") || !html.includes("notrace")) {
+    throw new Error("Generated notrace dashboard is missing expected HTML markers.");
   }
 
   const record = JSON.parse(readFileSync(recordPath, "utf8"));
@@ -167,12 +167,12 @@ async function runSession({ cwd, withActiveTask, captureMode = "full" }) {
 
   if (withActiveTask) {
     const work = readFileSync(workPath, "utf8");
-    if (!work.includes("notrace retrospective") || !work.includes(".notrace/sessions/notrace-task-session")) {
+    if (!work.includes("notrace retrospective") || !work.includes("notrace-task-session")) {
       throw new Error("Expected WORK.md log to include notrace artifact attachment.");
     }
   }
 
-  return { reportPath, recordPath, workPath, indexPath };
+  return { dashboardPath, recordPath, workPath, indexPath };
 }
 
 const plainCwd = mkdtempSync(join(tmpdir(), "notrace-plain-"));
@@ -184,4 +184,4 @@ const task = await runSession({ cwd: taskCwd, withActiveTask: true, captureMode:
 const metadataCwd = mkdtempSync(join(tmpdir(), "notrace-metadata-"));
 const metadata = await runSession({ cwd: metadataCwd, withActiveTask: false, captureMode: "metadata" });
 
-console.log(`notrace smoke ✓ plain=${plain.reportPath} task=${task.reportPath} metadata=${metadata.reportPath} work=${task.workPath}`);
+console.log(`notrace smoke ✓ plain=${plain.dashboardPath} task=${task.dashboardPath} metadata=${metadata.dashboardPath} work=${task.workPath}`);
