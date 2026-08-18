@@ -1,5 +1,15 @@
 # @raquezha/notrace
 
+## 0.2.3
+
+### Patch Changes
+
+- 97009b2: Add optional Nochestra correlation fields (runId, workItemId, workerId, sessionId, epochId) to Notrace run record and reports.
+
+  Refs #84
+
+- 9dfea92: Measure active tokens, peak context, context window, message count, and session role markers in session retrospective records
+
 ## 0.2.2
 
 ### Patch Changes
