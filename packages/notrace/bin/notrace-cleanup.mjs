@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import os from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const STALE_MS = 24 * 60 * 60 * 1000;
+const PRESERVE_FILE = ".preserve";
 
 export function defaultNotraceDir() {
   return process.env.NOTRACE_DIR || join(os.homedir(), ".notrace");
@@ -24,6 +27,66 @@ function walk(filePath) {
   return { totalBytes, fileCount };
 }
 
+function readJson(filePath) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function sessionTimestamp(sessionDir, sessionId) {
+  const record = readJson(join(sessionDir, "notrace.json"));
+  const endedAt = Date.parse(record?.session?.endedAt || "");
+  if (Number.isFinite(endedAt)) return endedAt;
+  const startedAt = Date.parse(record?.session?.startedAt || "");
+  if (Number.isFinite(startedAt)) return startedAt;
+
+  const index = readJson(join(resolve(sessionDir, "..", ".."), "index.json"));
+  const match = index?.sessions?.find?.((entry) => entry?.sessionId === sessionId);
+  const indexEndedAt = Date.parse(match?.endedAt || match?.startedAt || "");
+  if (Number.isFinite(indexEndedAt)) return indexEndedAt;
+
+  return statSync(sessionDir).mtimeMs;
+}
+
+function listSessions(directory) {
+  const sessionsDir = join(directory, "sessions");
+  if (!existsSync(sessionsDir)) return [];
+
+  return readdirSync(sessionsDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const sessionDir = join(sessionsDir, entry.name);
+      const usage = walk(sessionDir);
+      return {
+        id: entry.name,
+        path: sessionDir,
+        preserved: existsSync(join(sessionDir, PRESERVE_FILE)),
+        totalBytes: usage.totalBytes,
+        timestampMs: sessionTimestamp(sessionDir, entry.name),
+      };
+    });
+}
+
+function listStaleArtifacts(directory, now = Date.now()) {
+  const candidates = [];
+  const rootEntries = existsSync(directory) ? readdirSync(directory, { withFileTypes: true }) : [];
+  for (const entry of rootEntries) {
+    if (entry.isDirectory()) continue;
+    const filePath = join(directory, entry.name);
+    if (!entry.name.endsWith(".tmp") && entry.name !== "index.json.lock") continue;
+    const stat = statSync(filePath);
+    if (now - stat.mtimeMs < STALE_MS) continue;
+    candidates.push({ path: filePath, reason: entry.name === "index.json.lock" ? "stale-lock" : "stale-temp", totalBytes: stat.size });
+  }
+  return candidates;
+}
+
+function uniqueByPath(items) {
+  return [...new Map(items.map((item) => [item.path, item])).values()];
+}
+
 export function analyzeNotraceDir(inputDir = defaultNotraceDir()) {
   const directory = resolve(inputDir);
   if (!existsSync(directory)) {
@@ -33,21 +96,22 @@ export function analyzeNotraceDir(inputDir = defaultNotraceDir()) {
       sessionCount: 0,
       fileCount: 0,
       totalBytes: 0,
+      sessions: [],
+      staleArtifacts: [],
     };
   }
 
-  const sessionsDir = join(directory, "sessions");
-  const sessionCount = existsSync(sessionsDir)
-    ? readdirSync(sessionsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).length
-    : 0;
   const usage = walk(directory);
+  const sessions = listSessions(directory);
 
   return {
     directory,
     exists: true,
-    sessionCount,
+    sessionCount: sessions.length,
     fileCount: usage.fileCount,
     totalBytes: usage.totalBytes,
+    sessions,
+    staleArtifacts: listStaleArtifacts(directory),
   };
 }
 
@@ -58,29 +122,109 @@ export function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function createReport(summary, { dryRun = false } = {}) {
-  const report = {
-    ...summary,
-    dryRun: {
-      enabled: dryRun,
-      wouldDeleteBytes: 0,
-      retentionConfigured: false,
-      notes: dryRun ? ["No explicit retention is configured yet; nothing would be deleted."] : [],
-    },
-  };
+function collectRetentionCandidates(summary, options = {}) {
+  const candidates = [];
+  const sessions = [...summary.sessions].sort((a, b) => b.timestampMs - a.timestampMs);
+  const now = Date.now();
 
-  return report;
+  if (options.maxAgeDays != null) {
+    const cutoffMs = now - (options.maxAgeDays * 24 * 60 * 60 * 1000);
+    for (const session of sessions) {
+      if (!session.preserved && session.timestampMs < cutoffMs) {
+        candidates.push({ path: session.path, type: "session", reason: "max-age", totalBytes: session.totalBytes, sessionId: session.id });
+      }
+    }
+  }
+
+  if (options.maxTotalBytes != null) {
+    let keptBytes = 0;
+    for (const session of sessions) {
+      if (session.preserved) {
+        keptBytes += session.totalBytes;
+        continue;
+      }
+      if (keptBytes + session.totalBytes <= options.maxTotalBytes) {
+        keptBytes += session.totalBytes;
+        continue;
+      }
+      candidates.push({ path: session.path, type: "session", reason: "max-total-bytes", totalBytes: session.totalBytes, sessionId: session.id });
+    }
+  }
+
+  for (const artifact of summary.staleArtifacts) {
+    candidates.push({ ...artifact, type: "artifact" });
+  }
+
+  return uniqueByPath(candidates);
+}
+
+export function createReport(summary, options = {}) {
+  const retentionConfigured = options.maxAgeDays != null || options.maxTotalBytes != null;
+  const candidates = collectRetentionCandidates(summary, options);
+
+  return {
+    directory: summary.directory,
+    exists: summary.exists,
+    sessionCount: summary.sessionCount,
+    fileCount: summary.fileCount,
+    totalBytes: summary.totalBytes,
+    dryRun: {
+      enabled: options.dryRun === true,
+      wouldDeleteBytes: candidates.reduce((sum, item) => sum + item.totalBytes, 0),
+      retentionConfigured,
+      notes: retentionConfigured
+        ? []
+        : [
+            candidates.length
+              ? "No session retention is configured; only stale temp/lock artifacts are eligible."
+              : "No explicit retention is configured yet; nothing would be deleted.",
+          ],
+    },
+    retention: {
+      maxAgeDays: options.maxAgeDays ?? null,
+      maxTotalBytes: options.maxTotalBytes ?? null,
+      preserveMarker: PRESERVE_FILE,
+    },
+    candidates: candidates.map((item) => ({
+      type: item.type,
+      reason: item.reason,
+      path: item.path,
+      sessionId: item.sessionId ?? null,
+      totalBytes: item.totalBytes,
+    })),
+  };
+}
+
+export function applyReport(report) {
+  const deleted = [];
+  for (const candidate of report.candidates) {
+    if (!existsSync(candidate.path)) continue;
+    rmSync(candidate.path, { recursive: true, force: true });
+    deleted.push(candidate.path);
+  }
+  return { deletedCount: deleted.length, deleted };
 }
 
 function usage() {
-  console.error("Usage: notrace-cleanup [--dir <path>] [--dry-run] [--json]");
+  console.error("Usage: notrace-cleanup [--dir <path>] [--dry-run] [--apply] [--max-age-days <n>] [--max-total-mb <n>] [--max-total-bytes <n>] [--json]");
   process.exit(1);
+}
+
+function parseNumber(value, flag) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid value for ${flag}: ${value}`);
+  }
+  return parsed;
 }
 
 export function parseArgs(argv) {
   let dir;
   let dryRun = false;
+  let apply = false;
   let json = false;
+  let maxAgeDays;
+  let maxTotalBytes;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -93,18 +237,36 @@ export function parseArgs(argv) {
       dryRun = true;
       continue;
     }
+    if (arg === "--apply") {
+      apply = true;
+      continue;
+    }
     if (arg === "--json") {
       json = true;
+      continue;
+    }
+    if (arg === "--max-age-days") {
+      maxAgeDays = parseNumber(argv[++i], arg);
+      continue;
+    }
+    if (arg === "--max-total-bytes") {
+      maxTotalBytes = parseNumber(argv[++i], arg);
+      continue;
+    }
+    if (arg === "--max-total-mb") {
+      maxTotalBytes = parseNumber(argv[++i], arg) * 1024 * 1024;
       continue;
     }
     if (arg === "--help" || arg === "-h") usage();
     usage();
   }
 
-  return { dir, dryRun, json };
+  if (apply && dryRun) throw new Error("Use either --dry-run or --apply, not both.");
+
+  return { dir, dryRun, apply, json, maxAgeDays, maxTotalBytes };
 }
 
-export function renderText(report) {
+export function renderText(report, result = null) {
   const lines = [
     "notrace cleanup",
     "",
@@ -120,8 +282,20 @@ export function renderText(report) {
       "",
       "Dry run",
       `Would delete: ${formatBytes(report.dryRun.wouldDeleteBytes)}`,
+      `Candidates  : ${report.candidates.length}`,
       ...report.dryRun.notes,
     );
+  }
+
+  if (result) {
+    lines.push("", `Deleted   : ${result.deletedCount}`);
+  }
+
+  if (report.candidates.length) {
+    lines.push("", "Candidates");
+    for (const candidate of report.candidates) {
+      lines.push(`- ${candidate.reason}: ${candidate.path} (${formatBytes(candidate.totalBytes)})`);
+    }
   }
 
   return `${lines.join("\n")}\n`;
@@ -129,8 +303,10 @@ export function renderText(report) {
 
 export function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
-  const report = createReport(analyzeNotraceDir(args.dir), { dryRun: args.dryRun });
-  process.stdout.write(args.json ? `${JSON.stringify(report, null, 2)}\n` : renderText(report));
+  const report = createReport(analyzeNotraceDir(args.dir), args);
+  const result = args.apply ? applyReport(report) : null;
+  const output = args.json ? { ...report, apply: result } : renderText(report, result);
+  process.stdout.write(args.json ? `${JSON.stringify(output, null, 2)}\n` : output);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
