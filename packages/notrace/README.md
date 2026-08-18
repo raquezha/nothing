@@ -106,6 +106,39 @@ Mode meanings:
 
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
+## Cleanup
+
+Inspect current local usage:
+
+```bash
+cd packages/notrace
+npm run cleanup -- --dry-run --json
+```
+
+Preview explicit retention by age or size:
+
+```bash
+npm run cleanup -- --dry-run --max-age-days 30 --json
+npm run cleanup -- --dry-run --max-total-mb 500 --json
+```
+
+Apply cleanup only when you mean it:
+
+```bash
+npm run cleanup -- --apply --max-age-days 30
+```
+
+Rules:
+- nothing is deleted unless you pass explicit retention flags with `--apply`
+- preserved sessions are skipped when their session directory contains `.preserve`
+- stale `index.json.lock` and `*.tmp` artifacts are eligible for cleanup when old enough
+- age/size retention uses run/index timestamps when available, then falls back to filesystem mtime
+
+Manual recovery / rollback:
+- use `--dry-run` first and review candidate paths before `--apply`
+- if cleanup was too aggressive, restore removed session directories from your filesystem backup or Time Machine; `notrace` does not rewrite historical traces or keep a trash folder
+- remove retention flags from your command and go back to inspection-only mode
+
 ## Review
 
 From this monorepo:
