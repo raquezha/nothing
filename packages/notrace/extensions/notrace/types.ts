@@ -14,6 +14,22 @@ export type NotraceCorrelationInfo = {
   epochId?: string | null;
 };
 
+export type NotraceEpochEventType =
+  | "epoch_start"
+  | "epoch_end"
+  | "compaction_start"
+  | "compaction_completion"
+  | "worker_handoff";
+
+export type NotraceEpochEvent = NotraceEvent & {
+  type: NotraceEpochEventType;
+  epochId?: string | null;
+  workerId?: string | null;
+  reason?: string | null;
+  tokensBefore?: number | null;
+  tokensAfter?: number | null;
+};
+
 export type WorkflowContext = {
   workflow: string;
   taskId: string | null;

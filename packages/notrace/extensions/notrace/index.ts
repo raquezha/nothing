@@ -443,6 +443,32 @@ export default function (pi: ExtensionAPI) {
       if (!normalized) return;
       extensionTelemetry.set(normalized.extension, normalized.telemetry);
     });
+
+    pi.events.on("notrace.boundary", (e: any) => {
+      recordBoundaryEvent(e);
+    });
+  }
+
+  function recordBoundaryEvent(e: any, ctx?: any) {
+    const type = typeof e?.type === "string" ? e.type : "epoch_boundary";
+    const ev: Record<string, unknown> = {
+      type,
+      timestamp: typeof e?.timestamp === "number" ? e.timestamp : Date.now(),
+    };
+    if (e?.epochId != null) ev.epochId = String(e.epochId);
+    if (e?.workerId != null) ev.workerId = String(e.workerId);
+    if (e?.reason != null) ev.reason = String(e.reason);
+    if (typeof e?.tokensBefore === "number") ev.tokensBefore = e.tokensBefore;
+    if (typeof e?.tokensAfter === "number") ev.tokensAfter = e.tokensAfter;
+    events.push(ev as NotraceEvent);
+    if (ctx) updateContextUsage(ctx);
+  }
+
+  const boundaryTypes = ["epoch_start", "epoch_end", "compaction_start", "compaction_completion", "worker_handoff"];
+  for (const bType of boundaryTypes) {
+    pi.on(bType as any, async (e: any, ctx: any) => {
+      recordBoundaryEvent({ ...e, type: bType }, ctx);
+    });
   }
 
   pi.registerCommand("notrace", {
