@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateHtmlReport } from "../report.js";
+import { generateHtmlReport, generateSessionSummaryHtml } from "../report.js";
 import { safeHref } from "../shell.js";
 
 const record = {
@@ -58,6 +58,21 @@ describe("report-app report", () => {
     expect(html).toContain("Timeline");
     expect(html).toContain("Branch main");
     expect(html).toContain("claude");
+  });
+
+  it("renders a compact session summary without an embedded timeline", () => {
+    const html = generateSessionSummaryHtml({
+      ...record,
+      navigation: {
+        indexHref: "../../index.html",
+        recordHref: "notrace.json",
+        viewerHref: "../../index.html?session=session-1",
+      },
+    } as any);
+    expect(html).toContain("Session summary");
+    expect(html).toContain("Open dashboard view");
+    expect(html).toContain("Open canonical record");
+    expect(html).not.toContain("Timeline");
   });
 
   it("allows local relative hrefs and blocks schemes", () => {
