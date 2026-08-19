@@ -14,7 +14,7 @@ import type {
 } from "./types.js";
 import { extractCorrelation, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
 import { generateDashboardHtml } from "./report-app/dashboard-report.js";
-import { generateHtmlReport, generateSessionSummaryHtml } from "./report-app/report.js";
+import { generateSessionSummaryHtml } from "./report-app/report.js";
 
 const REDACTED = "[REDACTED by notrace]";
 const SENSITIVE_VALUE_RE = /(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{16,}|AKIA[0-9A-Z]{16})/gi;
@@ -249,11 +249,6 @@ export type SessionShutdownDeps = {
   contextSnapshot?: ContextUsageSnapshot;
 };
 
-function useLegacyFullHtml(envValue = process.env.NOTRACE_LEGACY_HTML): boolean {
-  const value = envValue?.toLowerCase();
-  return value === "1" || value === "true" || value === "full" || value === "legacy";
-}
-
 export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutdownDeps): Promise<void> {
   const shutdownReason = typeof e?.reason === "string" ? e.reason : null;
   const endedAt = Date.now();
@@ -330,9 +325,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   if (!isGhostSession) {
     mkdirSync(outputDir, { recursive: true });
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
-    const reportHtml = useLegacyFullHtml()
-      ? generateHtmlReport({ ...record, navigation: { indexHref: "../../index.html" } })
-      : generateSessionSummaryHtml({ ...record, navigation: { indexHref: "../../index.html", recordHref: "notrace.json", viewerHref: `../../index.html?session=${encodeURIComponent(finalTraceId)}` } });
+    const reportHtml = generateSessionSummaryHtml({ ...record, navigation: { indexHref: "../../index.html", recordHref: "notrace.json", viewerHref: `../../index.html?session=${encodeURIComponent(finalTraceId)}` } });
     writePrivateFileAtomic(reportPath, reportHtml);
   }
 
