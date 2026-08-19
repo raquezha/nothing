@@ -1,5 +1,12 @@
 # @raquezha/notrace
 
+## 0.2.6
+
+### Patch Changes
+
+- bda3462: Add a baseline test that pins current per-session HTML storage duplication versus the canonical notrace.json record.
+- 8e639b5: Store session trace events in canonical `notrace.json` without creating duplicate per-session HTML report files.
+
 ## 0.2.5
 
 ### Patch Changes
