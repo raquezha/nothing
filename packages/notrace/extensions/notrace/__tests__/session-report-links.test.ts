@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 
 describe("session report artifacts", () => {
-  it("writes per-session html and indexes it for dashboard links", async () => {
+  it("writes the canonical record and indexes it for dashboard links", async () => {
     const notraceDir = makeTempNotraceDir();
     const sessionId = "html-session-1";
 
@@ -40,13 +40,14 @@ describe("session report artifacts", () => {
     await handleSessionShutdown({ reason: "normal" }, ctx, deps);
 
     const reportPath = path.join(notraceDir, "sessions", sessionId, "notrace.html");
-    expect(existsSync(reportPath)).toBe(true);
+    expect(existsSync(reportPath)).toBe(false);
 
     const indexPath = path.join(notraceDir, "index.json");
     const indexData = JSON.parse(readFileSync(indexPath, "utf-8"));
     const sessionEntry = indexData.sessions.find((s: any) => s.sessionId === sessionId);
-    expect(sessionEntry.artifacts.html).toBe(`sessions/${sessionId}/notrace.html`);
+    expect(sessionEntry.artifacts.html).toBeUndefined();
     expect(sessionEntry.artifacts.record).toBe(`sessions/${sessionId}/notrace.json`);
+    expect(existsSync(path.join(notraceDir, "index.html"))).toBe(true);
 
     cleanupTempNotraceDir(notraceDir);
   });
