@@ -19,10 +19,10 @@ function renderDateCell(value: string | number): string {
 function renderSessionRow(s: any, index: number, totalCount: number): string {
   const rowNumber = totalCount - index;
   const link = safeHref(
-    s.artifacts?.record
-      ? s.artifacts.record
-      : s.artifacts?.html
-        ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
+    s.artifacts?.html
+      ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
+      : s.artifacts?.record
+        ? s.artifacts.record
         : "#"
   );
 
@@ -150,6 +150,7 @@ export function renderDashboardBody(sessions: any[], options: any = {}): string 
   return `<div class="container">
   ${heroHtml}
   ${metricsHtml}
+  <section class="panel" id="viewer-mount"></section>
   <section class="panel">
     <h2 class="section-title">Session Reports</h2>
     ${tableHtml}

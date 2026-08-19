@@ -112,5 +112,45 @@ export const DASHBOARD_SORT_SCRIPT = `(() => {
       });
     });
 
-    sortBy(currentKey);
-  })();`;
+    const params = new URLSearchParams(window.location.search);
+    const sessionParam = params.get('session');
+    if (sessionParam) {
+      const mount = document.getElementById('viewer-mount');
+      if (mount) {
+        const cleanSession = sessionParam.replace(/[^a-z0-9-]/gi, '');
+        const jsonUrl = 'sessions/' + cleanSession + '/notrace.json';
+        mount.innerHTML = '<h2 class="section-title">Session Viewer (' + cleanSession + ')</h2><div style="padding: 22px; display: grid; gap: 12px;"><div style="color: var(--muted);">Canonical record: <strong style="color: var(--text);">' + jsonUrl + '</strong></div><div><a class="pill" href="' + jsonUrl + '">Download / Open JSON</a> <input type="file" id="json-file-picker" accept=".json" style="display:none"><button class="pill" type="button" onclick="document.getElementById(\'json-file-picker\').click()">Load Local File</button></div><pre id="json-preview" style="background: var(--code); padding: 16px; border-radius: 12px; max-height: 400px; overflow: auto; display: none;"></pre></div>';
+        const preview = document.getElementById('json-preview');
+        const filePicker = document.getElementById('json-file-picker');
+        if (filePicker && preview) {
+          filePicker.addEventListener('change', (e) => {
+            const file = e.target && e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const parsed = JSON.parse(reader.result);
+                preview.textContent = JSON.stringify(parsed, null, 2);
+                preview.style.display = 'block';
+              } catch {
+                preview.textContent = 'Failed to parse selected JSON file.';
+                preview.style.display = 'block';
+              }
+            };
+            reader.readAsText(file);
+          });
+        }
+        fetch(jsonUrl).then(r => r.json()).then(data => {
+          if (preview) {
+            preview.textContent = JSON.stringify(data, null, 2);
+            preview.style.display = 'block';
+          }
+        }).catch(() => {
+          if (preview) {
+            preview.textContent = 'file:// protocol prevented auto-fetch. Click "Load Local File" or open the canonical record link directly.';
+            preview.style.display = 'block';
+          }
+        });
+      }
+    }
+`;
