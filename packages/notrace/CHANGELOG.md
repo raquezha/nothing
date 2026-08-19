@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.2.5
+
+### Patch Changes
+
+- f280cc9: Benchmark capture modes, add capture mode regression coverage, prove configured default mode, and document trace storage comparison.
+
 ## 0.2.4
 
 ### Patch Changes
