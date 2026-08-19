@@ -119,9 +119,9 @@ Default mode remains `redacted` so payload histories are available for local deb
 ### Report/runtime invariants
 
 - Missing or invalid `NOTRACE_CAPTURE` falls back to `redacted`.
-- Non-ghost sessions emit both `notrace.json` and `notrace.html`.
+- Non-ghost sessions emit both `notrace.json` (canonical event record) and `notrace.html` (compact summary).
 - Dashboard/index entries carry both `artifacts.html` and `artifacts.record`.
-- Dashboard links should open per-session HTML reports, not raw JSON, when HTML exists.
+- Dashboard links prefer per-session HTML summaries which link to `notrace.json` and the shared dashboard viewer (`index.html?session=<id>`), avoiding duplicated trace event content across files.
 - Static reports allow only local relative navigation links; scheme URLs are blocked.
 
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
