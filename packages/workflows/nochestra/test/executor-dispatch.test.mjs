@@ -11,6 +11,7 @@ import {
 	isWriterLocked,
 	releaseWriterLock,
 	resetWriterLock,
+	spawnWorkerProcess,
 } from "../executor-dispatch.mjs";
 
 const FIXTURE_PATH = path.join(
@@ -199,4 +200,130 @@ test("dispatchExecutor rejects executor output containing forbidden full transcr
 		}),
 		/Forbidden worker result field: transcript/,
 	);
+});
+
+test("spawnWorkerProcess launches sub-process, passes handoff packet and --no-context-files flag, and parses stdout JSON result", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker test assignment",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		const fs = require('fs');
+		const args = process.argv.slice(2);
+		const hasNoContext = args.includes('--no-context-files');
+		const handoffIdx = args.indexOf('--handoff');
+		const handoffPath = handoffIdx !== -1 ? args[handoffIdx + 1] : null;
+		const handoffData = handoffPath ? JSON.parse(fs.readFileSync(handoffPath, 'utf8')) : null;
+
+		if (!hasNoContext || !handoffData || handoffData.assignment !== 'CLI worker test assignment') {
+			process.exit(1);
+		}
+
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-140',
+			summary: 'Sub-process executed successfully',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			ownerId: "worker-proc-1",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-140");
+		assert.equal(result.summary, "Sub-process executed successfully");
+		assert.equal(result.nextStep, "/verify");
+		assert.equal(result.writeLockAcquired, true);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Lock must be released after sub-process finishes");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess handles stdin handoffMode and validates worker output", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Stdin worker test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-stdin-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		let data = '';
+		process.stdin.on('data', chunk => { data += chunk; });
+		process.stdin.on('end', () => {
+			const handoffData = JSON.parse(data);
+			if (handoffData.assignment !== 'Stdin worker test') {
+				process.exit(1);
+			}
+			console.log(JSON.stringify({
+				status: 'ok',
+				taskId: 'github-140-stdin',
+				summary: 'Stdin sub-process success',
+				nextStep: '/sync'
+			}));
+		});
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			handoffMode: "stdin",
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-140-stdin");
+		assert.equal(result.writeLockAcquired, false);
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess rejects malformed stdout JSON from worker sub-process", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Bad output task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-bad-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `console.log("NOT_VALID_JSON");`, "utf8");
+
+	try {
+		await assert.rejects(
+			() => spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath: TEST_LOCK_PATH,
+				requiresWriteLock: false,
+			}),
+			/Failed to parse worker stdout JSON/,
+		);
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
 });
