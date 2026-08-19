@@ -43,15 +43,23 @@ When shutdown output appears mixed together, treat `notrace`, Pi core, and dynam
 
 ## Capture modes
 
-Current default is **full** unless `NOTRACE_CAPTURE` is set.
+Current default is **redacted** unless `NOTRACE_CAPTURE` is set.
 
 Supported modes:
 - `full`
 - `redacted`
 - `metadata`
 
-Use `redacted` or `metadata` when reduced sensitivity is more important than deep debugging.
+Use `metadata` when reduced sensitivity is more important than payload-level debugging.
 Use `full` when debugging local extension/runtime behavior and you accept the higher sensitivity.
+
+## Current invariants
+
+- Default capture mode is `redacted`; invalid or missing `NOTRACE_CAPTURE` falls back to `redacted`.
+- `metadata` omits prompt/tool/provider bodies; `redacted` preserves bodies but redacts supported sensitive keys and values.
+- Non-ghost sessions write both `notrace.json` and `notrace.html`.
+- Dashboard/index entries should carry both `artifacts.html` and `artifacts.record`, and dashboard links should prefer HTML.
+- Static reports are offline-first: local relative links allowed, scheme-based links blocked, inline event handlers avoided, and CSP enforced.
 
 ## Metric families
 

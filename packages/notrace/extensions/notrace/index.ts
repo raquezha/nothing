@@ -52,8 +52,8 @@ type ExtensionTelemetryPayload = {
 
 let currentMode: NotraceCaptureMode = "redacted";
 
-function getInitialMode(): NotraceCaptureMode {
-  const env = process.env.NOTRACE_CAPTURE?.toLowerCase();
+export function getInitialMode(envValue = process.env.NOTRACE_CAPTURE): NotraceCaptureMode {
+  const env = envValue?.toLowerCase();
   if (env === "metadata" || env === "redacted" || env === "full") return env;
   return "redacted";
 }
@@ -66,15 +66,15 @@ function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_RE.test(normalized);
 }
 
-function sanitizeTraceValue(value: unknown): unknown {
-  if (currentMode === "metadata") return { omitted: true, reason: "metadata-capture" };
-  if (currentMode === "full") return value;
+export function sanitizeTraceValue(value: unknown, mode: NotraceCaptureMode = currentMode): unknown {
+  if (mode === "metadata") return { omitted: true, reason: "metadata-capture" };
+  if (mode === "full") return value;
   if (value == null || typeof value !== "object") {
     return typeof value === "string" ? value.replace(SENSITIVE_VALUE_RE, REDACTED).slice(0, 10000) : value;
   }
-  if (Array.isArray(value)) return value.slice(0, 100).map(sanitizeTraceValue);
+  if (Array.isArray(value)) return value.slice(0, 100).map((item) => sanitizeTraceValue(item, mode));
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value).slice(0, 100)) out[k] = isSensitiveKey(k) ? REDACTED : sanitizeTraceValue(v);
+  for (const [k, v] of Object.entries(value).slice(0, 100)) out[k] = isSensitiveKey(k) ? REDACTED : sanitizeTraceValue(v, mode);
   return out;
 }
 
@@ -213,7 +213,12 @@ function relativeArtifactPath(notraceDir: string, filePath: string): string {
   return path.relative(notraceDir, filePath).split(path.sep).join("/");
 }
 
-function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceDir: string): Record<string, unknown> {
+function createIndexEntry(
+  record: NotraceRunRecord,
+  recordPath: string,
+  htmlPath: string,
+  notraceDir: string
+): Record<string, unknown> {
   return {
     sessionId: record.traceId,
     repositoryName: record.repository.name,
@@ -225,6 +230,7 @@ function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceD
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
+      html: relativeArtifactPath(notraceDir, htmlPath),
       record: relativeArtifactPath(notraceDir, recordPath),
     },
   };
@@ -262,6 +268,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     // not a git repo or no commits yet
   }
   const recordPath = path.join(outputDir, "notrace.json");
+  const reportPath = path.join(outputDir, "notrace.html");
 
   let mergedEvents = deps.events;
   let originalStartedAt = deps.startTime;
@@ -323,6 +330,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   if (!isGhostSession) {
     mkdirSync(outputDir, { recursive: true });
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+    writePrivateFileAtomic(reportPath, generateHtmlReport({ ...record, navigation: { indexHref: "../../index.html" } }));
   }
 
   const indexPath = path.join(deps.notraceDir, "index.json");
@@ -350,7 +358,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
 
       if (!isGhostSession) {
-        sessions.push(createIndexEntry(record, recordPath, deps.notraceDir));
+        sessions.push(createIndexEntry(record, recordPath, reportPath, deps.notraceDir));
       }
 
       writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);

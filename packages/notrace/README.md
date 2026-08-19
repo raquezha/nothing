@@ -104,6 +104,26 @@ Mode meanings:
 - `metadata`: minimal capture, no prompt/tool bodies
 - `full`: full captured payloads; best for local debugging; highest sensitivity
 
+### Capture mode benchmark evidence
+
+Trace sizes measured on a 25-turn synthetic session (prompt/tool payloads, assistant outputs, usage, context metrics):
+
+| Capture Mode | Trace Size | Storage Reduction | Payload Bodies | Secret Redaction |
+| --- | --- | --- | --- | --- |
+| `full` | 276 KB (100%) | Baseline | Included | Off |
+| `redacted` | 275 KB (~100%) | <1% reduction | Included | Best-effort |
+| `metadata` | 24 KB (~8.8%) | ~91% reduction | Omitted | N/A (omitted) |
+
+Default mode remains `redacted` so payload histories are available for local debugging by default. Any change to `metadata` as default remains deferred pending stakeholder review of body availability needs vs storage savings.
+
+### Report/runtime invariants
+
+- Missing or invalid `NOTRACE_CAPTURE` falls back to `redacted`.
+- Non-ghost sessions emit both `notrace.json` and `notrace.html`.
+- Dashboard/index entries carry both `artifacts.html` and `artifacts.record`.
+- Dashboard links should open per-session HTML reports, not raw JSON, when HTML exists.
+- Static reports allow only local relative navigation links; scheme URLs are blocked.
+
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
 ## Cleanup
