@@ -14,6 +14,7 @@ import type {
 } from "./types.js";
 import { extractCorrelation, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
 import { generateDashboardHtml } from "./report-app/dashboard-report.js";
+import { generateHtmlReport, generateSessionSummaryHtml } from "./report-app/report.js";
 
 const REDACTED = "[REDACTED by notrace]";
 const SENSITIVE_VALUE_RE = /(bearer\s+[a-z0-9._~+/=-]{12,}|sk-[a-z0-9_-]{16,}|gh[pousr]_[a-z0-9_]{16,}|AKIA[0-9A-Z]{16})/gi;
@@ -212,7 +213,7 @@ function relativeArtifactPath(notraceDir: string, filePath: string): string {
   return path.relative(notraceDir, filePath).split(path.sep).join("/");
 }
 
-function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceDir: string): Record<string, unknown> {
+function createIndexEntry(record: NotraceRunRecord, recordPath: string, htmlPath: string, notraceDir: string): Record<string, unknown> {
   return {
     sessionId: record.traceId,
     repositoryName: record.repository.name,
@@ -224,6 +225,7 @@ function createIndexEntry(record: NotraceRunRecord, recordPath: string, notraceD
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
+      html: relativeArtifactPath(notraceDir, htmlPath),
       record: relativeArtifactPath(notraceDir, recordPath),
     },
   };
@@ -247,6 +249,11 @@ export type SessionShutdownDeps = {
   contextSnapshot?: ContextUsageSnapshot;
 };
 
+function useLegacyFullHtml(envValue = process.env.NOTRACE_LEGACY_HTML): boolean {
+  const value = envValue?.toLowerCase();
+  return value === "1" || value === "true" || value === "full" || value === "legacy";
+}
+
 export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutdownDeps): Promise<void> {
   const shutdownReason = typeof e?.reason === "string" ? e.reason : null;
   const endedAt = Date.now();
@@ -261,6 +268,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     // not a git repo or no commits yet
   }
   const recordPath = path.join(outputDir, "notrace.json");
+  const reportPath = path.join(outputDir, "notrace.html");
 
   let mergedEvents = deps.events;
   let originalStartedAt = deps.startTime;
@@ -322,6 +330,10 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   if (!isGhostSession) {
     mkdirSync(outputDir, { recursive: true });
     writePrivateFileAtomic(recordPath, `${JSON.stringify(record, null, 2)}\n`);
+    const reportHtml = useLegacyFullHtml()
+      ? generateHtmlReport({ ...record, navigation: { indexHref: "../../index.html" } })
+      : generateSessionSummaryHtml({ ...record, navigation: { indexHref: "../../index.html", recordHref: "notrace.json", viewerHref: `../../index.html?session=${encodeURIComponent(finalTraceId)}` } });
+    writePrivateFileAtomic(reportPath, reportHtml);
   }
 
   const indexPath = path.join(deps.notraceDir, "index.json");
@@ -349,7 +361,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
       let sessions = Array.isArray(existing.sessions) ? existing.sessions.filter((s: any) => s.sessionId !== finalTraceId) : [];
 
       if (!isGhostSession) {
-        sessions.push(createIndexEntry(record, recordPath, deps.notraceDir));
+        sessions.push(createIndexEntry(record, recordPath, reportPath, deps.notraceDir));
       }
 
       writePrivateFileAtomic(indexPath, `${JSON.stringify({ sessions }, null, 2)}\n`);
@@ -361,19 +373,18 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     }
   }
 
-  const dashboardHtmlPath = path.join(deps.notraceDir, "index.html");
   if (context && !isGhostSession) {
-    const displayPath = dashboardHtmlPath.startsWith(os.homedir()) 
-      ? `~${dashboardHtmlPath.slice(os.homedir().length)}` 
-      : dashboardHtmlPath;
+    const displayPath = reportPath.startsWith(os.homedir()) 
+      ? `~${reportPath.slice(os.homedir().length)}` 
+      : reportPath;
     deps.adapter.attach(context, {
-      html: `${displayPath}?session=${finalTraceId}`,
+      html: displayPath,
       record: recordPath
     });
   }
 
   if (!isGhostSession) {
-    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${dashboardHtmlPath}?session=${finalTraceId}\x1b[0m\n`);
+    console.log(`\n\x1b[1m\x1b[38;5;208m[notrace] Session Retrospective: file://${reportPath}\x1b[0m\n`);
   }
 }
 
