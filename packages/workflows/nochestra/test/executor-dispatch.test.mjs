@@ -327,3 +327,160 @@ test("spawnWorkerProcess rejects malformed stdout JSON from worker sub-process",
 		}
 	}
 });
+
+test("buildBoundedHandoff supports valid model specification and rejects malformed model config", () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Model test task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	assert.deepEqual(handoff.model, { provider: "ollama", name: "qwen:7b", contextWindow: 8192 });
+
+	assert.throws(
+		() => buildBoundedHandoff({ checkpoint, assignment: "t", contextBudget: { maxTokens: 100 }, model: "invalid" }),
+		/model must be an object/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ checkpoint, assignment: "t", contextBudget: { maxTokens: 100 }, model: { name: "qwen" } }),
+		/model.provider string is required/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ checkpoint, assignment: "t", contextBudget: { maxTokens: 100 }, model: { provider: "ollama" } }),
+		/model.name string is required/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ checkpoint, assignment: "t", contextBudget: { maxTokens: 100 }, model: { provider: "ollama", name: "qwen", contextWindow: -5 } }),
+		/model.contextWindow must be a positive number/,
+	);
+});
+
+test("spawnWorkerProcess passes --provider and --model CLI flags and enforces context budget vs model contextWindow", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+
+	// Context budget exceeding model contextWindow should reject without fallback
+	const handoffOverBudget = buildBoundedHandoff({
+		assignment: "Over budget model test",
+		checkpoint,
+		contextBudget: { maxTokens: 16000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	await assert.rejects(
+		() => spawnWorkerProcess({
+			handoff: handoffOverBudget,
+			command: process.execPath,
+			args: [],
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		}),
+		/Context budget \(maxTokens\) exceeds model context window \(16000 > 8192\)/,
+	);
+
+	// Valid context budget passes --provider and --model flags
+	const handoffValid = buildBoundedHandoff({
+		assignment: "Local model flags test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-model-flags-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const modelIdx = args.indexOf('--model');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		const modelVal = modelIdx !== -1 ? args[modelIdx + 1] : null;
+
+		if (providerVal !== 'ollama' || modelVal !== 'qwen:7b') {
+			process.exit(1);
+		}
+
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-141-flags',
+			summary: 'Model flags verified',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff: handoffValid,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-141-flags");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess handles local provider daemon unavailability and process failure fallback", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Local fallback test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-fallback-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+
+		if (providerVal === 'ollama') {
+			// Simulate local daemon failure
+			process.exit(1);
+		}
+
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-141-fallback',
+			summary: 'Fallback execution success',
+			nextStep: '/sync'
+		}));
+	`, "utf8");
+
+	try {
+		// 1. Unavailability via checkProviderAvailable with fallbackModel
+		const resultUnavailable = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			fallbackModel: { provider: "cloud-anthropic", name: "claude-3-5-sonnet" },
+			checkProviderAvailable: (provider) => provider !== "ollama",
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+		assert.equal(resultUnavailable.status, "ok");
+		assert.equal(resultUnavailable.fallbackApplied, true);
+
+		// 2. Process execution exit code failure triggers fallbackModel
+		const resultExitFallback = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			fallbackModel: { provider: "cloud-anthropic", name: "claude-3-5-sonnet" },
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+		assert.equal(resultExitFallback.status, "ok");
+		assert.equal(resultExitFallback.fallbackApplied, true);
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});

@@ -78,6 +78,7 @@ export function buildBoundedHandoff({
 	expectedResultShape = {
 		required: ["status", "taskId", "summary", "nextStep"],
 	},
+	model,
 } = {}) {
 	if (!assignment || typeof assignment !== "string") {
 		throw new Error("assignment string is required");
@@ -88,6 +89,21 @@ export function buildBoundedHandoff({
 	}
 
 	validateCheckpoint(checkpoint);
+
+	if (model !== undefined) {
+		if (!model || typeof model !== "object") {
+			throw new Error("model must be an object");
+		}
+		if (typeof model.provider !== "string" || !model.provider.trim()) {
+			throw new Error("model.provider string is required");
+		}
+		if (typeof model.name !== "string" || !model.name.trim()) {
+			throw new Error("model.name string is required");
+		}
+		if (model.contextWindow !== undefined && (typeof model.contextWindow !== "number" || model.contextWindow <= 0)) {
+			throw new Error("model.contextWindow must be a positive number");
+		}
+	}
 
 	const handoff = {
 		assignment,
@@ -100,6 +116,10 @@ export function buildBoundedHandoff({
 		contextBudget: clone(contextBudget),
 		expectedResultShape: clone(expectedResultShape),
 	};
+
+	if (model !== undefined) {
+		handoff.model = clone(model);
+	}
 
 	for (const forbidden of ["parentTranscript", "messages", "rawParentHistory", "transcript"]) {
 		if (forbidden in handoff) {
@@ -165,6 +185,8 @@ export async function spawnWorkerProcess({
 	requiresWriteLock = true,
 	lockPath = DEFAULT_LOCK_PATH,
 	handoffMode = "file",
+	fallbackModel = null,
+	checkProviderAvailable = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -172,6 +194,33 @@ export async function spawnWorkerProcess({
 
 	if (!handoff.contextBudget || Object.keys(handoff.contextBudget).length === 0) {
 		throw new Error("Handoff must specify an explicit context budget");
+	}
+
+	let activeModel = handoff.model ? { ...handoff.model } : null;
+	let fallbackApplied = false;
+
+	if (activeModel) {
+		const maxTokens = handoff.contextBudget.maxTokens;
+		if (maxTokens && activeModel.contextWindow && maxTokens > activeModel.contextWindow) {
+			if (fallbackModel) {
+				activeModel = fallbackModel.provider ? { ...fallbackModel } : null;
+				fallbackApplied = true;
+			} else {
+				throw new Error(`Context budget (maxTokens) exceeds model context window (${maxTokens} > ${activeModel.contextWindow})`);
+			}
+		}
+	}
+
+	if (activeModel && typeof checkProviderAvailable === "function") {
+		const available = checkProviderAvailable(activeModel.provider, activeModel);
+		if (!available) {
+			if (fallbackModel) {
+				activeModel = fallbackModel.provider ? { ...fallbackModel } : null;
+				fallbackApplied = true;
+			} else {
+				throw new Error(`Local model daemon or provider unavailable: ${activeModel.provider}`);
+			}
+		}
 	}
 
 	let lockAcquired = false;
@@ -184,64 +233,92 @@ export async function spawnWorkerProcess({
 
 	let tempFilePath = null;
 	try {
-		const spawnArgs = [...args];
-		if (!spawnArgs.includes("--no-context-files")) {
-			spawnArgs.push("--no-context-files");
-		}
+		const spawnWorkerAttempt = async (targetModel) => {
+			const spawnArgs = [...args];
+			if (!spawnArgs.includes("--no-context-files")) {
+				spawnArgs.push("--no-context-files");
+			}
 
-		if (handoffMode === "file") {
-			tempFilePath = path.join(os.tmpdir(), `nochestra-handoff-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.json`);
-			fs.writeFileSync(tempFilePath, JSON.stringify(handoff), "utf8");
-			spawnArgs.push("--handoff", tempFilePath);
-		}
+			if (targetModel?.provider) {
+				spawnArgs.push("--provider", targetModel.provider);
+			}
+			if (targetModel?.name) {
+				spawnArgs.push("--model", targetModel.name);
+			}
 
-		const workerProcess = spawn(command, spawnArgs, {
-			env: { ...env, NOCHESTRA_WORKER: "1" },
-			stdio: ["pipe", "pipe", "pipe"],
-			timeout,
-		});
+			if (handoffMode === "file") {
+				tempFilePath = path.join(os.tmpdir(), `nochestra-handoff-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.json`);
+				fs.writeFileSync(tempFilePath, JSON.stringify(handoff), "utf8");
+				spawnArgs.push("--handoff", tempFilePath);
+			}
 
-		let stdoutData = "";
-		let stderrData = "";
+			const workerProcess = spawn(command, spawnArgs, {
+				env: { ...env, NOCHESTRA_WORKER: "1" },
+				stdio: ["pipe", "pipe", "pipe"],
+				timeout,
+			});
 
-		workerProcess.stdout.on("data", (chunk) => {
-			stdoutData += chunk.toString("utf8");
-		});
+			let stdoutData = "";
+			let stderrData = "";
 
-		workerProcess.stderr.on("data", (chunk) => {
-			stderrData += chunk.toString("utf8");
-		});
+			workerProcess.stdout.on("data", (chunk) => {
+				stdoutData += chunk.toString("utf8");
+			});
 
-		if (handoffMode === "stdin") {
-			workerProcess.stdin.write(JSON.stringify(handoff));
-			workerProcess.stdin.end();
-		}
+			workerProcess.stderr.on("data", (chunk) => {
+				stderrData += chunk.toString("utf8");
+			});
 
-		const exitCode = await new Promise((resolve, reject) => {
-			workerProcess.on("error", reject);
-			workerProcess.on("close", (code) => resolve(code));
-		});
+			if (handoffMode === "stdin") {
+				workerProcess.stdin.write(JSON.stringify(handoff));
+				workerProcess.stdin.end();
+			}
 
-		if (exitCode !== 0) {
-			throw new Error(`Worker process exited with code ${exitCode}: ${stderrData || stdoutData}`);
-		}
+			const exitCode = await new Promise((resolve, reject) => {
+				workerProcess.on("error", reject);
+				workerProcess.on("close", (code) => resolve(code));
+			});
 
-		let rawResult;
-		try {
-			rawResult = JSON.parse(stdoutData.trim());
-		} catch (e) {
-			throw new Error(`Failed to parse worker stdout JSON: ${stdoutData}`);
-		}
+			if (tempFilePath && fs.existsSync(tempFilePath)) {
+				try {
+					fs.unlinkSync(tempFilePath);
+				} catch (_) {}
+				tempFilePath = null;
+			}
 
-		validateCompactWorkerResult(rawResult);
+			if (exitCode !== 0) {
+				throw new Error(`Worker process exited with code ${exitCode}: ${stderrData || stdoutData}`);
+			}
 
-		return {
-			status: rawResult.status,
-			taskId: rawResult.taskId,
-			summary: rawResult.summary,
-			nextStep: rawResult.nextStep,
-			writeLockAcquired: lockAcquired,
+			let rawResult;
+			try {
+				rawResult = JSON.parse(stdoutData.trim());
+			} catch (e) {
+				throw new Error(`Failed to parse worker stdout JSON: ${stdoutData}`);
+			}
+
+			validateCompactWorkerResult(rawResult);
+
+			return {
+				status: rawResult.status,
+				taskId: rawResult.taskId,
+				summary: rawResult.summary,
+				nextStep: rawResult.nextStep,
+				writeLockAcquired: lockAcquired,
+				...(fallbackApplied ? { fallbackApplied: true } : {}),
+			};
 		};
+
+		try {
+			return await spawnWorkerAttempt(activeModel);
+		} catch (err) {
+			if (activeModel && fallbackModel && !fallbackApplied) {
+				fallbackApplied = true;
+				const fbModel = fallbackModel.provider ? { ...fallbackModel } : null;
+				return await spawnWorkerAttempt(fbModel);
+			}
+			throw err;
+		}
 	} finally {
 		if (tempFilePath && fs.existsSync(tempFilePath)) {
 			try {

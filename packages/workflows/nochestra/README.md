@@ -53,11 +53,10 @@ Nochestra maintains a single replaceable rolling checkpoint contract (`checkpoin
 - Isolates accepted truth from raw transcript turns.
 - Final storage path, worker dispatch, and public schema remain provisional.
 
-## Parent Context Epoch Contract
+## Worker Handoff & Model Selection Contract
 
-Nochestra provides parent context epoch transition helpers (`parent-epoch.mjs`):
-- `buildParentEpochContext`: Builds a fresh bounded parent hot context from instructions, latest checkpoint, recent turns, current approvals, and task material.
-- `transitionParentEpoch`: Ends an active parent epoch, starting a new hot context without replaying the full raw transcript. Archived turns are preserved in cold storage for selective retrieval.
-- `retrieveArchivedTurns`: Pulls selected turns from cold storage without automatically replaying history into the active prompt.
-- Integrates with Notrace context accounting snapshots (`beforeActiveTokens`, `beforePeakTokens`, `contextWindow`) for before/after measurement evidence.
+Nochestra worker handoffs support model selection target specifications and process invocation (`executor-dispatch.mjs`):
+- `buildBoundedHandoff`: Accepts optional `model` schema object (`provider`, `name`, `contextWindow`).
+- `spawnWorkerProcess`: Validates task `contextBudget.maxTokens` against model `contextWindow` prior to process launch and passes `--provider` and `--model` CLI flags to `pi`.
+- Fallback Safety: Supports fallback to cloud models (`fallbackModel`) when local model daemons (e.g. Ollama) are unavailable or process execution fails.
 
