@@ -519,3 +519,79 @@ test("spawnWorkerProcess defaults command to process.env.PI_BINARY or pi CLI bin
 		}
 	}
 });
+
+test("spawnWorkerProcess supervision enforces timeout watchdog and releases writer lock on timeout", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Supervision timeout test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-timeout-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		// Ignore SIGTERM to force watchdog SIGKILL escalation
+		process.on('SIGTERM', () => {});
+		setTimeout(() => {}, 60000);
+	`, "utf8");
+
+	try {
+		await assert.rejects(
+			() => spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				timeout: 100,
+				lockPath: TEST_LOCK_PATH,
+				requiresWriteLock: true,
+				ownerId: "supervision-test-runner",
+			}),
+			/Worker process timed out after 100ms/,
+		);
+
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Writer lock must be safely released after timeout");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess supervision releases lock and truncates raw log context on crash", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Supervision crash test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-crash-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.error("A".repeat(500));
+		process.exit(1);
+	`, "utf8");
+
+	try {
+		await assert.rejects(
+			() => spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath: TEST_LOCK_PATH,
+				requiresWriteLock: true,
+				ownerId: "crash-test-runner",
+			}),
+			(err) => {
+				assert.match(err.message, /Worker process exited with code 1/);
+				assert.equal(err.message.length < 300, true, "Raw stderr must be truncated to prevent prompt context bloat");
+				return true;
+			},
+		);
+
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Writer lock must be safely released on worker crash");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});

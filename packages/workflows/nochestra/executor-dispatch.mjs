@@ -257,11 +257,27 @@ export async function spawnWorkerProcess({
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				env: { ...env, NOCHESTRA_WORKER: "1" },
 				stdio: ["pipe", "pipe", "pipe"],
-				timeout,
 			});
 
 			let stdoutData = "";
 			let stderrData = "";
+			let watchdogTimer = null;
+			let killTimer = null;
+			let timedOut = false;
+
+			if (timeout && timeout > 0) {
+				watchdogTimer = setTimeout(() => {
+					timedOut = true;
+					try {
+						workerProcess.kill("SIGTERM");
+					} catch (_) {}
+					killTimer = setTimeout(() => {
+						try {
+							workerProcess.kill("SIGKILL");
+						} catch (_) {}
+					}, 2000);
+				}, timeout);
+			}
 
 			workerProcess.stdout.on("data", (chunk) => {
 				stdoutData += chunk.toString("utf8");
@@ -277,8 +293,16 @@ export async function spawnWorkerProcess({
 			}
 
 			const exitCode = await new Promise((resolve, reject) => {
-				workerProcess.on("error", reject);
-				workerProcess.on("close", (code) => resolve(code));
+				workerProcess.on("error", (err) => {
+					if (watchdogTimer) clearTimeout(watchdogTimer);
+					if (killTimer) clearTimeout(killTimer);
+					reject(err);
+				});
+				workerProcess.on("close", (code) => {
+					if (watchdogTimer) clearTimeout(watchdogTimer);
+					if (killTimer) clearTimeout(killTimer);
+					resolve(code);
+				});
 			});
 
 			if (tempFilePath && fs.existsSync(tempFilePath)) {
@@ -288,8 +312,14 @@ export async function spawnWorkerProcess({
 				tempFilePath = null;
 			}
 
+			if (timedOut) {
+				throw new Error(`Worker process timed out after ${timeout}ms`);
+			}
+
 			if (exitCode !== 0) {
-				throw new Error(`Worker process exited with code ${exitCode}: ${stderrData || stdoutData}`);
+				const errorMsg = (stderrData || stdoutData).trim();
+				const conciseMsg = errorMsg.length > 200 ? errorMsg.substring(0, 200) + "..." : errorMsg;
+				throw new Error(`Worker process exited with code ${exitCode}${conciseMsg ? `: ${conciseMsg}` : ""}`);
 			}
 
 			let rawResult;
