@@ -38,6 +38,17 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 		},
 		defaultRequestId: "gemini-3.1-pro-low",
 	},
+	"gemini-3.7-flash": {
+		off: "gemini-3.7-flash-low",
+		routing: {
+			minimal: "gemini-3.7-flash-low",
+			low: "gemini-3.7-flash-low",
+			medium: "gemini-3.7-flash-medium",
+			high: "gemini-3.7-flash-high",
+			xhigh: "gemini-3.7-flash-high",
+		},
+		defaultRequestId: "gemini-3.7-flash-low",
+	},
 	"gemini-3.6-flash": {
 		off: "gemini-3.6-flash-low",
 		routing: {
@@ -102,6 +113,16 @@ export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 1048576,
 		maxTokens: 65535,
+	},
+	{
+		id: "gemini-3.7-flash",
+		name: "Gemini 3.7 Flash (Antigravity)",
+		reasoning: true,
+		thinkingLevelMap: { off: null, low: "LOW", medium: "MEDIUM", high: "HIGH", xhigh: "HIGH" } as any,
+		input: ["text", "image"],
+		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		contextWindow: 1048576,
+		maxTokens: 65536,
 	},
 	{
 		id: "gemini-3.6-flash",
