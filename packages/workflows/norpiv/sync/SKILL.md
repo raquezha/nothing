@@ -16,6 +16,7 @@ Maintains consistency between local `.workflow` state and the remote source of t
 - **Idempotency**: If the remote Pi status already reflects the current local state, do not post or update.
 - **Human safety**: NEVER edit human-authored comments. Only update comments/notes containing the Pi sync marker.
 - **Target ownership**: Sync the executable child issue/MR/PR that the work completed, not the umbrella parent, unless the user explicitly asks for parent status. If the active GitHub issue has sub-issues, verify the PR/body/current request points to the right child before posting.
+- **Hyperlinks**: Always format issue references (e.g. `[#140](https://github.com/owner/repo/issues/140)`), source file paths, git branches, and commit hashes as explicit Markdown hyperlinks in sync comments whenever applicable.
 - **Shell safety**: Never pass markdown bodies inline through shell strings. Write bodies to files and use `--body-file` or JSON `--input` API calls so backticks and `$()` cannot execute.
 
 ## Living status marker
@@ -60,6 +61,7 @@ Do **not** use latest-comment ownership as the primary decision. Latest-comment-
 Format the message for two audiences:
 - **Stakeholders**: summarize outcome, current state, and next step.
 - **Developers**: list vertical slices, commit/PR/MR links, and verification evidence.
+- **Hyperlinking**: convert issue identifiers (`[#140](url)`), commit hashes (`[\`0011b4b\`](url)`), branch names (`[\`feat/140\`](url)`), and key file paths into explicit markdown hyperlinks so they render as interactive links.
 - **Signature and marker**: always append both the signature and `<!-- pi-sync-marker -->`.
 
 ### 3. Execution
