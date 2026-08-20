@@ -228,7 +228,13 @@ function findDynamicModel(value: any, requestedId: string): DynamicModelInfo | u
 	
 	let targetRegex: RegExp;
 	const req = requestedId.toLowerCase();
-	if (req === "gemini-3.5-flash-low") targetRegex = /gemini[- ]3\.5[- ]flash \(low\)/i;
+	if (req === "gemini-3.7-flash-low") targetRegex = /gemini[- ]3\.7[- ]flash \(low\)/i;
+	else if (req === "gemini-3.7-flash-medium") targetRegex = /gemini[- ]3\.7[- ]flash \(medium\)/i;
+	else if (req === "gemini-3.7-flash-high") targetRegex = /gemini[- ]3\.7[- ]flash \(high\)/i;
+	else if (req === "gemini-3.6-flash-low") targetRegex = /gemini[- ]3\.6[- ]flash \(low\)/i;
+	else if (req === "gemini-3.6-flash-medium") targetRegex = /gemini[- ]3\.6[- ]flash \(medium\)/i;
+	else if (req === "gemini-3.6-flash-high") targetRegex = /gemini[- ]3\.6[- ]flash \(high\)/i;
+	else if (req === "gemini-3.5-flash-low") targetRegex = /gemini[- ]3\.5[- ]flash \(low\)/i;
 	else if (req === "gemini-3.5-flash-medium") targetRegex = /gemini[- ]3\.5[- ]flash \(medium\)/i;
 	else if (req === "gemini-3.5-flash-high") targetRegex = /gemini[- ]3\.5[- ]flash \(high\)/i;
 	else if (req.includes("claude-opus-4-6")) targetRegex = /claude.*opus.*4\.6/i;
