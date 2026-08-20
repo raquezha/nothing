@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
 import { validateCheckpoint } from "./checkpoint.mjs";
@@ -147,6 +149,105 @@ export async function dispatchExecutor({
 			writeLockAcquired: lockAcquired,
 		};
 	} finally {
+		if (lockAcquired) {
+			await releaseWriterLock(ownerId, lockPath);
+		}
+	}
+}
+
+export async function spawnWorkerProcess({
+	handoff,
+	command = process.execPath,
+	args = [],
+	env = process.env,
+	timeout = 30000,
+	ownerId = "nochestra-worker-runner",
+	requiresWriteLock = true,
+	lockPath = DEFAULT_LOCK_PATH,
+	handoffMode = "file",
+} = {}) {
+	if (!handoff || typeof handoff !== "object") {
+		throw new Error("handoff object is required");
+	}
+
+	if (!handoff.contextBudget || Object.keys(handoff.contextBudget).length === 0) {
+		throw new Error("Handoff must specify an explicit context budget");
+	}
+
+	let lockAcquired = false;
+	if (requiresWriteLock || (Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write")))) {
+		if (!await acquireWriterLock(ownerId, lockPath)) {
+			throw new Error("Writer lock is currently held by another executor");
+		}
+		lockAcquired = true;
+	}
+
+	let tempFilePath = null;
+	try {
+		const spawnArgs = [...args];
+		if (!spawnArgs.includes("--no-context-files")) {
+			spawnArgs.push("--no-context-files");
+		}
+
+		if (handoffMode === "file") {
+			tempFilePath = path.join(os.tmpdir(), `nochestra-handoff-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.json`);
+			fs.writeFileSync(tempFilePath, JSON.stringify(handoff), "utf8");
+			spawnArgs.push("--handoff", tempFilePath);
+		}
+
+		const workerProcess = spawn(command, spawnArgs, {
+			env: { ...env, NOCHESTRA_WORKER: "1" },
+			stdio: ["pipe", "pipe", "pipe"],
+			timeout,
+		});
+
+		let stdoutData = "";
+		let stderrData = "";
+
+		workerProcess.stdout.on("data", (chunk) => {
+			stdoutData += chunk.toString("utf8");
+		});
+
+		workerProcess.stderr.on("data", (chunk) => {
+			stderrData += chunk.toString("utf8");
+		});
+
+		if (handoffMode === "stdin") {
+			workerProcess.stdin.write(JSON.stringify(handoff));
+			workerProcess.stdin.end();
+		}
+
+		const exitCode = await new Promise((resolve, reject) => {
+			workerProcess.on("error", reject);
+			workerProcess.on("close", (code) => resolve(code));
+		});
+
+		if (exitCode !== 0) {
+			throw new Error(`Worker process exited with code ${exitCode}: ${stderrData || stdoutData}`);
+		}
+
+		let rawResult;
+		try {
+			rawResult = JSON.parse(stdoutData.trim());
+		} catch (e) {
+			throw new Error(`Failed to parse worker stdout JSON: ${stdoutData}`);
+		}
+
+		validateCompactWorkerResult(rawResult);
+
+		return {
+			status: rawResult.status,
+			taskId: rawResult.taskId,
+			summary: rawResult.summary,
+			nextStep: rawResult.nextStep,
+			writeLockAcquired: lockAcquired,
+		};
+	} finally {
+		if (tempFilePath && fs.existsSync(tempFilePath)) {
+			try {
+				fs.unlinkSync(tempFilePath);
+			} catch (_) {}
+		}
 		if (lockAcquired) {
 			await releaseWriterLock(ownerId, lockPath);
 		}
