@@ -484,3 +484,38 @@ test("spawnWorkerProcess handles local provider daemon unavailability and proces
 		}
 	}
 });
+
+test("spawnWorkerProcess defaults command to process.env.PI_BINARY or pi CLI binary", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Default command test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-pi-binary-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-141-pibinary',
+			summary: 'PI_BINARY command success',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			env: { ...process.env, PI_BINARY: process.execPath },
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-141-pibinary");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});

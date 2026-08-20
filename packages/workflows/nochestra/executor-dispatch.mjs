@@ -177,7 +177,7 @@ export async function dispatchExecutor({
 
 export async function spawnWorkerProcess({
 	handoff,
-	command = process.execPath,
+	command,
 	args = [],
 	env = process.env,
 	timeout = 30000,
@@ -195,6 +195,8 @@ export async function spawnWorkerProcess({
 	if (!handoff.contextBudget || Object.keys(handoff.contextBudget).length === 0) {
 		throw new Error("Handoff must specify an explicit context budget");
 	}
+
+	const targetCommand = command || env?.PI_BINARY || process.env.PI_BINARY || "pi";
 
 	let activeModel = handoff.model ? { ...handoff.model } : null;
 	let fallbackApplied = false;
@@ -252,7 +254,7 @@ export async function spawnWorkerProcess({
 				spawnArgs.push("--handoff", tempFilePath);
 			}
 
-			const workerProcess = spawn(command, spawnArgs, {
+			const workerProcess = spawn(targetCommand, spawnArgs, {
 				env: { ...env, NOCHESTRA_WORKER: "1" },
 				stdio: ["pipe", "pipe", "pipe"],
 				timeout,
