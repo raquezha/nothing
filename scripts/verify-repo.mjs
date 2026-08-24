@@ -504,6 +504,14 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.includes("hello"), "--nochestra forwards user prompt untouched");
 
     writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nochestra-worker --handoff /tmp/handoff.json`], root, { env });
+    assert(result.status === 0, "--nochestra-worker runs with fake pi");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/workflows/nochestra/nochestra")), "--nochestra-worker loads nochestra skill");
+    assert(args.includes("--no-context-files"), "--nochestra-worker disables context files");
+    assert(args.includes("--handoff"), "--nochestra-worker forwards canonical --handoff flag");
+
+    writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi --meta --tkmx hello`], root, { env });
     assert(result.status === 0, "--meta --tkmx is a valid combination");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];

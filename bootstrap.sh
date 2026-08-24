@@ -623,7 +623,7 @@ confirm_personal_reset() {
   printf '  %s/.agents/skills\n\n' "$HOME" >&2
   printf 'Backups will be stored under:\n\n' >&2
   printf '  %s/.local/share/nothing/pi-reset-backups/<timestamp>\n\n' "$HOME" >&2
-  printf 'Plain `pi` will start factory-clean after this.\n' >&2
+  printf '%s\n' "Plain \`pi\` will start factory-clean after this." >&2
   printf 'Use --no-reset-pi to skip this step.\n\n' >&2
 
   if [[ ! -t 0 ]]; then
@@ -752,11 +752,11 @@ printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shel
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "updates" "pi update refreshes Pi plus nothing-managed lazy caches"
-printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --nochestra | --antigravity"
+printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --nochestra | --nochestra-worker"
 printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --leanctx | --notrace | --ponytail"
 printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace + ponytail)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/workflows/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
 printf '\n   note: --caveman, --rtk, and --ponytail lazy-install local caches on first use.\n'
 printf '   note: --headroom starts the local Headroom Docker backend on demand.\n'
-printf '   note: plain `pi` keeps the noleaks guard on by default, regardless of mindset.\n\n'
+printf '%s\n\n' "   note: plain \`pi\` keeps the noleaks guard on by default, regardless of mindset."

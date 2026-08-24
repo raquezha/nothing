@@ -437,7 +437,7 @@ EOF
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes|--research|--nochestra)
+      --nothing|--android|--pm|--dev|--rpiv|--meta|--write|--notes|--research|--nochestra|--nochestra-worker)
         local flag_name="${1#--}"
         if [[ -n "$BASE_MINDSET" && "$BASE_MINDSET" != "$flag_name" ]]; then
           nothing_warn "Only one base hat allowed: --$BASE_MINDSET already set, got --$flag_name"
@@ -591,6 +591,8 @@ EOF
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
     NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-prompt-templates" "--no-themes" "--no-context-files")
+  elif [[ "$BASE_MINDSET" == "nochestra-worker" ]]; then
+    NOTHING_FLAGS+=("--no-context-files")
   fi
 
   command pi "${NOTHING_FLAGS[@]}" "${EXTRA_SKILLS[@]}" "${EXTRA_EXTENSIONS[@]}" "${ARGS[@]}"

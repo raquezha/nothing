@@ -29,7 +29,10 @@ packages/workflows/nochestra/
 
 ```bash
 pi --nochestra
+pi --nochestra-worker --handoff /tmp/nochestra-handoff.json
 ```
+
+`pi --nochestra-worker` loads the Nochestra worker skill with `--no-context-files` so worker runs start from the bounded handoff instead of accumulated repo context files. The canonical file handoff flag is `--handoff`; stdin ingestion is supported by the worker handoff helpers for process-level callers.
 
 ## Relationship to other workflows
 
@@ -59,4 +62,5 @@ Nochestra worker handoffs support model selection target specifications and proc
 - `buildBoundedHandoff`: Accepts optional `model` schema object (`provider`, `name`, `contextWindow`).
 - `spawnWorkerProcess`: Validates task `contextBudget.maxTokens` against model `contextWindow` prior to process launch and passes `--provider` and `--model` CLI flags to `pi`.
 - Fallback Safety: Supports fallback to cloud models (`fallbackModel`) when local model daemons (e.g. Ollama) are unavailable or process execution fails.
+- Worker Ingestion: `worker-handoff.mjs` reads bounded handoff JSON from stdin or canonical `--handoff <file>`, rejects transcript-shaped fields, and builds the worker prompt from handoff fields only.
 
