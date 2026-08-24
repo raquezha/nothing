@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import {
-	COMPACT_WORKER_RESULT_KEYS,
+	NOCHESTRA_HANDOFF_CONTRACT,
 	assertNoTranscriptFields,
 	assertPlainObject,
 } from "./handoff-contract.mjs";
@@ -65,6 +65,6 @@ export function buildWorkerPrompt(handoff) {
 		parts.push(`${key}:\n${value}`);
 	}
 
-	parts.push(`Return only compact JSON with keys: ${COMPACT_WORKER_RESULT_KEYS.map((key) => `"${key}"`).join(", ")}.`);
+	parts.push(`Return only compact JSON with keys: ${NOCHESTRA_HANDOFF_CONTRACT.compactWorkerResultKeys.map((key) => `"${key}"`).join(", ")}.`);
 	return parts.join("\n\n");
 }
