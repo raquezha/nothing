@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
 import { validateCheckpoint } from "./checkpoint.mjs";
-import { validateCompactWorkerResult } from "./jira-triage-proof.mjs";
+import { assertNoTranscriptFields, validateCompactWorkerResult } from "./handoff-contract.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 const writerReleases = new Map();
@@ -121,11 +121,7 @@ export function buildBoundedHandoff({
 		handoff.model = clone(model);
 	}
 
-	for (const forbidden of ["parentTranscript", "messages", "rawParentHistory", "transcript"]) {
-		if (forbidden in handoff) {
-			throw new Error(`Forbidden transcript field in handoff: ${forbidden}`);
-		}
-	}
+	assertNoTranscriptFields(handoff, "handoff");
 
 	return handoff;
 }

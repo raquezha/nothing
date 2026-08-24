@@ -1,18 +1,9 @@
 import fs from "node:fs";
-
-const FORBIDDEN_HANDOFF_FIELDS = ["parentTranscript", "messages", "rawParentHistory", "transcript"];
-const PROMPT_FIELDS = [
-	["Assignment", "assignment"],
-	["Artifact snapshot", "artifactSnapshot"],
-	["Accepted decisions", "acceptedDecisions"],
-	["Constraints", "constraints"],
-	["Open questions", "openQuestions"],
-	["Selected skills", "selectedSkills"],
-	["Permissions", "permissions"],
-	["Context budget", "contextBudget"],
-	["Expected result JSON", "expectedResultShape"],
-	["Result schema", "resultSchema"],
-];
+import {
+	COMPACT_WORKER_RESULT_KEYS,
+	assertNoTranscriptFields,
+	assertPlainObject,
+} from "./handoff-contract.mjs";
 
 function parseJson(raw, source) {
 	try {
@@ -47,17 +38,11 @@ export function parseWorkerHandoffArgs(args = process.argv.slice(2)) {
 }
 
 export function validateBoundedWorkerHandoff(handoff) {
-	if (!handoff || typeof handoff !== "object" || Array.isArray(handoff)) {
-		throw new Error("Worker handoff must be a plain object");
-	}
+	assertPlainObject(handoff, "Worker handoff");
 	if (!handoff.assignment || typeof handoff.assignment !== "string") {
 		throw new Error("Worker handoff requires assignment string");
 	}
-	for (const field of FORBIDDEN_HANDOFF_FIELDS) {
-		if (field in handoff) {
-			throw new Error(`Forbidden transcript field in worker handoff: ${field}`);
-		}
-	}
+	assertNoTranscriptFields(handoff, "worker handoff");
 	return true;
 }
 
@@ -75,13 +60,11 @@ export function buildWorkerPrompt(handoff) {
 		"You are a Nochestra worker. Use only this bounded handoff. Do not infer or request the parent transcript.",
 	];
 
-	for (const [label, key] of PROMPT_FIELDS) {
-		if (handoff[key] !== undefined) {
-			const value = typeof handoff[key] === "string" ? handoff[key] : JSON.stringify(handoff[key], null, 2);
-			parts.push(`${label}:\n${value}`);
-		}
+	for (const [key, rawValue] of Object.entries(handoff)) {
+		const value = typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue, null, 2);
+		parts.push(`${key}:\n${value}`);
 	}
 
-	parts.push('Return only compact JSON with keys: "status", "taskId", "summary", "nextStep".');
+	parts.push(`Return only compact JSON with keys: ${COMPACT_WORKER_RESULT_KEYS.map((key) => `"${key}"`).join(", ")}.`);
 	return parts.join("\n\n");
 }

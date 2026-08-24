@@ -49,13 +49,14 @@ test("validateBoundedWorkerHandoff rejects transcript-shaped fields", () => {
 	);
 });
 
-test("buildWorkerPrompt includes bounded handoff fields and omits transcript fields", () => {
-	const prompt = buildWorkerPrompt(HANDOFF);
+test("buildWorkerPrompt renders bounded handoff data without a field mirror", () => {
+	const prompt = buildWorkerPrompt({ ...HANDOFF, workerId: "worker-1" });
 
-	assert.match(prompt, /Assignment:\nImplement the next slice/);
-	assert.match(prompt, /Accepted decisions:/);
+	assert.match(prompt, /assignment:\nImplement the next slice/);
+	assert.match(prompt, /acceptedDecisions:/);
 	assert.match(prompt, /Use --handoff/);
-	assert.match(prompt, /Expected result JSON:/);
+	assert.match(prompt, /expectedResultShape:/);
+	assert.match(prompt, /workerId:\nworker-1/);
 	assert.equal(prompt.includes("parentTranscript"), false);
 	assert.equal(prompt.includes("messages"), false);
 });

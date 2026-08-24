@@ -1,4 +1,7 @@
+import { validateCompactWorkerResult } from "./handoff-contract.mjs";
 import { buildParentEpochContext } from "./parent-epoch.mjs";
+
+export { validateCompactWorkerResult } from "./handoff-contract.mjs";
 
 function clone(value) {
 	return JSON.parse(JSON.stringify(value));
@@ -79,26 +82,6 @@ export function buildJiraTriageProof({
 			recentTurns: hotContext.recentTurns,
 		},
 	};
-}
-
-export function validateCompactWorkerResult(result) {
-	if (!result || typeof result !== "object" || Array.isArray(result)) {
-		throw new Error("Worker result must be a plain object");
-	}
-
-	for (const key of ["status", "taskId", "summary", "nextStep"]) {
-		if (!(key in result)) {
-			throw new Error(`Missing required worker result field: ${key}`);
-		}
-	}
-
-	for (const forbidden of ["transcript", "messages", "rawWorkerLog", "fullParentTranscript"]) {
-		if (forbidden in result) {
-			throw new Error(`Forbidden worker result field: ${forbidden}`);
-		}
-	}
-
-	return true;
 }
 
 export function evaluateJiraTriageExecution({
