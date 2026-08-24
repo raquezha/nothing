@@ -14,6 +14,10 @@ This folder is the canonical local implementation home established in GitHub iss
 
 ```text
 packages/workflows/nochestra/
+  application/
+    worker-handoff.mjs
+  domain/
+    handoff-contract.mjs
   checkpoint.mjs
   parent-epoch.mjs
   nochestra/SKILL.md

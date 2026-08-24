@@ -1,7 +1,7 @@
-import { validateCompactWorkerResult } from "./handoff-contract.mjs";
 import { buildParentEpochContext } from "./parent-epoch.mjs";
+import { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
-export { validateCompactWorkerResult } from "./handoff-contract.mjs";
+export { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
 function clone(value) {
 	return JSON.parse(JSON.stringify(value));
