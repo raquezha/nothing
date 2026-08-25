@@ -588,6 +588,11 @@ EOF
     printf '🧠 \033[0;35m[nothing]\033[0m Mindset: \033[1m%s\033[0m modifiers: \033[1m%s\033[0m (loaded: %s skills, %s extensions)\n' "$label" "$mod_label" "$skill_count" "$extension_count"
   fi
 
+  if [[ "$BASE_MINDSET" == "nochestra" && ${#ARGS[@]} -gt 0 && "${ARGS[0]}" == "/triage" ]]; then
+    node "$NOTHING_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "${ARGS[@]}"
+    return $?
+  fi
+
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
     NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-prompt-templates" "--no-themes" "--no-context-files")
