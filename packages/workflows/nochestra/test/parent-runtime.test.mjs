@@ -16,6 +16,8 @@ function makeRepo() {
 	spawnSync("git", ["init", "-b", "main"], { cwd: repoDir, stdio: "ignore" });
 	spawnSync("git", ["config", "user.name", "Nochestra Test"], { cwd: repoDir, stdio: "ignore" });
 	spawnSync("git", ["config", "user.email", "nochestra@example.com"], { cwd: repoDir, stdio: "ignore" });
+	fs.mkdirSync(path.join(repoDir, ".workflow"), { recursive: true });
+	fs.copyFileSync(CHECKPOINT_FIXTURE_PATH, path.join(repoDir, ".workflow", "nochestra-checkpoint.json"));
 	fs.writeFileSync(path.join(repoDir, ".gitignore"), "node_modules\n", "utf8");
 	spawnSync("git", ["add", ".gitignore"], { cwd: repoDir, stdio: "ignore" });
 	spawnSync("git", ["commit", "-m", "init"], { cwd: repoDir, stdio: "ignore" });
@@ -67,6 +69,18 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 			nextStep: "/frame",
 		});
 		assert.match(formatNochestraResult(result), /Next step: \/frame/);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("dispatchNochestraInput fails delivery without an explicit checkpoint", async () => {
+	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-no-checkpoint-"));
+	try {
+		await assert.rejects(
+			() => dispatchNochestraInput({ input: "/triage local:no-checkpoint", cwd: repoDir }),
+			/No Nochestra checkpoint found/,
+		);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
