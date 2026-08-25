@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
-import { validateCheckpoint } from "./checkpoint.mjs";
+import { validateCheckpoint } from "./domain/checkpoint-contract.mjs";
 import { assertNoTranscriptFields, validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
