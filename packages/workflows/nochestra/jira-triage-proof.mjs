@@ -1,4 +1,4 @@
-import { buildParentEpochContext } from "./parent-epoch.mjs";
+import { buildParentEpochContext } from "./application/parent-epoch.mjs";
 import { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
 export { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";

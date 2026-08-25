@@ -3,7 +3,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint } from "../checkpoint.mjs";
-import { parseNochestraInput } from "../delivery-command.mjs";
+import { parseNochestraInput } from "../domain/delivery-command.mjs";
 import { buildBoundedHandoff, spawnWorkerProcess } from "../executor-dispatch.mjs";
 
 const DEFAULT_WORKER_RUNTIME_PATH = process.env.NOCH_WORKER_RUNTIME_PATH || fileURLToPath(new URL("./worker-runtime.mjs", import.meta.url));
