@@ -126,12 +126,34 @@ export function buildBoundedHandoff({
 	return handoff;
 }
 
+function isWriteCapableHandoff(handoff) {
+	return Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write"));
+}
+
+function needsWriterLock(handoff, requiresWriteLock) {
+	return requiresWriteLock || isWriteCapableHandoff(handoff);
+}
+
+async function approveWriteHandoff({ handoff, approveWriteDispatch, destination = handoff.destination ?? handoff.artifact?.destination ?? null, requiresWriteLock, writeCapable }) {
+	if (!writeCapable || typeof approveWriteDispatch !== "function") {
+		return true;
+	}
+	const approval = await approveWriteDispatch({
+		assignment: handoff.assignment,
+		destination,
+		permissions: clone(handoff.permissions ?? []),
+		requiresWriteLock,
+	});
+	return approval === true || approval?.approved === true || approval?.userAction === "approve";
+}
+
 export async function dispatchExecutor({
 	handoff,
 	executor,
 	ownerId = "nochestra-parent",
 	requiresWriteLock = true,
 	lockPath = DEFAULT_LOCK_PATH,
+	approveWriteDispatch = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -145,13 +167,23 @@ export async function dispatchExecutor({
 		throw new Error("Handoff must specify an explicit context budget");
 	}
 
-	let lockAcquired = false;
-	if (requiresWriteLock || (Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write")))) {
-		if (!await acquireWriterLock(ownerId, lockPath)) {
-			throw new Error("Writer lock is currently held by another executor");
-		}
-		lockAcquired = true;
+	const writeCapable = isWriteCapableHandoff(handoff);
+	const lockNeeded = needsWriterLock(handoff, requiresWriteLock);
+	if (!await approveWriteHandoff({ handoff, approveWriteDispatch, requiresWriteLock, writeCapable })) {
+		return {
+			status: "cancelled",
+			taskId: handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null,
+			summary: "Write-capable dispatch cancelled by user.",
+			nextStep: "manual-takeover",
+			writeLockAcquired: false,
+		};
 	}
+
+	let lockAcquired = false;
+	if (lockNeeded && !await acquireWriterLock(ownerId, lockPath)) {
+		throw new Error("Writer lock is currently held by another executor");
+	}
+	lockAcquired = lockNeeded;
 
 	try {
 		const rawResult = await executor(handoff);
@@ -184,6 +216,7 @@ export async function spawnWorkerProcess({
 	handoffMode = "file",
 	fallbackModel = null,
 	checkProviderAvailable = null,
+	approveWriteDispatch = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -222,13 +255,23 @@ export async function spawnWorkerProcess({
 		}
 	}
 
-	let lockAcquired = false;
-	if (requiresWriteLock || (Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write")))) {
-		if (!await acquireWriterLock(ownerId, lockPath)) {
-			throw new Error("Writer lock is currently held by another executor");
-		}
-		lockAcquired = true;
+	const writeCapable = isWriteCapableHandoff(handoff);
+	const lockNeeded = needsWriterLock(handoff, requiresWriteLock);
+	if (!await approveWriteHandoff({ handoff, approveWriteDispatch, requiresWriteLock, writeCapable })) {
+		return {
+			status: "cancelled",
+			taskId: handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null,
+			summary: "Write-capable dispatch cancelled by user.",
+			nextStep: "manual-takeover",
+			writeLockAcquired: false,
+		};
 	}
+
+	let lockAcquired = false;
+	if (lockNeeded && !await acquireWriterLock(ownerId, lockPath)) {
+		throw new Error("Writer lock is currently held by another executor");
+	}
+	lockAcquired = lockNeeded;
 
 	let tempFilePath = null;
 	try {

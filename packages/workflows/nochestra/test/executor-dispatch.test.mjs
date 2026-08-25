@@ -70,14 +70,20 @@ test("dispatchExecutor launches predefined executor and returns compact parent p
 		assignment: "Execute bounded assignment",
 		checkpoint,
 		contextBudget: { maxTokens: 4000, maxTurns: 5 },
+		permissions: ["write-checkout"],
 	});
 
 	let executed = false;
+	let approvalRequest = null;
 	const result = await dispatchExecutor({
 		handoff,
 		ownerId: "parent-1",
 		requiresWriteLock: true,
 		lockPath: TEST_LOCK_PATH,
+		approveWriteDispatch: (request) => {
+			approvalRequest = request;
+			return true;
+		},
 		executor: (h) => {
 			executed = true;
 			assert.equal(h.assignment, "Execute bounded assignment");
@@ -91,12 +97,73 @@ test("dispatchExecutor launches predefined executor and returns compact parent p
 	});
 
 	assert.equal(executed, true);
+	assert.deepEqual(approvalRequest, {
+		assignment: "Execute bounded assignment",
+		destination: null,
+		permissions: ["write-checkout"],
+		requiresWriteLock: true,
+	});
 	assert.equal(result.status, "ok");
 	assert.equal(result.taskId, "github-79");
 	assert.equal(result.summary, "Bounded executor finished successfully");
 	assert.equal(result.nextStep, "/verify");
 	assert.equal(result.writeLockAcquired, true);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Lock should be released after execution");
+});
+
+test("dispatchExecutor does not request approval for read-only handoff that still needs a writer lock", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Read-only locked task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const result = await dispatchExecutor({
+		handoff,
+		ownerId: "parent-readonly-lock",
+		requiresWriteLock: true,
+		lockPath: TEST_LOCK_PATH,
+		approveWriteDispatch: () => {
+			throw new Error("approval should not be requested");
+		},
+		executor: () => ({ status: "ok", taskId: "t1", summary: "read-only done", nextStep: "/verify" }),
+	});
+
+	assert.equal(result.status, "ok");
+	assert.equal(result.writeLockAcquired, true);
+	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+});
+
+test("dispatchExecutor cancels rejected write-capable dispatch before lock or executor", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Needs human approval",
+		checkpoint,
+		artifactSnapshot: { id: "github-147" },
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["write-checkout"],
+	});
+
+	let executed = false;
+	const result = await dispatchExecutor({
+		handoff,
+		ownerId: "parent-reject",
+		requiresWriteLock: false,
+		lockPath: TEST_LOCK_PATH,
+		approveWriteDispatch: () => ({ userAction: "cancel" }),
+		executor: () => {
+			executed = true;
+			return { status: "ok", taskId: "github-147", summary: "bad", nextStep: "/verify" };
+		},
+	});
+
+	assert.equal(executed, false);
+	assert.equal(result.status, "cancelled");
+	assert.equal(result.taskId, "github-147");
+	assert.equal(result.nextStep, "manual-takeover");
+	assert.equal(result.writeLockAcquired, false);
+	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
 });
 
 test("writer lock prevents concurrent write dispatches", async () => {
@@ -251,6 +318,43 @@ test("spawnWorkerProcess launches sub-process, passes handoff packet and --no-co
 			fs.unlinkSync(scriptPath);
 		}
 	}
+});
+
+test("spawnWorkerProcess cancels rejected write-capable dispatch before spawning", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker needs approval",
+		checkpoint,
+		artifactSnapshot: { id: "github-147" },
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["write-checkout"],
+	});
+
+	let approvalRequest = null;
+	const result = await spawnWorkerProcess({
+		handoff,
+		command: process.execPath,
+		args: ["-e", "process.exit(1)"],
+		lockPath: TEST_LOCK_PATH,
+		ownerId: "worker-proc-reject",
+		requiresWriteLock: false,
+		approveWriteDispatch: (request) => {
+			approvalRequest = request;
+			return { userAction: "cancel" };
+		},
+	});
+
+	assert.deepEqual(approvalRequest, {
+		assignment: "CLI worker needs approval",
+		destination: null,
+		permissions: ["write-checkout"],
+		requiresWriteLock: false,
+	});
+	assert.equal(result.status, "cancelled");
+	assert.equal(result.taskId, "github-147");
+	assert.equal(result.nextStep, "manual-takeover");
+	assert.equal(result.writeLockAcquired, false);
+	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
 });
 
 test("spawnWorkerProcess handles stdin handoffMode and validates worker output", async () => {
