@@ -134,6 +134,16 @@ function needsWriterLock(handoff, requiresWriteLock) {
 	return requiresWriteLock || isWriteCapableHandoff(handoff);
 }
 
+export function buildWorkerEnv(env = process.env, parentSessionId = null) {
+	const resolvedParentSessionId = parentSessionId || env?.NOCHESTRA_SESSION_ID || env?.PI_SESSION_ID || null;
+	return {
+		...env,
+		NOCHESTRA_WORKER: "1",
+		NOCHESTRA_ROLE: "worker",
+		...(resolvedParentSessionId ? { NOCHESTRA_PARENT_SESSION_ID: String(resolvedParentSessionId) } : {}),
+	};
+}
+
 async function approveWriteHandoff({ handoff, approveWriteDispatch, destination = handoff.destination ?? handoff.artifact?.destination ?? null, requiresWriteLock, writeCapable }) {
 	if (!writeCapable || typeof approveWriteDispatch !== "function") {
 		return true;
@@ -217,6 +227,7 @@ export async function spawnWorkerProcess({
 	fallbackModel = null,
 	checkProviderAvailable = null,
 	approveWriteDispatch = null,
+	parentSessionId = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -296,7 +307,7 @@ export async function spawnWorkerProcess({
 
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				cwd,
-				env: { ...env, NOCHESTRA_WORKER: "1" },
+				env: buildWorkerEnv(env, parentSessionId),
 				stdio: ["pipe", "pipe", "pipe"],
 			});
 

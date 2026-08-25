@@ -10,6 +10,7 @@ export type NotraceCorrelationInfo = {
   runId?: string | null;
   workItemId?: string | null;
   workerId?: string | null;
+  parentSessionId?: string | null;
   sessionId?: string | null;
   epochId?: string | null;
 };

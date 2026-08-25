@@ -7,6 +7,7 @@ import { readCheckpoint } from "../checkpoint.mjs";
 import {
 	acquireWriterLock,
 	buildBoundedHandoff,
+	buildWorkerEnv,
 	dispatchExecutor,
 	isWriterLocked,
 	releaseWriterLock,
@@ -214,6 +215,13 @@ test("writer lock can recover a stale lock directory", async () => {
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
 	await releaseWriterLock("worker-stale", TEST_LOCK_PATH);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+});
+
+test("buildWorkerEnv passes worker role and parent session correlation env vars", () => {
+	const env = buildWorkerEnv({ NOCHESTRA_SESSION_ID: "parent-session-1" });
+	assert.equal(env.NOCHESTRA_WORKER, "1");
+	assert.equal(env.NOCHESTRA_ROLE, "worker");
+	assert.equal(env.NOCHESTRA_PARENT_SESSION_ID, "parent-session-1");
 });
 
 test("dispatchExecutor awaits async executor before validating result and releasing lock", async () => {

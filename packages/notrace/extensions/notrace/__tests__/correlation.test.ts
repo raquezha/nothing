@@ -14,6 +14,7 @@ describe("Nochestra Correlation Integration", () => {
     delete process.env.NOCHESTRA_WORKER_ID;
     delete process.env.NOCHESTRA_SESSION_ID;
     delete process.env.NOCHESTRA_EPOCH_ID;
+    delete process.env.NOCHESTRA_PARENT_SESSION_ID;
   });
 
   afterEach(() => {
@@ -23,11 +24,13 @@ describe("Nochestra Correlation Integration", () => {
   it("extracts correlation identifiers from environment variables when present", () => {
     process.env.NOCHESTRA_RUN_ID = "run-99";
     process.env.NOCHESTRA_WORKER_ID = "worker-2";
+    process.env.NOCHESTRA_PARENT_SESSION_ID = "parent-session-9";
 
     const corr = extractCorrelation();
     expect(corr).toEqual({
       runId: "run-99",
       workerId: "worker-2",
+      parentSessionId: "parent-session-9",
     });
   });
 
@@ -39,6 +42,7 @@ describe("Nochestra Correlation Integration", () => {
   it("captures correlation in run record and index when identifiers are present", async () => {
     process.env.NOCHESTRA_RUN_ID = "run-101";
     process.env.NOCHESTRA_EPOCH_ID = "epoch-1";
+    process.env.NOCHESTRA_PARENT_SESSION_ID = "parent-session-11";
 
     const notraceDir = makeTempNotraceDir();
     const sessionId = "corr-session-1";
@@ -75,6 +79,7 @@ describe("Nochestra Correlation Integration", () => {
     expect(record.correlation).toEqual({
       runId: "run-101",
       epochId: "epoch-1",
+      parentSessionId: "parent-session-11",
     });
 
     const indexPath = path.join(notraceDir, "index.json");
@@ -83,6 +88,7 @@ describe("Nochestra Correlation Integration", () => {
     expect(sessionEntry.correlation).toEqual({
       runId: "run-101",
       epochId: "epoch-1",
+      parentSessionId: "parent-session-11",
     });
 
     cleanupTempNotraceDir(notraceDir);

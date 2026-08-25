@@ -44,10 +44,11 @@ export function generateHtmlReport(data: any): string {
   const ctxWin = data.activity?.context?.contextWindow != null ? formatTokens(data.activity.context.contextWindow) : "unavailable";
 
   const corr = data.correlation;
-  const correlationHtml = corr && (corr.runId || corr.workItemId || corr.workerId || corr.epochId) ? [
+  const correlationHtml = corr && (corr.runId || corr.workItemId || corr.workerId || corr.parentSessionId || corr.epochId) ? [
     corr.runId ? `<span>Run <strong>${escapeHtml(corr.runId)}</strong></span>` : "",
     corr.workItemId ? `<span>Work Item <strong>${escapeHtml(corr.workItemId)}</strong></span>` : "",
     corr.workerId ? `<span>Worker <strong>${escapeHtml(corr.workerId)}</strong></span>` : "",
+    corr.parentSessionId ? `<span>Parent Session <strong>${escapeHtml(corr.parentSessionId)}</strong></span>` : "",
     corr.epochId ? `<span>Epoch <strong>${escapeHtml(corr.epochId)}</strong></span>` : "",
   ].filter(Boolean).join("") : "";
 
