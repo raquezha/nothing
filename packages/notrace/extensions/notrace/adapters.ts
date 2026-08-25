@@ -6,10 +6,11 @@ export function extractCorrelation(content?: any): NotraceCorrelationInfo | null
   const runId = process.env.NOCHESTRA_RUN_ID || content?.runId || content?.run_id || content?.correlation?.runId || null;
   const workItemId = process.env.NOCHESTRA_WORK_ITEM_ID || content?.workItemId || content?.work_item_id || content?.correlation?.workItemId || null;
   const workerId = process.env.NOCHESTRA_WORKER_ID || content?.workerId || content?.worker_id || content?.correlation?.workerId || null;
+  const parentSessionId = process.env.NOCHESTRA_PARENT_SESSION_ID || content?.parentSessionId || content?.parent_session_id || content?.correlation?.parentSessionId || null;
   const sessionId = process.env.NOCHESTRA_SESSION_ID || content?.sessionId || content?.session_id || content?.correlation?.sessionId || null;
   const epochId = process.env.NOCHESTRA_EPOCH_ID || content?.epochId || content?.epoch_id || content?.correlation?.epochId || null;
 
-  if (!runId && !workItemId && !workerId && !sessionId && !epochId) {
+  if (!runId && !workItemId && !workerId && !parentSessionId && !sessionId && !epochId) {
     return null;
   }
 
@@ -17,6 +18,7 @@ export function extractCorrelation(content?: any): NotraceCorrelationInfo | null
   if (runId) corr.runId = String(runId);
   if (workItemId) corr.workItemId = String(workItemId);
   if (workerId) corr.workerId = String(workerId);
+  if (parentSessionId) corr.parentSessionId = String(parentSessionId);
   if (sessionId) corr.sessionId = String(sessionId);
   if (epochId) corr.epochId = String(epochId);
   return corr;

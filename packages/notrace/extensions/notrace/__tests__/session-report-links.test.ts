@@ -19,6 +19,7 @@ describe("session report artifacts", () => {
           usage: { inputTokens: 10, outputTokens: 5 },
         },
       ],
+      context: { workflow: "rpiv", taskId: "task-1", taskPath: null, taskDir: null, role: "worker", correlation: { parentSessionId: "parent-1" } },
       startTime: 1000,
       traceId: sessionId,
       extensionTelemetry: new Map(),
@@ -45,6 +46,7 @@ describe("session report artifacts", () => {
     expect(reportHtml).toContain("Session summary");
     expect(reportHtml).not.toContain("Timeline");
     expect(reportHtml).toContain("Open canonical record");
+    expect(reportHtml).toContain("Parent Session");
 
     const indexPath = path.join(notraceDir, "index.json");
     const indexData = JSON.parse(readFileSync(indexPath, "utf-8"));

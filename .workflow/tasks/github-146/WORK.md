@@ -70,6 +70,7 @@ Parent track: #139 ## Outcome Correlate parent and worker context usage in Notra
 - 2026-08-25 02:33 PM: Planned worker correlation implementation slices
 - 2026-08-25 02:35 PM: Synced planned state to GitHub issue #146 via Pi status comment
 - 2026-08-25 02:40 PM: Implemented slice 1 worker env propagation and added coverage for worker role/parent session envs
+- 2026-08-25 02:42 PM: Implemented Notrace parentSessionId correlation and session summary display
 
 ## [META]
 - Branch: `feat/146`
