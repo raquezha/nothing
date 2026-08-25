@@ -505,7 +505,7 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
 
     const nochestraDeliveryEnv = { ...process.env, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
     writeFileSync(argsFile, "");
-    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; tmp=$(mktemp -d); cd "$tmp"; git init -b main >/dev/null 2>&1; git config user.name test; git config user.email test@example.com; printf 'node_modules\\n' > .gitignore; git add .gitignore; git commit -m init >/dev/null 2>&1; mkdir -p .workflow; cp ${JSON.stringify(path.join(root, "packages/workflows/nochestra/test/fixtures/checkpoint.json"))} .workflow/nochestra-checkpoint.json; pi --nochestra /triage local:shell-proof`], root, { env: nochestraDeliveryEnv });
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; tmp=$(mktemp -d); cd "$tmp"; git init -b main >/dev/null 2>&1; git config user.name test; git config user.email test@example.com; printf 'node_modules\\n' > .gitignore; git add .gitignore; git commit -m init >/dev/null 2>&1; mkdir -p .workflow; cp ${JSON.stringify(path.join(root, "packages/workflows/nochestra/test/fixtures/checkpoint.json"))} .workflow/nochestra-checkpoint.json; printf 'y\n' | pi --nochestra /triage local:shell-proof`], root, { env: nochestraDeliveryEnv });
     assert(result.status === 0, "--nochestra /triage dispatches through parent runtime");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.length === 0, "--nochestra /triage does not call the parent pi chat process");
