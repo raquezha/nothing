@@ -19,14 +19,13 @@ function sectionBody(text, section) {
 	return match ? match[1].trim() : "";
 }
 
-function hasMeaningfulContent(body) {
-	return body
-		.split("\n")
-		.map((line) => line.trim())
-		.some((line) => line && line !== "-" && line !== "- [ ]");
+const MEANINGFUL_LINE_RE = /^(?!\s*(?:-|-\s\[\s\])\s*$)\s*\S/m;
+
+export function hasMeaningfulContent(body) {
+	return MEANINGFUL_LINE_RE.test(String(body || ""));
 }
 
-function inferNextStep(workText) {
+export function inferNextStep(workText) {
 	if (hasMeaningfulContent(sectionBody(workText, "PLAN"))) {
 		return "/implement";
 	}

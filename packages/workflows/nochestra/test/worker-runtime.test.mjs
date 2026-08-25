@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeTriageWorker } from "../worker-runtime.mjs";
+import { executeTriageWorker, hasMeaningfulContent, inferNextStep } from "../worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const WORKER_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/worker-runtime.mjs");
@@ -34,6 +34,31 @@ function handoffFor(id) {
 		expectedResultShape: { required: ["status", "taskId", "summary", "nextStep"] },
 	};
 }
+
+test("hasMeaningfulContent ignores empty and placeholder-only lines", () => {
+	const cases = [
+		["", false],
+		["   \n\t", false],
+		["-", false],
+		["- [ ]", false],
+		["- [ ]\n", false],
+		["- [x] done", true],
+		["text", true],
+		["  text  ", true],
+		["\n- [ ]\nreal", true],
+	];
+
+	for (const [body, expected] of cases) {
+		assert.equal(hasMeaningfulContent(body), expected, JSON.stringify(body));
+	}
+});
+
+test("inferNextStep prefers PLAN, then GRILL, then BRIEF, then frame", () => {
+	assert.equal(inferNextStep("## [PLAN]\nready\n"), "/implement");
+	assert.equal(inferNextStep("## [PLAN]\n- [ ]\n## [GRILL]\nreview\n"), "/plan");
+	assert.equal(inferNextStep("## [PLAN]\n- [ ]\n## [GRILL]\n- [ ]\n## [BRIEF]\nfocus\n"), "/grill-with-docs");
+	assert.equal(inferNextStep("## [PLAN]\n- [ ]\n## [GRILL]\n- [ ]\n## [BRIEF]\n- [ ]\n"), "/frame");
+});
 
 test("executeTriageWorker routes triage handoff through RPIV helper and returns compact result", async () => {
 	const repoDir = makeRepo();
