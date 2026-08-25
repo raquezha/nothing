@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { readCheckpoint } from "../checkpoint.mjs";
+import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
-import { buildBoundedHandoff, spawnWorkerProcess } from "../executor-dispatch.mjs";
+import { buildBoundedHandoff } from "./executor-dispatch.mjs";
+import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
 const DEFAULT_WORKER_RUNTIME_PATH = process.env.NOCH_WORKER_RUNTIME_PATH || fileURLToPath(new URL("./worker-runtime.mjs", import.meta.url));
 const DEFAULT_CHECKPOINT_PATH = process.env.NOCH_CHECKPOINT_PATH || path.join(".workflow", "nochestra-checkpoint.json");

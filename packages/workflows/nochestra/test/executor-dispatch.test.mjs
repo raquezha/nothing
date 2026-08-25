@@ -3,17 +3,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test, beforeEach } from "node:test";
-import { readCheckpoint } from "../checkpoint.mjs";
-import {
-	acquireWriterLock,
-	buildBoundedHandoff,
-	buildWorkerEnv,
-	dispatchExecutor,
-	isWriterLocked,
-	releaseWriterLock,
-	resetWriterLock,
-	spawnWorkerProcess,
-} from "../executor-dispatch.mjs";
+import { readCheckpoint } from "../adapters/checkpoint.mjs";
+import { acquireWriterLock, isWriterLocked, releaseWriterLock, resetWriterLock } from "../adapters/writer-lock.mjs";
+import { buildWorkerEnv, spawnWorkerProcess } from "../adapters/process-runner.mjs";
+import { buildBoundedHandoff, dispatchExecutor } from "../application/executor-dispatch.mjs";
 
 const FIXTURE_PATH = path.join(
 	process.cwd(),
@@ -201,7 +194,7 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 	};
 
 	fs.mkdirSync(path.join(repoDir, ".workflow", "tasks", "local-runtime-proof"), { recursive: true });
-	fs.writeFileSync(helperPath, `
+	fs.writeFileSync(helperPath, `#!/usr/bin/env node
 		const fs = require('fs');
 		const path = require('path');
 		const [source, id] = process.argv.slice(2);
@@ -211,6 +204,7 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 		fs.writeFileSync(stateFile, '## [BRIEF]\\nready\\n## [PLAN]\\n- [ ]\\n');
 		console.log('Creating task workspace');
 	`, "utf8");
+	fs.chmodSync(helperPath, 0o755);
 
 	try {
 		const result = await dispatchExecutor({

@@ -4,9 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt } from "../parent-runtime.mjs";
-import { readCheckpoint } from "../checkpoint.mjs";
-import { parseNochestraInput } from "../delivery-command.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt } from "../application/parent-runtime.mjs";
+import { readCheckpoint } from "../adapters/checkpoint.mjs";
+import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
 const PARENT_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/parent-runtime.mjs");
 const CHECKPOINT_FIXTURE_PATH = path.join(process.cwd(), "packages/workflows/nochestra/test/fixtures/checkpoint.json");

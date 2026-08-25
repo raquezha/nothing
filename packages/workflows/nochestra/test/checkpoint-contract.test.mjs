@@ -3,11 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import {
-	readCheckpoint,
-	validateCheckpoint,
-	writeCheckpoint,
-} from "../checkpoint.mjs";
+import { validateCheckpoint } from "../domain/checkpoint-contract.mjs";
+import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 
 const FIXTURE_PATH = path.join(
 	process.cwd(),
