@@ -16,6 +16,7 @@ This folder is the canonical local implementation home established in GitHub iss
 packages/workflows/nochestra/
   application/
     worker-handoff.mjs
+    worker-runtime.mjs
   domain/
     handoff-contract.mjs
   checkpoint.mjs
@@ -25,6 +26,7 @@ packages/workflows/nochestra/
   test/
     checkpoint-contract.test.mjs
     parent-epoch.test.mjs
+    worker-runtime.test.mjs
     fixtures/
       checkpoint.json
 ```
@@ -68,4 +70,5 @@ Nochestra worker handoffs support model selection target specifications and proc
 - Fallback Safety: Supports fallback to cloud models (`fallbackModel`) when local model daemons (e.g. Ollama) are unavailable or process execution fails.
 - Handoff Policy: `domain/handoff-policy.mjs` owns the raw forbidden/result key lists; `domain/handoff-contract.mjs` applies validation policy on top.
 - Worker Ingestion: `worker-handoff.mjs` reads bounded handoff JSON from stdin or canonical `--handoff <file>` transport, validates it through the shared contract, and renders the prompt from validated handoff data.
+- Worker Routing: `worker-runtime.mjs` is the tiny routed worker entrypoint. Today it supports `destination: "triage"` and shells into the RPIV triage helper, then returns compact JSON only.
 
