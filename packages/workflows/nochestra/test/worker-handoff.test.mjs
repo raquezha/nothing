@@ -8,7 +8,7 @@ import {
 	parseWorkerHandoffArgs,
 	readWorkerHandoff,
 	validateBoundedWorkerHandoff,
-} from "../worker-handoff.mjs";
+} from "../application/worker-handoff.mjs";
 
 const HANDOFF = {
 	assignment: "Implement the next slice",

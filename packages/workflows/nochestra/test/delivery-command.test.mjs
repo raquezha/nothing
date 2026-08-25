@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseNochestraInput, parseTrackedTaskRef } from "../delivery-command.mjs";
+import { parseNochestraInput, parseTrackedTaskRef } from "../domain/delivery-command.mjs";
 
 test("parseNochestraInput recognizes /triage with explicit task target as a delivery command", () => {
 	const result = parseNochestraInput("/triage github:143");

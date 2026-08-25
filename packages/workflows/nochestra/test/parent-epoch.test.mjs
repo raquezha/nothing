@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { test } from "node:test";
-import { readCheckpoint } from "../checkpoint.mjs";
+import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import {
 	buildParentEpochContext,
 	transitionParentEpoch,
 	retrieveArchivedTurns,
-} from "../parent-epoch.mjs";
+} from "../application/parent-epoch.mjs";
 
 const FIXTURE_PATH = path.join(
 	process.cwd(),
