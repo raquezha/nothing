@@ -66,6 +66,6 @@ Nochestra worker handoffs support model selection target specifications and proc
 - `buildBoundedHandoff`: Accepts optional `model` schema object (`provider`, `name`, `contextWindow`).
 - `spawnWorkerProcess`: Validates task `contextBudget.maxTokens` against model `contextWindow` prior to process launch and passes `--provider` and `--model` CLI flags to `pi`.
 - Fallback Safety: Supports fallback to cloud models (`fallbackModel`) when local model daemons (e.g. Ollama) are unavailable or process execution fails.
-- Handoff Contract: `handoff-contract.mjs` owns forbidden transcript fields and compact worker result keys.
+- Handoff Policy: `domain/handoff-policy.mjs` owns the raw forbidden/result key lists; `domain/handoff-contract.mjs` applies validation policy on top.
 - Worker Ingestion: `worker-handoff.mjs` reads bounded handoff JSON from stdin or canonical `--handoff <file>` transport, validates it through the shared contract, and renders the prompt from validated handoff data.
 

@@ -1,8 +1,14 @@
-export const NOCHESTRA_HANDOFF_CONTRACT = Object.freeze({
-	forbiddenTranscriptFields: Object.freeze(["parentTranscript", "messages", "rawParentHistory", "transcript"]),
-	compactWorkerResultKeys: Object.freeze(["status", "taskId", "summary", "nextStep"]),
-	forbiddenWorkerResultFields: Object.freeze(["transcript", "messages", "rawWorkerLog", "fullParentTranscript"]),
-});
+import {
+	COMPACT_WORKER_RESULT_KEYS,
+	FORBIDDEN_TRANSCRIPT_FIELDS,
+	FORBIDDEN_WORKER_RESULT_FIELDS,
+} from "./handoff-policy.mjs";
+
+export {
+	COMPACT_WORKER_RESULT_KEYS,
+	FORBIDDEN_TRANSCRIPT_FIELDS,
+	FORBIDDEN_WORKER_RESULT_FIELDS,
+} from "./handoff-policy.mjs";
 
 export function assertPlainObject(value, label) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -10,24 +16,24 @@ export function assertPlainObject(value, label) {
 	}
 }
 
-export function assertNoTranscriptFields(value, label, contract = NOCHESTRA_HANDOFF_CONTRACT) {
-	for (const field of contract.forbiddenTranscriptFields) {
+export function assertNoTranscriptFields(value, label) {
+	for (const field of FORBIDDEN_TRANSCRIPT_FIELDS) {
 		if (field in value) {
 			throw new Error(`Forbidden transcript field in ${label}: ${field}`);
 		}
 	}
 }
 
-export function validateCompactWorkerResult(result, contract = NOCHESTRA_HANDOFF_CONTRACT) {
+export function validateCompactWorkerResult(result) {
 	assertPlainObject(result, "Worker result");
 
-	for (const key of contract.compactWorkerResultKeys) {
+	for (const key of COMPACT_WORKER_RESULT_KEYS) {
 		if (!(key in result)) {
 			throw new Error(`Missing required worker result field: ${key}`);
 		}
 	}
 
-	for (const field of contract.forbiddenWorkerResultFields) {
+	for (const field of FORBIDDEN_WORKER_RESULT_FIELDS) {
 		if (field in result) {
 			throw new Error(`Forbidden worker result field: ${field}`);
 		}
