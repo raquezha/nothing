@@ -176,6 +176,7 @@ export async function spawnWorkerProcess({
 	command,
 	args = [],
 	env = process.env,
+	cwd = process.cwd(),
 	timeout = 30000,
 	ownerId = "nochestra-worker-runner",
 	requiresWriteLock = true,
@@ -251,6 +252,7 @@ export async function spawnWorkerProcess({
 			}
 
 			const workerProcess = spawn(targetCommand, spawnArgs, {
+				cwd,
 				env: { ...env, NOCHESTRA_WORKER: "1" },
 				stdio: ["pipe", "pipe", "pipe"],
 			});

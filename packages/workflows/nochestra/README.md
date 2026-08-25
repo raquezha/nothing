@@ -15,17 +15,20 @@ This folder is the canonical local implementation home established in GitHub iss
 ```text
 packages/workflows/nochestra/
   application/
+    parent-runtime.mjs
     worker-handoff.mjs
     worker-runtime.mjs
   domain/
     handoff-contract.mjs
   checkpoint.mjs
   parent-epoch.mjs
+  parent-runtime.mjs
   nochestra/SKILL.md
   README.md
   test/
     checkpoint-contract.test.mjs
     parent-epoch.test.mjs
+    parent-runtime.test.mjs
     worker-runtime.test.mjs
     fixtures/
       checkpoint.json
@@ -39,6 +42,8 @@ pi --nochestra-worker --handoff /tmp/nochestra-handoff.json
 ```
 
 `pi --nochestra-worker` loads the Nochestra worker skill with `--no-context-files` so worker runs start from the bounded handoff instead of accumulated repo context files. The canonical file handoff flag is `--handoff`; stdin ingestion is supported by the worker handoff helpers for process-level callers.
+
+`pi --nochestra /triage <source>:<id>` now routes through a tiny parent runtime that builds bounded handoff from current task/checkpoint state, spawns a fresh worker subprocess, and prints only a compact result plus next action.
 
 ## Relationship to other workflows
 
@@ -70,5 +75,6 @@ Nochestra worker handoffs support model selection target specifications and proc
 - Fallback Safety: Supports fallback to cloud models (`fallbackModel`) when local model daemons (e.g. Ollama) are unavailable or process execution fails.
 - Handoff Policy: `domain/handoff-policy.mjs` owns the raw forbidden/result key lists; `domain/handoff-contract.mjs` applies validation policy on top.
 - Worker Ingestion: `worker-handoff.mjs` reads bounded handoff JSON from stdin or canonical `--handoff <file>` transport, validates it through the shared contract, and renders the prompt from validated handoff data.
+- Parent Dispatch: `parent-runtime.mjs` is the tiny nochestra parent entrypoint for delivery commands. Today it intercepts `/triage`, builds bounded handoff from current state, and dispatches a fresh worker subprocess.
 - Worker Routing: `worker-runtime.mjs` is the tiny routed worker entrypoint. Today it supports `destination: "triage"` and shells into the RPIV triage helper, then returns compact JSON only.
 

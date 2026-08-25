@@ -503,6 +503,21 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.some((arg) => arg.endsWith("/packages/workflows/nochestra/nochestra")), "--nochestra loads canonical local nochestra home skill");
     assert(args.includes("hello"), "--nochestra forwards user prompt untouched");
 
+    const nochestraDeliveryEnv = { ...process.env, PI_FAKE_ARGS_FILE: argsFile, PI_FAKE_INSTALL_LOG: installLog, NOTHING_CACHE_DIR: cacheDir };
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nochestra /triage local:shell-proof`], root, { env: nochestraDeliveryEnv });
+    assert(result.status === 0, "--nochestra /triage dispatches through parent runtime");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.length === 0, "--nochestra /triage does not call the parent pi chat process");
+    assert(result.stdout.includes("Next step: /frame"), "--nochestra /triage prints a compact next action");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --rpiv hello`], root, { env });
+    assert(result.status === 0, "--rpiv still runs through normal Pi dispatch");
+    args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
+    assert(args.some((arg) => arg.endsWith("/packages/workflows/norpiv/implement")), "--rpiv still loads RPIV skills");
+    assert(args.includes("hello"), "--rpiv still forwards user prompt untouched");
+
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nochestra-worker --handoff /tmp/handoff.json`], root, { env });
     assert(result.status === 0, "--nochestra-worker runs with fake pi");
