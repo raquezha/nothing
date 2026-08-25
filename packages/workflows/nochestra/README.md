@@ -77,4 +77,5 @@ Nochestra worker handoffs support model selection target specifications and proc
 - Worker Ingestion: `worker-handoff.mjs` reads bounded handoff JSON from stdin or canonical `--handoff <file>` transport, validates it through the shared contract, and renders the prompt from validated handoff data.
 - Parent Dispatch: `parent-runtime.mjs` is the tiny nochestra parent entrypoint for delivery commands. Today it intercepts `/triage`, builds bounded handoff from current state, and dispatches a fresh worker subprocess.
 - Worker Routing: `worker-runtime.mjs` is the tiny routed worker entrypoint. Today it supports `destination: "triage"` and shells into the RPIV triage helper, then returns compact JSON only.
+- Proof Coverage: `test/executor-dispatch.test.mjs` includes the deterministic end-to-end proofs for `dispatchExecutor` -> subprocess worker -> compact result, including local-model fallback flags, writer lock release, and the actual `application/worker-runtime.mjs` triage route with a fake helper.
 

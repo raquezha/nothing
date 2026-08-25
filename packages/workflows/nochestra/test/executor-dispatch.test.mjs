@@ -20,6 +20,7 @@ const FIXTURE_PATH = path.join(
 );
 
 const TEST_LOCK_PATH = path.join(os.tmpdir(), "nochestra-test-writer.lock");
+const WORKER_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/worker-runtime.mjs");
 
 beforeEach(() => {
 	resetWriterLock(TEST_LOCK_PATH);
@@ -109,6 +110,135 @@ test("dispatchExecutor launches predefined executor and returns compact parent p
 	assert.equal(result.nextStep, "/verify");
 	assert.equal(result.writeLockAcquired, true);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Lock should be released after execution");
+});
+
+test("dispatchExecutor can prove an end-to-end subprocess worker with compact result and local model fallback", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Run triage subprocess proof",
+		checkpoint,
+		contextBudget: { maxTokens: 4000, maxTurns: 4 },
+		permissions: ["write-checkout"],
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-e2e-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		const fs = require('fs');
+		const args = process.argv.slice(2);
+		const handoffPath = args[args.indexOf('--handoff') + 1];
+		const handoff = JSON.parse(fs.readFileSync(handoffPath, 'utf8'));
+		const provider = args[args.indexOf('--provider') + 1];
+		const model = args[args.indexOf('--model') + 1];
+		if (!args.includes('--no-context-files')) process.exit(2);
+		if (handoff.assignment !== 'Run triage subprocess proof') process.exit(3);
+		if (provider !== 'cloud-anthropic' || model !== 'claude-3-5-sonnet') process.exit(4);
+		if (!fs.existsSync(process.env.TEST_LOCK_PATH)) process.exit(5);
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-144',
+			summary: 'Fresh subprocess triage proof returned compact result',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	let workerProcessResult = null;
+	try {
+		const result = await dispatchExecutor({
+			handoff,
+			ownerId: "dispatch-e2e-parent",
+			lockPath: TEST_LOCK_PATH,
+			approveWriteDispatch: () => true,
+			executor: async (boundedHandoff) => {
+				workerProcessResult = await spawnWorkerProcess({
+					handoff: boundedHandoff,
+					command: process.execPath,
+					args: [scriptPath],
+					env: { ...process.env, TEST_LOCK_PATH },
+					lockPath: TEST_LOCK_PATH,
+					requiresWriteLock: false,
+					fallbackModel: { provider: "cloud-anthropic", name: "claude-3-5-sonnet" },
+					checkProviderAvailable: (provider) => provider !== "ollama",
+				});
+				return workerProcessResult;
+			},
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-144");
+		assert.equal(result.summary, "Fresh subprocess triage proof returned compact result");
+		assert.equal(result.nextStep, "/verify");
+		assert.equal(result.writeLockAcquired, true);
+		assert.equal(workerProcessResult.fallbackApplied, true);
+		assert.equal(workerProcessResult.writeLockAcquired, false);
+		assert.equal("transcript" in result, false);
+		assert.equal("rawWorkerLog" in result, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fake triage helper", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-dispatch-runtime-"));
+	const helperPath = path.join(repoDir, "fake-triage-helper.cjs");
+	const handoff = buildBoundedHandoff({
+		assignment: "Run triage for local:runtime-proof",
+		checkpoint,
+		artifactSnapshot: { source: "local", id: "runtime-proof" },
+		contextBudget: { maxTokens: 4000 },
+		selectedSkills: ["triage"],
+		permissions: ["write-checkout"],
+	});
+	const routedHandoff = {
+		...handoff,
+		destination: "triage",
+		artifact: { source: "local", id: "runtime-proof" },
+	};
+
+	fs.mkdirSync(path.join(repoDir, ".workflow", "tasks", "local-runtime-proof"), { recursive: true });
+	fs.writeFileSync(helperPath, `
+		const fs = require('fs');
+		const path = require('path');
+		const [source, id] = process.argv.slice(2);
+		const stateFile = path.join('.workflow', 'tasks', source + '-' + id, 'WORK.md');
+		fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+		fs.writeFileSync(path.join('.workflow', 'active.json'), JSON.stringify({ id: source + '-' + id, stateFile }));
+		fs.writeFileSync(stateFile, '## [BRIEF]\\nready\\n## [PLAN]\\n- [ ]\\n');
+		console.log('Creating task workspace');
+	`, "utf8");
+
+	try {
+		const result = await dispatchExecutor({
+			handoff: routedHandoff,
+			ownerId: "runtime-proof-parent",
+			lockPath: TEST_LOCK_PATH,
+			approveWriteDispatch: () => true,
+			executor: (h) => spawnWorkerProcess({
+				handoff: h,
+				command: process.execPath,
+				args: [WORKER_RUNTIME_PATH],
+				cwd: repoDir,
+				env: { ...process.env, NOCH_TRIAGE_HELPER_PATH: helperPath },
+				lockPath: TEST_LOCK_PATH,
+				requiresWriteLock: false,
+			}),
+		});
+
+		assert.deepEqual(result, {
+			status: "created",
+			taskId: "local-runtime-proof",
+			summary: "Triage created for local:runtime-proof",
+			nextStep: "/grill-with-docs",
+			writeLockAcquired: true,
+		});
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
 });
 
 test("dispatchExecutor does not request approval for read-only handoff that still needs a writer lock", async () => {
