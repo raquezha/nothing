@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.2.0
+
+### Minor Changes
+
+- e95ddc1: Implement CLI sub-process worker runner for nochestra and enforce markdown hyperlinking in sync skill (Refs #140)
+
 ## 0.1.0
 
 ### Minor Changes

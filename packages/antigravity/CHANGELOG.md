@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.1.0
+
+### Minor Changes
+
+- 7ebccd4: Add support for Gemini 3.7 Flash model catalog, routing, and OAuth dynamic matching.
+
 ## 0.0.10
 
 ### Patch Changes

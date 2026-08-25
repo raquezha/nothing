@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.2.7
+
+### Patch Changes
+
+- 98f50d1: Add parent session correlation to Notrace records and session summaries, and propagate worker parent session envs from Nochestra dispatch.
+
 ## 0.2.6
 
 ### Patch Changes
