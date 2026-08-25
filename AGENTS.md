@@ -29,8 +29,9 @@ When changing a skill name, command, or directory:
 - Add a changeset before push for package-affecting work: `npx changeset add` or `npx changeset add --empty`
 
 ### Package Issue Closure Rule
-- PR bodies: use `Refs #ISSUE`, not `Closes/Fixes` (close after npm publish)
-- For parent issues with child tasks, link the PR to the executable child issue; keep the parent as umbrella status only.
+- PR bodies: use `Refs #ISSUE` by default to avoid accidentally auto-closing umbrella/parent issues.
+- Contextual closure: evaluate issue context (child vs umbrella, acceptance status). After PR merge, explicitly close the executable child issue (`gh issue close`) when acceptance criteria are complete.
+- Keep umbrella/parent issues open for high-level tracking unless all child work is complete.
 - Edit PR/comment markdown via body files or JSON `--input`, never inline shell strings with backticks.
 - Add changeset: `npx changeset add`
 
