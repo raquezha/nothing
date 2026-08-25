@@ -113,6 +113,10 @@
       "skills": ["nochestra/nochestra"],
       "extensions": []
     },
+    "nochestra-worker": {
+      "skills": ["nochestra/nochestra"],
+      "extensions": []
+    },
     "antigravity": {
       "skills": [],
       "extensions": [
