@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint } from "../checkpoint.mjs";
 import { parseNochestraInput } from "../delivery-command.mjs";
@@ -88,7 +89,28 @@ function compactDeliveryResult(parsed, result) {
 	};
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH } = {}) {
+export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false } = {}) {
+	const canChange = Array.isArray(permissions) ? permissions.join(", ") : String(permissions || "");
+	return [
+		"Approve write-capable Nochestra dispatch?",
+		`Task: ${assignment || "Unknown task"}`,
+		`Will run: ${destination || "worker"}`,
+		`Can change: ${canChange || "unspecified write target"}`,
+		...(requiresWriteLock ? ["Other write workers will be paused while this runs"] : []),
+	].join("\n");
+}
+
+export async function promptForWriteDispatch(request, { input = process.stdin, output = process.stderr } = {}) {
+	const rl = readline.createInterface({ input, output });
+	try {
+		const answer = await rl.question(`${formatWriteApprovalPrompt(request)}\nApprove? [y/N] `);
+		return /^y(es)?$/i.test(answer.trim());
+	} finally {
+		rl.close();
+	}
+}
+
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath });
 	const handoff = buildDeliveryHandoff({ parsed, ...context });
 	const result = await spawnWorkerProcess({
@@ -97,6 +119,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		args: [workerRuntimePath],
 		cwd,
 		env: process.env,
+		approveWriteDispatch,
 	});
 	return compactDeliveryResult(parsed, result);
 }
@@ -126,7 +149,11 @@ export function formatNochestraResult(result) {
 }
 
 export async function runNochestraParent(args = process.argv.slice(2), options = {}) {
-	return dispatchNochestraInput({ input: args, ...options });
+	return dispatchNochestraInput({
+		input: args,
+		...options,
+		approveWriteDispatch: options.approveWriteDispatch ?? ((request) => promptForWriteDispatch(request, options)),
+	});
 }
 
 const entryPath = fileURLToPath(import.meta.url);

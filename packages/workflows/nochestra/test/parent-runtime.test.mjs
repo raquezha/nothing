@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult } from "../parent-runtime.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt } from "../parent-runtime.mjs";
 import { readCheckpoint } from "../checkpoint.mjs";
 import { parseNochestraInput } from "../delivery-command.mjs";
 
@@ -51,6 +51,21 @@ test("buildNochestraDeliveryHandoff keeps delivery state bounded and transcript-
 	assert.equal("messages" in handoff, false);
 });
 
+test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run triage for github:159",
+		destination: "triage",
+		permissions: ["write-checkout"],
+		requiresWriteLock: true,
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run triage for github:159",
+		"Will run: triage",
+		"Can change: write-checkout",
+		"Other write workers will be paused while this runs",
+	].join("\n"));
+});
+
 test("dispatchNochestraInput spawns a worker subprocess and returns compact next action", async () => {
 	const repoDir = makeRepo();
 	try {
@@ -74,6 +89,29 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 	}
 });
 
+test("dispatchNochestraInput cancels write dispatch when approval callback rejects", async () => {
+	const repoDir = makeRepo();
+	try {
+		const result = await dispatchNochestraInput({
+			input: "/triage local:parent-runtime-cancel",
+			cwd: repoDir,
+			approveWriteDispatch: () => ({ userAction: "cancel" }),
+		});
+
+		assert.deepEqual(result, {
+			kind: "delivery",
+			command: "triage",
+			task: { source: "local", id: "parent-runtime-cancel" },
+			status: "cancelled",
+			taskId: "parent-runtime-cancel",
+			summary: "Write-capable dispatch cancelled by user.",
+			nextStep: "manual-takeover",
+		});
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("dispatchNochestraInput fails delivery without an explicit checkpoint", async () => {
 	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-no-checkpoint-"));
 	try {
@@ -92,10 +130,11 @@ test("parent runtime CLI prints compact delivery summary for slash commands", ()
 		const result = spawnSync(process.execPath, [PARENT_RUNTIME_PATH, "/triage", "local:cli-parent-proof"], {
 			cwd: repoDir,
 			encoding: "utf8",
+			input: "y\n",
 		});
 
 		assert.equal(result.status, 0, result.stderr);
-		assert.equal(result.stderr, "");
+		assert.match(result.stderr, /Task: Run triage for local:cli-parent-proof/);
 		assert.match(result.stdout, /Command: \/triage/);
 		assert.match(result.stdout, /Task: local:cli-parent-proof/);
 		assert.match(result.stdout, /Next step: \/frame/);
