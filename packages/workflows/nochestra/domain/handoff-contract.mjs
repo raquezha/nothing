@@ -24,6 +24,19 @@ export function assertNoTranscriptFields(value, label) {
 	}
 }
 
+export function validateWorkerHandoff(handoff) {
+	assertPlainObject(handoff, "Worker handoff");
+	if (!handoff.assignment || typeof handoff.assignment !== "string") {
+		throw new Error("Worker handoff requires assignment string");
+	}
+	assertNoTranscriptFields(handoff, "worker handoff");
+	return true;
+}
+
+export function compactWorkerResultInstruction() {
+	return `Return only compact JSON with keys: ${COMPACT_WORKER_RESULT_KEYS.map((key) => `"${key}"`).join(", ")}.`;
+}
+
 export function validateCompactWorkerResult(result) {
 	assertPlainObject(result, "Worker result");
 

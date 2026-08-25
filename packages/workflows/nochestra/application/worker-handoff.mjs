@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import {
-	COMPACT_WORKER_RESULT_KEYS,
-	assertNoTranscriptFields,
-	assertPlainObject,
+	compactWorkerResultInstruction,
+	validateWorkerHandoff,
 } from "../domain/handoff-contract.mjs";
 
 function parseJson(raw, source) {
@@ -38,12 +37,7 @@ export function parseWorkerHandoffArgs(args = process.argv.slice(2)) {
 }
 
 export function validateBoundedWorkerHandoff(handoff) {
-	assertPlainObject(handoff, "Worker handoff");
-	if (!handoff.assignment || typeof handoff.assignment !== "string") {
-		throw new Error("Worker handoff requires assignment string");
-	}
-	assertNoTranscriptFields(handoff, "worker handoff");
-	return true;
+	return validateWorkerHandoff(handoff);
 }
 
 export async function readWorkerHandoff({ args = process.argv.slice(2), stdin = null } = {}) {
@@ -65,6 +59,6 @@ export function buildWorkerPrompt(handoff) {
 		parts.push(`${key}:\n${value}`);
 	}
 
-	parts.push(`Return only compact JSON with keys: ${COMPACT_WORKER_RESULT_KEYS.map((key) => `"${key}"`).join(", ")}.`);
+	parts.push(compactWorkerResultInstruction());
 	return parts.join("\n\n");
 }
