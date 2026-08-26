@@ -103,7 +103,7 @@ test("dispatchNochestraInput cancels write dispatch when approval callback rejec
 			command: "triage",
 			task: { source: "local", id: "parent-runtime-cancel" },
 			status: "cancelled",
-			taskId: "parent-runtime-cancel",
+			taskId: "local-parent-runtime-cancel",
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
 		});
@@ -112,13 +112,41 @@ test("dispatchNochestraInput cancels write dispatch when approval callback rejec
 	}
 });
 
-test("dispatchNochestraInput fails delivery without an explicit checkpoint", async () => {
-	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-no-checkpoint-"));
+test("dispatchNochestraInput does not create checkpoint when missing dispatch is cancelled", async () => {
+	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-cancel-no-checkpoint-"));
+	spawnSync("git", ["init", "-b", "main"], { cwd: repoDir, stdio: "ignore" });
 	try {
-		await assert.rejects(
-			() => dispatchNochestraInput({ input: "/triage local:no-checkpoint", cwd: repoDir }),
-			/No Nochestra checkpoint found/,
-		);
+		const result = await dispatchNochestraInput({
+			input: "/triage local:no-checkpoint-cancel",
+			cwd: repoDir,
+			approveWriteDispatch: () => ({ userAction: "cancel" }),
+		});
+
+		assert.equal(result.status, "cancelled");
+		assert.equal(result.taskId, "local-no-checkpoint-cancel");
+		assert.equal(fs.existsSync(path.join(repoDir, ".workflow", "nochestra-checkpoint.json")), false);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("dispatchNochestraInput creates and updates a checkpoint when missing", async () => {
+	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-no-checkpoint-"));
+	spawnSync("git", ["init", "-b", "main"], { cwd: repoDir, stdio: "ignore" });
+	spawnSync("git", ["config", "user.name", "Nochestra Test"], { cwd: repoDir, stdio: "ignore" });
+	spawnSync("git", ["config", "user.email", "nochestra@example.com"], { cwd: repoDir, stdio: "ignore" });
+	fs.writeFileSync(path.join(repoDir, ".gitignore"), "node_modules\n", "utf8");
+	spawnSync("git", ["add", ".gitignore"], { cwd: repoDir, stdio: "ignore" });
+	spawnSync("git", ["commit", "-m", "init"], { cwd: repoDir, stdio: "ignore" });
+	try {
+		const result = await dispatchNochestraInput({ input: "/triage local:no-checkpoint", cwd: repoDir });
+		const checkpoint = readCheckpoint(path.join(repoDir, ".workflow", "nochestra-checkpoint.json"));
+
+		assert.equal(result.status, "created");
+		assert.equal(checkpoint.subject, "local:no-checkpoint");
+		assert.equal(checkpoint.goal, "Run triage for local:no-checkpoint");
+		assert.equal(checkpoint.suggestedNextRoute, "/frame");
+		assert.match(checkpoint.decisions[0], /Triage created for local:no-checkpoint/);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}

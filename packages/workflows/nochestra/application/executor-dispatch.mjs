@@ -13,6 +13,12 @@ function isWriteCapableHandoff(handoff) {
 	return Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write"));
 }
 
+function handoffTaskId(handoff) {
+	const source = handoff.artifactSnapshot?.source ?? handoff.artifact?.source;
+	const id = handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null;
+	return source && id ? `${source}-${id}` : id;
+}
+
 function needsWriterLock(handoff, requiresWriteLock) {
 	if (requiresWriteLock === false) {
 		return false;
@@ -116,7 +122,7 @@ export async function dispatchExecutor({
 	if (!await approveWriteHandoff({ handoff, approveWriteDispatch, requiresWriteLock, writeCapable })) {
 		return {
 			status: "cancelled",
-			taskId: handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null,
+			taskId: handoffTaskId(handoff),
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
 			writeLockAcquired: false,

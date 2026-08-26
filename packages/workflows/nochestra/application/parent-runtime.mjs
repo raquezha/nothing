@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { readCheckpoint } from "../adapters/checkpoint.mjs";
+import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
@@ -20,18 +20,53 @@ function readActiveWorkflow(cwd) {
 	return fs.existsSync(activePath) ? readJson(activePath) : null;
 }
 
-function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH) {
-	const resolved = path.resolve(cwd, checkpointPath);
-	if (!fs.existsSync(resolved)) {
-		throw new Error(`No Nochestra checkpoint found at ${checkpointPath}`);
-	}
-	return readCheckpoint(resolved);
+function defaultCheckpointForTask(parsed) {
+	return {
+		subject: `${parsed.task.source}:${parsed.task.id}`,
+		goal: `Run ${parsed.command} for ${parsed.task.source}:${parsed.task.id}`,
+		decisions: [],
+		constraints: [
+			"Preserve existing workflow rules",
+			"Do not copy raw tracker output into workflow state",
+		],
+		openQuestions: [],
+		rejectedOptions: [],
+		currentRoute: "delivery",
+		suggestedNextRoute: parsed.command,
+	};
 }
 
-export function loadDeliveryContext({ cwd = process.cwd(), checkpointPath = DEFAULT_CHECKPOINT_PATH } = {}) {
+function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null) {
+	const resolved = path.resolve(cwd, checkpointPath);
+	if (fs.existsSync(resolved)) {
+		return readCheckpoint(resolved);
+	}
+	if (!parsed) {
+		throw new Error(`No Nochestra checkpoint found at ${checkpointPath}`);
+	}
+	return defaultCheckpointForTask(parsed);
+}
+
+function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
+	const resolved = path.resolve(cwd, checkpointPath);
+	fs.mkdirSync(path.dirname(resolved), { recursive: true });
+	writeCheckpoint(resolved, checkpoint);
+}
+
+function checkpointWithWorkerResult(checkpoint, result) {
+	const decision = `${result.taskId || "Worker"} ${result.status}: ${result.summary}`;
+	return {
+		...checkpoint,
+		decisions: checkpoint.decisions.includes(decision) ? checkpoint.decisions : [...checkpoint.decisions, decision],
+		currentRoute: "delivery",
+		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
+	};
+}
+
+export function loadDeliveryContext({ cwd = process.cwd(), checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null } = {}) {
 	return {
 		active: readActiveWorkflow(cwd),
-		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath),
+		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath, parsed),
 	};
 }
 
@@ -112,7 +147,17 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 }
 
 export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null } = {}) {
-	const context = loadDeliveryContext({ cwd, checkpointPath });
+	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
+	let checkpointPersisted = false;
+	const approveAndPersistCheckpoint = async (request) => {
+		const approved = typeof approveWriteDispatch === "function" ? await approveWriteDispatch(request) : true;
+		const ok = approved === true || approved?.approved === true || approved?.userAction === "approve";
+		if (ok && !checkpointPersisted) {
+			writeDeliveryCheckpoint(cwd, checkpointPath, context.checkpoint);
+			checkpointPersisted = true;
+		}
+		return approved;
+	};
 	const handoff = buildDeliveryHandoff({ parsed, ...context });
 	const result = await spawnWorkerProcess({
 		handoff,
@@ -120,9 +165,13 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		args: [workerRuntimePath],
 		cwd,
 		env: process.env,
-		approveWriteDispatch,
+		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
-	return compactDeliveryResult(parsed, result);
+	const compact = compactDeliveryResult(parsed, result);
+	if (result.status !== "cancelled") {
+		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result));
+	}
+	return compact;
 }
 
 export async function dispatchNochestraInput(options = {}) {
