@@ -1,8 +1,11 @@
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { readWorkerHandoff, validateBoundedWorkerHandoff } from "./worker-handoff.mjs";
+
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_TRIAGE_HELPER_PATH = process.env.NOCH_TRIAGE_HELPER_PATH || fileURLToPath(new URL("../../norpiv/scripts/triage_helper.sh", import.meta.url));
 
@@ -39,16 +42,10 @@ export function inferNextStep(workText) {
 }
 
 function inferAction(stdout) {
-	if (/Created WORK\.md|Creating task workspace/.test(stdout)) {
-		return "created";
-	}
-	if (/Resumed existing task/.test(stdout)) {
-		return "resumed";
-	}
-	if (/Reopened task/.test(stdout)) {
-		return "reopened";
-	}
-	return "ok";
+	return /Created WORK\.md|Creating task workspace/.test(stdout) ? "created"
+		: /Resumed existing task/.test(stdout) ? "resumed"
+		: /Reopened task/.test(stdout) ? "reopened"
+		: "ok";
 }
 
 function extractTask(handoff) {
@@ -61,26 +58,13 @@ function extractTask(handoff) {
 	return { source, id, mode };
 }
 
-function runScript(command, args, cwd) {
-	return new Promise((resolve, reject) => {
-		const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-		let stdout = "";
-		let stderr = "";
-		child.stdout.on("data", (chunk) => {
-			stdout += chunk.toString("utf8");
-		});
-		child.stderr.on("data", (chunk) => {
-			stderr += chunk.toString("utf8");
-		});
-		child.on("error", reject);
-		child.on("close", (code) => {
-			if (code !== 0) {
-				reject(new Error((stderr || stdout).trim() || `Worker helper exited with code ${code}`));
-				return;
-			}
-			resolve({ stdout, stderr });
-		});
-	});
+async function runScript(command, args, cwd) {
+	try {
+		const { stdout } = await execFileAsync(command, args, { cwd });
+		return { stdout };
+	} catch (error) {
+		throw new Error(error.stderr?.trim() || error.stdout?.trim() || error.message);
+	}
 }
 
 function replaceSectionBody(text, section, content) {

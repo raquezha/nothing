@@ -12,16 +12,12 @@ function parseJson(raw, source) {
 	}
 }
 
-function readStdin() {
-	return new Promise((resolve, reject) => {
-		let data = "";
-		process.stdin.setEncoding("utf8");
-		process.stdin.on("data", (chunk) => {
-			data += chunk;
-		});
-		process.stdin.on("end", () => resolve(data));
-		process.stdin.on("error", reject);
-	});
+async function readStdin() {
+	const chunks = [];
+	for await (const chunk of process.stdin) {
+		chunks.push(chunk);
+	}
+	return Buffer.concat(chunks).toString("utf8");
 }
 
 export function parseWorkerHandoffArgs(args = process.argv.slice(2)) {
