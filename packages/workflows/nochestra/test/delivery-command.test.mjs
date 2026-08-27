@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseNochestraInput, parseTrackedTaskRef } from "../domain/delivery-command.mjs";
+import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute } from "../domain/delivery-command.mjs";
 
 test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
 	const result = parseNochestraInput("/triage github:143");
@@ -50,4 +50,54 @@ test("parseTrackedTaskRef accepts supported sources only", () => {
 	assert.deepEqual(parseTrackedTaskRef("local:setup-v2"), { source: "local", id: "setup-v2" });
 	assert.equal(parseTrackedTaskRef("143"), null);
 	assert.equal(parseTrackedTaskRef("slack:143"), null);
+});
+
+test("recommendNochestraRoute suggests Delivery for tracker refs with delivery verbs", () => {
+	assert.deepEqual(recommendNochestraRoute("triage github:123"), {
+		kind: "route-recommendation",
+		route: "delivery",
+		command: "/triage github:123",
+		confidence: "high",
+		reason: "tracker reference with delivery verb",
+	});
+});
+
+test("recommendNochestraRoute suggests Discovery for research prompts", () => {
+	assert.deepEqual(recommendNochestraRoute("research model routing options"), {
+		kind: "route-recommendation",
+		route: "discovery",
+		command: "pi --research",
+		confidence: "high",
+		reason: "research verb detected",
+	});
+});
+
+test("recommendNochestraRoute suggests Notes for explicit note-writing prompts", () => {
+	assert.deepEqual(recommendNochestraRoute("write this to notes"), {
+		kind: "route-recommendation",
+		route: "notes",
+		command: "pi --notes",
+		confidence: "high",
+		reason: "explicit note-writing or vault intent",
+	});
+});
+
+test("recommendNochestraRoute keeps plain discussion in Chat", () => {
+	assert.deepEqual(recommendNochestraRoute("hello"), {
+		kind: "route-recommendation",
+		route: "chat",
+		command: null,
+		confidence: "high",
+		reason: "plain discussion with no durable or delivery signal",
+	});
+});
+
+test("recommendNochestraRoute returns needs-confirmation for ambiguous durable prompts", () => {
+	assert.deepEqual(recommendNochestraRoute("save this"), {
+		kind: "route-recommendation",
+		route: "needs-confirmation",
+		command: null,
+		confidence: "low",
+		reason: "durable write intent is ambiguous",
+	});
 });
