@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { acquireWriterLock, releaseWriterLock } from "./writer-lock.mjs";
 import { extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
-import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
+import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
@@ -43,17 +43,7 @@ async function approveWriteHandoff({ handoff, approveWriteDispatch, destination 
 	if (!writeCapable || typeof approveWriteDispatch !== "function") {
 		return true;
 	}
-	const task = handoff.artifact ?? {
-		source: handoff.artifactSnapshot?.source,
-		id: handoff.artifactSnapshot?.id,
-	};
-	const approval = await approveWriteDispatch({
-		assignment: handoff.assignment,
-		destination,
-		permissions: clone(handoff.permissions ?? []),
-		writeScope: resolveWriteScope({ destination, assignment: handoff.assignment, task }),
-		requiresWriteLock,
-	});
+	const approval = await approveWriteDispatch(buildWriteApprovalRequest({ handoff, destination, requiresWriteLock }));
 	return approval === true || approval?.approved === true || approval?.userAction === "approve";
 }
 

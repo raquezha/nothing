@@ -34,8 +34,15 @@ const WRITE_SCOPE_BY_DESTINATION = Object.freeze({
 	}),
 });
 
+function sanitizeTaskId(id) {
+	return String(id)
+		.replace(/[\\/]+/g, "-")
+		.replace(/\.\.+/g, "-")
+		.replace(/^\.+/, "");
+}
+
 function taskRefFromParts(source, id) {
-	return `${String(source).toLowerCase()}-${id}`;
+	return `${String(source).toLowerCase()}-${sanitizeTaskId(id)}`;
 }
 
 function extractTaskRef(assignment, task) {

@@ -133,6 +133,17 @@ test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
 		"Will not:",
 		"- edit code",
 	].join("\n"));
+
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run mystery for local:foo",
+		destination: "unknown",
+		permissions: ["write-checkout"],
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run mystery for local:foo",
+		"Will run: unknown",
+		"Can change: write-checkout",
+	].join("\n"));
 });
 
 test("dispatchNochestraInput spawns a worker subprocess and returns compact next action", async () => {
@@ -161,11 +172,30 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 
 test("dispatchNochestraInput cancels write dispatch when approval callback rejects", async () => {
 	const repoDir = makeRepo();
+	let approvalRequest = null;
 	try {
 		const result = await dispatchNochestraInput({
 			input: "/triage local:parent-runtime-cancel",
 			cwd: repoDir,
-			approveWriteDispatch: () => ({ userAction: "cancel" }),
+			approveWriteDispatch: (request) => {
+				approvalRequest = request;
+				return { userAction: "cancel" };
+			},
+		});
+
+		assert.deepEqual(approvalRequest, {
+			assignment: "Run triage for local:parent-runtime-cancel",
+			destination: "triage",
+			permissions: ["write-checkout"],
+			writeScope: {
+				canChange: [
+					".workflow/tasks/local-parent-runtime-cancel/WORK.md",
+					".workflow/tasks/local-parent-runtime-cancel/metadata.json",
+					".workflow/active.json",
+				],
+				willNot: ["edit code", "update tracker"],
+			},
+			requiresWriteLock: true,
 		});
 
 		assert.deepEqual(result, {

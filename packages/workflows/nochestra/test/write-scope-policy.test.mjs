@@ -35,6 +35,14 @@ test("resolveWriteScope builds scope for sync", () => {
 	});
 });
 
+test("resolveWriteScope sanitizes task ids to avoid path traversal expansion", () => {
+	const scope = resolveWriteScope({ destination: "triage", task: { source: "local", id: "../evil/../x" } });
+	assert.equal(scope.canChange[0].startsWith(".workflow/tasks/local-"), true);
+	assert.equal(scope.canChange[0].includes("/../"), false);
+	assert.equal(scope.canChange[0].includes("\\..\\"), false);
+	assert.equal(scope.canChange[0].includes("evil"), true);
+});
+
 test("resolveWriteScope returns null for unknown destinations", () => {
 	assert.equal(resolveWriteScope({ destination: "unknown", assignment: "Run test for local:foo" }), null);
 });
