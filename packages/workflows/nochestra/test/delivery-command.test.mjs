@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseNochestraInput, parseTrackedTaskRef } from "../domain/delivery-command.mjs";
+import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute } from "../domain/delivery-command.mjs";
 
 test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
 	const result = parseNochestraInput("/triage github:143");
@@ -50,4 +50,88 @@ test("parseTrackedTaskRef accepts supported sources only", () => {
 	assert.deepEqual(parseTrackedTaskRef("local:setup-v2"), { source: "local", id: "setup-v2" });
 	assert.equal(parseTrackedTaskRef("143"), null);
 	assert.equal(parseTrackedTaskRef("slack:143"), null);
+});
+
+test("recommendNochestraRoute suggests Delivery for exact triage ref grammar", () => {
+	assert.deepEqual(recommendNochestraRoute("triage github:123"), {
+		kind: "route-recommendation",
+		route: "delivery",
+		command: "/triage github:123",
+		confidence: "high",
+		reason: "rule:delivery-triage-ref",
+	});
+});
+
+test("recommendNochestraRoute recommends unsupported Delivery actions without inventing executable commands", () => {
+	assert.deepEqual(recommendNochestraRoute("implement github:123"), {
+		kind: "route-recommendation",
+		route: "delivery",
+		command: null,
+		confidence: "high",
+		reason: "rule:delivery-unsupported-action-ref",
+	});
+});
+
+test("recommendNochestraRoute suggests Discovery for explicit research grammar", () => {
+	assert.deepEqual(recommendNochestraRoute("research model routing options"), {
+		kind: "route-recommendation",
+		route: "discovery",
+		command: "pi --research",
+		confidence: "high",
+		reason: "rule:discovery-explicit-research",
+	});
+});
+
+test("recommendNochestraRoute suggests Notes for explicit write-to-destination grammar", () => {
+	assert.deepEqual(recommendNochestraRoute("write this to notes"), {
+		kind: "route-recommendation",
+		route: "notes",
+		command: "pi --notes",
+		confidence: "high",
+		reason: "rule:notes-write-destination",
+	});
+});
+
+test("recommendNochestraRoute keeps plain discussion and bare questions in Chat", () => {
+	for (const input of ["hello", "how are you?", "should we use SQLite?"]) {
+		assert.deepEqual(recommendNochestraRoute(input), {
+			kind: "route-recommendation",
+			route: "chat",
+			command: null,
+			confidence: "high",
+			reason: "rule:chat-fallback",
+		});
+	}
+});
+
+test("recommendNochestraRoute keeps incomplete durable prompts in Chat", () => {
+	for (const input of ["save this", "remember this", "capture this"]) {
+		assert.deepEqual(recommendNochestraRoute(input), {
+			kind: "route-recommendation",
+			route: "chat",
+			command: null,
+			confidence: "high",
+			reason: "rule:chat-fallback",
+		});
+	}
+});
+
+test("recommendNochestraRoute keeps discussion-about-delivery in Chat", () => {
+	assert.deepEqual(recommendNochestraRoute("should I triage github:123?"), {
+		kind: "route-recommendation",
+		route: "chat",
+		command: null,
+		confidence: "high",
+		reason: "rule:chat-fallback",
+	});
+});
+
+test("recommendNochestraRoute returns needs-confirmation for conflicting explicit route grammars", () => {
+	assert.deepEqual(recommendNochestraRoute("research this and write it to notes"), {
+		kind: "route-recommendation",
+		route: "needs-confirmation",
+		command: null,
+		confidence: "high",
+		reason: "rules:notes-write-destination,discovery-explicit-research",
+	});
 });

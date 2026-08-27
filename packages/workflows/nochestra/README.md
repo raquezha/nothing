@@ -63,6 +63,35 @@ pi --nochestra-worker --handoff /tmp/nochestra-handoff.json
 
 `pi --nochestra /triage <source>:<id>` routes through a parent runtime (`application/parent-runtime.mjs`) that builds bounded handoff from current task/checkpoint state, spawns a fresh worker subprocess, and prints only a compact result plus next action.
 
+## Route recommendations
+
+Nochestra route recommendation is deterministic and non-dispatching. It evaluates named grammar rules, reports the matching rule in `reason`, and falls back to Chat when input does not match a complete rule.
+
+Supported recommendation grammar:
+
+| Input shape | Route | Command | Reason |
+| --- | --- | --- | --- |
+| `triage github:123` | `delivery` | `/triage github:123` | `rule:delivery-triage-ref` |
+| `implement github:123` | `delivery` | `null` | `rule:delivery-unsupported-action-ref` |
+| `research model routing options` | `discovery` | `pi --research` | `rule:discovery-explicit-research` |
+| `write this to notes` | `notes` | `pi --notes` | `rule:notes-write-destination` |
+| `research this and write it to notes` | `needs-confirmation` | `null` | `rules:...` |
+| `hello` | `chat` | `null` | `rule:chat-fallback` |
+
+A `command` is an executable suggestion only. Unsupported delivery actions can recommend the Delivery route, but they do not invent slash commands. Bare questions (`how are you?`) and vague durable prompts (`save this`) stay Chat.
+
+Recommendation output shape:
+
+```json
+{
+  "kind": "route-recommendation",
+  "route": "delivery",
+  "command": "/triage github:123",
+  "confidence": "high",
+  "reason": "rule:delivery-triage-ref"
+}
+```
+
 ## Relationship to other workflows
 
 - `pi --nochestra` is an optional entrypoint.
