@@ -22,10 +22,39 @@ function readActiveWorkflow(cwd) {
 	return fs.existsSync(activePath) ? readJson(activePath) : null;
 }
 
-function defaultCheckpointForTask(parsed) {
+function resolveDeliveryTask(parsed, active) {
+	if (parsed.task?.source && parsed.task?.id) {
+		return {
+			source: parsed.task.source,
+			id: parsed.task.id,
+			mode: parsed.args[0] || "auto",
+		};
+	}
+	if (active?.source && active?.sourceId) {
+		return {
+			source: active.source,
+			id: active.sourceId,
+			mode: parsed.args[0] || "auto",
+		};
+	}
+	if (active?.id) {
+		const parts = active.id.split("-");
+		if (parts.length >= 2) {
+			return {
+				source: parts[0],
+				id: parts.slice(1).join("-"),
+				mode: parsed.args[0] || "auto",
+			};
+		}
+	}
+	throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
+}
+
+function defaultCheckpointForTask(parsed, active = null) {
+	const task = resolveDeliveryTask(parsed, active);
 	return {
-		subject: `${parsed.task.source}:${parsed.task.id}`,
-		goal: `Run ${parsed.command} for ${parsed.task.source}:${parsed.task.id}`,
+		subject: `${task.source}:${task.id}`,
+		goal: `Run ${parsed.command} for ${task.source}:${task.id}`,
 		decisions: [],
 		constraints: [
 			"Preserve existing workflow rules",
@@ -38,7 +67,7 @@ function defaultCheckpointForTask(parsed) {
 	};
 }
 
-function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null) {
+function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null, active = null) {
 	const resolved = path.resolve(cwd, checkpointPath);
 	if (fs.existsSync(resolved)) {
 		return readCheckpoint(resolved);
@@ -46,7 +75,7 @@ function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH, p
 	if (!parsed) {
 		throw new Error(`No Nochestra checkpoint found at ${checkpointPath}`);
 	}
-	return defaultCheckpointForTask(parsed);
+	return defaultCheckpointForTask(parsed, active);
 }
 
 function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
@@ -82,9 +111,10 @@ function checkpointWithWorkerResult(checkpoint, result) {
 }
 
 export function loadDeliveryContext({ cwd = process.cwd(), checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null } = {}) {
+	const active = readActiveWorkflow(cwd);
 	return {
-		active: readActiveWorkflow(cwd),
-		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath, parsed),
+		active,
+		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath, parsed, active),
 	};
 }
 
@@ -106,7 +136,7 @@ function activeWorkflowSnapshot(active) {
 }
 
 export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
-	const task = deliveryTask(parsed);
+	const task = resolveDeliveryTask(parsed, active);
 	const base = buildBoundedHandoff({
 		assignment: `Run ${parsed.command} for ${task.source}:${task.id}`,
 		checkpoint,
@@ -131,11 +161,11 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
 
 export const buildNochestraDeliveryHandoff = buildDeliveryHandoff;
 
-function compactDeliveryResult(parsed, result) {
+function compactDeliveryResult(parsed, result, contextTask = null) {
 	return {
 		kind: "delivery",
 		command: parsed.command,
-		task: parsed.task,
+		task: parsed.task || contextTask,
 		status: result.status,
 		taskId: result.taskId,
 		summary: result.summary,
@@ -183,6 +213,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 
 export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
+	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
 	const approveAndPersistCheckpoint = async (request) => {
 		const approved = typeof approveWriteDispatch === "function" ? await approveWriteDispatch(request) : true;
@@ -202,7 +233,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		env: process.env,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
-	const compact = compactDeliveryResult(parsed, result);
+	const compact = compactDeliveryResult(parsed, result, task);
 	if (result.status !== "cancelled") {
 		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result));
 	}

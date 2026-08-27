@@ -282,6 +282,33 @@ test("formatNochestraResult renders optional fields when present", () => {
 	assert.match(formatted, /Recovery: \{"action":"re-run with reset"\}/);
 });
 
+test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-with-docs -> plan", async () => {
+	const repoDir = makeRepo();
+	try {
+		// 1. Triage
+		const triageRes = await dispatchNochestraInput({ input: "/triage local:flow", cwd: repoDir });
+		assert.equal(triageRes.status, "created");
+		assert.equal(triageRes.nextStep, "/frame");
+
+		// 2. Frame
+		const frameRes = await dispatchNochestraInput({ input: "/frame", cwd: repoDir });
+		assert.equal(frameRes.status, "ok");
+		assert.equal(frameRes.nextStep, "/grill-with-docs");
+
+		// 3. Grill
+		const grillRes = await dispatchNochestraInput({ input: "/grill-with-docs", cwd: repoDir });
+		assert.equal(grillRes.status, "ok");
+		assert.equal(grillRes.nextStep, "/plan");
+
+		// 4. Plan
+		const planRes = await dispatchNochestraInput({ input: "/plan", cwd: repoDir });
+		assert.equal(planRes.status, "ok");
+		assert.equal(planRes.nextStep, "/implement");
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {
 	const okResult = formatNochestraResult({
 		kind: "delivery",
