@@ -14,11 +14,11 @@ test("resolveWriteScope builds scope for triage", () => {
 	});
 });
 
-test("resolveWriteScope supports explicit task object parameter", () => {
+test("resolveWriteScope preserves tracker id casing in explicit task object paths", () => {
 	const scope = resolveWriteScope({ destination: "frame", task: { source: "jira", id: "PROJ-999" } });
 	assert.deepEqual(scope, {
 		canChange: [
-			".workflow/tasks/jira-proj-999/WORK.md [BRIEF], [LOG]",
+			".workflow/tasks/jira-PROJ-999/WORK.md [BRIEF], [LOG]",
 		],
 		willNot: ["edit code", "update tracker"],
 	});

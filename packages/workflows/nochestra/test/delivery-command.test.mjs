@@ -2,18 +2,25 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseNochestraInput, parseTrackedTaskRef } from "../domain/delivery-command.mjs";
 
-test("parseNochestraInput recognizes delivery commands: triage, frame, grill-with-docs, plan, sync", () => {
-	for (const cmd of ["triage", "frame", "grill-with-docs", "plan", "sync"]) {
-		const result = parseNochestraInput(`/${cmd} github:143`);
-		assert.deepEqual(result, {
-			kind: "delivery",
-			route: "delivery",
-			command: cmd,
-			task: { source: "github", id: "143" },
-			args: [],
-			raw: `/${cmd} github:143`,
-		});
-	}
+test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
+	const result = parseNochestraInput("/triage github:143");
+
+	assert.deepEqual(result, {
+		kind: "delivery",
+		route: "delivery",
+		command: "triage",
+		task: { source: "github", id: "143" },
+		args: [],
+		raw: "/triage github:143",
+	});
+});
+
+// Non-triage scope prompts are policy-tested, but worker execution is not implemented yet.
+test("parseNochestraInput leaves unsupported workflow commands as chat", () => {
+	assert.deepEqual(parseNochestraInput("/frame github:143"), {
+		kind: "chat",
+		prompt: "/frame github:143",
+	});
 });
 
 test("parseNochestraInput preserves trailing delivery args for later worker dispatch", () => {

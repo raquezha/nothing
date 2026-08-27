@@ -34,12 +34,16 @@ const WRITE_SCOPE_BY_DESTINATION = Object.freeze({
 	}),
 });
 
+function taskRefFromParts(source, id) {
+	return `${String(source).toLowerCase()}-${id}`;
+}
+
 function extractTaskRef(assignment, task) {
 	if (task?.source && task?.id) {
-		return `${task.source.toLowerCase()}-${task.id.toLowerCase()}`;
+		return taskRefFromParts(task.source, task.id);
 	}
-	const taskMatch = String(assignment || "").match(/(?:github|gitlab|jira|local):[^\s]+/i);
-	return taskMatch ? taskMatch[0].toLowerCase().replace(":", "-") : "task-id";
+	const taskMatch = String(assignment || "").match(/(github|gitlab|jira|local):([^\s]+)/i);
+	return taskMatch ? taskRefFromParts(taskMatch[1], taskMatch[2]) : "task-id";
 }
 
 export function resolveWriteScope({ destination, assignment, task = null } = {}) {
