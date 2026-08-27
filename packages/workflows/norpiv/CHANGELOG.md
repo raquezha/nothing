@@ -1,5 +1,12 @@
 # @raquezha/norpiv
 
+## 0.2.1
+
+### Patch Changes
+
+- b25deb3: feat(nochestra): show precise write scope in approval prompts
+- 02607ee: docs(norpiv/sync): enhance sync skill to traverse and update all related issues, descriptions, checkboxes, and statuses
+
 ## 0.2.0
 
 ### Minor Changes
