@@ -1,20 +1,6 @@
 const DELIVERY_COMMANDS = new Set(["triage"]);
-const DELIVERY_VERBS = ["triage", "implement", "fix", "ship", "verify", "deliver"];
-const NOTE_PHRASES = [
-	"write this to notes",
-	"write to notes",
-	"save this to notes",
-	"save to notes",
-	"write this to the vault",
-	"write to the vault",
-	"save this to the vault",
-	"save to the vault",
-];
-const AMBIGUOUS_DURABLE_PHRASES = ["write this down", "save this", "capture this", "remember this"];
-const RESEARCH_PHRASES = ["research", "investigate", "look up", "find docs", "explore", "compare"];
 const TASK_REF_RE = /^(github|gitlab|jira|local):([^\s]+)$/i;
-const TASK_REF_IN_TEXT_RE = /\b(github|gitlab|jira|local):([^\s]+)/i;
-const QUESTION_RE = /\?$/;
+const TRACKED_REF_PATTERN = "((?:github|gitlab|jira|local):\\S+)";
 
 function normalizeInput(input) {
 	if (Array.isArray(input)) {
@@ -24,23 +10,47 @@ function normalizeInput(input) {
 }
 
 function normalizeForMatch(input) {
-	return normalizeInput(input).toLowerCase().replace(/\s+/g, " ");
+	return normalizeInput(input).replace(/\s+/g, " ");
 }
 
-function includesAny(text, phrases) {
-	return phrases.some((phrase) => text.includes(phrase));
+function normalizeTrackedTaskRef(value) {
+	const task = parseTrackedTaskRef(value);
+	return task ? `${task.source}:${task.id}` : String(value || "").trim();
 }
 
-function findTrackedTaskRefInText(value) {
-	const match = TASK_REF_IN_TEXT_RE.exec(String(value || ""));
-	if (!match) {
-		return null;
-	}
+const ROUTE_RULES = [
+	{
+		id: "delivery-triage-ref",
+		route: "delivery",
+		pattern: new RegExp(`^triage\\s+${TRACKED_REF_PATTERN}$`, "i"),
+		command: (match) => `/triage ${normalizeTrackedTaskRef(match[1])}`,
+	},
+	{
+		id: "delivery-unsupported-action-ref",
+		route: "delivery",
+		pattern: new RegExp(`^(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}$`, "i"),
+		command: () => null,
+	},
+	{
+		id: "notes-write-destination",
+		route: "notes",
+		pattern: /(?:^|\b(?:and|then)\s+)(?:please\s+)?(?:write|save|add)\b[\s\S]*\b(?:to|in)\s+(?:notes|the vault)\b/i,
+		command: () => "pi --notes",
+	},
+	{
+		id: "discovery-explicit-research",
+		route: "discovery",
+		pattern: /^(?:research|investigate|look\s+up)\s+\S/i,
+		command: () => "pi --research",
+	},
+];
 
-	return {
-		source: match[1].toLowerCase(),
-		id: match[2],
-	};
+function routeMatches(input) {
+	const text = normalizeForMatch(input);
+	return ROUTE_RULES.flatMap((rule) => {
+		const match = rule.pattern.exec(text);
+		return match ? [{ rule, match }] : [];
+	});
 }
 
 export function parseTrackedTaskRef(value) {
@@ -56,47 +66,27 @@ export function parseTrackedTaskRef(value) {
 }
 
 export function recommendNochestraRoute(input) {
-	const raw = normalizeInput(input);
-	const text = normalizeForMatch(input);
-	const task = findTrackedTaskRefInText(raw);
+	const matches = routeMatches(input);
+	const routes = new Set(matches.map(({ rule }) => rule.route));
 
-	if (task && includesAny(text, DELIVERY_VERBS)) {
-		return {
-			kind: "route-recommendation",
-			route: "delivery",
-			command: `/triage ${task.source}:${task.id}`,
-			confidence: "high",
-			reason: "tracker reference with delivery verb",
-		};
-	}
-
-	if (includesAny(text, NOTE_PHRASES)) {
-		return {
-			kind: "route-recommendation",
-			route: "notes",
-			command: "pi --notes",
-			confidence: "high",
-			reason: "explicit note-writing or vault intent",
-		};
-	}
-
-	if (includesAny(text, AMBIGUOUS_DURABLE_PHRASES)) {
+	if (routes.size > 1) {
 		return {
 			kind: "route-recommendation",
 			route: "needs-confirmation",
 			command: null,
-			confidence: "low",
-			reason: "durable write intent is ambiguous",
+			confidence: "high",
+			reason: `rules:${matches.map(({ rule }) => rule.id).join(",")}`,
 		};
 	}
 
-	if (includesAny(text, RESEARCH_PHRASES) || QUESTION_RE.test(raw)) {
+	if (matches.length === 1) {
+		const [{ rule, match }] = matches;
 		return {
 			kind: "route-recommendation",
-			route: "discovery",
-			command: "pi --research",
-			confidence: includesAny(text, RESEARCH_PHRASES) ? "high" : "medium",
-			reason: includesAny(text, RESEARCH_PHRASES) ? "research verb detected" : "question prompt suggests discovery",
+			route: rule.route,
+			command: rule.command(match),
+			confidence: "high",
+			reason: `rule:${rule.id}`,
 		};
 	}
 
@@ -105,7 +95,7 @@ export function recommendNochestraRoute(input) {
 		route: "chat",
 		command: null,
 		confidence: "high",
-		reason: "plain discussion with no durable or delivery signal",
+		reason: "rule:chat-fallback",
 	};
 }
 
