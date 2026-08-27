@@ -4,6 +4,7 @@ import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
+import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
@@ -143,56 +144,8 @@ function compactDeliveryResult(parsed, result) {
 	};
 }
 
-function resolveWriteScope({ destination, assignment }) {
-	const taskMatch = String(assignment || "").match(/(?:github|gitlab|jira|local):[^\s]+/i);
-	const taskRef = taskMatch ? taskMatch[0].toLowerCase().replace(":", "-") : "task-id";
-
-	switch (destination) {
-		case "triage":
-			return {
-				canChange: [
-					`.workflow/tasks/${taskRef}/WORK.md`,
-					`.workflow/tasks/${taskRef}/metadata.json`,
-					".workflow/active.json",
-				],
-				willNot: ["edit code", "update tracker"],
-			};
-		case "frame":
-			return {
-				canChange: [
-					`.workflow/tasks/${taskRef}/WORK.md [BRIEF], [LOG]`,
-				],
-				willNot: ["edit code", "update tracker"],
-			};
-		case "grill-with-docs":
-			return {
-				canChange: [
-					`.workflow/tasks/${taskRef}/WORK.md [GRILL], [LOG]`,
-				],
-				willNot: ["edit code", "update tracker"],
-			};
-		case "plan":
-			return {
-				canChange: [
-					`.workflow/tasks/${taskRef}/WORK.md [PLAN], [LOG]`,
-				],
-				willNot: ["edit code", "update tracker"],
-			};
-		case "sync":
-			return {
-				canChange: [
-					"target issue/PR marker comment (<!-- pi-sync-marker -->)",
-					`.workflow/tasks/${taskRef}/WORK.md [LOG]`,
-				],
-				willNot: ["edit code"],
-			};
-		default:
-			return null;
-	}
-}
-
-export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false } = {}) {
-	const scope = resolveWriteScope({ destination, assignment });
+export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false, task = null } = {}) {
+	const scope = resolveWriteScope({ destination, assignment, task });
 
 	if (scope) {
 		const canLines = scope.canChange.map((item) => `- ${item}`).join("\n");
