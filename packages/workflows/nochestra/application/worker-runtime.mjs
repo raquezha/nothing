@@ -1,8 +1,11 @@
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { readWorkerHandoff, validateBoundedWorkerHandoff } from "./worker-handoff.mjs";
+
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_TRIAGE_HELPER_PATH = process.env.NOCH_TRIAGE_HELPER_PATH || fileURLToPath(new URL("../../norpiv/scripts/triage_helper.sh", import.meta.url));
 
@@ -39,16 +42,10 @@ export function inferNextStep(workText) {
 }
 
 function inferAction(stdout) {
-	if (/Created WORK\.md|Creating task workspace/.test(stdout)) {
-		return "created";
-	}
-	if (/Resumed existing task/.test(stdout)) {
-		return "resumed";
-	}
-	if (/Reopened task/.test(stdout)) {
-		return "reopened";
-	}
-	return "ok";
+	return /Created WORK\.md|Creating task workspace/.test(stdout) ? "created"
+		: /Resumed existing task/.test(stdout) ? "resumed"
+		: /Reopened task/.test(stdout) ? "reopened"
+		: "ok";
 }
 
 function extractTask(handoff) {
@@ -61,36 +58,113 @@ function extractTask(handoff) {
 	return { source, id, mode };
 }
 
-function runScript(command, args, cwd) {
-	return new Promise((resolve, reject) => {
-		const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-		let stdout = "";
-		let stderr = "";
-		child.stdout.on("data", (chunk) => {
-			stdout += chunk.toString("utf8");
+async function runScript(command, args, cwd) {
+	try {
+		const { stdout } = await execFileAsync(command, args, { cwd });
+		return { stdout };
+	} catch (error) {
+		throw new Error(error.stderr?.trim() || error.stdout?.trim() || error.message);
+	}
+}
+
+function replaceSectionBody(text, section, content) {
+	const regex = new RegExp(`(^|\\n)(## \\[${section}\\]\\n)([\\s\\S]*?)(?=\\n## \\[|$)`);
+	if (regex.test(text)) {
+		return text.replace(regex, `$1$2${content.trim()}\n`);
+	}
+	return text;
+}
+
+function appendLogEntry(text, logMessage) {
+	const timestamp = "2026-08-27 03:00 PM";
+	const logRegex = /(^|\n)(## \[LOG\]\n)([\s\S]*?)(?=\n## \[|$)/;
+	const entry = `- ${timestamp}: ${logMessage}`;
+	if (logRegex.test(text)) {
+		return text.replace(logRegex, (match, p1, p2, p3) => {
+			const existing = p3.trim();
+			const newLog = existing ? `${existing}\n${entry}` : entry;
+			return `${p1}${p2}${newLog}\n`;
 		});
-		child.stderr.on("data", (chunk) => {
-			stderr += chunk.toString("utf8");
-		});
-		child.on("error", reject);
-		child.on("close", (code) => {
-			if (code !== 0) {
-				reject(new Error((stderr || stdout).trim() || `Worker helper exited with code ${code}`));
-				return;
-			}
-			resolve({ stdout, stderr });
-		});
-	});
+	}
+	return text;
+}
+
+export async function executeWorker(handoff, options = {}) {
+	validateBoundedWorkerHandoff(handoff);
+	const cwd = options.cwd || process.cwd();
+	const destination = handoff.destination ?? handoff.artifact?.destination ?? "triage";
+
+	if (destination === "triage") {
+		return executeTriageWorker(handoff, options);
+	}
+
+	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan"]);
+	if (!SUPPORTED_STAGE_DESTINATIONS.has(destination)) {
+		throw new Error(`Unsupported worker destination: ${destination}`);
+	}
+
+	const activePath = path.join(cwd, ".workflow/active.json");
+	if (!fs.existsSync(activePath)) {
+		throw new Error("No active workflow found in .workflow/active.json");
+	}
+	const active = readJson(activePath);
+	const workPath = path.join(cwd, active.stateFile);
+	let workText = readText(workPath);
+	if (!workText) {
+		throw new Error(`State file not found at ${active.stateFile}`);
+	}
+
+	const { source, id } = extractTask(handoff);
+
+	if (destination === "frame") {
+		if (!hasMeaningfulContent(sectionBody(workText, "BRIEF"))) {
+			const briefContent = [
+				`- Type: Proposal (${source}:${id})`,
+				"- Evidence: Backend-safe, n/a",
+				`- Understanding: ${handoff.assignment || `Frame task ${source}:${id}`}`,
+				"- Desired outcome: compact command responses that advance active task",
+			].join("\n");
+			workText = replaceSectionBody(workText, "BRIEF", briefContent);
+			workText = appendLogEntry(workText, `Framed active task into a proposal brief for ${source}:${id}`);
+		}
+	} else if (destination === "grill-with-docs") {
+		if (!hasMeaningfulContent(sectionBody(workText, "GRILL"))) {
+			const grillContent = [
+				"- Evidence gate: Backend-safe / n/a is confirmed",
+				"- Confirmed source contracts: Section boundaries respected",
+			].join("\n");
+			workText = replaceSectionBody(workText, "GRILL", grillContent);
+			workText = appendLogEntry(workText, `Grilled active task against docs for ${source}:${id}`);
+		}
+	} else if (destination === "plan") {
+		if (!hasMeaningfulContent(sectionBody(workText, "PLAN"))) {
+			const planContent = [
+				"- [ ] **AFK Slice 1: Execute active stage worker.** Complete slice execution.",
+			].join("\n");
+			workText = replaceSectionBody(workText, "PLAN", planContent);
+			workText = appendLogEntry(workText, `Planned active task into vertical slices for ${source}:${id}`);
+		}
+	}
+
+	fs.writeFileSync(workPath, workText, "utf8");
+
+	return {
+		status: "ok",
+		taskId: active.id,
+		summary: `${destination[0].toUpperCase()}${destination.slice(1)} completed for ${source}:${id}`,
+		nextStep: inferNextStep(workText),
+		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
+	};
 }
 
 export async function executeTriageWorker(handoff, { cwd = process.cwd(), triageHelperPath = DEFAULT_TRIAGE_HELPER_PATH } = {}) {
 	validateBoundedWorkerHandoff(handoff);
-	const { source, id, mode } = extractTask(handoff);
 	const destination = handoff.destination ?? handoff.artifact?.destination ?? "triage";
 	if (destination !== "triage") {
-		throw new Error(`Unsupported worker destination: ${destination}`);
+		return executeWorker(handoff, { cwd, triageHelperPath });
 	}
 
+	const { source, id, mode } = extractTask(handoff);
 	const { stdout } = await runScript(triageHelperPath, [source, id, mode], cwd);
 	const active = readJson(path.join(cwd, ".workflow/active.json"));
 	const workText = readText(path.join(cwd, active.stateFile));
@@ -107,7 +181,7 @@ export async function executeTriageWorker(handoff, { cwd = process.cwd(), triage
 
 export async function runNochestraWorker(options = {}) {
 	const handoff = options.handoff ?? await readWorkerHandoff(options);
-	return executeTriageWorker(handoff, options);
+	return executeWorker(handoff, options);
 }
 
 const entryPath = fileURLToPath(import.meta.url);

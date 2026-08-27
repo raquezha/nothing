@@ -15,11 +15,40 @@ test("parseNochestraInput recognizes /triage with explicit task target as an exe
 	});
 });
 
-// Non-triage scope prompts are policy-tested, but worker execution is not implemented yet.
+// Active RPIV stage commands parse as executable delivery commands.
+test("parseNochestraInput recognizes /frame, /grill-with-docs, /plan with or without explicit target", () => {
+	assert.deepEqual(parseNochestraInput("/frame"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "frame",
+		task: null,
+		args: [],
+		raw: "/frame",
+	});
+
+	assert.deepEqual(parseNochestraInput("/grill-with-docs github:143"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "grill-with-docs",
+		task: { source: "github", id: "143" },
+		args: [],
+		raw: "/grill-with-docs github:143",
+	});
+
+	assert.deepEqual(parseNochestraInput("/plan"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "plan",
+		task: null,
+		args: [],
+		raw: "/plan",
+	});
+});
+
 test("parseNochestraInput leaves unsupported workflow commands as chat", () => {
-	assert.deepEqual(parseNochestraInput("/frame github:143"), {
+	assert.deepEqual(parseNochestraInput("/implement github:143"), {
 		kind: "chat",
-		prompt: "/frame github:143",
+		prompt: "/implement github:143",
 	});
 });
 

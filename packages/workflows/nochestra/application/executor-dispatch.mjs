@@ -7,10 +7,6 @@ import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
-function clone(value) {
-	return JSON.parse(JSON.stringify(value));
-}
-
 function isWriteCapableHandoff(handoff) {
 	return Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write"));
 }
@@ -76,18 +72,18 @@ export function buildBoundedHandoff({
 
 	const handoff = {
 		assignment,
-		artifactSnapshot: clone(artifactSnapshot),
-		acceptedDecisions: clone(checkpoint.decisions),
-		constraints: clone(checkpoint.constraints),
-		openQuestions: clone(checkpoint.openQuestions),
-		selectedSkills: clone(selectedSkills),
-		permissions: clone(permissions),
-		contextBudget: clone(contextBudget),
-		expectedResultShape: clone(expectedResultShape),
+		artifactSnapshot: structuredClone(artifactSnapshot),
+		acceptedDecisions: structuredClone(checkpoint.decisions),
+		constraints: structuredClone(checkpoint.constraints),
+		openQuestions: structuredClone(checkpoint.openQuestions),
+		selectedSkills: structuredClone(selectedSkills),
+		permissions: structuredClone(permissions),
+		contextBudget: structuredClone(contextBudget),
+		expectedResultShape: structuredClone(expectedResultShape),
 	};
 
 	if (model !== undefined) {
-		handoff.model = clone(model);
+		handoff.model = structuredClone(model);
 	}
 
 	assertNoTranscriptFields(handoff, "handoff");

@@ -1,4 +1,5 @@
-const DELIVERY_COMMANDS = new Set(["triage"]);
+const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan"]);
+const STAGE_COMMANDS_OPTIONAL_TARGET = new Set(["frame", "grill-with-docs", "plan"]);
 const TASK_REF_RE = /^(github|gitlab|jira|local):([^\s]+)$/i;
 const TRACKED_REF_PATTERN = "((?:github|gitlab|jira|local):\\S+)";
 
@@ -112,7 +113,7 @@ export function parseNochestraInput(input) {
 	}
 
 	const task = parseTrackedTaskRef(rest[0]);
-	if (!task) {
+	if (!task && !STAGE_COMMANDS_OPTIONAL_TARGET.has(command)) {
 		return {
 			kind: "delivery-error",
 			command,
@@ -124,8 +125,8 @@ export function parseNochestraInput(input) {
 		kind: "delivery",
 		route: "delivery",
 		command,
-		task,
-		args: rest.slice(1),
+		task: task || null,
+		args: task ? rest.slice(1) : rest,
 		raw,
 	};
 }

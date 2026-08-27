@@ -8,10 +8,6 @@ import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs"
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
-function clone(value) {
-	return JSON.parse(JSON.stringify(value));
-}
-
 export function buildWorkerEnv(env = process.env, parentSessionId = null) {
 	const resolvedParentSessionId = parentSessionId || env?.NOCHESTRA_SESSION_ID || env?.PI_SESSION_ID || null;
 	return {

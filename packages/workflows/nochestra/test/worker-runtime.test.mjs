@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeTriageWorker, hasMeaningfulContent, inferNextStep } from "../application/worker-runtime.mjs";
+import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const WORKER_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/worker-runtime.mjs");
@@ -104,6 +104,52 @@ test("worker runtime CLI reads --handoff file and prints compact JSON only", () 
 			nextStep: "/frame",
 			artifacts: [{ path: `.workflow/tasks/local-${id}/WORK.md`, kind: "workflow-state" }],
 		});
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages", async () => {
+	const repoDir = makeRepo();
+	const id = `seq-${Date.now()}`;
+
+	try {
+		// 1. Triage
+		const triageResult = await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+		assert.equal(triageResult.status, "created");
+		assert.equal(triageResult.nextStep, "/frame");
+
+		// 2. Frame
+		const frameHandoff = { ...handoffFor(id), destination: "frame", selectedSkills: ["frame"] };
+		const frameResult = await executeWorker(frameHandoff, { cwd: repoDir });
+		assert.equal(frameResult.status, "ok");
+		assert.equal(frameResult.nextStep, "/grill-with-docs");
+
+		// Verify allowed section write for frame: [BRIEF] and [LOG] modified
+		const workTextFrame = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
+		assert.match(workTextFrame, /## \[BRIEF\]\n- Type: Proposal/);
+		assert.match(workTextFrame, /## \[GRILL\]\n- /);
+		assert.match(workTextFrame, /## \[PLAN\]\n- \[ \]/);
+
+		// 3. Grill
+		const grillHandoff = { ...handoffFor(id), destination: "grill-with-docs", selectedSkills: ["grill-with-docs"] };
+		const grillResult = await executeWorker(grillHandoff, { cwd: repoDir });
+		assert.equal(grillResult.status, "ok");
+		assert.equal(grillResult.nextStep, "/plan");
+
+		// Verify allowed section write for grill: [GRILL] and [LOG] modified
+		const workTextGrill = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
+		assert.match(workTextGrill, /## \[GRILL\]\n- Evidence gate/);
+
+		// 4. Plan
+		const planHandoff = { ...handoffFor(id), destination: "plan", selectedSkills: ["plan"] };
+		const planResult = await executeWorker(planHandoff, { cwd: repoDir });
+		assert.equal(planResult.status, "ok");
+		assert.equal(planResult.nextStep, "/implement");
+
+		// Verify allowed section write for plan: [PLAN] and [LOG] modified
+		const workTextPlan = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
+		assert.match(workTextPlan, /## \[PLAN\]\n- \[ \] \*\*AFK Slice 1/);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
