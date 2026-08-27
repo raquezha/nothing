@@ -101,6 +101,7 @@ export async function executeTriageWorker(handoff, { cwd = process.cwd(), triage
 		taskId: active.id,
 		summary: `Triage ${action} for ${source}:${id}`,
 		nextStep: inferNextStep(workText),
+		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
 	};
 }
 

@@ -75,6 +75,7 @@ test("executeTriageWorker routes triage handoff through RPIV helper and returns 
 			taskId: `local-${id}`,
 			summary: `Triage created for local:${id}`,
 			nextStep: "/frame",
+			artifacts: [{ path: `.workflow/tasks/local-${id}/WORK.md`, kind: "workflow-state" }],
 		});
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
@@ -101,6 +102,7 @@ test("worker runtime CLI reads --handoff file and prints compact JSON only", () 
 			taskId: `local-${id}`,
 			summary: `Triage created for local:${id}`,
 			nextStep: "/frame",
+			artifacts: [{ path: `.workflow/tasks/local-${id}/WORK.md`, kind: "workflow-state" }],
 		});
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });

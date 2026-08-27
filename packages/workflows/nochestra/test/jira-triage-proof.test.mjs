@@ -87,6 +87,21 @@ test("validateCompactWorkerResult accepts compact results and rejects transcript
 		true,
 	);
 
+	assert.equal(
+		validateCompactWorkerResult({
+			status: "ok",
+			taskId: "github-173",
+			summary: "Richer envelope created",
+			nextStep: "/implement",
+			artifacts: [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }],
+			verification: [{ command: "node --test", status: "passed" }],
+			blockers: [],
+			warnings: [],
+			recovery: null,
+		}),
+		true,
+	);
+
 	assert.throws(
 		() => validateCompactWorkerResult({
 			status: "ok",
@@ -96,6 +111,17 @@ test("validateCompactWorkerResult accepts compact results and rejects transcript
 			transcript: ["too much"],
 		}),
 		/Forbidden worker result field: transcript/,
+	);
+
+	assert.throws(
+		() => validateCompactWorkerResult({
+			status: "ok",
+			taskId: "github-83",
+			summary: "bad",
+			nextStep: "/frame",
+			artifacts: "not an array",
+		}),
+		/Worker result field 'artifacts' must be an array/,
 	);
 });
 

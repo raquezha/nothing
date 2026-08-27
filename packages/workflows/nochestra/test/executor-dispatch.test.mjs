@@ -35,6 +35,10 @@ test("buildBoundedHandoff creates handoff with explicit context budget and accep
 	assert.deepEqual(handoff.contextBudget, { maxTokens: 8000, maxTurns: 10 });
 	assert.deepEqual(handoff.acceptedDecisions, checkpoint.decisions);
 	assert.deepEqual(handoff.selectedSkills, ["ponytail"]);
+	assert.deepEqual(handoff.expectedResultShape, {
+		required: ["status", "taskId", "summary", "nextStep"],
+		optional: ["artifacts", "verification", "blockers", "warnings", "recovery"],
+	});
 	assert.equal("parentTranscript" in handoff, false);
 	assert.equal("transcript" in handoff, false);
 });
@@ -229,6 +233,7 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 			summary: "Triage created for local:runtime-proof",
 			nextStep: "/grill-with-docs",
 			writeLockAcquired: true,
+			artifacts: [{ path: ".workflow/tasks/local-runtime-proof/WORK.md", kind: "workflow-state" }],
 		});
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
 	} finally {
@@ -825,6 +830,50 @@ test("spawnWorkerProcess supervision releases lock and truncates raw log context
 		);
 
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Writer lock must be safely released on worker crash");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess preserves optional envelope fields in returned result", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Rich envelope test assignment",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-rich-worker-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-173',
+			summary: 'Sub-process executed successfully',
+			nextStep: '/verify',
+			artifacts: [{ path: '.workflow/tasks/github-173/WORK.md', kind: 'workflow-state' }],
+			verification: [{ command: 'node --test', status: 'passed' }],
+			blockers: [],
+			warnings: ['Low memory'],
+			recovery: null
+		}));
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-173");
+		assert.deepEqual(result.artifacts, [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }]);
+		assert.deepEqual(result.verification, [{ command: "node --test", status: "passed" }]);
+		assert.deepEqual(result.blockers, []);
+		assert.deepEqual(result.warnings, ["Low memory"]);
+		assert.equal(result.recovery, null);
 	} finally {
 		if (fs.existsSync(scriptPath)) {
 			fs.unlinkSync(scriptPath);

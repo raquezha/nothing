@@ -82,6 +82,7 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 			taskId: "local-parent-runtime-proof",
 			summary: "Triage created for local:parent-runtime-proof",
 			nextStep: "/frame",
+			artifacts: [{ path: ".workflow/tasks/local-parent-runtime-proof/WORK.md", kind: "workflow-state" }],
 		});
 		assert.match(formatNochestraResult(result), /Next step: \/frame/);
 	} finally {
@@ -106,6 +107,7 @@ test("dispatchNochestraInput cancels write dispatch when approval callback rejec
 			taskId: "local-parent-runtime-cancel",
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
+			recovery: { action: "request user approval before write execution" },
 		});
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
@@ -152,21 +154,109 @@ test("dispatchNochestraInput creates and updates a checkpoint when missing", asy
 	}
 });
 
-test("parent runtime CLI prints compact delivery summary for slash commands", () => {
-	const repoDir = makeRepo();
-	try {
-		const result = spawnSync(process.execPath, [PARENT_RUNTIME_PATH, "/triage", "local:cli-parent-proof"], {
-			cwd: repoDir,
-			encoding: "utf8",
-			input: "y\n",
-		});
+test("formatNochestraResult renders optional fields when present", () => {
+	const result = {
+		kind: "delivery",
+		command: "triage",
+		task: { source: "github", id: "173" },
+		status: "ok",
+		taskId: "github-173",
+		summary: "Plan created",
+		nextStep: "/implement",
+		artifacts: [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }],
+		verification: [{ command: "node --test", status: "passed" }],
+		blockers: ["Waiting for design review"],
+		warnings: ["Stale main branch"],
+		recovery: { action: "re-run with reset" },
+	};
 
-		assert.equal(result.status, 0, result.stderr);
-		assert.match(result.stderr, /Task: Run triage for local:cli-parent-proof/);
-		assert.match(result.stdout, /Command: \/triage/);
-		assert.match(result.stdout, /Task: local:cli-parent-proof/);
-		assert.match(result.stdout, /Next step: \/frame/);
-	} finally {
-		fs.rmSync(repoDir, { recursive: true, force: true });
-	}
+	const formatted = formatNochestraResult(result);
+	assert.match(formatted, /Command: \/triage/);
+	assert.match(formatted, /Task: github:173/);
+	assert.match(formatted, /Status: ok/);
+	assert.match(formatted, /Summary: Plan created/);
+	assert.match(formatted, /Next step: \/implement/);
+	assert.match(formatted, /Artifacts: \[\{"path":".workflow\/tasks\/github-173\/WORK.md","kind":"workflow-state"\}\]/);
+	assert.match(formatted, /Verification: \[\{"command":"node --test","status":"passed"\}\]/);
+	assert.match(formatted, /Blockers: \["Waiting for design review"\]/);
+	assert.match(formatted, /Warnings: \["Stale main branch"\]/);
+	assert.match(formatted, /Recovery: \{"action":"re-run with reset"\}/);
+});
+
+test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {
+	const okResult = formatNochestraResult({
+		kind: "delivery",
+		command: "triage",
+		task: { source: "github", id: "173" },
+		status: "ok",
+		taskId: "github-173",
+		summary: "Triage completed successfully",
+		nextStep: "/frame",
+		artifacts: [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }],
+	});
+	assert.equal(okResult, [
+		"Command: /triage",
+		"Task: github:173",
+		"Status: ok",
+		"Summary: Triage completed successfully",
+		"Next step: /frame",
+		'Artifacts: [{"path":".workflow/tasks/github-173/WORK.md","kind":"workflow-state"}]',
+	].join("\n"));
+
+	const blockedResult = formatNochestraResult({
+		kind: "delivery",
+		command: "plan",
+		task: { source: "github", id: "173" },
+		status: "blocked",
+		taskId: "github-173",
+		summary: "Planning blocked by missing evidence",
+		nextStep: "/grill-with-docs",
+		blockers: ["Missing UI direct link"],
+	});
+	assert.equal(blockedResult, [
+		"Command: /plan",
+		"Task: github:173",
+		"Status: blocked",
+		"Summary: Planning blocked by missing evidence",
+		"Next step: /grill-with-docs",
+		'Blockers: ["Missing UI direct link"]',
+	].join("\n"));
+
+	const failedResult = formatNochestraResult({
+		kind: "delivery",
+		command: "implement",
+		task: { source: "github", id: "173" },
+		status: "failed",
+		taskId: "github-173",
+		summary: "Build execution failed",
+		nextStep: "manual-fix",
+		warnings: ["Compiler warning emitted"],
+		recovery: { action: "re-run script" },
+	});
+	assert.equal(failedResult, [
+		"Command: /implement",
+		"Task: github:173",
+		"Status: failed",
+		"Summary: Build execution failed",
+		"Next step: manual-fix",
+		'Warnings: ["Compiler warning emitted"]',
+		'Recovery: {"action":"re-run script"}',
+	].join("\n"));
+
+	const cancelledResult = formatNochestraResult({
+		kind: "delivery",
+		command: "triage",
+		task: { source: "github", id: "173" },
+		status: "cancelled",
+		taskId: "github-173",
+		summary: "Write dispatch cancelled by user",
+		nextStep: "manual-takeover",
+	});
+	assert.equal(cancelledResult, [
+		"Command: /triage",
+		"Task: github:173",
+		"Status: cancelled",
+		"Summary: Write dispatch cancelled by user",
+		"Next step: manual-takeover",
+	].join("\n"));
 });

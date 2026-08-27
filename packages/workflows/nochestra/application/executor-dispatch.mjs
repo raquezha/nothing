@@ -1,5 +1,6 @@
 import { validateCheckpoint } from "../domain/checkpoint-contract.mjs";
-import { assertNoTranscriptFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
+import { assertNoTranscriptFields, extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
+import { COMPACT_WORKER_RESULT_KEYS, OPTIONAL_WORKER_RESULT_KEYS } from "../domain/handoff-policy.mjs";
 import { acquireWriterLock, releaseWriterLock } from "../adapters/writer-lock.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
@@ -47,7 +48,8 @@ export function buildBoundedHandoff({
 	selectedSkills = [],
 	permissions = ["read-only"],
 	expectedResultShape = {
-		required: ["status", "taskId", "summary", "nextStep"],
+		required: [...COMPACT_WORKER_RESULT_KEYS],
+		optional: [...OPTIONAL_WORKER_RESULT_KEYS],
 	},
 	model,
 } = {}) {
@@ -145,6 +147,7 @@ export async function dispatchExecutor({
 			summary: rawResult.summary,
 			nextStep: rawResult.nextStep,
 			writeLockAcquired: lockAcquired,
+			...extractOptionalWorkerResultFields(rawResult),
 		};
 	} finally {
 		if (lockAcquired) {
