@@ -100,6 +100,7 @@ test("dispatchExecutor launches predefined executor and returns compact parent p
 		assignment: "Execute bounded assignment",
 		destination: null,
 		permissions: ["write-checkout"],
+		writeScope: null,
 		requiresWriteLock: true,
 	});
 	assert.equal(result.status, "ok");
@@ -485,6 +486,7 @@ test("spawnWorkerProcess cancels rejected write-capable dispatch before spawning
 		assignment: "CLI worker needs approval",
 		destination: null,
 		permissions: ["write-checkout"],
+		writeScope: null,
 		requiresWriteLock: false,
 	});
 	assert.equal(result.status, "cancelled");

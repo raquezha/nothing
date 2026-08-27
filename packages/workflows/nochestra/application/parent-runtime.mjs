@@ -4,6 +4,7 @@ import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
+import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
@@ -143,7 +144,23 @@ function compactDeliveryResult(parsed, result) {
 	};
 }
 
-export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false } = {}) {
+export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], writeScope = null, requiresWriteLock = false, task = null } = {}) {
+	const scope = writeScope ?? resolveWriteScope({ destination, assignment, task });
+
+	if (scope) {
+		const canLines = scope.canChange.map((item) => `- ${item}`).join("\n");
+		const willNotLines = scope.willNot.map((item) => `- ${item}`).join("\n");
+		return [
+			"Approve write-capable Nochestra dispatch?",
+			`Task: ${assignment || "Unknown task"}`,
+			"Can change:",
+			canLines,
+			"Will not:",
+			willNotLines,
+			...(requiresWriteLock ? ["Other write workers will be paused while this runs"] : []),
+		].join("\n");
+	}
+
 	const canChange = Array.isArray(permissions) ? permissions.join(", ") : String(permissions || "");
 	return [
 		"Approve write-capable Nochestra dispatch?",
