@@ -22,32 +22,18 @@ function readActiveWorkflow(cwd) {
 	return fs.existsSync(activePath) ? readJson(activePath) : null;
 }
 
+const TASK_RESOLVERS = [
+	(parsed) => (parsed.task?.source && parsed.task?.id ? { source: parsed.task.source, id: parsed.task.id } : null),
+	(_, active) => (active?.source && active?.sourceId ? { source: active.source, id: active.sourceId } : null),
+	(_, active) => (active?.id?.includes("-") ? { source: active.id.split("-")[0], id: active.id.split("-").slice(1).join("-") } : null),
+];
+
 function resolveDeliveryTask(parsed, active) {
-	if (parsed.task?.source && parsed.task?.id) {
-		return {
-			source: parsed.task.source,
-			id: parsed.task.id,
-			mode: parsed.args[0] || "auto",
-		};
+	const task = TASK_RESOLVERS.map((resolve) => resolve(parsed, active)).find(Boolean);
+	if (!task) {
+		throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
 	}
-	if (active?.source && active?.sourceId) {
-		return {
-			source: active.source,
-			id: active.sourceId,
-			mode: parsed.args[0] || "auto",
-		};
-	}
-	if (active?.id) {
-		const parts = active.id.split("-");
-		if (parts.length >= 2) {
-			return {
-				source: parts[0],
-				id: parts.slice(1).join("-"),
-				mode: parsed.args[0] || "auto",
-			};
-		}
-	}
-	throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
+	return { source: task.source, id: task.id, mode: parsed.args[0] || "auto" };
 }
 
 function defaultCheckpointForTask(parsed, active = null) {
@@ -69,13 +55,16 @@ function defaultCheckpointForTask(parsed, active = null) {
 
 function readDeliveryCheckpoint(cwd, checkpointPath = DEFAULT_CHECKPOINT_PATH, parsed = null, active = null) {
 	const resolved = path.resolve(cwd, checkpointPath);
-	if (fs.existsSync(resolved)) {
-		return readCheckpoint(resolved);
-	}
-	if (!parsed) {
+	const checkpoint = fs.existsSync(resolved)
+		? readCheckpoint(resolved)
+		: parsed
+		? defaultCheckpointForTask(parsed, active)
+		: null;
+
+	if (!checkpoint) {
 		throw new Error(`No Nochestra checkpoint found at ${checkpointPath}`);
 	}
-	return defaultCheckpointForTask(parsed, active);
+	return checkpoint;
 }
 
 function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
@@ -90,20 +79,14 @@ function checkpointWithWorkerResult(checkpoint, result) {
 		? checkpoint.decisions
 		: [...checkpoint.decisions, decision];
 
-	let openQuestions = checkpoint.openQuestions;
-	if (Array.isArray(result.blockers) && result.blockers.length > 0) {
-		for (const blocker of result.blockers) {
-			const text = typeof blocker === "string" ? blocker : JSON.stringify(blocker);
-			if (!openQuestions.includes(text)) {
-				openQuestions = [...openQuestions, text];
-			}
-		}
-	}
+	const newBlockers = (result.blockers || [])
+		.map((b) => (typeof b === "string" ? b : JSON.stringify(b)))
+		.filter((b) => !checkpoint.openQuestions.includes(b));
 
 	return {
 		...checkpoint,
 		decisions,
-		openQuestions,
+		openQuestions: [...checkpoint.openQuestions, ...newBlockers],
 		currentRoute: "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
@@ -115,14 +98,6 @@ export function loadDeliveryContext({ cwd = process.cwd(), checkpointPath = DEFA
 	return {
 		active,
 		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath, parsed, active),
-	};
-}
-
-function deliveryTask(parsed) {
-	return {
-		source: parsed.task.source,
-		id: parsed.task.id,
-		mode: parsed.args[0] || "auto",
 	};
 }
 
