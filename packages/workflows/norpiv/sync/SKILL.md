@@ -7,20 +7,24 @@ description: Synchronizes local RPIV task state (WORK.md) to external trackers (
 
 # Skill: sync
 
-Maintains consistency between local `.workflow` state and the remote source of truth using a single Pi-owned living status comment per task.
+Maintains consistency between local `.workflow` state and external remote trackers (Jira, GitHub, GitLab) across primary tasks and all related items (parents, sub-issues, mentioned items, linked PRs/MRs).
 
 ## Guardrails
 - **Pre-flight**: Always read `.workflow/active.json` first, then compatibility `.workflow/active_task.json` only if needed, and the active `WORK.md` before executing.
+- **Context-First Verification (100% Certainty Rule)**: Read the primary issue and trace all related issues (parents, sub-issues, mentioned issues `#123`, linked PRs/MRs) BEFORE executing remote mutations. Gather full context first and only update descriptions, tick checkboxes, or change issue statuses when 100% certain based on verified code and test evidence.
+- **Universal Multi-Issue Sync**: Regardless of platform (Jira, GitHub, GitLab), evaluate and update all related items in the task tree:
+  - **Primary Child Item**: Update description checkboxes (`- [x]`), post/update living status comment (`<!-- pi-sync-marker -->`), and close/transition to Done/Closed when work and acceptance criteria are complete.
+  - **Parent / Track Item**: Update parent track descriptions to tick off child issue progress (e.g. `- [x] #174 ...`) and parent acceptance criteria. Keep umbrella parent issues open for high-level tracking unless all child items are complete.
+  - **Mentioned / Linked Items**: Inspect mentioned or linked items (`Refs #123`, `Fixes #123`, sub-tasks) and update their checkboxes and status when verified.
 - **Privacy**: NEVER sync secrets, environment variables, or private notes not intended for stakeholders.
-- **Integrity**: Do not modify `[BRIEF]` or `[GRILL]` sections.
-- **Idempotency**: If the remote Pi status already reflects the current local state, do not post or update.
-- **Human safety**: NEVER edit human-authored comments. Only update comments/notes containing the Pi sync marker.
-- **Target ownership**: Sync the executable child issue/MR/PR that the work completed, not the umbrella parent, unless the user explicitly asks for parent status. If the active GitHub issue has sub-issues, verify the PR/body/current request points to the right child before posting.
-- **Hyperlinks**: Always format issue references (e.g. `[#140](https://github.com/owner/repo/issues/140)`), source file paths, git branches, and commit hashes as explicit Markdown hyperlinks in sync comments whenever applicable.
-- **Shell safety**: Never pass markdown bodies inline through shell strings. Write bodies to files and use `--body-file` or JSON `--input` API calls so backticks and `$()` cannot execute.
+- **Integrity**: Do not modify `[BRIEF]` or `[GRILL]` sections in local `WORK.md`.
+- **Idempotency**: If remote descriptions, statuses, and Pi status comments already reflect current local state, do not post duplicate comments or redundant updates.
+- **Human Safety**: NEVER edit human-authored comments. Only update status comments containing `<!-- pi-sync-marker -->`.
+- **Hyperlinks**: Format issue references (e.g. `[#140](https://github.com/owner/repo/issues/140)`), file paths, git branches, commit hashes (`[\`35bd81b\`](url)`), and PR/MR links as explicit Markdown hyperlinks in sync comments whenever applicable.
+- **Shell Safety**: Never pass markdown bodies inline through shell strings. Write bodies to files and use `--body-file` or JSON `--input` API calls so backticks and `$()` cannot execute.
 
 ## Living status marker
-Every sync body MUST include this marker at the end:
+Every sync status comment MUST include this marker at the end:
 
 ```md
 <!-- pi-sync-marker -->
@@ -48,97 +52,95 @@ Do **not** use latest-comment ownership as the primary decision. Latest-comment-
 
 ## Workflow
 
-### 1. Discovery & State Loading
-- Identify the platform and ID from `.workflow/active.json`, falling back to compatibility `.workflow/active_task.json` only when required.
-- For GitHub, check hierarchy before syncing umbrella issues:
-  ```bash
-  gh issue view <id> --json parent,subIssues --jq '{parent:.parent, subIssues:.subIssues}'
-  ```
-  If the issue has sub-issues and the work maps to one child, switch the sync target to that child or ask once. Do not sync a child deliverable to the parent just because the active task points at the parent.
-- Extract **Slices** from `[PLAN]`, **Status** from `[LOG]`, and **Artifacts** such as PR/MR links, commit hashes, and verification output.
+### 1. Context Gathering & Traversal (Read-First Protocol)
+- Identify primary task platform and ID from `.workflow/active.json` / `WORK.md`.
+- **Fetch Primary Item**: Read primary issue details (title, body, state, acceptance criteria, labels).
+- **Trace Related Graph**:
+  - **GitHub**: Fetch parent issue (`gh issue view <id> --json parent,subIssues`), mentioned issues in `WORK.md` intake/brief (e.g. `Parent track: #166`, `Refs #174`), and linked PRs (`gh issue view <id> --json closingPRs`).
+  - **Jira**: Fetch parent epic, sub-tasks, linked issues, and issue links (`jira issue view <id>`).
+  - **GitLab**: Fetch parent epic, child issues, related merge requests (`glab issue view <id>`).
+- **Verify Evidence**: Confirm test runs, commit hashes, merged PRs/MRs, and acceptance criteria in `WORK.md`.
 
-### 2. Payload Preparation
-Format the message for two audiences:
-- **Stakeholders**: summarize outcome, current state, and next step.
-- **Developers**: list vertical slices, commit/PR/MR links, and verification evidence.
-- **Hyperlinking**: convert issue identifiers (`[#140](url)`), commit hashes (`[\`0011b4b\`](url)`), branch names (`[\`feat/140\`](url)`), and key file paths into explicit markdown hyperlinks so they render as interactive links.
-- **Signature and marker**: always append both the signature and `<!-- pi-sync-marker -->`.
+### 2. Multi-Item Update Strategy (100% Certainty Check)
+Only proceed with remote mutations after confirming complete context:
+- **Descriptions & Checkboxes**:
+  - Update primary issue body to tick completed acceptance criteria (`- [x]`).
+  - Update parent track body to tick completed child track items (`- [x] #174 ...`).
+  - Use JSON payload `--input` or `--body-file` to safely update issue descriptions without escaping errors.
+- **Status & Transitions**:
+  - Close/transition executable child items to `Closed` / `Done` after PR merge and acceptance criteria verification.
+  - Preserve umbrella parent issues as `Open` until all child items in the track are complete.
+- **Living Status Comment**:
+  - Prepare and publish/update the living status comment with `<!-- pi-sync-marker -->` on the primary task item (and parent item if requested).
 
-### 3. Execution
+### 3. Execution Helpers by Platform
 
 #### Jira
-Use the helper so ADF parsing and marker search stay centralized:
+Use the centralized smart sync helper for status comments:
 
 ```bash
 cat body.md | <skill_location>/jira_smart_sync.sh <ISSUE_ID>
 ```
 
-Behavior:
-- fetch recent comments newest-first, default limit `50`
-- override limit with `PI_SYNC_COMMENT_LIMIT=<n>` if needed
-- find newest marker comment anywhere in the fetched window
-- update marker comment by ID, no-op if identical, create only if no marker exists
+For issue description/checkbox and status updates:
+- Update description: use `acli` or Jira REST API with JSON body payload.
+- Transition status: `acli transitionIssue --issue <ID> --step "Done"` or API transition.
 
 #### GitHub Issues / PRs
-Use the issue comments API. PR comments use issue comments for PR body discussion.
-
-Check:
-```bash
-gh api repos/:owner/:repo/issues/<id>/comments --paginate \
-  --jq 'map(select(.body | contains("<!-- pi-sync-marker -->"))) | last'
-```
-
-Update:
-```bash
-jq -n --rawfile body body.md '{body: $body}' > body.json
-gh api -X PATCH repos/:owner/:repo/issues/comments/<comment_id> \
-  --input body.json
-```
-
-Create:
-```bash
-gh issue comment <id> --body-file body.md
-```
-
-Rules:
-- update only a comment containing the marker
-- no-op when normalized body is already current
-- create only when no marker comment exists
-- keep markdown in files; do not use inline `-f body="$(cat body.md)"` or shell-expanded PR/comment bodies
+- **Fetch Related Context**:
+  ```bash
+  gh issue view <id> --json parent,subIssues,body,state
+  ```
+- **Update Description (Checkboxes)**:
+  ```bash
+  jq -n --rawfile body updated_issue_body.md '{body: $body}' > update_payload.json
+  gh api -X PATCH repos/:owner/:repo/issues/<id> --input update_payload.json
+  ```
+- **Update Status Comment**:
+  Check:
+  ```bash
+  gh api repos/:owner/:repo/issues/<id>/comments --paginate \
+    --jq 'map(select(.body | contains("<!-- pi-sync-marker -->"))) | last'
+  ```
+  Update existing comment:
+  ```bash
+  jq -n --rawfile body comment_body.md '{body: $body}' > comment_payload.json
+  gh api -X PATCH repos/:owner/:repo/issues/comments/<comment_id> --input comment_payload.json
+  ```
+  Create comment if missing:
+  ```bash
+  gh issue comment <id> --body-file comment_body.md
+  ```
+- **Close Executable Child Issue**:
+  ```bash
+  gh issue close <id> --comment "Completed and verified in PR #<pr_number>."
+  ```
 
 #### GitLab Issues / MRs
-Use notes API for issues or merge requests.
+- **Fetch Context**:
+  ```bash
+  glab issue view <id>
+  ```
+- **Update Description & Status**:
+  ```bash
+  glab issue update <id> --description "$(cat updated_body.md)"
+  glab issue close <id>
+  ```
+- **Update Status Note**:
+  ```bash
+  glab api -X PUT projects/:id/issues/<id>/notes/<note_id> -f body=@comment_body.md
+  ```
 
-Check MR notes:
-```bash
-glab api projects/:id/merge_requests/<iid>/notes --paginate \
-  --jq 'map(select(.body | contains("<!-- pi-sync-marker -->"))) | last'
-```
-
-Update MR note:
-```bash
-glab api -X PUT projects/:id/merge_requests/<iid>/notes/<note_id> \
-  -f body=@body.md
-```
-
-Create MR note:
-```bash
-glab mr note <iid> --message "$(cat body.md)"
-```
-
-Rules:
-- update only a note containing the marker
-- no-op when normalized body is already current
-- create only when no marker note exists
-
-### 4. Local Confirmation
-- Append a timestamped sync record to `WORK.md` `[LOG]` with action: `no-op`, `updated`, or `created`.
-- Do not edit `[BRIEF]` or `[GRILL]`.
+### 4. Local Confirmation & Logging
+- Append a timestamped sync entry to `WORK.md` `[LOG]` recording:
+  - Primary target updated (description checkboxes, status comment, closed/transitioned).
+  - Related items updated (parent track checkboxes, sub-issue statuses).
+  - Explicit URLs for status comments and PRs/MRs.
+- Preserve guarded `[BRIEF]` and `[GRILL]` sections untouched.
 
 ## Output Contract
 Return a concise summary:
-- **Target**: platform and issue/PR/MR ID
-- **Action**: no-op / updated existing status / created new status
-- **Reason**: marker found, body identical, marker missing, etc.
-- **Link**: remote comment/note URL if available
-- **Next step**: review, verify, post-merge-prune, or continue implementation
+- **Primary Target**: platform and issue ID, status transition (e.g. `Closed`), description checkboxes updated.
+- **Related Items Updated**: list of parent tracks (`#166`), sub-issues, or mentioned issues updated (`- [x] #174`).
+- **Living Status Comment**: `no-op` / `updated` / `created` with remote comment URL.
+- **Next Step**: review, post-merge-prune, or proceed to next RPIV task.
