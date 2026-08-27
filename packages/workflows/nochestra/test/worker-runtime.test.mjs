@@ -7,6 +7,7 @@ import { test } from "node:test";
 import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
+const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
 const WORKER_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/worker-runtime.mjs");
 
 function makeRepo() {
@@ -150,6 +151,61 @@ test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages"
 		// Verify allowed section write for plan: [PLAN] and [LOG] modified
 		const workTextPlan = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
 		assert.match(workTextPlan, /## \[PLAN\]\n- \[ \] \*\*AFK Slice 1/);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("executeWorker handles research destination creating and resuming research workspace without touching tasks", async () => {
+	const repoDir = makeRepo();
+	const topic = "best way to test Nochestra routing";
+	const id = "best-way-to-test-nochestra-routing";
+
+	const researchHandoff = {
+		assignment: `Run research for "${topic}"`,
+		destination: "research",
+		artifact: { source: "research", id, topic },
+		acceptedDecisions: ["Use bounded handoff only"],
+		constraints: ["No parent transcript"],
+		openQuestions: [],
+		selectedSkills: ["research"],
+		permissions: ["write-checkout"],
+		contextBudget: { maxTokens: 4000 },
+		expectedResultShape: { required: ["status", "taskId", "summary", "nextStep"] },
+	};
+
+	try {
+		// 1. Create research
+		const createResult = await executeWorker(researchHandoff, {
+			cwd: repoDir,
+			researchHelperPath: RESEARCH_HELPER_PATH,
+		});
+
+		assert.deepEqual(createResult, {
+			status: "created",
+			taskId: `research-${id}`,
+			summary: `Research created for "${topic}"`,
+			nextStep: "review research artifact",
+			artifacts: [{ path: `.workflow/research/${id}/RESEARCH.md`, kind: "research-artifact" }],
+		});
+
+		// Verify files: .workflow/research/<id>/RESEARCH.md exists, .workflow/tasks/ does NOT exist
+		assert.equal(fs.existsSync(path.join(repoDir, `.workflow/research/${id}/RESEARCH.md`)), true);
+		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
+
+		// 2. Resume research
+		const resumeResult = await executeWorker(researchHandoff, {
+			cwd: repoDir,
+			researchHelperPath: RESEARCH_HELPER_PATH,
+		});
+
+		assert.deepEqual(resumeResult, {
+			status: "resumed",
+			taskId: `research-${id}`,
+			summary: `Research resumed for "${topic}"`,
+			nextStep: "review research artifact",
+			artifacts: [{ path: `.workflow/research/${id}/RESEARCH.md`, kind: "research-artifact" }],
+		});
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}

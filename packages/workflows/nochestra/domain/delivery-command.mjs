@@ -54,6 +54,14 @@ function routeMatches(input) {
 	});
 }
 
+export function slugifyTopic(topic) {
+	return String(topic || "")
+		.toLowerCase()
+		.trim()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
 export function parseTrackedTaskRef(value) {
 	const match = TASK_REF_RE.exec(String(value || "").trim());
 	if (!match) {
@@ -102,12 +110,51 @@ export function recommendNochestraRoute(input) {
 
 export function parseNochestraInput(input) {
 	const raw = normalizeInput(input);
+	if (!raw) {
+		return { kind: "chat", prompt: "" };
+	}
+
+	let command = "";
+	let rest = [];
+
+	if (raw.startsWith("/")) {
+		const [head, ...r] = raw.split(/\s+/);
+		command = head.slice(1).toLowerCase();
+		rest = r;
+	} else {
+		const [head, ...r] = raw.split(/\s+/);
+		const lowerHead = head.toLowerCase();
+		if (lowerHead === "research") {
+			command = "research";
+			rest = r;
+		}
+	}
+
+	if (command === "research") {
+		const topic = rest.join(" ").replace(/^["']|["']$/g, "").trim();
+		if (!topic) {
+			return {
+				kind: "delivery-error",
+				command: "research",
+				error: "Research command requires a topic.",
+			};
+		}
+		const id = slugifyTopic(topic);
+		return {
+			kind: "delivery",
+			route: "discovery",
+			command: "research",
+			task: { source: "research", id },
+			topic,
+			args: [topic],
+			raw,
+		};
+	}
+
 	if (!raw.startsWith("/")) {
 		return { kind: "chat", prompt: raw };
 	}
 
-	const [head, ...rest] = raw.split(/\s+/);
-	const command = head.slice(1).toLowerCase();
 	if (!DELIVERY_COMMANDS.has(command)) {
 		return { kind: "chat", prompt: raw };
 	}

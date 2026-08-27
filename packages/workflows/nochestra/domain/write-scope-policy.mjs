@@ -32,6 +32,14 @@ const WRITE_SCOPE_BY_DESTINATION = Object.freeze({
 		]),
 		willNot: Object.freeze(["edit code"]),
 	}),
+	research: (taskRef) => ({
+		canChange: Object.freeze([
+			`.workflow/research/${taskRef}/RESEARCH.md`,
+			`.workflow/research/${taskRef}/metadata.json`,
+			".workflow/active.json",
+		]),
+		willNot: Object.freeze(["create RPIV task", "edit code", "update tracker"]),
+	}),
 });
 
 function sanitizeTaskId(id) {
@@ -46,8 +54,15 @@ function taskRefFromParts(source, id) {
 }
 
 function extractTaskRef(assignment, task) {
+	if (task?.source === "research" && task?.id) {
+		return sanitizeTaskId(task.id);
+	}
 	if (task?.source && task?.id) {
 		return taskRefFromParts(task.source, task.id);
+	}
+	const researchMatch = String(assignment || "").match(/Run research for "([^"]+)"/i);
+	if (researchMatch) {
+		return sanitizeTaskId(researchMatch[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
 	}
 	const taskMatch = String(assignment || "").match(/(github|gitlab|jira|local):([^\s]+)/i);
 	return taskMatch ? taskRefFromParts(taskMatch[1], taskMatch[2]) : "task-id";

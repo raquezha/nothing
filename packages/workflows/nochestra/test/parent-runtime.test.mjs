@@ -309,6 +309,43 @@ test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-wit
 	}
 });
 
+test("dispatchNochestraInput dispatches explicit research request and returns research artifact path", async () => {
+	const repoDir = makeRepo();
+	const topic = "best way to test Nochestra routing";
+	const id = "best-way-to-test-nochestra-routing";
+
+	try {
+		const result = await dispatchNochestraInput({
+			input: `research "${topic}"`,
+			cwd: repoDir,
+		});
+
+		assert.deepEqual(result, {
+			kind: "delivery",
+			command: "research",
+			task: { source: "research", id },
+			status: "created",
+			taskId: `research-${id}`,
+			summary: `Research created for "${topic}"`,
+			nextStep: "review research artifact",
+			artifacts: [{ path: `.workflow/research/${id}/RESEARCH.md`, kind: "research-artifact" }],
+		});
+
+		const formatted = formatNochestraResult(result);
+		assert.match(formatted, /Command: \/research/);
+		assert.match(formatted, /Task: research:best-way-to-test-nochestra-routing/);
+		assert.match(formatted, /Status: created/);
+		assert.match(formatted, /Next step: review research artifact/);
+		assert.match(formatted, /RESEARCH\.md/);
+
+		// Artifact isolation check: no RPIV task workspace created
+		assert.equal(fs.existsSync(path.join(repoDir, `.workflow/research/${id}/RESEARCH.md`)), true);
+		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {
 	const okResult = formatNochestraResult({
 		kind: "delivery",

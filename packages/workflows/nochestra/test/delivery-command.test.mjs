@@ -2,6 +2,38 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute } from "../domain/delivery-command.mjs";
 
+test("parseNochestraInput recognizes research command with explicit topic", () => {
+	const result = parseNochestraInput('research "best way to test Nochestra routing"');
+
+	assert.deepEqual(result, {
+		kind: "delivery",
+		route: "discovery",
+		command: "research",
+		task: { source: "research", id: "best-way-to-test-nochestra-routing" },
+		topic: "best way to test Nochestra routing",
+		args: ["best way to test Nochestra routing"],
+		raw: 'research "best way to test Nochestra routing"',
+	});
+
+	assert.deepEqual(parseNochestraInput('/research best way to test Nochestra routing'), {
+		kind: "delivery",
+		route: "discovery",
+		command: "research",
+		task: { source: "research", id: "best-way-to-test-nochestra-routing" },
+		topic: "best way to test Nochestra routing",
+		args: ["best way to test Nochestra routing"],
+		raw: "/research best way to test Nochestra routing",
+	});
+});
+
+test("parseNochestraInput rejects research command without topic", () => {
+	assert.deepEqual(parseNochestraInput("research"), {
+		kind: "delivery-error",
+		command: "research",
+		error: "Research command requires a topic.",
+	});
+});
+
 test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
 	const result = parseNochestraInput("/triage github:143");
 
