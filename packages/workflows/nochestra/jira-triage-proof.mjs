@@ -1,5 +1,5 @@
 import { buildParentEpochContext } from "./application/parent-epoch.mjs";
-import { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
+import { extractOptionalWorkerResultFields, validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
 export { validateCompactWorkerResult } from "./domain/handoff-contract.mjs";
 
@@ -165,5 +165,6 @@ export function evaluateJiraTriageExecution({
 		jiraUpdateApplied,
 		summary: res.summary,
 		nextStep: res.nextStep,
+		...extractOptionalWorkerResultFields(res),
 	};
 }

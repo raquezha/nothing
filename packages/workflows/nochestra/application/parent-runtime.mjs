@@ -4,6 +4,7 @@ import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
+import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
@@ -55,11 +56,27 @@ function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
 
 function checkpointWithWorkerResult(checkpoint, result) {
 	const decision = `${result.taskId || "Worker"} ${result.status}: ${result.summary}`;
+	const decisions = checkpoint.decisions.includes(decision)
+		? checkpoint.decisions
+		: [...checkpoint.decisions, decision];
+
+	let openQuestions = checkpoint.openQuestions;
+	if (Array.isArray(result.blockers) && result.blockers.length > 0) {
+		for (const blocker of result.blockers) {
+			const text = typeof blocker === "string" ? blocker : JSON.stringify(blocker);
+			if (!openQuestions.includes(text)) {
+				openQuestions = [...openQuestions, text];
+			}
+		}
+	}
+
 	return {
 		...checkpoint,
-		decisions: checkpoint.decisions.includes(decision) ? checkpoint.decisions : [...checkpoint.decisions, decision],
+		decisions,
+		openQuestions,
 		currentRoute: "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
+		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
 	};
 }
 
@@ -122,6 +139,7 @@ function compactDeliveryResult(parsed, result) {
 		taskId: result.taskId,
 		summary: result.summary,
 		nextStep: result.nextStep,
+		...extractOptionalWorkerResultFields(result),
 	};
 }
 
@@ -189,13 +207,20 @@ export function formatNochestraResult(result) {
 	if (result.kind === "chat") {
 		return result.prompt;
 	}
-	return [
+	const lines = [
 		`Command: /${result.command}`,
 		`Task: ${result.task.source}:${result.task.id}`,
 		`Status: ${result.status}`,
 		`Summary: ${result.summary}`,
 		`Next step: ${result.nextStep}`,
-	].join("\n");
+	];
+	for (const key of ["artifacts", "verification", "blockers", "warnings", "recovery"]) {
+		if (result[key] !== undefined && result[key] !== null) {
+			const label = key[0].toUpperCase() + key.slice(1);
+			lines.push(`${label}: ${JSON.stringify(result[key])}`);
+		}
+	}
+	return lines.join("\n");
 }
 
 export async function runNochestraParent(args = process.argv.slice(2), options = {}) {

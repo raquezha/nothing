@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { acquireWriterLock, releaseWriterLock } from "./writer-lock.mjs";
-import { validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
+import { extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
@@ -113,6 +113,7 @@ export async function spawnWorkerProcess({
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
 			writeLockAcquired: false,
+			recovery: { action: "request user approval before write execution" },
 		};
 	}
 
@@ -228,6 +229,7 @@ export async function spawnWorkerProcess({
 				nextStep: rawResult.nextStep,
 				writeLockAcquired: lockAcquired,
 				...(fallbackApplied ? { fallbackApplied: true } : {}),
+				...extractOptionalWorkerResultFields(rawResult),
 			};
 		};
 
