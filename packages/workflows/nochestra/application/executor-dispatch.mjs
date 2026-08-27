@@ -1,6 +1,7 @@
 import { validateCheckpoint } from "../domain/checkpoint-contract.mjs";
 import { assertNoTranscriptFields, extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
 import { COMPACT_WORKER_RESULT_KEYS, OPTIONAL_WORKER_RESULT_KEYS } from "../domain/handoff-policy.mjs";
+import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
 import { acquireWriterLock, releaseWriterLock } from "../adapters/writer-lock.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
@@ -31,10 +32,15 @@ async function approveWriteHandoff({ handoff, approveWriteDispatch, destination 
 	if (!writeCapable || typeof approveWriteDispatch !== "function") {
 		return true;
 	}
+	const task = handoff.artifact ?? {
+		source: handoff.artifactSnapshot?.source,
+		id: handoff.artifactSnapshot?.id,
+	};
 	const approval = await approveWriteDispatch({
 		assignment: handoff.assignment,
 		destination,
 		permissions: clone(handoff.permissions ?? []),
+		writeScope: resolveWriteScope({ destination, assignment: handoff.assignment, task }),
 		requiresWriteLock,
 	});
 	return approval === true || approval?.approved === true || approval?.userAction === "approve";

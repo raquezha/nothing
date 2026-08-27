@@ -56,6 +56,14 @@ test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
 		assignment: "Run triage for github:159",
 		destination: "triage",
 		permissions: ["write-checkout"],
+		writeScope: {
+			canChange: [
+				".workflow/tasks/github-159/WORK.md",
+				".workflow/tasks/github-159/metadata.json",
+				".workflow/active.json",
+			],
+			willNot: ["edit code", "update tracker"],
+		},
 		requiresWriteLock: true,
 	}), [
 		"Approve write-capable Nochestra dispatch?",

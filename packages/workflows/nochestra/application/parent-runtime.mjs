@@ -144,8 +144,8 @@ function compactDeliveryResult(parsed, result) {
 	};
 }
 
-export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false, task = null } = {}) {
-	const scope = resolveWriteScope({ destination, assignment, task });
+export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], writeScope = null, requiresWriteLock = false, task = null } = {}) {
+	const scope = writeScope ?? resolveWriteScope({ destination, assignment, task });
 
 	if (scope) {
 		const canLines = scope.canChange.map((item) => `- ${item}`).join("\n");
