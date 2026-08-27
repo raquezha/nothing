@@ -143,7 +143,71 @@ function compactDeliveryResult(parsed, result) {
 	};
 }
 
+function resolveWriteScope({ destination, assignment }) {
+	const taskMatch = String(assignment || "").match(/(?:github|gitlab|jira|local):[^\s]+/i);
+	const taskRef = taskMatch ? taskMatch[0].toLowerCase().replace(":", "-") : "task-id";
+
+	switch (destination) {
+		case "triage":
+			return {
+				canChange: [
+					`.workflow/tasks/${taskRef}/WORK.md`,
+					`.workflow/tasks/${taskRef}/metadata.json`,
+					".workflow/active.json",
+				],
+				willNot: ["edit code", "update tracker"],
+			};
+		case "frame":
+			return {
+				canChange: [
+					`.workflow/tasks/${taskRef}/WORK.md [BRIEF], [LOG]`,
+				],
+				willNot: ["edit code", "update tracker"],
+			};
+		case "grill-with-docs":
+			return {
+				canChange: [
+					`.workflow/tasks/${taskRef}/WORK.md [GRILL], [LOG]`,
+				],
+				willNot: ["edit code", "update tracker"],
+			};
+		case "plan":
+			return {
+				canChange: [
+					`.workflow/tasks/${taskRef}/WORK.md [PLAN], [LOG]`,
+				],
+				willNot: ["edit code", "update tracker"],
+			};
+		case "sync":
+			return {
+				canChange: [
+					"target issue/PR marker comment (<!-- pi-sync-marker -->)",
+					`.workflow/tasks/${taskRef}/WORK.md [LOG]`,
+				],
+				willNot: ["edit code"],
+			};
+		default:
+			return null;
+	}
+}
+
 export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], requiresWriteLock = false } = {}) {
+	const scope = resolveWriteScope({ destination, assignment });
+
+	if (scope) {
+		const canLines = scope.canChange.map((item) => `- ${item}`).join("\n");
+		const willNotLines = scope.willNot.map((item) => `- ${item}`).join("\n");
+		return [
+			"Approve write-capable Nochestra dispatch?",
+			`Task: ${assignment || "Unknown task"}`,
+			"Can change:",
+			canLines,
+			"Will not:",
+			willNotLines,
+			...(requiresWriteLock ? ["Other write workers will be paused while this runs"] : []),
+		].join("\n");
+	}
+
 	const canChange = Array.isArray(permissions) ? permissions.join(", ") : String(permissions || "");
 	return [
 		"Approve write-capable Nochestra dispatch?",

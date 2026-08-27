@@ -1,4 +1,4 @@
-const DELIVERY_COMMANDS = new Set(["triage"]);
+const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan", "sync"]);
 const TASK_REF_RE = /^(github|gitlab|jira|local):([^\s]+)$/i;
 
 function normalizeInput(input) {

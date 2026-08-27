@@ -60,9 +60,70 @@ test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
 	}), [
 		"Approve write-capable Nochestra dispatch?",
 		"Task: Run triage for github:159",
-		"Will run: triage",
-		"Can change: write-checkout",
+		"Can change:",
+		"- .workflow/tasks/github-159/WORK.md",
+		"- .workflow/tasks/github-159/metadata.json",
+		"- .workflow/active.json",
+		"Will not:",
+		"- edit code",
+		"- update tracker",
 		"Other write workers will be paused while this runs",
+	].join("\n"));
+
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run frame for github:123",
+		destination: "frame",
+		permissions: ["write-checkout"],
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run frame for github:123",
+		"Can change:",
+		"- .workflow/tasks/github-123/WORK.md [BRIEF], [LOG]",
+		"Will not:",
+		"- edit code",
+		"- update tracker",
+	].join("\n"));
+
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run grill-with-docs for github:123",
+		destination: "grill-with-docs",
+		permissions: ["write-checkout"],
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run grill-with-docs for github:123",
+		"Can change:",
+		"- .workflow/tasks/github-123/WORK.md [GRILL], [LOG]",
+		"Will not:",
+		"- edit code",
+		"- update tracker",
+	].join("\n"));
+
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run plan for github:123",
+		destination: "plan",
+		permissions: ["write-checkout"],
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run plan for github:123",
+		"Can change:",
+		"- .workflow/tasks/github-123/WORK.md [PLAN], [LOG]",
+		"Will not:",
+		"- edit code",
+		"- update tracker",
+	].join("\n"));
+
+	assert.equal(formatWriteApprovalPrompt({
+		assignment: "Run sync for github:123",
+		destination: "sync",
+		permissions: ["write-checkout"],
+	}), [
+		"Approve write-capable Nochestra dispatch?",
+		"Task: Run sync for github:123",
+		"Can change:",
+		"- target issue/PR marker comment (<!-- pi-sync-marker -->)",
+		"- .workflow/tasks/github-123/WORK.md [LOG]",
+		"Will not:",
+		"- edit code",
 	].join("\n"));
 });
 
