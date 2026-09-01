@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeResearchWorker, executeTriageWorker, executeWorker, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, parsePlanSliceLine, resolveVaultNotePath } from "../application/worker-runtime.mjs";
+import { executeNotesWorker, executeResearchWorker, executeTriageWorker, executeWorker, extractWikiLinks, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, parseFrontmatter, parsePlanSliceLine, resolveVaultNotePath, stringifyFrontmatter, verifyVaultLinks } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -477,5 +477,107 @@ test("executeWorker delegates stage execution to sub-process when command is sup
 			fs.unlinkSync(scriptPath);
 		}
 		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("parseFrontmatter and stringifyFrontmatter handle YAML frontmatter objects and arrays", () => {
+	const sample = `---
+tags:
+  - obsidian
+  - notes
+aliases: [ai-note, distilled-note]
+created: 2026-01-01
+updated: 2026-01-01
+---
+
+# Title
+Body text
+`;
+
+	const parsed = parseFrontmatter(sample);
+	assert.deepEqual(parsed.frontmatter, {
+		tags: ["obsidian", "notes"],
+		aliases: ["ai-note", "distilled-note"],
+		created: "2026-01-01",
+		updated: "2026-01-01",
+	});
+	assert.equal(parsed.body.trim(), "# Title\nBody text");
+
+	const reserialized = stringifyFrontmatter(parsed.frontmatter);
+	assert.match(reserialized, /---/);
+	assert.match(reserialized, /tags:/);
+	assert.match(reserialized, /- obsidian/);
+	assert.match(reserialized, /created: 2026-01-01/);
+});
+
+test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links", () => {
+	const text = "See [[Architecture Note#Section|Arch]] and [[Missing Note]].";
+	const links = extractWikiLinks(text);
+	assert.equal(links.length, 2);
+	assert.equal(links[0].target, "Architecture Note");
+	assert.equal(links[0].heading, "Section");
+	assert.equal(links[0].alias, "Arch");
+
+	assert.equal(links[1].target, "Missing Note");
+
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-test-"));
+	try {
+		fs.writeFileSync(path.join(tempVault, "Architecture Note.md"), "# Arch", "utf8");
+		const verified = verifyVaultLinks(links, tempVault);
+		assert.equal(verified[0].exists, true);
+		assert.equal(verified[1].exists, false);
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
+	}
+});
+
+test("executeNotesWorker creates and updates notes while preserving frontmatter", async () => {
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-notes-"));
+	try {
+		const handoff = {
+			assignment: 'Run note for "vault architecture"',
+			destination: "note",
+			artifact: {
+				topic: "vault architecture",
+				path: "ai/architecture.md",
+				frontmatter: { tags: ["arch"], aliases: ["vault-arch"] },
+			},
+		};
+
+		const createRes = await executeNotesWorker(handoff, { vaultRoot: tempVault });
+		assert.equal(createRes.status, "created");
+		assert.equal(createRes.artifacts.length, 1);
+
+		const notePath = createRes.artifacts[0].path;
+		assert.equal(fs.existsSync(notePath), true);
+
+		const initialContent = fs.readFileSync(notePath, "utf8");
+		const parsed1 = parseFrontmatter(initialContent);
+		assert.deepEqual(parsed1.frontmatter.tags, ["arch"]);
+		assert.equal(parsed1.frontmatter.type, "note");
+		assert.ok(parsed1.frontmatter.created);
+
+		// Now update note
+		const updateHandoff = {
+			assignment: 'Run note for "vault architecture"',
+			destination: "note",
+			artifact: {
+				topic: "vault architecture",
+				path: "ai/architecture.md",
+				frontmatter: { tags: ["updated-tag"] },
+			},
+		};
+
+		const updateRes = await executeNotesWorker(updateHandoff, { vaultRoot: tempVault });
+		assert.equal(updateRes.status, "updated");
+
+		const updatedContent = fs.readFileSync(notePath, "utf8");
+		const parsed2 = parseFrontmatter(updatedContent);
+		assert.ok(parsed2.frontmatter.tags.includes("arch"));
+		assert.ok(parsed2.frontmatter.tags.includes("updated-tag"));
+		assert.equal(parsed2.frontmatter.created, parsed1.frontmatter.created);
+		assert.ok(parsed2.body.includes("Note Update"));
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
 	}
 });

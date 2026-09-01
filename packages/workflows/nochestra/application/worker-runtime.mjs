@@ -257,6 +257,154 @@ export async function executeWorker(handoff, options = {}) {
 	};
 }
 
+export function parseFrontmatter(content) {
+	const text = String(content || "");
+	const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+	if (!match) {
+		return { frontmatter: {}, body: text, rawYaml: "" };
+	}
+	const rawYaml = match[1];
+	const body = text.slice(match[0].length);
+	const frontmatter = {};
+
+	let currentKey = null;
+	const lines = rawYaml.split(/\r?\n/);
+	for (const line of lines) {
+		if (!line.trim() || line.trim().startsWith("#")) continue;
+		const arrayItemMatch = line.match(/^\s*-\s+(.*)$/);
+		if (arrayItemMatch && currentKey) {
+			const val = arrayItemMatch[1].trim().replace(/^['"]|['"]$/g, "");
+			if (!Array.isArray(frontmatter[currentKey])) {
+				frontmatter[currentKey] = [];
+			}
+			frontmatter[currentKey].push(val);
+			continue;
+		}
+
+		const kvMatch = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+		if (kvMatch) {
+			const key = kvMatch[1].trim();
+			let val = kvMatch[2].trim();
+			currentKey = key;
+			if (!val) {
+				frontmatter[key] = [];
+				continue;
+			}
+			if (val.startsWith("[") && val.endsWith("]")) {
+				const items = val
+					.slice(1, -1)
+					.split(",")
+					.map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
+					.filter(Boolean);
+				frontmatter[key] = items;
+			} else if (val === "true") {
+				frontmatter[key] = true;
+			} else if (val === "false") {
+				frontmatter[key] = false;
+			} else {
+				frontmatter[key] = val.replace(/^['"]|['"]$/g, "");
+			}
+		}
+	}
+	return { frontmatter, body, rawYaml };
+}
+
+export function stringifyFrontmatter(fmObj) {
+	if (!fmObj || typeof fmObj !== "object") return "";
+	const keys = Object.keys(fmObj);
+	if (keys.length === 0) return "";
+	const lines = ["---"];
+	for (const key of keys) {
+		const val = fmObj[key];
+		if (Array.isArray(val)) {
+			if (val.length === 0) {
+				lines.push(`${key}: []`);
+			} else {
+				lines.push(`${key}:`);
+				for (const item of val) {
+					lines.push(`  - ${item}`);
+				}
+			}
+		} else if (val !== undefined && val !== null) {
+			lines.push(`${key}: ${val}`);
+		}
+	}
+	lines.push("---");
+	return lines.join("\n");
+}
+
+export function extractWikiLinks(content) {
+	const text = String(content || "");
+	const matches = text.matchAll(/\[\[([^\]]+)\]\]/g);
+	const links = [];
+	for (const match of matches) {
+		const rawInner = match[1].trim();
+		const pipeIdx = rawInner.indexOf("|");
+		const targetPart = pipeIdx >= 0 ? rawInner.slice(0, pipeIdx).trim() : rawInner;
+		const alias = pipeIdx >= 0 ? rawInner.slice(pipeIdx + 1).trim() : null;
+
+		const hashIdx = targetPart.indexOf("#");
+		const target = hashIdx >= 0 ? targetPart.slice(0, hashIdx).trim() : targetPart;
+		const heading = hashIdx >= 0 ? targetPart.slice(hashIdx + 1).trim() : null;
+
+		links.push({
+			raw: match[0],
+			target: target || "",
+			heading: heading || null,
+			alias: alias || null,
+		});
+	}
+	return links;
+}
+
+function findFileInVault(dir, targetBaseName) {
+	if (!fs.existsSync(dir)) return null;
+	const entries = fs.readdirSync(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			const res = findFileInVault(full, targetBaseName);
+			if (res) return res;
+		} else if (entry.isFile() && entry.name.toLowerCase() === targetBaseName.toLowerCase()) {
+			return full;
+		}
+	}
+	return null;
+}
+
+export function verifyVaultLinks(links, vaultRoot = DEFAULT_VAULT_ROOT) {
+	const resolvedVault = path.resolve(vaultRoot);
+	return links.map((link) => {
+		if (!link.target) return { ...link, exists: false, resolvedPath: null };
+		let targetPath = link.target;
+		if (!targetPath.endsWith(".md")) {
+			targetPath += ".md";
+		}
+		const directPath = path.resolve(resolvedVault, targetPath);
+		let exists = false;
+		let resolvedPath = directPath;
+		if (fs.existsSync(directPath)) {
+			exists = true;
+		} else {
+			try {
+				const baseName = path.basename(targetPath);
+				const found = findFileInVault(resolvedVault, baseName);
+				if (found) {
+					exists = true;
+					resolvedPath = found;
+				}
+			} catch {
+				exists = false;
+			}
+		}
+		return {
+			...link,
+			exists,
+			resolvedPath: exists ? resolvedPath : null,
+		};
+	});
+}
+
 export function resolveVaultNotePath(topic, vaultRoot = DEFAULT_VAULT_ROOT, customRelPath = null) {
 	const slug = slugifyTopic(topic);
 	const today = new Date().toISOString().slice(0, 10);
@@ -287,7 +435,8 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	}
 
 	const customPath = handoff.artifact?.path ?? handoff.artifactSnapshot?.path ?? null;
-	const { resolvedTarget } = resolveVaultNotePath(topic, vaultRoot, customPath);
+	const extraFrontmatter = handoff.artifact?.frontmatter ?? handoff.artifactSnapshot?.frontmatter ?? {};
+	const { resolvedTarget, resolvedVault } = resolveVaultNotePath(topic, vaultRoot, customPath);
 
 	if (fs.existsSync(resolvedTarget) && fs.statSync(resolvedTarget).isDirectory()) {
 		throw new Error(`Target note path is a directory: ${resolvedTarget}`);
@@ -297,18 +446,39 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
 
 	const today = new Date().toISOString().slice(0, 10);
+	let finalContent = "";
 
 	if (isUpdate) {
-		const existingContent = fs.readFileSync(resolvedTarget, "utf8");
+		const existingText = fs.readFileSync(resolvedTarget, "utf8");
+		const { frontmatter: existingFm, body: existingBody } = parseFrontmatter(existingText);
+
+		const updatedFm = {
+			...existingFm,
+			...extraFrontmatter,
+			created: existingFm.created || today,
+			updated: today,
+		};
+
+		if (extraFrontmatter.tags && Array.isArray(existingFm.tags)) {
+			updatedFm.tags = Array.from(new Set([...existingFm.tags, ...extraFrontmatter.tags]));
+		}
+		if (extraFrontmatter.aliases && Array.isArray(existingFm.aliases)) {
+			updatedFm.aliases = Array.from(new Set([...existingFm.aliases, ...extraFrontmatter.aliases]));
+		}
+
 		const appendEntry = `\n\n## Note Update (${today})\n\n- ${topic}\n`;
-		fs.writeFileSync(resolvedTarget, existingContent + appendEntry, "utf8");
+		const fmYaml = stringifyFrontmatter(updatedFm);
+		finalContent = fmYaml ? `${fmYaml}\n\n${existingBody.trim()}${appendEntry}` : `${existingBody.trim()}${appendEntry}`;
 	} else {
-		const initialContent = [
-			"---",
-			`distilled: ${today}`,
-			"type: note",
-			"---",
-			"",
+		const initialFm = {
+			distilled: today,
+			type: "note",
+			created: today,
+			updated: today,
+			...extraFrontmatter,
+		};
+
+		const initialBody = [
 			`# ${topic}`,
 			"",
 			`> ${topic}`,
@@ -322,10 +492,16 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 			`> Review and continue notes on ${topic}`,
 			"",
 		].join("\n");
-		fs.writeFileSync(resolvedTarget, initialContent, "utf8");
+
+		const fmYaml = stringifyFrontmatter(initialFm);
+		finalContent = `${fmYaml}\n\n${initialBody}`;
 	}
 
+	fs.writeFileSync(resolvedTarget, finalContent, "utf8");
+
 	const status = isUpdate ? "updated" : "created";
+	const wikiLinks = extractWikiLinks(finalContent);
+	const verifiedLinks = verifyVaultLinks(wikiLinks, resolvedVault);
 
 	return {
 		status,
@@ -333,6 +509,7 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 		summary: `Note ${status} for "${topic}"`,
 		nextStep: "review note",
 		artifacts: [{ path: resolvedTarget, kind: "obsidian-note" }],
+		links: verifiedLinks,
 	};
 }
 
