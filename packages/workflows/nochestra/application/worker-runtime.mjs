@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { readWorkerHandoff, validateBoundedWorkerHandoff } from "./worker-handoff.mjs";
+import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
 import { slugifyTopic } from "../domain/delivery-command.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -167,6 +168,35 @@ export async function executeWorker(handoff, options = {}) {
 	}
 
 	const { source, id } = extractTask(handoff);
+
+	if (options.spawnSubprocess !== false && (options.command || process.env.NOCH_STAGE_RUNNER || process.env.PI_BINARY)) {
+		const skillMap = {
+			frame: "norpiv/frame",
+			"grill-with-docs": "norpiv/grill-with-docs",
+			plan: "norpiv/plan",
+			implement: "norpiv/implement",
+			verify: "norpiv/verify",
+			sync: "norpiv/sync",
+		};
+		const selectedSkill = skillMap[destination];
+		const stageHandoff = {
+			...handoff,
+			selectedSkills: [selectedSkill],
+			permissions: Array.isArray(handoff.permissions) ? handoff.permissions : ["write-checkout"],
+		};
+		const baseArgs = options.args || [];
+		const extraSkillArgs = baseArgs.includes("--skill") ? [] : ["--skill", selectedSkill];
+		const spawnOptions = {
+			handoff: stageHandoff,
+			command: options.command || process.env.NOCH_STAGE_RUNNER || process.env.PI_BINARY || "pi",
+			args: [...baseArgs, ...extraSkillArgs],
+			cwd,
+			env: options.env || process.env,
+			requiresWriteLock: options.requiresWriteLock ?? false,
+			lockPath: options.lockPath,
+		};
+		return spawnWorkerProcess(spawnOptions);
+	}
 
 	if (destination === "frame") {
 		if (!hasMeaningfulContent(sectionBody(workText, "BRIEF"))) {

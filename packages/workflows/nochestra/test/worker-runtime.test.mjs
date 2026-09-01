@@ -432,3 +432,50 @@ test("executeTriageWorker rejects unsupported worker destinations", async () => 
 		/Unsupported worker destination: publish/,
 	);
 });
+
+test("executeWorker delegates stage execution to sub-process when command is supplied", async () => {
+	const repoDir = makeRepo();
+	const id = `subproc-${Date.now()}`;
+	const scriptPath = path.join(os.tmpdir(), `test-stage-worker-${Date.now()}.cjs`);
+
+	fs.writeFileSync(scriptPath, `
+		const fs = require('fs');
+		const args = process.argv.slice(2);
+		const hasNoContext = args.includes('--no-context-files');
+		const hasSkill = args.includes('--skill') && args[args.indexOf('--skill') + 1] === 'norpiv/frame';
+		const handoffIdx = args.indexOf('--handoff');
+		const handoffPath = handoffIdx !== -1 ? args[handoffIdx + 1] : null;
+		const handoffData = handoffPath ? JSON.parse(fs.readFileSync(handoffPath, 'utf8')) : null;
+
+		if (!hasNoContext || !hasSkill || !handoffData) {
+			process.exit(1);
+		}
+
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: '${id}',
+			summary: 'Subprocess frame skill executed',
+			nextStep: '/grill-with-docs'
+		}));
+	`, "utf8");
+
+	try {
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+
+		const frameHandoff = { ...handoffFor(id), destination: "frame" };
+		const result = await executeWorker(frameHandoff, {
+			cwd: repoDir,
+			command: process.execPath,
+			args: [scriptPath, "--skill", "norpiv/frame"],
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.summary, "Subprocess frame skill executed");
+		assert.equal(result.nextStep, "/grill-with-docs");
+	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
