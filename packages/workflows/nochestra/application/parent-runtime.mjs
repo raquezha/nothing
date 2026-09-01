@@ -34,6 +34,11 @@ function resolveDeliveryTask(parsed, active) {
 		const id = parsed.task?.id || slugifyTopic(topic);
 		return { source: "research", id, topic, mode: "auto" };
 	}
+	if (parsed.command === "note") {
+		const topic = parsed.topic || (parsed.args ? parsed.args.join(" ") : "");
+		const id = parsed.task?.id || slugifyTopic(topic);
+		return { source: "note", id, topic, mode: "auto" };
+	}
 	const task = TASK_RESOLVERS.map((resolve) => resolve(parsed, active)).find(Boolean);
 	if (!task) {
 		throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
@@ -56,6 +61,21 @@ function defaultCheckpointForTask(parsed, active = null) {
 			rejectedOptions: [],
 			currentRoute: "discovery",
 			suggestedNextRoute: "review research artifact",
+		};
+	}
+	if (parsed.command === "note") {
+		return {
+			subject: `note:${task.id}`,
+			goal: `Write note for ${task.topic || task.id}`,
+			decisions: [],
+			constraints: [
+				"Preserve existing workflow rules",
+				"Only approved vault paths are writable",
+			],
+			openQuestions: [],
+			rejectedOptions: [],
+			currentRoute: "notes",
+			suggestedNextRoute: "review note",
 		};
 	}
 	return {
@@ -93,7 +113,7 @@ function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
 	writeCheckpoint(resolved, checkpoint);
 }
 
-function checkpointWithWorkerResult(checkpoint, result) {
+function checkpointWithWorkerResult(checkpoint, result, parsed = null) {
 	const decision = `${result.taskId || "Worker"} ${result.status}: ${result.summary}`;
 	const decisions = checkpoint.decisions.includes(decision)
 		? checkpoint.decisions
@@ -107,7 +127,7 @@ function checkpointWithWorkerResult(checkpoint, result) {
 		...checkpoint,
 		decisions,
 		openQuestions: [...checkpoint.openQuestions, ...newBlockers],
-		currentRoute: "delivery",
+		currentRoute: parsed?.route || checkpoint.currentRoute || "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
 	};
@@ -151,6 +171,28 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
 			artifact: {
 				...task,
 				stateFile: active?.workflow === "research" ? active.stateFile : null,
+			},
+		};
+	}
+	if (parsed.command === "note") {
+		const base = buildBoundedHandoff({
+			assignment: `Run note for "${task.topic || task.id}"`,
+			checkpoint,
+			artifactSnapshot: {
+				...task,
+				activeWorkflow: activeWorkflowSnapshot(active),
+			},
+			contextBudget: DELIVERY_CONTEXT_BUDGET,
+			selectedSkills: ["distill"],
+			permissions: ["write-checkout"],
+		});
+
+		return {
+			...base,
+			destination: "note",
+			artifact: {
+				...task,
+				stateFile: active?.workflow === "notes" ? active.stateFile : null,
 			},
 		};
 	}
@@ -229,7 +271,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, vaultRoot = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -243,17 +285,18 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		return approved;
 	};
 	const handoff = buildDeliveryHandoff({ parsed, ...context });
+	const env = vaultRoot ? { ...process.env, NOCH_VAULT_ROOT: vaultRoot } : process.env;
 	const result = await spawnWorkerProcess({
 		handoff,
 		command: process.execPath,
 		args: [workerRuntimePath],
 		cwd,
-		env: process.env,
+		env,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
 	const compact = compactDeliveryResult(parsed, result, task);
 	if (result.status !== "cancelled") {
-		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result));
+		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result, parsed));
 	}
 	return compact;
 }
@@ -273,10 +316,11 @@ export function formatNochestraResult(result) {
 	if (result.kind === "chat") {
 		return result.prompt;
 	}
-	const commandLabel = result.command.startsWith("/") ? result.command : `/${result.command}`;
+	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
+	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");
 	const lines = [
 		`Command: ${commandLabel}`,
-		`Task: ${result.task.source}:${result.task.id}`,
+		`Task: ${taskLabel}`,
 		`Status: ${result.status}`,
 		`Summary: ${result.summary}`,
 		`Next step: ${result.nextStep}`,

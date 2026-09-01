@@ -40,6 +40,13 @@ const WRITE_SCOPE_BY_DESTINATION = Object.freeze({
 		]),
 		willNot: Object.freeze(["create RPIV task", "edit code", "update tracker"]),
 	}),
+	note: () => ({
+		canChange: Object.freeze([
+			"approved Obsidian note under ~/RQZ/notes/",
+			".workflow/nochestra-checkpoint.json",
+		]),
+		willNot: Object.freeze(["create RPIV task", "create Research artifact", "edit code", "update tracker"]),
+	}),
 });
 
 function sanitizeTaskId(id) {
@@ -54,11 +61,18 @@ function taskRefFromParts(source, id) {
 }
 
 function extractTaskRef(assignment, task) {
+	if (task?.source === "note" && task?.id) {
+		return sanitizeTaskId(task.id);
+	}
 	if (task?.source === "research" && task?.id) {
 		return sanitizeTaskId(task.id);
 	}
 	if (task?.source && task?.id) {
 		return taskRefFromParts(task.source, task.id);
+	}
+	const noteMatch = String(assignment || "").match(/Run note for "([^"]+)"/i);
+	if (noteMatch) {
+		return sanitizeTaskId(noteMatch[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
 	}
 	const researchMatch = String(assignment || "").match(/Run research for "([^"]+)"/i);
 	if (researchMatch) {

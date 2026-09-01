@@ -39,6 +39,12 @@ const ROUTE_RULES = [
 		command: () => "pi --notes",
 	},
 	{
+		id: "notes-explicit-note",
+		route: "notes",
+		pattern: /^(?:note|distill)\s+\S/i,
+		command: () => "pi --notes",
+	},
+	{
 		id: "discovery-explicit-research",
 		route: "discovery",
 		pattern: /^(?:research|investigate|look\s+up)\s+\S/i,
@@ -55,11 +61,12 @@ function routeMatches(input) {
 }
 
 export function slugifyTopic(topic) {
-	return String(topic || "")
+	const slug = String(topic || "")
 		.toLowerCase()
 		.trim()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "");
+	return slug || `topic-${Date.now().toString(36)}`;
 }
 
 export function parseTrackedTaskRef(value) {
@@ -127,6 +134,9 @@ export function parseNochestraInput(input) {
 		if (lowerHead === "research") {
 			command = "research";
 			rest = r;
+		} else if (lowerHead === "note") {
+			command = "note";
+			rest = r;
 		}
 	}
 
@@ -145,6 +155,27 @@ export function parseNochestraInput(input) {
 			route: "discovery",
 			command: "research",
 			task: { source: "research", id },
+			topic,
+			args: [topic],
+			raw,
+		};
+	}
+
+	if (command === "note") {
+		const topic = rest.join(" ").replace(/^["']|["']$/g, "").trim();
+		if (!topic) {
+			return {
+				kind: "delivery-error",
+				command: "note",
+				error: "Note command requires a topic.",
+			};
+		}
+		const id = slugifyTopic(topic);
+		return {
+			kind: "delivery",
+			route: "notes",
+			command: "note",
+			task: { source: "note", id },
 			topic,
 			args: [topic],
 			raw,

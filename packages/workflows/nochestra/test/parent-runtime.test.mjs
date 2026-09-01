@@ -309,6 +309,40 @@ test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-wit
 	}
 });
 
+test("dispatchNochestraInput dispatches explicit note request and returns note artifact path", async () => {
+	const repoDir = makeRepo();
+	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-parent-vault-"));
+	const topic = "summarize Nochestra front door UX";
+	const id = "summarize-nochestra-front-door-ux";
+
+	try {
+		const result = await dispatchNochestraInput({
+			input: `note "${topic}"`,
+			cwd: repoDir,
+			vaultRoot: vaultDir,
+		});
+
+		assert.equal(result.kind, "delivery");
+		assert.equal(result.command, "note");
+		assert.equal(result.status, "created");
+		assert.equal(result.taskId, `note-${id}`);
+		assert.equal(result.nextStep, "review note");
+		assert.equal(result.artifacts[0].kind, "obsidian-note");
+
+		const formatted = formatNochestraResult(result);
+		assert.match(formatted, /Command: \/note/);
+		assert.match(formatted, /Task: note:summarize-nochestra-front-door-ux/);
+		assert.match(formatted, /Status: created/);
+		assert.match(formatted, /Next step: review note/);
+
+		// Artifact isolation check: no RPIV task workspace created
+		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+		fs.rmSync(vaultDir, { recursive: true, force: true });
+	}
+});
+
 test("dispatchNochestraInput dispatches explicit research request and returns research artifact path", async () => {
 	const repoDir = makeRepo();
 	const topic = "best way to test Nochestra routing";
@@ -341,9 +375,26 @@ test("dispatchNochestraInput dispatches explicit research request and returns re
 		// Artifact isolation check: no RPIV task workspace created
 		assert.equal(fs.existsSync(path.join(repoDir, `.workflow/research/${id}/RESEARCH.md`)), true);
 		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
+
+		// Checkpoint verification: currentRoute preserved as discovery
+		const checkpoint = readCheckpoint(path.join(repoDir, ".workflow/nochestra-checkpoint.json"));
+		assert.equal(checkpoint.currentRoute, "discovery");
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
+});
+
+test("formatNochestraResult handles missing task property safely", () => {
+	const formatted = formatNochestraResult({
+		kind: "delivery",
+		command: "note",
+		status: "created",
+		taskId: "note-123",
+		summary: "Note created",
+		nextStep: "review note",
+	});
+	assert.match(formatted, /Command: \/note/);
+	assert.match(formatted, /Task: note-123/);
 });
 
 test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep } from "../application/worker-runtime.mjs";
+import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep, resolveVaultNotePath } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -153,6 +153,112 @@ test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages"
 		assert.match(workTextPlan, /## \[PLAN\]\n- \[ \] \*\*AFK Slice 1/);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("executeWorker rejects when target note path is an existing directory", async () => {
+	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-dir-vault-"));
+	const dirPath = path.join(vaultDir, "distilled", "conflict.md");
+	fs.mkdirSync(dirPath, { recursive: true });
+
+	const noteHandoff = {
+		assignment: 'Run note for "conflict"',
+		destination: "note",
+		artifact: { source: "note", id: "conflict", topic: "conflict", path: "distilled/conflict.md" },
+		contextBudget: { maxTokens: 4000 },
+	};
+
+	try {
+		await assert.rejects(
+			() => executeWorker(noteHandoff, { vaultRoot: vaultDir }),
+			/Target note path is a directory/,
+		);
+	} finally {
+		fs.rmSync(vaultDir, { recursive: true, force: true });
+	}
+});
+
+test("resolveVaultNotePath handles nested custom vault paths, slugification, and path traversal rejection", () => {
+	const vaultRoot = path.join(os.tmpdir(), "vault-test-root");
+
+	// 1. Default distilled relative path
+	const defaultRes = resolveVaultNotePath("frontend UX notes", vaultRoot);
+	assert.equal(defaultRes.resolvedTarget.startsWith(path.resolve(vaultRoot)), true);
+	assert.match(defaultRes.resolvedTarget, /distilled\/.*-frontend-ux-notes\.md$/);
+
+	// 2. Custom nested relative path inside vault
+	const customRes = resolveVaultNotePath("architecture", vaultRoot, "ai/architecture.md");
+	assert.equal(customRes.resolvedTarget, path.resolve(vaultRoot, "ai/architecture.md"));
+
+	// 3. Path traversal rejection
+	assert.throws(
+		() => resolveVaultNotePath("exploit", vaultRoot, "../../etc/passwd"),
+		/Unapproved vault path or path traversal detected/,
+	);
+	assert.throws(
+		() => resolveVaultNotePath("exploit", vaultRoot, "/tmp/outside-vault.md"),
+		/Unapproved vault path or path traversal detected/,
+	);
+});
+
+test("executeWorker handles note destination creating, updating notes in vault, and rejecting unapproved path traversal", async () => {
+	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-vault-"));
+	const topic = "summarize Nochestra front door UX";
+	const id = "summarize-nochestra-front-door-ux";
+
+	const noteHandoff = {
+		assignment: `Run note for "${topic}"`,
+		destination: "note",
+		artifact: { source: "note", id, topic },
+		acceptedDecisions: ["Use bounded handoff only"],
+		constraints: ["No parent transcript"],
+		openQuestions: [],
+		selectedSkills: ["distill"],
+		permissions: ["write-checkout"],
+		contextBudget: { maxTokens: 4000 },
+		expectedResultShape: { required: ["status", "taskId", "summary", "nextStep"] },
+	};
+
+	try {
+		// 1. Create note
+		const createResult = await executeWorker(noteHandoff, {
+			vaultRoot: vaultDir,
+		});
+
+		assert.equal(createResult.status, "created");
+		assert.equal(createResult.taskId, `note-${id}`);
+		assert.equal(createResult.nextStep, "review note");
+		assert.equal(createResult.artifacts[0].kind, "obsidian-note");
+
+		const createdNotePath = createResult.artifacts[0].path;
+		assert.equal(fs.existsSync(createdNotePath), true);
+		assert.equal(createdNotePath.startsWith(vaultDir), true);
+
+		// Artifact isolation check: no RPIV task workspace or Research workspace created
+		assert.equal(fs.existsSync(path.join(process.cwd(), ".workflow/tasks/note-" + id)), false);
+		assert.equal(fs.existsSync(path.join(process.cwd(), ".workflow/research/note-" + id)), false);
+
+		// 2. Update existing note
+		const updateResult = await executeWorker(noteHandoff, {
+			vaultRoot: vaultDir,
+		});
+
+		assert.equal(updateResult.status, "updated");
+		assert.equal(updateResult.taskId, `note-${id}`);
+		const noteContent = fs.readFileSync(createdNotePath, "utf8");
+		assert.match(noteContent, /## Note Update/);
+
+		// 3. Path traversal rejection check
+		const badPathHandoff = {
+			...noteHandoff,
+			artifact: { ...noteHandoff.artifact, path: "../../outside-vault.md" },
+		};
+		await assert.rejects(
+			() => executeWorker(badPathHandoff, { vaultRoot: vaultDir }),
+			/Unapproved vault path or path traversal detected/,
+		);
+	} finally {
+		fs.rmSync(vaultDir, { recursive: true, force: true });
 	}
 });
 

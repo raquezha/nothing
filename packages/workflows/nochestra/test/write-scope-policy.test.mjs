@@ -43,6 +43,17 @@ test("resolveWriteScope sanitizes task ids to avoid path traversal expansion", (
 	assert.equal(scope.canChange[0].includes("evil"), true);
 });
 
+test("resolveWriteScope builds scope for note", () => {
+	const scope = resolveWriteScope({ destination: "note", task: { source: "note", id: "summarize-ux" } });
+	assert.deepEqual(scope, {
+		canChange: [
+			"approved Obsidian note under ~/RQZ/notes/",
+			".workflow/nochestra-checkpoint.json",
+		],
+		willNot: ["create RPIV task", "create Research artifact", "edit code", "update tracker"],
+	});
+});
+
 test("resolveWriteScope builds scope for research", () => {
 	const scope = resolveWriteScope({ destination: "research", task: { source: "research", id: "best-way-to-test" } });
 	assert.deepEqual(scope, {
