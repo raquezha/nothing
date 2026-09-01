@@ -281,13 +281,13 @@ export function parseFrontmatter(content) {
 			continue;
 		}
 
-		const kvMatch = line.match(/^([A-Za-z0-9_-]+)\s*:\s*(.*)$/);
+		const kvMatch = line.match(/^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/);
 		if (kvMatch) {
 			const key = kvMatch[1].trim();
 			let val = kvMatch[2].trim();
 			currentKey = key;
 			if (!val) {
-				frontmatter[key] = [];
+				frontmatter[key] = "";
 				continue;
 			}
 			if (val.startsWith("[") && val.endsWith("]")) {
@@ -301,12 +301,23 @@ export function parseFrontmatter(content) {
 				frontmatter[key] = true;
 			} else if (val === "false") {
 				frontmatter[key] = false;
+			} else if (!isNaN(val) && val !== "") {
+				frontmatter[key] = Number(val);
 			} else {
 				frontmatter[key] = val.replace(/^['"]|['"]$/g, "");
 			}
 		}
 	}
 	return { frontmatter, body, rawYaml };
+}
+
+function safeYamlValue(v) {
+	if (typeof v === "number" || typeof v === "boolean") return String(v);
+	const str = String(v);
+	if (/[:#\[\]{}%@`*?|<>=!&]|\s$/.test(str) || str.trim() !== str) {
+		return JSON.stringify(str);
+	}
+	return str;
 }
 
 export function stringifyFrontmatter(fmObj) {
@@ -322,11 +333,11 @@ export function stringifyFrontmatter(fmObj) {
 			} else {
 				lines.push(`${key}:`);
 				for (const item of val) {
-					lines.push(`  - ${item}`);
+					lines.push(`  - ${safeYamlValue(item)}`);
 				}
 			}
 		} else if (val !== undefined && val !== null) {
-			lines.push(`${key}: ${val}`);
+			lines.push(`${key}: ${safeYamlValue(val)}`);
 		}
 	}
 	lines.push("---");
@@ -335,7 +346,9 @@ export function stringifyFrontmatter(fmObj) {
 
 export function extractWikiLinks(content) {
 	const text = String(content || "");
-	const matches = text.matchAll(/\[\[([^\]]+)\]\]/g);
+	// Strip code blocks and inline code to prevent false-positive links
+	const stripped = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");
+	const matches = stripped.matchAll(/\[\[([^\]]+)\]\]/g);
 	const links = [];
 	for (const match of matches) {
 		const rawInner = match[1].trim();
@@ -439,6 +452,7 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	}
 
 	const customPath = handoff.artifact?.path ?? handoff.artifactSnapshot?.path ?? null;
+	const customContent = handoff.artifact?.content ?? handoff.artifactSnapshot?.content ?? null;
 	const extraFrontmatter = handoff.artifact?.frontmatter ?? handoff.artifactSnapshot?.frontmatter ?? {};
 	const { resolvedTarget, resolvedVault } = resolveVaultNotePath(topic, vaultRoot, customPath);
 
@@ -474,7 +488,7 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 			updatedFm.aliases = Array.from(new Set([...existingArr, ...extraArr]));
 		}
 
-		const appendEntry = `\n\n## Note Update (${today})\n\n- ${topic}\n`;
+		const appendEntry = customContent ? `\n\n## Note Update (${today})\n\n${customContent.trim()}\n` : `\n\n## Note Update (${today})\n\n- ${topic}\n`;
 		const fmYaml = stringifyFrontmatter(updatedFm);
 		finalContent = fmYaml ? `${fmYaml}\n\n${existingBody.trim()}${appendEntry}` : `${existingBody.trim()}${appendEntry}`;
 	} else {
@@ -486,20 +500,22 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 			...extraFrontmatter,
 		};
 
-		const initialBody = [
-			`# ${topic}`,
-			"",
-			`> ${topic}`,
-			"",
-			"## Note",
-			"",
-			`- ${topic}`,
-			"",
-			"## Resume prompt",
-			"",
-			`> Review and continue notes on ${topic}`,
-			"",
-		].join("\n");
+		const initialBody = customContent
+			? customContent.trim()
+			: [
+					`# ${topic}`,
+					"",
+					`> ${topic}`,
+					"",
+					"## Note",
+					"",
+					`- ${topic}`,
+					"",
+					"## Resume prompt",
+					"",
+					`> Review and continue notes on ${topic}`,
+					"",
+				].join("\n");
 
 		const fmYaml = stringifyFrontmatter(initialFm);
 		finalContent = `${fmYaml}\n\n${initialBody}`;

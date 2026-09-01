@@ -482,9 +482,11 @@ test("executeWorker delegates stage execution to sub-process when command is sup
 
 test("parseFrontmatter and stringifyFrontmatter handle YAML frontmatter objects and arrays", () => {
 	const sample = `---
+user.id: 123
 tags:
   - obsidian
   - notes
+title: "Architecture: Deep Dive"
 aliases: [ai-note, distilled-note]
 created: 2026-01-01
 updated: 2026-01-01
@@ -496,7 +498,9 @@ Body text
 
 	const parsed = parseFrontmatter(sample);
 	assert.deepEqual(parsed.frontmatter, {
+		"user.id": 123,
 		tags: ["obsidian", "notes"],
+		title: "Architecture: Deep Dive",
 		aliases: ["ai-note", "distilled-note"],
 		created: "2026-01-01",
 		updated: "2026-01-01",
@@ -505,13 +509,19 @@ Body text
 
 	const reserialized = stringifyFrontmatter(parsed.frontmatter);
 	assert.match(reserialized, /---/);
+	assert.match(reserialized, /user\.id: 123/);
+	assert.match(reserialized, /title: "Architecture: Deep Dive"/);
 	assert.match(reserialized, /tags:/);
 	assert.match(reserialized, /- obsidian/);
 	assert.match(reserialized, /created: 2026-01-01/);
 });
 
-test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links", () => {
-	const text = "See [[Architecture Note#Section|Arch]], [[Missing Note]], and [[../../etc/passwd]].";
+test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links while ignoring code blocks", () => {
+	const text = `See [[Architecture Note#Section|Arch]], [[Missing Note]], and [[../../etc/passwd]].
+Here is code: \`[[Code Note]]\` and:
+\`\`\`markdown
+[[Ignored Note]]
+\`\`\``;
 	const links = extractWikiLinks(text);
 	assert.equal(links.length, 3);
 	assert.equal(links[0].target, "Architecture Note");
@@ -534,6 +544,29 @@ test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links
 
 		const secretCheck = verifyVaultLinks([{ raw: "[[Secret]]", target: "Secret", heading: null, alias: null }], tempVault);
 		assert.equal(secretCheck[0].exists, false); // Ignores .git folder
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
+	}
+});
+
+test("executeNotesWorker supports custom note content in handoff", async () => {
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-custom-"));
+	try {
+		const handoff = {
+			assignment: 'Run note for "custom content note"',
+			destination: "note",
+			artifact: {
+				topic: "custom content note",
+				content: "# Custom Header\n\nCustom body content for the note.",
+			},
+		};
+
+		const res = await executeNotesWorker(handoff, { vaultRoot: tempVault });
+		assert.equal(res.status, "created");
+		const notePath = res.artifacts[0].path;
+		const content = fs.readFileSync(notePath, "utf8");
+		assert.ok(content.includes("# Custom Header"));
+		assert.ok(content.includes("Custom body content for the note."));
 	} finally {
 		fs.rmSync(tempVault, { recursive: true, force: true });
 	}
