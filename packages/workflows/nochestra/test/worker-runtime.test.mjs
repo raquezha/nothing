@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep } from "../application/worker-runtime.mjs";
+import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep, resolveVaultNotePath } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -154,6 +154,29 @@ test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages"
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
+});
+
+test("resolveVaultNotePath handles nested custom vault paths, slugification, and path traversal rejection", () => {
+	const vaultRoot = path.join(os.tmpdir(), "vault-test-root");
+
+	// 1. Default distilled relative path
+	const defaultRes = resolveVaultNotePath("frontend UX notes", vaultRoot);
+	assert.equal(defaultRes.resolvedTarget.startsWith(path.resolve(vaultRoot)), true);
+	assert.match(defaultRes.resolvedTarget, /distilled\/.*-frontend-ux-notes\.md$/);
+
+	// 2. Custom nested relative path inside vault
+	const customRes = resolveVaultNotePath("architecture", vaultRoot, "ai/architecture.md");
+	assert.equal(customRes.resolvedTarget, path.resolve(vaultRoot, "ai/architecture.md"));
+
+	// 3. Path traversal rejection
+	assert.throws(
+		() => resolveVaultNotePath("exploit", vaultRoot, "../../etc/passwd"),
+		/Unapproved vault path or path traversal detected/,
+	);
+	assert.throws(
+		() => resolveVaultNotePath("exploit", vaultRoot, "/tmp/outside-vault.md"),
+		/Unapproved vault path or path traversal detected/,
+	);
 });
 
 test("executeWorker handles note destination creating, updating notes in vault, and rejecting unapproved path traversal", async () => {
