@@ -280,3 +280,37 @@ test("recommendNochestraRoute returns needs-confirmation for conflicting explici
 		reason: "rules:notes-write-destination,discovery-explicit-research",
 	});
 });
+
+test("recommendNochestraRoute supports leading slashes on single-line command expressions", () => {
+	assert.deepEqual(recommendNochestraRoute("/triage github:123"), {
+		kind: "route-recommendation",
+		route: "delivery",
+		command: "/triage github:123",
+		confidence: "high",
+		reason: "rule:delivery-triage-ref",
+	});
+
+	assert.deepEqual(recommendNochestraRoute("/implement github:123"), {
+		kind: "route-recommendation",
+		route: "delivery",
+		command: null,
+		confidence: "high",
+		reason: "rule:delivery-unsupported-action-ref",
+	});
+
+	assert.deepEqual(recommendNochestraRoute('/note "topic"'), {
+		kind: "route-recommendation",
+		route: "notes",
+		command: "pi --notes",
+		confidence: "high",
+		reason: "rule:notes-explicit-note",
+	});
+
+	assert.deepEqual(recommendNochestraRoute("/research topic"), {
+		kind: "route-recommendation",
+		route: "discovery",
+		command: "pi --research",
+		confidence: "high",
+		reason: "rule:discovery-explicit-research",
+	});
+});
