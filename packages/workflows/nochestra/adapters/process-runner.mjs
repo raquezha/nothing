@@ -8,14 +8,67 @@ import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs"
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
-export function buildWorkerEnv(env = process.env, parentSessionId = null) {
-	const resolvedParentSessionId = parentSessionId || env?.NOCHESTRA_SESSION_ID || env?.PI_SESSION_ID || null;
+export function buildWorkerEnv(env = process.env, options = {}) {
+	const parentSessionId = typeof options === "string" ? options : options?.parentSessionId;
+	const resolvedParentSessionId = parentSessionId || env?.NOCHESTRA_PARENT_SESSION_ID || env?.NOCHESTRA_SESSION_ID || env?.PI_SESSION_ID || null;
+	const workerId = (typeof options === "object" && options?.workerId) || env?.NOCHESTRA_WORKER_ID || null;
+	const workItemId = (typeof options === "object" && options?.workItemId) || env?.NOCHESTRA_WORK_ITEM_ID || null;
+	const runId = (typeof options === "object" && options?.runId) || env?.NOCHESTRA_RUN_ID || null;
+
 	return {
 		...env,
 		NOCHESTRA_WORKER: "1",
 		NOCHESTRA_ROLE: "worker",
 		...(resolvedParentSessionId ? { NOCHESTRA_PARENT_SESSION_ID: String(resolvedParentSessionId) } : {}),
+		...(workerId ? { NOCHESTRA_WORKER_ID: String(workerId) } : {}),
+		...(workItemId ? { NOCHESTRA_WORK_ITEM_ID: String(workItemId) } : {}),
+		...(runId ? { NOCHESTRA_RUN_ID: String(runId) } : {}),
 	};
+}
+
+export function buildExecutionEvidence({
+	handoff,
+	result,
+	workerId = "nochestra-worker-runner",
+	fallbackApplied = false,
+	handoffBytes = null,
+} = {}) {
+	const handoffString = handoff ? JSON.stringify(handoff) : null;
+	const computedBytes = handoffBytes ?? (handoffString ? Buffer.byteLength(handoffString, "utf8") : 0);
+	const workItemId = result?.taskId || (handoff ? handoffTaskId(handoff) : null);
+	const route = handoff?.artifactSnapshot?.route ?? handoff?.route ?? "delivery";
+	const destination = handoff?.destination ?? handoff?.artifactSnapshot?.destination ?? handoff?.artifact?.destination ?? null;
+	const resultStatus = result?.status ?? "failed";
+	const nextStep = result?.nextStep ?? "unknown";
+
+	return {
+		route,
+		destination,
+		workItemId,
+		workerId,
+		handoffBytes: computedBytes,
+		resultStatus,
+		nextStep,
+		fallbackApplied: Boolean(fallbackApplied || result?.fallbackApplied),
+	};
+}
+
+export function emitExecutionEvidence({ evidence, onEvidence = null, events = null } = {}) {
+	if (!evidence || typeof evidence !== "object") return;
+	try {
+		if (typeof onEvidence === "function") {
+			onEvidence(evidence);
+		}
+	} catch (_) {}
+	try {
+		if (events && typeof events.emit === "function") {
+			events.emit("notrace.boundary", {
+				type: "worker_handoff",
+				timestamp: Date.now(),
+				...evidence,
+			});
+		}
+	} catch (_) {}
 }
 
 function isWriteCapableHandoff(handoff) {
@@ -59,6 +112,11 @@ export async function spawnWorkerProcess({
 	checkProviderAvailable = null,
 	approveWriteDispatch = null,
 	parentSessionId = null,
+	workerId = null,
+	workItemId = null,
+	runId = null,
+	onEvidence = null,
+	events = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -69,6 +127,9 @@ export async function spawnWorkerProcess({
 	}
 
 	const targetCommand = command || env?.PI_BINARY || process.env.PI_BINARY || "pi";
+	const effectiveWorkerId = workerId || ownerId || "nochestra-worker-runner";
+	const effectiveWorkItemId = workItemId || handoffTaskId(handoff);
+	const handoffBytes = Buffer.byteLength(JSON.stringify(handoff), "utf8");
 
 	let activeModel = handoff.model ? { ...handoff.model } : null;
 	let fallbackApplied = false;
@@ -100,14 +161,24 @@ export async function spawnWorkerProcess({
 	const writeCapable = isWriteCapableHandoff(handoff);
 	const lockNeeded = needsWriterLock(handoff, requiresWriteLock);
 	if (!await approveWriteHandoff({ handoff, approveWriteDispatch, requiresWriteLock, writeCapable })) {
-		return {
+		const cancelledResult = {
 			status: "cancelled",
-			taskId: handoffTaskId(handoff),
+			taskId: effectiveWorkItemId,
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
 			writeLockAcquired: false,
 			recovery: { action: "request user approval before write execution" },
 		};
+		const evidence = buildExecutionEvidence({
+			handoff,
+			result: cancelledResult,
+			workerId: effectiveWorkerId,
+			fallbackApplied,
+			handoffBytes,
+		});
+		emitExecutionEvidence({ evidence, onEvidence, events });
+		cancelledResult.evidence = evidence;
+		return cancelledResult;
 	}
 
 	let lockAcquired = false;
@@ -139,7 +210,12 @@ export async function spawnWorkerProcess({
 
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				cwd,
-				env: buildWorkerEnv(env, parentSessionId),
+				env: buildWorkerEnv(env, {
+					parentSessionId,
+					workerId: effectiveWorkerId,
+					workItemId: effectiveWorkItemId,
+					runId,
+				}),
 				stdio: ["pipe", "pipe", "pipe"],
 			});
 
@@ -215,7 +291,7 @@ export async function spawnWorkerProcess({
 
 			validateCompactWorkerResult(rawResult);
 
-			return {
+			const result = {
 				status: rawResult.status,
 				taskId: rawResult.taskId,
 				summary: rawResult.summary,
@@ -224,6 +300,18 @@ export async function spawnWorkerProcess({
 				...(fallbackApplied ? { fallbackApplied: true } : {}),
 				...extractOptionalWorkerResultFields(rawResult),
 			};
+
+			const evidence = buildExecutionEvidence({
+				handoff,
+				result,
+				workerId: effectiveWorkerId,
+				fallbackApplied,
+				handoffBytes,
+			});
+			emitExecutionEvidence({ evidence, onEvidence, events });
+			result.evidence = evidence;
+
+			return result;
 		};
 
 		try {

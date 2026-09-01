@@ -3,7 +3,7 @@ import { assertNoTranscriptFields, extractOptionalWorkerResultFields, validateCo
 import { COMPACT_WORKER_RESULT_KEYS, OPTIONAL_WORKER_RESULT_KEYS } from "../domain/handoff-policy.mjs";
 import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs";
 import { acquireWriterLock, releaseWriterLock } from "../adapters/writer-lock.mjs";
-import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
+import { buildExecutionEvidence, emitExecutionEvidence, spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
@@ -99,6 +99,9 @@ export async function dispatchExecutor({
 	requiresWriteLock = true,
 	lockPath = DEFAULT_LOCK_PATH,
 	approveWriteDispatch = null,
+	workerId = null,
+	onEvidence = null,
+	events = null,
 } = {}) {
 	if (!handoff || typeof handoff !== "object") {
 		throw new Error("handoff object is required");
@@ -112,16 +115,29 @@ export async function dispatchExecutor({
 		throw new Error("Handoff must specify an explicit context budget");
 	}
 
+	const effectiveWorkerId = workerId || ownerId || "nochestra-parent";
+	const handoffBytes = Buffer.byteLength(JSON.stringify(handoff), "utf8");
+
 	const writeCapable = isWriteCapableHandoff(handoff);
 	const lockNeeded = needsWriterLock(handoff, requiresWriteLock);
 	if (!await approveWriteHandoff({ handoff, approveWriteDispatch, requiresWriteLock, writeCapable })) {
-		return {
+		const cancelledResult = {
 			status: "cancelled",
 			taskId: handoffTaskId(handoff),
 			summary: "Write-capable dispatch cancelled by user.",
 			nextStep: "manual-takeover",
 			writeLockAcquired: false,
 		};
+		const evidence = buildExecutionEvidence({
+			handoff,
+			result: cancelledResult,
+			workerId: effectiveWorkerId,
+			fallbackApplied: false,
+			handoffBytes,
+		});
+		emitExecutionEvidence({ evidence, onEvidence, events });
+		cancelledResult.evidence = evidence;
+		return cancelledResult;
 	}
 
 	let lockAcquired = false;
@@ -134,7 +150,7 @@ export async function dispatchExecutor({
 		const rawResult = await executor(handoff);
 		validateCompactWorkerResult(rawResult);
 
-		return {
+		const result = {
 			status: rawResult.status,
 			taskId: rawResult.taskId,
 			summary: rawResult.summary,
@@ -142,6 +158,18 @@ export async function dispatchExecutor({
 			writeLockAcquired: lockAcquired,
 			...extractOptionalWorkerResultFields(rawResult),
 		};
+
+		const evidence = buildExecutionEvidence({
+			handoff,
+			result,
+			workerId: effectiveWorkerId,
+			fallbackApplied: Boolean(result.fallbackApplied),
+			handoffBytes,
+		});
+		emitExecutionEvidence({ evidence, onEvidence, events });
+		result.evidence = evidence;
+
+		return result;
 	} finally {
 		if (lockAcquired) {
 			await releaseWriterLock(ownerId, lockPath);

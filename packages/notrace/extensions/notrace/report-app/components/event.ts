@@ -15,6 +15,10 @@ export function eventBadgeClass(ev: any): string {
 
 export function eventTitle(ev: any): string {
   if (ev.epochId) return `${ev.type} (${ev.epochId})`;
+  if (ev.type === "worker_handoff" && (ev.workItemId || ev.destination)) {
+    const target = [ev.workItemId, ev.destination].filter(Boolean).join(" → ");
+    return `worker_handoff (${target})`;
+  }
   return ev.model || ev.toolName || ev.reason || ev.type;
 }
 
@@ -37,6 +41,13 @@ export function renderEventBody(ev: any): string {
     if (ev.reason != null) details.reason = ev.reason;
     if (ev.tokensBefore != null) details.tokensBefore = ev.tokensBefore;
     if (ev.tokensAfter != null) details.tokensAfter = ev.tokensAfter;
+    if (ev.route != null) details.route = ev.route;
+    if (ev.destination != null) details.destination = ev.destination;
+    if (ev.workItemId != null) details.workItemId = ev.workItemId;
+    if (ev.handoffBytes != null) details.handoffBytes = ev.handoffBytes;
+    if (ev.resultStatus != null) details.resultStatus = ev.resultStatus;
+    if (ev.nextStep != null) details.nextStep = ev.nextStep;
+    if (ev.fallbackApplied != null) details.fallbackApplied = ev.fallbackApplied;
     sections.push(renderJsonBlock("Boundary Details", Object.keys(details).length > 0 ? details : ev));
   } else {
     sections.push(renderJsonBlock("Event", ev));

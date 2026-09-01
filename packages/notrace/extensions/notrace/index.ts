@@ -460,6 +460,13 @@ export default function (pi: ExtensionAPI) {
     if (e?.reason != null) ev.reason = String(e.reason);
     if (typeof e?.tokensBefore === "number") ev.tokensBefore = e.tokensBefore;
     if (typeof e?.tokensAfter === "number") ev.tokensAfter = e.tokensAfter;
+    if (e?.route != null) ev.route = String(e.route);
+    if (e?.destination != null) ev.destination = String(e.destination);
+    if (e?.workItemId != null) ev.workItemId = String(e.workItemId);
+    if (typeof e?.handoffBytes === "number") ev.handoffBytes = e.handoffBytes;
+    if (e?.resultStatus != null) ev.resultStatus = String(e.resultStatus);
+    if (e?.nextStep != null) ev.nextStep = String(e.nextStep);
+    if (typeof e?.fallbackApplied === "boolean") ev.fallbackApplied = e.fallbackApplied;
     events.push(ev as NotraceEvent);
     if (ctx) updateContextUsage(ctx);
   }

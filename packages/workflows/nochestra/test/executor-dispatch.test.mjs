@@ -5,7 +5,7 @@ import path from "node:path";
 import { test, beforeEach } from "node:test";
 import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { acquireWriterLock, isWriterLocked, releaseWriterLock, resetWriterLock } from "../adapters/writer-lock.mjs";
-import { buildWorkerEnv, spawnWorkerProcess } from "../adapters/process-runner.mjs";
+import { buildExecutionEvidence, buildWorkerEnv, emitExecutionEvidence, spawnWorkerProcess } from "../adapters/process-runner.mjs";
 import { buildBoundedHandoff, dispatchExecutor } from "../application/executor-dispatch.mjs";
 
 const FIXTURE_PATH = path.join(
@@ -37,7 +37,7 @@ test("buildBoundedHandoff creates handoff with explicit context budget and accep
 	assert.deepEqual(handoff.selectedSkills, ["ponytail"]);
 	assert.deepEqual(handoff.expectedResultShape, {
 		required: ["status", "taskId", "summary", "nextStep"],
-		optional: ["artifacts", "verification", "blockers", "warnings", "recovery"],
+		optional: ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"],
 	});
 	assert.equal("parentTranscript" in handoff, false);
 	assert.equal("transcript" in handoff, false);
@@ -228,14 +228,13 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 			}),
 		});
 
-		assert.deepEqual(result, {
-			status: "created",
-			taskId: "local-runtime-proof",
-			summary: "Triage created for local:runtime-proof",
-			nextStep: "/grill-with-docs",
-			writeLockAcquired: true,
-			artifacts: [{ path: ".workflow/tasks/local-runtime-proof/WORK.md", kind: "workflow-state" }],
-		});
+		assert.equal(result.status, "created");
+		assert.equal(result.taskId, "local-runtime-proof");
+		assert.equal(result.summary, "Triage created for local:runtime-proof");
+		assert.equal(result.nextStep, "/grill-with-docs");
+		assert.equal(result.writeLockAcquired, true);
+		assert.deepEqual(result.artifacts, [{ path: ".workflow/tasks/local-runtime-proof/WORK.md", kind: "workflow-state" }]);
+		assert.ok(result.evidence);
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
@@ -881,4 +880,121 @@ test("spawnWorkerProcess preserves optional envelope fields in returned result",
 			fs.unlinkSync(scriptPath);
 		}
 	}
+});
+
+test("buildWorkerEnv sets correlation environment variables", () => {
+	const env = buildWorkerEnv({}, {
+		parentSessionId: "parent-sess-123",
+		workerId: "nochestra-worker-456",
+		workItemId: "github-175",
+		runId: "run-789",
+	});
+
+	assert.equal(env.NOCHESTRA_WORKER, "1");
+	assert.equal(env.NOCHESTRA_ROLE, "worker");
+	assert.equal(env.NOCHESTRA_PARENT_SESSION_ID, "parent-sess-123");
+	assert.equal(env.NOCHESTRA_WORKER_ID, "nochestra-worker-456");
+	assert.equal(env.NOCHESTRA_WORK_ITEM_ID, "github-175");
+	assert.equal(env.NOCHESTRA_RUN_ID, "run-789");
+});
+
+test("buildExecutionEvidence constructs compact evidence snapshot without transcripts", () => {
+	const handoff = {
+		destination: "triage",
+		artifactSnapshot: { source: "github", id: "175", route: "delivery" },
+	};
+	const result = { status: "created", taskId: "github-175", nextStep: "/frame" };
+	const evidence = buildExecutionEvidence({
+		handoff,
+		result,
+		workerId: "nochestra-worker-175",
+		fallbackApplied: false,
+		handoffBytes: 1200,
+	});
+
+	assert.deepEqual(evidence, {
+		route: "delivery",
+		destination: "triage",
+		workItemId: "github-175",
+		workerId: "nochestra-worker-175",
+		handoffBytes: 1200,
+		resultStatus: "created",
+		nextStep: "/frame",
+		fallbackApplied: false,
+	});
+	assert.equal("parentTranscript" in evidence, false);
+	assert.equal("transcript" in evidence, false);
+});
+
+test("dispatchExecutor records evidence and calls onEvidence and events.emit, with fail-open behavior", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Execute evidence test assignment",
+		checkpoint,
+		artifactSnapshot: { source: "github", id: "175", route: "delivery" },
+		contextBudget: { maxTokens: 4000, maxTurns: 5 },
+		permissions: ["write-checkout"],
+	});
+	handoff.destination = "triage";
+
+	const emittedEvents = [];
+	let capturedEvidence = null;
+
+	const result = await dispatchExecutor({
+		handoff,
+		ownerId: "parent-1",
+		workerId: "worker-evidence-1",
+		requiresWriteLock: true,
+		lockPath: TEST_LOCK_PATH,
+		onEvidence: (ev) => {
+			capturedEvidence = ev;
+		},
+		events: {
+			emit: (event, payload) => {
+				emittedEvents.push({ event, payload });
+			},
+		},
+		executor: () => ({
+			status: "ok",
+			taskId: "github-175",
+			summary: "Worker executed with evidence",
+			nextStep: "/frame",
+		}),
+	});
+
+	assert.equal(result.status, "ok");
+	assert.ok(result.evidence);
+	assert.equal(result.evidence.workItemId, "github-175");
+	assert.equal(result.evidence.route, "delivery");
+	assert.equal(result.evidence.destination, "triage");
+	assert.equal(result.evidence.workerId, "worker-evidence-1");
+
+	assert.deepEqual(capturedEvidence, result.evidence);
+	assert.equal(emittedEvents.length, 1);
+	assert.equal(emittedEvents[0].event, "notrace.boundary");
+	assert.equal(emittedEvents[0].payload.type, "worker_handoff");
+	assert.equal(emittedEvents[0].payload.workItemId, "github-175");
+
+	// Fail-open check: when onEvidence throws and events.emit throws, execution succeeds
+	const failOpenResult = await dispatchExecutor({
+		handoff,
+		ownerId: "parent-1",
+		requiresWriteLock: true,
+		lockPath: TEST_LOCK_PATH,
+		onEvidence: () => {
+			throw new Error("Telemetry failure");
+		},
+		events: {
+			emit: () => {
+				throw new Error("Event emitter failure");
+			},
+		},
+		executor: () => ({
+			status: "ok",
+			taskId: "github-175",
+			summary: "Fail-open worker executed",
+			nextStep: "/frame",
+		}),
+	});
+	assert.equal(failOpenResult.status, "ok");
 });
