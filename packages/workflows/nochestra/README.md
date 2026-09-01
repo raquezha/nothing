@@ -10,6 +10,52 @@ Nochestra is an optional control plane for Pi (`pi --nochestra`).
 
 This folder is the canonical local implementation home established in GitHub issue #94. It holds the entrypoint scaffold, skill wiring, and helper logic used during rollout.
 
+## Overview & Front-Door UX
+
+Nochestra wraps existing workflows (RPIV, Research, Notes) into a unified front-door entrypoint—it **does not replace** them.
+
+### Front-Door Examples
+
+```bash
+# Direct task triage
+pi --nochestra /triage github:123
+
+# Context-rich delivery dispatch
+pi --nochestra /frame
+pi --nochestra /plan
+
+# Discovery & Notes entrypoints
+pi --nochestra research "topic"
+pi --nochestra note "topic"
+```
+
+### Direct Escape Hatches
+
+You can bypass Nochestra at any time by invoking direct workflow hats:
+
+- `pi --rpiv` - Direct RPIV execution state & skills
+- `pi --research` - Direct evidence-gathering & research mode
+- `pi --notes` - Direct knowledge base writing & revision
+
+## Checkpoints, Approvals & Write Scope
+
+### Checkpoint Lifecycle
+
+- **Create**: Initialized when entering Nochestra or starting a task/epoch.
+- **Update**: Continuously records accepted intent, decisions, and active state across turns.
+- **Cancel**: Reset or dropped when abandoning an epoch, leaving cold archives intact without mutating repository state.
+
+### Approval & Write-Scope Rules
+
+- **Approval Gates**: Required at route transitions, write-capable assignments, and publication.
+- **Write Scope**: Workers execute within authorized paths under a single shared writer lock (`adapters/writer-lock.mjs`). Per-file permission requests during an approved assignment are not required.
+
+## Non-Goals
+
+1. **Marketing page**: Internal control plane, not a public product site.
+2. **Tutorial sprawl**: Bounded docs only; no multi-page guides.
+3. **New behavior**: Nochestra orchestrates existing skills and tools without introducing new domain behavior.
+
 ## Layout & Dependency Rules
 
 Nochestra follows a Functional Core plus Ports/Adapters architecture:
