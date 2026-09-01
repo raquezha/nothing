@@ -43,6 +43,18 @@ test("resolveWriteScope sanitizes task ids to avoid path traversal expansion", (
 	assert.equal(scope.canChange[0].includes("evil"), true);
 });
 
+test("resolveWriteScope builds scope for research", () => {
+	const scope = resolveWriteScope({ destination: "research", task: { source: "research", id: "best-way-to-test" } });
+	assert.deepEqual(scope, {
+		canChange: [
+			".workflow/research/best-way-to-test/RESEARCH.md",
+			".workflow/research/best-way-to-test/metadata.json",
+			".workflow/active.json",
+		],
+		willNot: ["create RPIV task", "edit code", "update tracker"],
+	});
+});
+
 test("resolveWriteScope returns null for unknown destinations", () => {
 	assert.equal(resolveWriteScope({ destination: "unknown", assignment: "Run test for local:foo" }), null);
 });

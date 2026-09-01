@@ -4,10 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { readWorkerHandoff, validateBoundedWorkerHandoff } from "./worker-handoff.mjs";
+import { slugifyTopic } from "../domain/delivery-command.mjs";
 
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_TRIAGE_HELPER_PATH = process.env.NOCH_TRIAGE_HELPER_PATH || fileURLToPath(new URL("../../norpiv/scripts/triage_helper.sh", import.meta.url));
+const DEFAULT_RESEARCH_HELPER_PATH = process.env.NOCH_RESEARCH_HELPER_PATH || fileURLToPath(new URL("../../noresearch/scripts/research_helper.sh", import.meta.url));
 
 function readJson(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -97,6 +99,9 @@ export async function executeWorker(handoff, options = {}) {
 	if (destination === "triage") {
 		return executeTriageWorker(handoff, options);
 	}
+	if (destination === "research") {
+		return executeResearchWorker(handoff, options);
+	}
 
 	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan"]);
 	if (!SUPPORTED_STAGE_DESTINATIONS.has(destination)) {
@@ -154,6 +159,36 @@ export async function executeWorker(handoff, options = {}) {
 		summary: `${destination[0].toUpperCase()}${destination.slice(1)} completed for ${source}:${id}`,
 		nextStep: inferNextStep(workText),
 		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
+	};
+}
+
+export async function executeResearchWorker(handoff, { cwd = process.cwd(), researchHelperPath = DEFAULT_RESEARCH_HELPER_PATH } = {}) {
+	validateBoundedWorkerHandoff(handoff);
+	const destination = handoff.destination ?? handoff.artifact?.destination ?? "research";
+	if (destination !== "research") {
+		return executeWorker(handoff, { cwd, researchHelperPath });
+	}
+
+	const topic = handoff.artifact?.topic ?? handoff.artifactSnapshot?.topic ?? handoff.assignment?.replace(/^Run research for "/i, "").replace(/"$/i, "");
+	const id = handoff.artifact?.id ?? handoff.artifactSnapshot?.id ?? slugifyTopic(topic);
+
+	if (!topic) {
+		throw new Error("Research worker handoff requires a topic");
+	}
+
+	const researchMdPath = path.join(cwd, ".workflow", "research", id, "RESEARCH.md");
+	const isResume = fs.existsSync(researchMdPath);
+
+	const { stdout } = await runScript(researchHelperPath, ["start", topic, id], cwd);
+	const active = readJson(path.join(cwd, ".workflow/active.json"));
+	const action = isResume ? "resumed" : "created";
+
+	return {
+		status: action,
+		taskId: `research-${id}`,
+		summary: `Research ${action} for "${topic}"`,
+		nextStep: "review research artifact",
+		artifacts: [{ path: active.stateFile, kind: "research-artifact" }],
 	};
 }
 

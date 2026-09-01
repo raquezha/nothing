@@ -3,7 +3,7 @@ import path from "node:path";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
-import { parseNochestraInput } from "../domain/delivery-command.mjs";
+import { parseNochestraInput, slugifyTopic } from "../domain/delivery-command.mjs";
 import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
@@ -29,6 +29,11 @@ const TASK_RESOLVERS = [
 ];
 
 function resolveDeliveryTask(parsed, active) {
+	if (parsed.command === "research") {
+		const topic = parsed.topic || (parsed.args ? parsed.args.join(" ") : "");
+		const id = parsed.task?.id || slugifyTopic(topic);
+		return { source: "research", id, topic, mode: "auto" };
+	}
 	const task = TASK_RESOLVERS.map((resolve) => resolve(parsed, active)).find(Boolean);
 	if (!task) {
 		throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
@@ -38,6 +43,21 @@ function resolveDeliveryTask(parsed, active) {
 
 function defaultCheckpointForTask(parsed, active = null) {
 	const task = resolveDeliveryTask(parsed, active);
+	if (parsed.command === "research") {
+		return {
+			subject: `research:${task.id}`,
+			goal: `Research ${task.topic || task.id}`,
+			decisions: [],
+			constraints: [
+				"Preserve existing workflow rules",
+				"Isolated research artifact under .workflow/research/",
+			],
+			openQuestions: [],
+			rejectedOptions: [],
+			currentRoute: "discovery",
+			suggestedNextRoute: "review research artifact",
+		};
+	}
 	return {
 		subject: `${task.source}:${task.id}`,
 		goal: `Run ${parsed.command} for ${task.source}:${task.id}`,
@@ -112,6 +132,29 @@ function activeWorkflowSnapshot(active) {
 
 export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
 	const task = resolveDeliveryTask(parsed, active);
+	if (parsed.command === "research") {
+		const base = buildBoundedHandoff({
+			assignment: `Run research for "${task.topic || task.id}"`,
+			checkpoint,
+			artifactSnapshot: {
+				...task,
+				activeWorkflow: activeWorkflowSnapshot(active),
+			},
+			contextBudget: DELIVERY_CONTEXT_BUDGET,
+			selectedSkills: ["research"],
+			permissions: ["write-checkout"],
+		});
+
+		return {
+			...base,
+			destination: "research",
+			artifact: {
+				...task,
+				stateFile: active?.workflow === "research" ? active.stateFile : null,
+			},
+		};
+	}
+
 	const base = buildBoundedHandoff({
 		assignment: `Run ${parsed.command} for ${task.source}:${task.id}`,
 		checkpoint,
@@ -230,8 +273,9 @@ export function formatNochestraResult(result) {
 	if (result.kind === "chat") {
 		return result.prompt;
 	}
+	const commandLabel = result.command.startsWith("/") ? result.command : `/${result.command}`;
 	const lines = [
-		`Command: /${result.command}`,
+		`Command: ${commandLabel}`,
 		`Task: ${result.task.source}:${result.task.id}`,
 		`Status: ${result.status}`,
 		`Summary: ${result.summary}`,
