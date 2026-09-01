@@ -28,7 +28,8 @@ async function approveWriteHandoff({ handoff, approveWriteDispatch, destination 
 	if (!writeCapable || typeof approveWriteDispatch !== "function") {
 		return true;
 	}
-	const approval = await approveWriteDispatch(buildWriteApprovalRequest({ handoff, destination, requiresWriteLock }));
+	const lockNeeded = needsWriterLock(handoff, requiresWriteLock);
+	const approval = await approveWriteDispatch(buildWriteApprovalRequest({ handoff, destination, requiresWriteLock: lockNeeded }));
 	return approval === true || approval?.approved === true || approval?.userAction === "approve";
 }
 

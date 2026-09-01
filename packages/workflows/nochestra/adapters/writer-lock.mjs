@@ -47,6 +47,7 @@ export async function releaseWriterLock(ownerId, lockPath = DEFAULT_LOCK_PATH) {
 	}
 	await held.release();
 	writerReleases.delete(lockPath);
+	fs.rmSync(lockOwnerPath(lockPath), { force: true });
 	return true;
 }
 
