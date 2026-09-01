@@ -375,6 +375,10 @@ test("dispatchNochestraInput dispatches explicit research request and returns re
 		// Artifact isolation check: no RPIV task workspace created
 		assert.equal(fs.existsSync(path.join(repoDir, `.workflow/research/${id}/RESEARCH.md`)), true);
 		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
+
+		// Checkpoint verification: currentRoute preserved as discovery
+		const checkpoint = readCheckpoint(path.join(repoDir, ".workflow/nochestra-checkpoint.json"));
+		assert.equal(checkpoint.currentRoute, "discovery");
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}

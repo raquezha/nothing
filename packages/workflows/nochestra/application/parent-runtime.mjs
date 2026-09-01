@@ -127,7 +127,7 @@ function checkpointWithWorkerResult(checkpoint, result) {
 		...checkpoint,
 		decisions,
 		openQuestions: [...checkpoint.openQuestions, ...newBlockers],
-		currentRoute: "delivery",
+		currentRoute: checkpoint.currentRoute || "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
 	};
