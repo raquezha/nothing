@@ -8,6 +8,7 @@ import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
+import { shouldCompactParentEpoch, compactParentEpoch } from "./parent-epoch.mjs";
 
 const DEFAULT_WORKER_RUNTIME_PATH = process.env.NOCH_WORKER_RUNTIME_PATH || fileURLToPath(new URL("./worker-runtime.mjs", import.meta.url));
 const DEFAULT_CHECKPOINT_PATH = process.env.NOCH_CHECKPOINT_PATH || path.join(".workflow", "nochestra-checkpoint.json");
@@ -138,6 +139,42 @@ export function loadDeliveryContext({ cwd = process.cwd(), checkpointPath = DEFA
 	return {
 		active,
 		checkpoint: readDeliveryCheckpoint(cwd, checkpointPath, parsed, active),
+	};
+}
+
+export function checkAndCompactParentContext(opts = {}) {
+	const cwd = opts.cwd || process.cwd();
+	const checkpointPath = opts.checkpointPath || DEFAULT_CHECKPOINT_PATH;
+	const parsed = opts.parsed || null;
+
+	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
+	const shouldCompact = shouldCompactParentEpoch(opts);
+
+	if (!shouldCompact) {
+		return { compacted: false, context };
+	}
+
+	writeDeliveryCheckpoint(cwd, checkpointPath, context.checkpoint);
+
+	const transition = compactParentEpoch({
+		currentEpochId: opts.currentEpochId || "epoch-1",
+		checkpoint: context.checkpoint,
+		instructions: opts.instructions || "",
+		transcript: opts.transcript || [],
+		quarantineWindowSize: opts.quarantineWindowSize ?? 2,
+		currentApprovals: opts.currentApprovals || [],
+		taskMaterial: opts.taskMaterial || {},
+		contextSnapshot: opts.activeTokens ? { activeTokens: opts.activeTokens } : null,
+	});
+
+	return {
+		compacted: true,
+		epoch: transition,
+		checkpointPath,
+		context: {
+			...context,
+			checkpoint: transition.hotContext.checkpoint,
+		},
 	};
 }
 

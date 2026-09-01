@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt } from "../application/parent-runtime.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext } from "../application/parent-runtime.mjs";
 import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
@@ -281,6 +281,54 @@ test("formatNochestraResult renders optional fields when present", () => {
 	assert.match(formatted, /Warnings: \["Stale main branch"\]/);
 	assert.match(formatted, /Recovery: \{"action":"re-run with reset"\}/);
 });
+
+test("checkAndCompactParentContext performs automatic context epoch compaction when token budget is reached", () => {
+	const repoDir = makeRepo();
+	try {
+		const transcript = [
+			{ role: "user", content: "Initial query" },
+			{ role: "assistant", content: "Initial response" },
+			{ role: "user", content: "Second query" },
+			{ role: "assistant", content: "Quarantined response 1" },
+			{ role: "user", content: "Quarantined query 2" },
+		];
+
+		// Below threshold -> no compaction
+		const noCompaction = checkAndCompactParentContext({
+			cwd: repoDir,
+			activeTokens: 2000,
+			maxTokens: 4000,
+			transcript,
+		});
+		assert.equal(noCompaction.compacted, false);
+
+		// Over threshold -> automatic compaction
+		const compaction = checkAndCompactParentContext({
+			cwd: repoDir,
+			activeTokens: 4500,
+			maxTokens: 4000,
+			transcript,
+			quarantineWindowSize: 2,
+		});
+
+		assert.equal(compaction.compacted, true);
+		assert.equal(compaction.epoch.epochId, "epoch-2");
+		assert.equal(compaction.epoch.hotContext.recentTurns.length, 2);
+		assert.deepEqual(compaction.epoch.hotContext.recentTurns, transcript.slice(3));
+		assert.equal(compaction.epoch.coldArchive.archivedTurns.length, 3);
+		assert.deepEqual(compaction.epoch.coldArchive.archivedTurns, transcript.slice(0, 3));
+
+		// Checkpoint saved to disk and validated without transcript accumulation
+		const checkpointOnDisk = readCheckpoint(path.join(repoDir, ".workflow", "nochestra-checkpoint.json"));
+		assert.equal(checkpointOnDisk.subject, "Jira ABC-123");
+		assert.equal("transcript" in checkpointOnDisk, false);
+		assert.equal("messages" in checkpointOnDisk, false);
+		assert.equal("history" in checkpointOnDisk, false);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 
 test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-with-docs -> plan -> implement -> verify -> sync", async () => {
 	const repoDir = makeRepo();
