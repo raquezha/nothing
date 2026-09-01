@@ -588,9 +588,13 @@ EOF
     printf '🧠 \033[0;35m[nothing]\033[0m Mindset: \033[1m%s\033[0m modifiers: \033[1m%s\033[0m (loaded: %s skills, %s extensions)\n' "$label" "$mod_label" "$skill_count" "$extension_count"
   fi
 
-  if [[ "$BASE_MINDSET" == "nochestra" && ${#ARGS[@]} -gt 0 && "${ARGS[0]}" == "/triage" ]]; then
-    node "$NOTHING_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "${ARGS[@]}"
-    return $?
+  if [[ "$BASE_MINDSET" == "nochestra" && ${#ARGS[@]} -gt 0 ]]; then
+    case "${ARGS[0]}" in
+      /triage|/frame|/grill-with-docs|/plan|/implement|/verify|/sync|research|note)
+        node "$NOTHING_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "${ARGS[@]}"
+        return $?
+        ;;
+    esac
   fi
 
   local -a NOTHING_FLAGS=()
