@@ -1,5 +1,58 @@
 import { validateCheckpoint } from "../domain/checkpoint-contract.mjs";
 
+export const DEFAULT_COMPACTION_THRESHOLD = 4000;
+export const DEFAULT_QUARANTINE_TURNS = 2;
+
+export function shouldCompactParentEpoch(opts = {}) {
+	const envVal = process.env.NOCH_COMPACTION_TOKEN_THRESHOLD;
+	const threshold = opts.maxTokens ?? (envVal ? parseInt(envVal, 10) : DEFAULT_COMPACTION_THRESHOLD);
+	if (typeof opts.activeTokens === "number" && opts.activeTokens >= threshold) {
+		return true;
+	}
+	if (typeof opts.turnCount === "number" && typeof opts.turnThreshold === "number" && opts.turnCount >= opts.turnThreshold) {
+		return true;
+	}
+	return false;
+}
+
+export function compactParentEpoch({
+	currentEpochId = "epoch-1",
+	checkpoint,
+	instructions = "",
+	transcript = [],
+	quarantineWindowSize = DEFAULT_QUARANTINE_TURNS,
+	currentApprovals = [],
+	taskMaterial = {},
+	contextSnapshot = null,
+} = {}) {
+	validateCheckpoint(checkpoint);
+
+	const turns = Array.isArray(transcript) ? transcript : [];
+	const cutoff = Math.max(0, turns.length - quarantineWindowSize);
+	const archivedTranscript = turns.slice(0, cutoff);
+	const recentTurns = turns.slice(cutoff);
+
+	const transitionResult = transitionParentEpoch({
+		currentEpochId,
+		checkpoint,
+		instructions,
+		recentTurns,
+		currentApprovals,
+		taskMaterial,
+		archivedTranscript,
+		contextSnapshot,
+	});
+
+	validateCheckpoint(transitionResult.hotContext.checkpoint);
+
+	return transitionResult;
+}
+
+
+
+
+
+
 export function buildParentEpochContext({
 	instructions = "",
 	checkpoint,
