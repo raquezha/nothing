@@ -34,6 +34,11 @@ function resolveDeliveryTask(parsed, active) {
 		const id = parsed.task?.id || slugifyTopic(topic);
 		return { source: "research", id, topic, mode: "auto" };
 	}
+	if (parsed.command === "note") {
+		const topic = parsed.topic || (parsed.args ? parsed.args.join(" ") : "");
+		const id = parsed.task?.id || slugifyTopic(topic);
+		return { source: "note", id, topic, mode: "auto" };
+	}
 	const task = TASK_RESOLVERS.map((resolve) => resolve(parsed, active)).find(Boolean);
 	if (!task) {
 		throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
@@ -56,6 +61,21 @@ function defaultCheckpointForTask(parsed, active = null) {
 			rejectedOptions: [],
 			currentRoute: "discovery",
 			suggestedNextRoute: "review research artifact",
+		};
+	}
+	if (parsed.command === "note") {
+		return {
+			subject: `note:${task.id}`,
+			goal: `Write note for ${task.topic || task.id}`,
+			decisions: [],
+			constraints: [
+				"Preserve existing workflow rules",
+				"Only approved vault paths are writable",
+			],
+			openQuestions: [],
+			rejectedOptions: [],
+			currentRoute: "notes",
+			suggestedNextRoute: "review note",
 		};
 	}
 	return {
@@ -151,6 +171,28 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
 			artifact: {
 				...task,
 				stateFile: active?.workflow === "research" ? active.stateFile : null,
+			},
+		};
+	}
+	if (parsed.command === "note") {
+		const base = buildBoundedHandoff({
+			assignment: `Run note for "${task.topic || task.id}"`,
+			checkpoint,
+			artifactSnapshot: {
+				...task,
+				activeWorkflow: activeWorkflowSnapshot(active),
+			},
+			contextBudget: DELIVERY_CONTEXT_BUDGET,
+			selectedSkills: ["distill"],
+			permissions: ["write-checkout"],
+		});
+
+		return {
+			...base,
+			destination: "note",
+			artifact: {
+				...task,
+				stateFile: active?.workflow === "notes" ? active.stateFile : null,
 			},
 		};
 	}

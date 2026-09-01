@@ -127,6 +127,9 @@ export function parseNochestraInput(input) {
 		if (lowerHead === "research") {
 			command = "research";
 			rest = r;
+		} else if (lowerHead === "note") {
+			command = "note";
+			rest = r;
 		}
 	}
 
@@ -145,6 +148,27 @@ export function parseNochestraInput(input) {
 			route: "discovery",
 			command: "research",
 			task: { source: "research", id },
+			topic,
+			args: [topic],
+			raw,
+		};
+	}
+
+	if (command === "note") {
+		const topic = rest.join(" ").replace(/^["']|["']$/g, "").trim();
+		if (!topic) {
+			return {
+				kind: "delivery-error",
+				command: "note",
+				error: "Note command requires a topic.",
+			};
+		}
+		const id = slugifyTopic(topic);
+		return {
+			kind: "delivery",
+			route: "notes",
+			command: "note",
+			task: { source: "note", id },
 			topic,
 			args: [topic],
 			raw,

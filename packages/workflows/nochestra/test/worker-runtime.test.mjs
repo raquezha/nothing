@@ -156,6 +156,67 @@ test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages"
 	}
 });
 
+test("executeWorker handles note destination creating, updating notes in vault, and rejecting unapproved path traversal", async () => {
+	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-vault-"));
+	const topic = "summarize Nochestra front door UX";
+	const id = "summarize-nochestra-front-door-ux";
+
+	const noteHandoff = {
+		assignment: `Run note for "${topic}"`,
+		destination: "note",
+		artifact: { source: "note", id, topic },
+		acceptedDecisions: ["Use bounded handoff only"],
+		constraints: ["No parent transcript"],
+		openQuestions: [],
+		selectedSkills: ["distill"],
+		permissions: ["write-checkout"],
+		contextBudget: { maxTokens: 4000 },
+		expectedResultShape: { required: ["status", "taskId", "summary", "nextStep"] },
+	};
+
+	try {
+		// 1. Create note
+		const createResult = await executeWorker(noteHandoff, {
+			vaultRoot: vaultDir,
+		});
+
+		assert.equal(createResult.status, "created");
+		assert.equal(createResult.taskId, `note-${id}`);
+		assert.equal(createResult.nextStep, "review note");
+		assert.equal(createResult.artifacts[0].kind, "obsidian-note");
+
+		const createdNotePath = createResult.artifacts[0].path;
+		assert.equal(fs.existsSync(createdNotePath), true);
+		assert.equal(createdNotePath.startsWith(vaultDir), true);
+
+		// Artifact isolation check: no RPIV task workspace or Research workspace created
+		assert.equal(fs.existsSync(path.join(process.cwd(), ".workflow/tasks/note-" + id)), false);
+		assert.equal(fs.existsSync(path.join(process.cwd(), ".workflow/research/note-" + id)), false);
+
+		// 2. Update existing note
+		const updateResult = await executeWorker(noteHandoff, {
+			vaultRoot: vaultDir,
+		});
+
+		assert.equal(updateResult.status, "updated");
+		assert.equal(updateResult.taskId, `note-${id}`);
+		const noteContent = fs.readFileSync(createdNotePath, "utf8");
+		assert.match(noteContent, /## Note Update/);
+
+		// 3. Path traversal rejection check
+		const badPathHandoff = {
+			...noteHandoff,
+			artifact: { ...noteHandoff.artifact, path: "../../outside-vault.md" },
+		};
+		await assert.rejects(
+			() => executeWorker(badPathHandoff, { vaultRoot: vaultDir }),
+			/Unapproved vault path or path traversal detected/,
+		);
+	} finally {
+		fs.rmSync(vaultDir, { recursive: true, force: true });
+	}
+});
+
 test("executeWorker handles research destination creating and resuming research workspace without touching tasks", async () => {
 	const repoDir = makeRepo();
 	const topic = "best way to test Nochestra routing";

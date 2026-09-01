@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -10,6 +11,7 @@ const execFileAsync = promisify(execFile);
 
 const DEFAULT_TRIAGE_HELPER_PATH = process.env.NOCH_TRIAGE_HELPER_PATH || fileURLToPath(new URL("../../norpiv/scripts/triage_helper.sh", import.meta.url));
 const DEFAULT_RESEARCH_HELPER_PATH = process.env.NOCH_RESEARCH_HELPER_PATH || fileURLToPath(new URL("../../noresearch/scripts/research_helper.sh", import.meta.url));
+const DEFAULT_VAULT_ROOT = process.env.NOCH_VAULT_ROOT || process.env.OBSIDIAN_VAULT || path.join(os.homedir(), "RQZ", "notes");
 
 function readJson(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -102,6 +104,9 @@ export async function executeWorker(handoff, options = {}) {
 	if (destination === "research") {
 		return executeResearchWorker(handoff, options);
 	}
+	if (destination === "note") {
+		return executeNotesWorker(handoff, options);
+	}
 
 	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan"]);
 	if (!SUPPORTED_STAGE_DESTINATIONS.has(destination)) {
@@ -159,6 +164,81 @@ export async function executeWorker(handoff, options = {}) {
 		summary: `${destination[0].toUpperCase()}${destination.slice(1)} completed for ${source}:${id}`,
 		nextStep: inferNextStep(workText),
 		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
+	};
+}
+
+export function resolveVaultNotePath(topic, vaultRoot = DEFAULT_VAULT_ROOT, customRelPath = null) {
+	const slug = slugifyTopic(topic);
+	const today = new Date().toISOString().slice(0, 10);
+	const relativePath = customRelPath || path.join("distilled", `${today}-${slug}.md`);
+
+	const resolvedVault = path.resolve(vaultRoot);
+	const resolvedTarget = path.resolve(resolvedVault, relativePath);
+
+	if (!resolvedTarget.startsWith(resolvedVault + path.sep) && resolvedTarget !== resolvedVault) {
+		throw new Error(`Unapproved vault path or path traversal detected: ${customRelPath || relativePath}`);
+	}
+
+	return { resolvedTarget, resolvedVault, relativePath };
+}
+
+export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRoot = DEFAULT_VAULT_ROOT } = {}) {
+	validateBoundedWorkerHandoff(handoff);
+	const destination = handoff.destination ?? handoff.artifact?.destination ?? "note";
+	if (destination !== "note") {
+		return executeWorker(handoff, { cwd, vaultRoot });
+	}
+
+	const topic = handoff.artifact?.topic ?? handoff.artifactSnapshot?.topic ?? handoff.assignment?.replace(/^Run note for "/i, "").replace(/"$/i, "");
+	const id = handoff.artifact?.id ?? handoff.artifactSnapshot?.id ?? slugifyTopic(topic);
+
+	if (!topic) {
+		throw new Error("Notes worker handoff requires a topic");
+	}
+
+	const customPath = handoff.artifact?.path ?? handoff.artifactSnapshot?.path ?? null;
+	const { resolvedTarget } = resolveVaultNotePath(topic, vaultRoot, customPath);
+
+	const isUpdate = fs.existsSync(resolvedTarget);
+	fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
+
+	const today = new Date().toISOString().slice(0, 10);
+
+	if (isUpdate) {
+		const existingContent = fs.readFileSync(resolvedTarget, "utf8");
+		const appendEntry = `\n\n## Note Update (${today})\n\n- ${topic}\n`;
+		fs.writeFileSync(resolvedTarget, existingContent + appendEntry, "utf8");
+	} else {
+		const initialContent = [
+			"---",
+			`distilled: ${today}`,
+			"type: note",
+			"---",
+			"",
+			`# ${topic}`,
+			"",
+			`> ${topic}`,
+			"",
+			"## Note",
+			"",
+			`- ${topic}`,
+			"",
+			"## Resume prompt",
+			"",
+			`> Review and continue notes on ${topic}`,
+			"",
+		].join("\n");
+		fs.writeFileSync(resolvedTarget, initialContent, "utf8");
+	}
+
+	const status = isUpdate ? "updated" : "created";
+
+	return {
+		status,
+		taskId: `note-${id}`,
+		summary: `Note ${status} for "${topic}"`,
+		nextStep: "review note",
+		artifacts: [{ path: resolvedTarget, kind: "obsidian-note" }],
 	};
 }
 

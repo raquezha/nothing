@@ -2,6 +2,38 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute } from "../domain/delivery-command.mjs";
 
+test("parseNochestraInput recognizes note command with explicit topic", () => {
+	const result = parseNochestraInput('note "summarize Nochestra front-door UX"');
+
+	assert.deepEqual(result, {
+		kind: "delivery",
+		route: "notes",
+		command: "note",
+		task: { source: "note", id: "summarize-nochestra-front-door-ux" },
+		topic: "summarize Nochestra front-door UX",
+		args: ["summarize Nochestra front-door UX"],
+		raw: 'note "summarize Nochestra front-door UX"',
+	});
+
+	assert.deepEqual(parseNochestraInput("/note summarize Nochestra front-door UX"), {
+		kind: "delivery",
+		route: "notes",
+		command: "note",
+		task: { source: "note", id: "summarize-nochestra-front-door-ux" },
+		topic: "summarize Nochestra front-door UX",
+		args: ["summarize Nochestra front-door UX"],
+		raw: "/note summarize Nochestra front-door UX",
+	});
+});
+
+test("parseNochestraInput rejects note command without topic", () => {
+	assert.deepEqual(parseNochestraInput("note"), {
+		kind: "delivery-error",
+		command: "note",
+		error: "Note command requires a topic.",
+	});
+});
+
 test("parseNochestraInput recognizes research command with explicit topic", () => {
 	const result = parseNochestraInput('research "best way to test Nochestra routing"');
 
