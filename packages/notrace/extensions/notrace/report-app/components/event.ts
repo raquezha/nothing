@@ -15,6 +15,10 @@ export function eventBadgeClass(ev: any): string {
 
 export function eventTitle(ev: any): string {
   if (ev.epochId) return `${ev.type} (${ev.epochId})`;
+  if (ev.type === "worker_handoff" && (ev.workItemId || ev.destination)) {
+    const target = [ev.workItemId, ev.destination].filter(Boolean).join(" → ");
+    return `worker_handoff (${target})`;
+  }
   return ev.model || ev.toolName || ev.reason || ev.type;
 }
 
