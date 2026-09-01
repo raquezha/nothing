@@ -34,7 +34,13 @@ export function hasMeaningfulContent(body) {
 
 export function hasUncheckedAfkSlice(planText) {
 	const planBody = sectionBody(planText, "PLAN");
-	return /-\s*\[\s*\]\s*(\*\*AFK|Slice)/i.test(planBody);
+	const lines = planBody.split("\n");
+	return lines.some((line) => {
+		const isUnchecked = /-\s*\[\s*\]/i.test(line);
+		const isAfkOrSlice = /(\*\*AFK|Slice)/i.test(line);
+		const isBlocked = /BLOCKED/i.test(line);
+		return isUnchecked && isAfkOrSlice && !isBlocked;
+	});
 }
 
 export function inferNextStep(workText) {

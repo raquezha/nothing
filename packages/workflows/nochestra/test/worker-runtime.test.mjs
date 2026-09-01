@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeTriageWorker, executeWorker, hasMeaningfulContent, inferNextStep, resolveVaultNotePath } from "../application/worker-runtime.mjs";
+import { executeResearchWorker, executeTriageWorker, executeWorker, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, resolveVaultNotePath } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -35,6 +35,14 @@ function handoffFor(id) {
 		expectedResultShape: { required: ["status", "taskId", "summary", "nextStep"] },
 	};
 }
+
+test("hasUncheckedAfkSlice validates unchecked AFK slices and ignores blocked or completed slices", () => {
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [ ] **AFK Slice 1: Implement worker**"), true);
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1: Implement worker**"), false);
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [ ] **AFK Slice 1 [BLOCKED: missing UI evidence]**"), false);
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1**\n- [ ] **AFK Slice 2 [BLOCKED: missing formula]**"), false);
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1**\n- [ ] **AFK Slice 2: Valid slice**"), true);
+});
 
 test("hasMeaningfulContent ignores empty and placeholder-only lines", () => {
 	const cases = [
