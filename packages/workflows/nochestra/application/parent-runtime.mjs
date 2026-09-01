@@ -271,7 +271,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, vaultRoot = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -285,12 +285,13 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		return approved;
 	};
 	const handoff = buildDeliveryHandoff({ parsed, ...context });
+	const env = vaultRoot ? { ...process.env, NOCH_VAULT_ROOT: vaultRoot } : process.env;
 	const result = await spawnWorkerProcess({
 		handoff,
 		command: process.execPath,
 		args: [workerRuntimePath],
 		cwd,
-		env: process.env,
+		env,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
 	const compact = compactDeliveryResult(parsed, result, task);

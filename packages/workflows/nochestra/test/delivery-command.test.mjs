@@ -165,6 +165,16 @@ test("recommendNochestraRoute recommends unsupported Delivery actions without in
 	});
 });
 
+test("recommendNochestraRoute suggests Notes for explicit note grammar", () => {
+	assert.deepEqual(recommendNochestraRoute('note "summarize Nochestra front-door UX"'), {
+		kind: "route-recommendation",
+		route: "notes",
+		command: "pi --notes",
+		confidence: "high",
+		reason: "rule:notes-explicit-note",
+	});
+});
+
 test("recommendNochestraRoute suggests Discovery for explicit research grammar", () => {
 	assert.deepEqual(recommendNochestraRoute("research model routing options"), {
 		kind: "route-recommendation",

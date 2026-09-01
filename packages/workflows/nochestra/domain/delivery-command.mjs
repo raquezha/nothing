@@ -39,6 +39,12 @@ const ROUTE_RULES = [
 		command: () => "pi --notes",
 	},
 	{
+		id: "notes-explicit-note",
+		route: "notes",
+		pattern: /^(?:note|distill)\s+\S/i,
+		command: () => "pi --notes",
+	},
+	{
 		id: "discovery-explicit-research",
 		route: "discovery",
 		pattern: /^(?:research|investigate|look\s+up)\s+\S/i,
