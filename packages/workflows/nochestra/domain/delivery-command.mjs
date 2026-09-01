@@ -23,13 +23,13 @@ const ROUTE_RULES = [
 	{
 		id: "delivery-triage-ref",
 		route: "delivery",
-		pattern: new RegExp(`^triage\\s+${TRACKED_REF_PATTERN}$`, "i"),
+		pattern: new RegExp(`^/?triage\\s+${TRACKED_REF_PATTERN}$`, "i"),
 		command: (match) => `/triage ${normalizeTrackedTaskRef(match[1])}`,
 	},
 	{
 		id: "delivery-unsupported-action-ref",
 		route: "delivery",
-		pattern: new RegExp(`^(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}$`, "i"),
+		pattern: new RegExp(`^/?(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}$`, "i"),
 		command: () => null,
 	},
 	{
@@ -41,13 +41,13 @@ const ROUTE_RULES = [
 	{
 		id: "notes-explicit-note",
 		route: "notes",
-		pattern: /^(?:note|distill)\s+\S/i,
+		pattern: /^\/?(?:note|distill)\s+\S/i,
 		command: () => "pi --notes",
 	},
 	{
 		id: "discovery-explicit-research",
 		route: "discovery",
-		pattern: /^(?:research|investigate|look\s+up)\s+\S/i,
+		pattern: /^\/?(?:research|investigate|look\s+up)\s+\S/i,
 		command: () => "pi --research",
 	},
 ];

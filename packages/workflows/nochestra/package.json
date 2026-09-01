@@ -1,0 +1,12 @@
+{
+  "name": "@raquezha/nochestra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nochestra local workflow bundle and front-door extension",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "extensions"
+    ]
+  }
+}
