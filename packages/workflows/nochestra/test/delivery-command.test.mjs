@@ -115,10 +115,39 @@ test("parseNochestraInput recognizes /frame, /grill-with-docs, /plan with or wit
 	});
 });
 
-test("parseNochestraInput leaves unsupported workflow commands as chat", () => {
+test("parseNochestraInput recognizes /implement, /verify, /sync as executable delivery stage commands", () => {
 	assert.deepEqual(parseNochestraInput("/implement github:143"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "implement",
+		task: { source: "github", id: "143" },
+		args: [],
+		raw: "/implement github:143",
+	});
+
+	assert.deepEqual(parseNochestraInput("/verify"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "verify",
+		task: null,
+		args: [],
+		raw: "/verify",
+	});
+
+	assert.deepEqual(parseNochestraInput("/sync github:143"), {
+		kind: "delivery",
+		route: "delivery",
+		command: "sync",
+		task: { source: "github", id: "143" },
+		args: [],
+		raw: "/sync github:143",
+	});
+});
+
+test("parseNochestraInput leaves unsupported workflow commands as chat", () => {
+	assert.deepEqual(parseNochestraInput("/publish github:143"), {
 		kind: "chat",
-		prompt: "/implement github:143",
+		prompt: "/publish github:143",
 	});
 });
 

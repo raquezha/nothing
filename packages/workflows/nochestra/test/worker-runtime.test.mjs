@@ -201,6 +201,59 @@ test("resolveVaultNotePath handles nested custom vault paths, slugification, and
 	);
 });
 
+test("executeWorker handles active RPIV implement, verify, and sync execution stages", async () => {
+	const repoDir = makeRepo();
+	const id = `exec-${Date.now()}`;
+
+	try {
+		// 1. Setup triage + plan with an unchecked AFK slice
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+		await executeWorker({ ...handoffFor(id), destination: "plan", selectedSkills: ["plan"] }, { cwd: repoDir });
+
+		// 2. Implement unchecked slice
+		const implHandoff = { ...handoffFor(id), destination: "implement", selectedSkills: ["implement"] };
+		const implResult = await executeWorker(implHandoff, { cwd: repoDir });
+		assert.equal(implResult.status, "ok");
+		assert.equal(implResult.nextStep, "/verify");
+
+		// Verify log entry added
+		const workTextImpl = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
+		assert.match(workTextImpl, /Implemented slice for local:/);
+
+		// 3. Verify stage
+		const verifyHandoff = { ...handoffFor(id), destination: "verify", selectedSkills: ["verify"] };
+		const verifyResult = await executeWorker(verifyHandoff, { cwd: repoDir });
+		assert.equal(verifyResult.status, "ok");
+		assert.equal(verifyResult.nextStep, "/sync");
+
+		// 4. Sync stage
+		const syncHandoff = { ...handoffFor(id), destination: "sync", selectedSkills: ["sync"] };
+		const syncResult = await executeWorker(syncHandoff, { cwd: repoDir });
+		assert.equal(syncResult.status, "ok");
+		assert.equal(syncResult.nextStep, "/post-merge-prune");
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("executeWorker refuses implement when no unchecked AFK slice exists", async () => {
+	const repoDir = makeRepo();
+	const id = `no-afk-${Date.now()}`;
+
+	try {
+		// Triage only (empty PLAN section)
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+
+		const implHandoff = { ...handoffFor(id), destination: "implement", selectedSkills: ["implement"] };
+		await assert.rejects(
+			() => executeWorker(implHandoff, { cwd: repoDir }),
+			/No unchecked AFK slice found in WORK.md \[PLAN\]/,
+		);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("executeWorker handles note destination creating, updating notes in vault, and rejecting unapproved path traversal", async () => {
 	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-vault-"));
 	const topic = "summarize Nochestra front door UX";
@@ -321,8 +374,8 @@ test("executeTriageWorker rejects unsupported worker destinations", async () => 
 	await assert.rejects(
 		() => executeTriageWorker({
 			...handoffFor("bad-route"),
-			destination: "implement",
+			destination: "publish",
 		}),
-		/Unsupported worker destination: implement/,
+		/Unsupported worker destination: publish/,
 	);
 });

@@ -1,5 +1,5 @@
-const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan"]);
-const STAGE_COMMANDS_OPTIONAL_TARGET = new Set(["frame", "grill-with-docs", "plan"]);
+const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
+const STAGE_COMMANDS_OPTIONAL_TARGET = new Set(["frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
 const TASK_REF_RE = /^(github|gitlab|jira|local):([^\s]+)$/i;
 const TRACKED_REF_PATTERN = "((?:github|gitlab|jira|local):\\S+)";
 

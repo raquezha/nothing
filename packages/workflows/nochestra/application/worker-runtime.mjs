@@ -32,6 +32,11 @@ export function hasMeaningfulContent(body) {
 	return MEANINGFUL_LINE_RE.test(String(body || ""));
 }
 
+export function hasUncheckedAfkSlice(planText) {
+	const planBody = sectionBody(planText, "PLAN");
+	return /-\s*\[\s*\]\s*(\*\*AFK|Slice)/i.test(planBody);
+}
+
 export function inferNextStep(workText) {
 	if (hasMeaningfulContent(sectionBody(workText, "PLAN"))) {
 		return "/implement";
@@ -108,7 +113,7 @@ export async function executeWorker(handoff, options = {}) {
 		return executeNotesWorker(handoff, options);
 	}
 
-	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan"]);
+	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
 	if (!SUPPORTED_STAGE_DESTINATIONS.has(destination)) {
 		throw new Error(`Unsupported worker destination: ${destination}`);
 	}
@@ -154,15 +159,33 @@ export async function executeWorker(handoff, options = {}) {
 			workText = replaceSectionBody(workText, "PLAN", planContent);
 			workText = appendLogEntry(workText, `Planned active task into vertical slices for ${source}:${id}`);
 		}
+	} else if (destination === "implement") {
+		if (!hasUncheckedAfkSlice(workText)) {
+			throw new Error(`No unchecked AFK slice found in WORK.md [PLAN] for ${source}:${id}`);
+		}
+		workText = appendLogEntry(workText, `Implemented slice for ${source}:${id}`);
+	} else if (destination === "verify") {
+		workText = appendLogEntry(workText, `Verified active slices for ${source}:${id}`);
+	} else if (destination === "sync") {
+		workText = appendLogEntry(workText, `Synced task status markers for ${source}:${id}`);
 	}
 
 	fs.writeFileSync(workPath, workText, "utf8");
+
+	const nextStepMap = {
+		frame: "/grill-with-docs",
+		"grill-with-docs": "/plan",
+		plan: "/implement",
+		implement: "/verify",
+		verify: "/sync",
+		sync: "/post-merge-prune",
+	};
 
 	return {
 		status: "ok",
 		taskId: active.id,
 		summary: `${destination[0].toUpperCase()}${destination.slice(1)} completed for ${source}:${id}`,
-		nextStep: inferNextStep(workText),
+		nextStep: nextStepMap[destination] || inferNextStep(workText),
 		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
 	};
 }
