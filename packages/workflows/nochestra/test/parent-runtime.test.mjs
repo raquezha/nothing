@@ -154,16 +154,16 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 			cwd: repoDir,
 		});
 
-		assert.deepEqual(result, {
-			kind: "delivery",
-			command: "triage",
-			task: { source: "local", id: "parent-runtime-proof" },
-			status: "created",
-			taskId: "local-parent-runtime-proof",
-			summary: "Triage created for local:parent-runtime-proof",
-			nextStep: "/frame",
-			artifacts: [{ path: ".workflow/tasks/local-parent-runtime-proof/WORK.md", kind: "workflow-state" }],
-		});
+		assert.equal(result.kind, "delivery");
+		assert.equal(result.command, "triage");
+		assert.deepEqual(result.task, { source: "local", id: "parent-runtime-proof" });
+		assert.equal(result.status, "created");
+		assert.equal(result.taskId, "local-parent-runtime-proof");
+		assert.equal(result.summary, "Triage created for local:parent-runtime-proof");
+		assert.equal(result.nextStep, "/frame");
+		assert.deepEqual(result.artifacts, [{ path: ".workflow/tasks/local-parent-runtime-proof/WORK.md", kind: "workflow-state" }]);
+		assert.ok(result.evidence);
+		assert.equal(result.evidence.workItemId, "local-parent-runtime-proof");
 		assert.match(formatNochestraResult(result), /Next step: \/frame/);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
@@ -198,16 +198,16 @@ test("dispatchNochestraInput cancels write dispatch when approval callback rejec
 			requiresWriteLock: true,
 		});
 
-		assert.deepEqual(result, {
-			kind: "delivery",
-			command: "triage",
-			task: { source: "local", id: "parent-runtime-cancel" },
-			status: "cancelled",
-			taskId: "local-parent-runtime-cancel",
-			summary: "Write-capable dispatch cancelled by user.",
-			nextStep: "manual-takeover",
-			recovery: { action: "request user approval before write execution" },
-		});
+		assert.equal(result.kind, "delivery");
+		assert.equal(result.command, "triage");
+		assert.deepEqual(result.task, { source: "local", id: "parent-runtime-cancel" });
+		assert.equal(result.status, "cancelled");
+		assert.equal(result.taskId, "local-parent-runtime-cancel");
+		assert.equal(result.summary, "Write-capable dispatch cancelled by user.");
+		assert.equal(result.nextStep, "manual-takeover");
+		assert.deepEqual(result.recovery, { action: "request user approval before write execution" });
+		assert.ok(result.evidence);
+		assert.equal(result.evidence.resultStatus, "cancelled");
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
@@ -369,16 +369,16 @@ test("dispatchNochestraInput dispatches explicit research request and returns re
 			cwd: repoDir,
 		});
 
-		assert.deepEqual(result, {
-			kind: "delivery",
-			command: "research",
-			task: { source: "research", id },
-			status: "created",
-			taskId: `research-${id}`,
-			summary: `Research created for "${topic}"`,
-			nextStep: "review research artifact",
-			artifacts: [{ path: `.workflow/research/${id}/RESEARCH.md`, kind: "research-artifact" }],
-		});
+		assert.equal(result.kind, "delivery");
+		assert.equal(result.command, "research");
+		assert.deepEqual(result.task, { source: "research", id });
+		assert.equal(result.status, "created");
+		assert.equal(result.taskId, `research-${id}`);
+		assert.equal(result.summary, `Research created for "${topic}"`);
+		assert.equal(result.nextStep, "review research artifact");
+		assert.deepEqual(result.artifacts, [{ path: `.workflow/research/${id}/RESEARCH.md`, kind: "research-artifact" }]);
+		assert.ok(result.evidence);
+		assert.equal(result.evidence.destination, "research");
 
 		const formatted = formatNochestraResult(result);
 		assert.match(formatted, /Command: \/research/);
