@@ -257,117 +257,88 @@ export async function executeWorker(handoff, options = {}) {
 	};
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const YAML_KEY_RE = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/;
+const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;
+const YAML_QUOTE_RE = /[:#\[\]{}%@`*?|<>=!&]|\s$/;
+
+function stripQuotes(value) {
+	return String(value).trim().replace(/^['"]|['"]$/g, "");
+}
+
+function parseYamlValue(value) {
+	const trimmed = value.trim();
+	if (!trimmed) return "";
+	if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+		return trimmed.slice(1, -1).split(",").map(stripQuotes).filter(Boolean);
+	}
+	if (trimmed === "true") return true;
+	if (trimmed === "false") return false;
+	if (!Number.isNaN(Number(trimmed))) return Number(trimmed);
+	return stripQuotes(trimmed);
+}
+
+function appendYamlListItem(frontmatter, key, rawValue) {
+	frontmatter[key] = Array.isArray(frontmatter[key]) ? frontmatter[key] : [];
+	frontmatter[key].push(stripQuotes(rawValue));
+}
+
 export function parseFrontmatter(content) {
 	const text = String(content || "").replace(/^\uFEFF/, "");
-	const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
-	if (!match) {
-		return { frontmatter: {}, body: text, rawYaml: "" };
-	}
-	const rawYaml = match[1];
-	const body = text.slice(match[0].length);
-	const frontmatter = {};
+	const match = text.match(FRONTMATTER_RE);
+	if (!match) return { frontmatter: {}, body: text, rawYaml: "" };
 
+	const frontmatter = {};
 	let currentKey = null;
-	const lines = rawYaml.split(/\r?\n/);
-	for (const line of lines) {
+
+	for (const line of match[1].split(/\r?\n/)) {
 		if (!line.trim() || line.trim().startsWith("#")) continue;
-		const arrayItemMatch = line.match(/^\s*-\s+(.*)$/);
-		if (arrayItemMatch && currentKey) {
-			const val = arrayItemMatch[1].trim().replace(/^['"]|['"]$/g, "");
-			if (!Array.isArray(frontmatter[currentKey])) {
-				frontmatter[currentKey] = [];
-			}
-			frontmatter[currentKey].push(val);
+
+		const listItem = line.match(/^\s*-\s+(.*)$/);
+		if (listItem && currentKey) {
+			appendYamlListItem(frontmatter, currentKey, listItem[1]);
 			continue;
 		}
 
-		const kvMatch = line.match(/^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/);
-		if (kvMatch) {
-			const key = kvMatch[1].trim();
-			let val = kvMatch[2].trim();
-			currentKey = key;
-			if (!val) {
-				frontmatter[key] = "";
-				continue;
-			}
-			if (val.startsWith("[") && val.endsWith("]")) {
-				const items = val
-					.slice(1, -1)
-					.split(",")
-					.map((s) => s.trim().replace(/^['"]|['"]$/g, ""))
-					.filter(Boolean);
-				frontmatter[key] = items;
-			} else if (val === "true") {
-				frontmatter[key] = true;
-			} else if (val === "false") {
-				frontmatter[key] = false;
-			} else if (!isNaN(val) && val !== "") {
-				frontmatter[key] = Number(val);
-			} else {
-				frontmatter[key] = val.replace(/^['"]|['"]$/g, "");
-			}
-		}
+		const keyValue = line.match(YAML_KEY_RE);
+		if (!keyValue) continue;
+		currentKey = keyValue[1].trim();
+		frontmatter[currentKey] = parseYamlValue(keyValue[2]);
 	}
-	return { frontmatter, body, rawYaml };
+
+	return { frontmatter, body: text.slice(match[0].length), rawYaml: match[1] };
 }
 
 function safeYamlValue(v) {
 	if (typeof v === "number" || typeof v === "boolean") return String(v);
 	const str = String(v);
-	if (/[:#\[\]{}%@`*?|<>=!&]|\s$/.test(str) || str.trim() !== str) {
-		return JSON.stringify(str);
-	}
-	return str;
+	return YAML_QUOTE_RE.test(str) || str.trim() !== str ? JSON.stringify(str) : str;
+}
+
+function stringifyYamlEntry([key, val]) {
+	if (val === undefined || val === null) return [];
+	if (!Array.isArray(val)) return [`${key}: ${safeYamlValue(val)}`];
+	if (val.length === 0) return [`${key}: []`];
+	return [`${key}:`, ...val.map((item) => `  - ${safeYamlValue(item)}`)];
 }
 
 export function stringifyFrontmatter(fmObj) {
-	if (!fmObj || typeof fmObj !== "object") return "";
-	const keys = Object.keys(fmObj);
-	if (keys.length === 0) return "";
-	const lines = ["---"];
-	for (const key of keys) {
-		const val = fmObj[key];
-		if (Array.isArray(val)) {
-			if (val.length === 0) {
-				lines.push(`${key}: []`);
-			} else {
-				lines.push(`${key}:`);
-				for (const item of val) {
-					lines.push(`  - ${safeYamlValue(item)}`);
-				}
-			}
-		} else if (val !== undefined && val !== null) {
-			lines.push(`${key}: ${safeYamlValue(val)}`);
-		}
-	}
-	lines.push("---");
-	return lines.join("\n");
+	if (!fmObj || typeof fmObj !== "object" || Object.keys(fmObj).length === 0) return "";
+	return ["---", ...Object.entries(fmObj).flatMap(stringifyYamlEntry), "---"].join("\n");
+}
+
+function splitWikiLink(rawInner) {
+	const [targetAndHeading, alias = null] = rawInner.trim().split("|", 2);
+	const [target, heading = null] = targetAndHeading.trim().split("#", 2);
+	return { target: target || "", heading, alias };
 }
 
 export function extractWikiLinks(content) {
-	const text = String(content || "");
-	// Strip code blocks and inline code to prevent false-positive links
-	const stripped = text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");
-	const matches = stripped.matchAll(/\[\[([^\]]+)\]\]/g);
-	const links = [];
-	for (const match of matches) {
-		const rawInner = match[1].trim();
-		const pipeIdx = rawInner.indexOf("|");
-		const targetPart = pipeIdx >= 0 ? rawInner.slice(0, pipeIdx).trim() : rawInner;
-		const alias = pipeIdx >= 0 ? rawInner.slice(pipeIdx + 1).trim() : null;
-
-		const hashIdx = targetPart.indexOf("#");
-		const target = hashIdx >= 0 ? targetPart.slice(0, hashIdx).trim() : targetPart;
-		const heading = hashIdx >= 0 ? targetPart.slice(hashIdx + 1).trim() : null;
-
-		links.push({
-			raw: match[0],
-			target: target || "",
-			heading: heading || null,
-			alias: alias || null,
-		});
-	}
-	return links;
+	const stripped = String(content || "").replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");
+	return [...stripped.matchAll(WIKI_LINK_RE)].map((match) => ({
+		raw: match[0],
+		...splitWikiLink(match[1]),
+	}));
 }
 
 function findFileInVault(dir, targetBaseName) {
