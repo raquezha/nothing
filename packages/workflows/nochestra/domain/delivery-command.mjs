@@ -1,5 +1,5 @@
-const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan"]);
-const STAGE_COMMANDS_OPTIONAL_TARGET = new Set(["frame", "grill-with-docs", "plan"]);
+const DELIVERY_COMMANDS = new Set(["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
+const STAGE_COMMANDS_OPTIONAL_TARGET = new Set(["frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
 const TASK_REF_RE = /^(github|gitlab|jira|local):([^\s]+)$/i;
 const TRACKED_REF_PATTERN = "((?:github|gitlab|jira|local):\\S+)";
 
@@ -58,6 +58,14 @@ function routeMatches(input) {
 		const match = rule.pattern.exec(text);
 		return match ? [{ rule, match }] : [];
 	});
+}
+
+export function stripOuterQuotes(str) {
+	const s = String(str || "").trim();
+	if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+		return s.slice(1, -1).trim();
+	}
+	return s;
 }
 
 export function slugifyTopic(topic) {
@@ -141,7 +149,7 @@ export function parseNochestraInput(input) {
 	}
 
 	if (command === "research") {
-		const topic = rest.join(" ").replace(/^["']|["']$/g, "").trim();
+		const topic = stripOuterQuotes(rest.join(" "));
 		if (!topic) {
 			return {
 				kind: "delivery-error",
@@ -162,7 +170,7 @@ export function parseNochestraInput(input) {
 	}
 
 	if (command === "note") {
-		const topic = rest.join(" ").replace(/^["']|["']$/g, "").trim();
+		const topic = stripOuterQuotes(rest.join(" "));
 		if (!topic) {
 			return {
 				kind: "delivery-error",

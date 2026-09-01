@@ -25,6 +25,20 @@ const WRITE_SCOPE_BY_DESTINATION = Object.freeze({
 		]),
 		willNot: Object.freeze(["edit code", "update tracker"]),
 	}),
+	implement: (taskRef) => ({
+		canChange: Object.freeze([
+			"repository source code from approved slice",
+			`.workflow/tasks/${taskRef}/WORK.md [LOG]`,
+			".workflow/active.json [META]",
+		]),
+		willNot: Object.freeze(["merge PR", "delete remote branch"]),
+	}),
+	verify: (taskRef) => ({
+		canChange: Object.freeze([
+			`.workflow/tasks/${taskRef}/WORK.md [PLAN], [LOG]`,
+		]),
+		willNot: Object.freeze(["edit code", "update tracker"]),
+	}),
 	sync: (taskRef) => ({
 		canChange: Object.freeze([
 			"target issue/PR marker comment (<!-- pi-sync-marker -->)",

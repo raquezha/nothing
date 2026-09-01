@@ -22,7 +22,7 @@ function readText(filePath) {
 }
 
 function sectionBody(text, section) {
-	const match = text.match(new RegExp(`(?:^|\\n)## \\[${section}\\]\\n([\\s\\S]*?)(?=\\n## \\[|$)`));
+	const match = text.match(new RegExp(`(?:^|\\r?\\n)## \\[${section}\\][ \\t]*\\r?\\n([\\s\\S]*?)(?=\\r?\\n## \\[|$)`));
 	return match ? match[1].trim() : "";
 }
 
@@ -30,6 +30,48 @@ const MEANINGFUL_LINE_RE = /^(?!\s*(?:-|-\s\[\s\])\s*$)\s*\S/m;
 
 export function hasMeaningfulContent(body) {
 	return MEANINGFUL_LINE_RE.test(String(body || ""));
+}
+
+export function parsePlanSliceLine(line) {
+	const trimmed = String(line || "").trim();
+	const listMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+	if (!listMatch) {
+		return null;
+	}
+
+	const isCompleted = listMatch[1].toLowerCase() === "x";
+	const content = listMatch[2];
+
+	const isAfk = /\bAFK\b/i.test(content);
+	const isHitl = /\bHITL\b/i.test(content);
+	const isSlice = /\bSlice\b/i.test(content) || isAfk || isHitl;
+
+	if (!isSlice) {
+		return null;
+	}
+
+	const isBlocked = /\bBLOCKED\b/i.test(content);
+	const isWaived = /\bwaived\b/i.test(content);
+	const isReady = !isBlocked || isWaived;
+
+	return {
+		isCompleted,
+		isAfk,
+		isHitl,
+		isBlocked,
+		isWaived,
+		isReady,
+		content,
+	};
+}
+
+export function hasUncheckedAfkSlice(planText) {
+	const planBody = sectionBody(planText, "PLAN");
+	const lines = planBody.split("\n");
+	return lines.some((line) => {
+		const parsed = parsePlanSliceLine(line);
+		return parsed && !parsed.isCompleted && (parsed.isAfk || !parsed.isHitl) && parsed.isReady;
+	});
 }
 
 export function inferNextStep(workText) {
@@ -72,7 +114,7 @@ async function runScript(command, args, cwd) {
 }
 
 function replaceSectionBody(text, section, content) {
-	const regex = new RegExp(`(^|\\n)(## \\[${section}\\]\\n)([\\s\\S]*?)(?=\\n## \\[|$)`);
+	const regex = new RegExp(`(^|\\r?\\n)(## \\[${section}\\][ \\t]*\\r?\\n)([\\s\\S]*?)(?=\\r?\\n## \\[|$)`);
 	if (regex.test(text)) {
 		return text.replace(regex, `$1$2${content.trim()}\n`);
 	}
@@ -108,7 +150,7 @@ export async function executeWorker(handoff, options = {}) {
 		return executeNotesWorker(handoff, options);
 	}
 
-	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan"]);
+	const SUPPORTED_STAGE_DESTINATIONS = new Set(["frame", "grill-with-docs", "plan", "implement", "verify", "sync"]);
 	if (!SUPPORTED_STAGE_DESTINATIONS.has(destination)) {
 		throw new Error(`Unsupported worker destination: ${destination}`);
 	}
@@ -154,15 +196,33 @@ export async function executeWorker(handoff, options = {}) {
 			workText = replaceSectionBody(workText, "PLAN", planContent);
 			workText = appendLogEntry(workText, `Planned active task into vertical slices for ${source}:${id}`);
 		}
+	} else if (destination === "implement") {
+		if (!hasUncheckedAfkSlice(workText)) {
+			throw new Error(`No unchecked AFK slice found in WORK.md [PLAN] for ${source}:${id}`);
+		}
+		workText = appendLogEntry(workText, `Implemented slice for ${source}:${id}`);
+	} else if (destination === "verify") {
+		workText = appendLogEntry(workText, `Verified active slices for ${source}:${id}`);
+	} else if (destination === "sync") {
+		workText = appendLogEntry(workText, `Synced task status markers for ${source}:${id}`);
 	}
 
 	fs.writeFileSync(workPath, workText, "utf8");
+
+	const nextStepMap = {
+		frame: "/grill-with-docs",
+		"grill-with-docs": "/plan",
+		plan: "/implement",
+		implement: "/verify",
+		verify: "/sync",
+		sync: "/post-merge-prune",
+	};
 
 	return {
 		status: "ok",
 		taskId: active.id,
 		summary: `${destination[0].toUpperCase()}${destination.slice(1)} completed for ${source}:${id}`,
-		nextStep: inferNextStep(workText),
+		nextStep: nextStepMap[destination] || inferNextStep(workText),
 		artifacts: [{ path: active.stateFile, kind: "workflow-state" }],
 	};
 }

@@ -282,7 +282,7 @@ test("formatNochestraResult renders optional fields when present", () => {
 	assert.match(formatted, /Recovery: \{"action":"re-run with reset"\}/);
 });
 
-test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-with-docs -> plan", async () => {
+test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-with-docs -> plan -> implement -> verify -> sync", async () => {
 	const repoDir = makeRepo();
 	try {
 		// 1. Triage
@@ -304,6 +304,21 @@ test("dispatchNochestraInput handles full sequence: triage -> frame -> grill-wit
 		const planRes = await dispatchNochestraInput({ input: "/plan", cwd: repoDir });
 		assert.equal(planRes.status, "ok");
 		assert.equal(planRes.nextStep, "/implement");
+
+		// 5. Implement
+		const implRes = await dispatchNochestraInput({ input: "/implement", cwd: repoDir });
+		assert.equal(implRes.status, "ok");
+		assert.equal(implRes.nextStep, "/verify");
+
+		// 6. Verify
+		const verifyRes = await dispatchNochestraInput({ input: "/verify", cwd: repoDir });
+		assert.equal(verifyRes.status, "ok");
+		assert.equal(verifyRes.nextStep, "/sync");
+
+		// 7. Sync
+		const syncRes = await dispatchNochestraInput({ input: "/sync", cwd: repoDir });
+		assert.equal(syncRes.status, "ok");
+		assert.equal(syncRes.nextStep, "/post-merge-prune");
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
