@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeResearchWorker, executeTriageWorker, executeWorker, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, resolveVaultNotePath } from "../application/worker-runtime.mjs";
+import { executeResearchWorker, executeTriageWorker, executeWorker, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, parsePlanSliceLine, resolveVaultNotePath } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -36,10 +36,55 @@ function handoffFor(id) {
 	};
 }
 
+test("parsePlanSliceLine accurately categorizes slice completion, AFK/HITL, BLOCKED, and waived states", () => {
+	assert.deepEqual(parsePlanSliceLine("- [ ] **AFK Slice 1: Feature**"), {
+		isCompleted: false,
+		isAfk: true,
+		isHitl: false,
+		isBlocked: false,
+		isWaived: false,
+		isReady: true,
+		content: "**AFK Slice 1: Feature**",
+	});
+
+	assert.deepEqual(parsePlanSliceLine("- [x] **AFK Slice 1: Feature**"), {
+		isCompleted: true,
+		isAfk: true,
+		isHitl: false,
+		isBlocked: false,
+		isWaived: false,
+		isReady: true,
+		content: "**AFK Slice 1: Feature**",
+	});
+
+	assert.deepEqual(parsePlanSliceLine("- [ ] **AFK Slice 2 [BLOCKED: missing UI evidence]**"), {
+		isCompleted: false,
+		isAfk: true,
+		isHitl: false,
+		isBlocked: true,
+		isWaived: false,
+		isReady: false,
+		content: "**AFK Slice 2 [BLOCKED: missing UI evidence]**",
+	});
+
+	assert.deepEqual(parsePlanSliceLine("- [ ] **AFK Slice 2 [BLOCKED: missing UI evidence] (waived: human override)**"), {
+		isCompleted: false,
+		isAfk: true,
+		isHitl: false,
+		isBlocked: true,
+		isWaived: true,
+		isReady: true,
+		content: "**AFK Slice 2 [BLOCKED: missing UI evidence] (waived: human override)**",
+	});
+
+	assert.equal(parsePlanSliceLine("- Dependencies: None"), null);
+});
+
 test("hasUncheckedAfkSlice validates unchecked AFK slices and ignores blocked or completed slices", () => {
 	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [ ] **AFK Slice 1: Implement worker**"), true);
 	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1: Implement worker**"), false);
 	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [ ] **AFK Slice 1 [BLOCKED: missing UI evidence]**"), false);
+	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [ ] **AFK Slice 1 [BLOCKED: missing UI evidence] (waived: human override)**"), true);
 	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1**\n- [ ] **AFK Slice 2 [BLOCKED: missing formula]**"), false);
 	assert.equal(hasUncheckedAfkSlice("## [PLAN]\n- [x] **AFK Slice 1**\n- [ ] **AFK Slice 2: Valid slice**"), true);
 });

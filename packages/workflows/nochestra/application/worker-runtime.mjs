@@ -22,7 +22,7 @@ function readText(filePath) {
 }
 
 function sectionBody(text, section) {
-	const match = text.match(new RegExp(`(?:^|\\n)## \\[${section}\\]\\n([\\s\\S]*?)(?=\\n## \\[|$)`));
+	const match = text.match(new RegExp(`(?:^|\\r?\\n)## \\[${section}\\][ \\t]*\\r?\\n([\\s\\S]*?)(?=\\r?\\n## \\[|$)`));
 	return match ? match[1].trim() : "";
 }
 
@@ -32,14 +32,45 @@ export function hasMeaningfulContent(body) {
 	return MEANINGFUL_LINE_RE.test(String(body || ""));
 }
 
+export function parsePlanSliceLine(line) {
+	const trimmed = String(line || "").trim();
+	const listMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+	if (!listMatch) {
+		return null;
+	}
+
+	const isCompleted = listMatch[1].toLowerCase() === "x";
+	const content = listMatch[2];
+
+	const isAfk = /\bAFK\b/i.test(content);
+	const isHitl = /\bHITL\b/i.test(content);
+	const isSlice = /\bSlice\b/i.test(content) || isAfk || isHitl;
+
+	if (!isSlice) {
+		return null;
+	}
+
+	const isBlocked = /\bBLOCKED\b/i.test(content);
+	const isWaived = /\bwaived\b/i.test(content);
+	const isReady = !isBlocked || isWaived;
+
+	return {
+		isCompleted,
+		isAfk,
+		isHitl,
+		isBlocked,
+		isWaived,
+		isReady,
+		content,
+	};
+}
+
 export function hasUncheckedAfkSlice(planText) {
 	const planBody = sectionBody(planText, "PLAN");
 	const lines = planBody.split("\n");
 	return lines.some((line) => {
-		const isUnchecked = /-\s*\[\s*\]/i.test(line);
-		const isAfkOrSlice = /(\*\*AFK|Slice)/i.test(line);
-		const isBlocked = /BLOCKED/i.test(line);
-		return isUnchecked && isAfkOrSlice && !isBlocked;
+		const parsed = parsePlanSliceLine(line);
+		return parsed && !parsed.isCompleted && (parsed.isAfk || !parsed.isHitl) && parsed.isReady;
 	});
 }
 
@@ -83,7 +114,7 @@ async function runScript(command, args, cwd) {
 }
 
 function replaceSectionBody(text, section, content) {
-	const regex = new RegExp(`(^|\\n)(## \\[${section}\\]\\n)([\\s\\S]*?)(?=\\n## \\[|$)`);
+	const regex = new RegExp(`(^|\\r?\\n)(## \\[${section}\\][ \\t]*\\r?\\n)([\\s\\S]*?)(?=\\r?\\n## \\[|$)`);
 	if (regex.test(text)) {
 		return text.replace(regex, `$1$2${content.trim()}\n`);
 	}

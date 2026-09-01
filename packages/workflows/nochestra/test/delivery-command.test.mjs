@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute, slugifyTopic } from "../domain/delivery-command.mjs";
+import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute, slugifyTopic, stripOuterQuotes } from "../domain/delivery-command.mjs";
+
+test("stripOuterQuotes handles matching outer quotes while preserving inner quotes", () => {
+	assert.equal(stripOuterQuotes('"hello world"'), "hello world");
+	assert.equal(stripOuterQuotes("'hello world'"), "hello world");
+	assert.equal(stripOuterQuotes('"hello "inner" world"'), 'hello "inner" world');
+	assert.equal(stripOuterQuotes("no quotes"), "no quotes");
+});
 
 test("slugifyTopic returns non-empty fallback for symbol/non-ASCII topics", () => {
 	const slug = slugifyTopic("🚀🚀🚀");
