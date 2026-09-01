@@ -199,6 +199,10 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	const customPath = handoff.artifact?.path ?? handoff.artifactSnapshot?.path ?? null;
 	const { resolvedTarget } = resolveVaultNotePath(topic, vaultRoot, customPath);
 
+	if (fs.existsSync(resolvedTarget) && fs.statSync(resolvedTarget).isDirectory()) {
+		throw new Error(`Target note path is a directory: ${resolvedTarget}`);
+	}
+
 	const isUpdate = fs.existsSync(resolvedTarget);
 	fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
 

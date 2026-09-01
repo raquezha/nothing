@@ -384,6 +384,19 @@ test("dispatchNochestraInput dispatches explicit research request and returns re
 	}
 });
 
+test("formatNochestraResult handles missing task property safely", () => {
+	const formatted = formatNochestraResult({
+		kind: "delivery",
+		command: "note",
+		status: "created",
+		taskId: "note-123",
+		summary: "Note created",
+		nextStep: "review note",
+	});
+	assert.match(formatted, /Command: \/note/);
+	assert.match(formatted, /Task: note-123/);
+});
+
 test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {
 	const okResult = formatNochestraResult({
 		kind: "delivery",

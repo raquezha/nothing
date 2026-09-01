@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute } from "../domain/delivery-command.mjs";
+import { parseNochestraInput, parseTrackedTaskRef, recommendNochestraRoute, slugifyTopic } from "../domain/delivery-command.mjs";
+
+test("slugifyTopic returns non-empty fallback for symbol/non-ASCII topics", () => {
+	const slug = slugifyTopic("🚀🚀🚀");
+	assert.equal(typeof slug, "string");
+	assert.equal(slug.startsWith("topic-"), true);
+});
 
 test("parseNochestraInput recognizes note command with explicit topic", () => {
 	const result = parseNochestraInput('note "summarize Nochestra front-door UX"');

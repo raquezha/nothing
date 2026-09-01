@@ -156,6 +156,28 @@ test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages"
 	}
 });
 
+test("executeWorker rejects when target note path is an existing directory", async () => {
+	const vaultDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-dir-vault-"));
+	const dirPath = path.join(vaultDir, "distilled", "conflict.md");
+	fs.mkdirSync(dirPath, { recursive: true });
+
+	const noteHandoff = {
+		assignment: 'Run note for "conflict"',
+		destination: "note",
+		artifact: { source: "note", id: "conflict", topic: "conflict", path: "distilled/conflict.md" },
+		contextBudget: { maxTokens: 4000 },
+	};
+
+	try {
+		await assert.rejects(
+			() => executeWorker(noteHandoff, { vaultRoot: vaultDir }),
+			/Target note path is a directory/,
+		);
+	} finally {
+		fs.rmSync(vaultDir, { recursive: true, force: true });
+	}
+});
+
 test("resolveVaultNotePath handles nested custom vault paths, slugification, and path traversal rejection", () => {
 	const vaultRoot = path.join(os.tmpdir(), "vault-test-root");
 

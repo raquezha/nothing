@@ -113,7 +113,7 @@ function writeDeliveryCheckpoint(cwd, checkpointPath, checkpoint) {
 	writeCheckpoint(resolved, checkpoint);
 }
 
-function checkpointWithWorkerResult(checkpoint, result) {
+function checkpointWithWorkerResult(checkpoint, result, parsed = null) {
 	const decision = `${result.taskId || "Worker"} ${result.status}: ${result.summary}`;
 	const decisions = checkpoint.decisions.includes(decision)
 		? checkpoint.decisions
@@ -127,7 +127,7 @@ function checkpointWithWorkerResult(checkpoint, result) {
 		...checkpoint,
 		decisions,
 		openQuestions: [...checkpoint.openQuestions, ...newBlockers],
-		currentRoute: checkpoint.currentRoute || "delivery",
+		currentRoute: parsed?.route || checkpoint.currentRoute || "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
 	};
@@ -296,7 +296,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 	});
 	const compact = compactDeliveryResult(parsed, result, task);
 	if (result.status !== "cancelled") {
-		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result));
+		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result, parsed));
 	}
 	return compact;
 }
@@ -316,10 +316,11 @@ export function formatNochestraResult(result) {
 	if (result.kind === "chat") {
 		return result.prompt;
 	}
-	const commandLabel = result.command.startsWith("/") ? result.command : `/${result.command}`;
+	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
+	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");
 	const lines = [
 		`Command: ${commandLabel}`,
-		`Task: ${result.task.source}:${result.task.id}`,
+		`Task: ${taskLabel}`,
 		`Status: ${result.status}`,
 		`Summary: ${result.summary}`,
 		`Next step: ${result.nextStep}`,

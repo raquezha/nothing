@@ -61,11 +61,12 @@ function routeMatches(input) {
 }
 
 export function slugifyTopic(topic) {
-	return String(topic || "")
+	const slug = String(topic || "")
 		.toLowerCase()
 		.trim()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "");
+	return slug || `topic-${Date.now().toString(36)}`;
 }
 
 export function parseTrackedTaskRef(value) {
