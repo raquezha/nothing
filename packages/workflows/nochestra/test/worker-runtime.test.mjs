@@ -511,21 +511,29 @@ Body text
 });
 
 test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links", () => {
-	const text = "See [[Architecture Note#Section|Arch]] and [[Missing Note]].";
+	const text = "See [[Architecture Note#Section|Arch]], [[Missing Note]], and [[../../etc/passwd]].";
 	const links = extractWikiLinks(text);
-	assert.equal(links.length, 2);
+	assert.equal(links.length, 3);
 	assert.equal(links[0].target, "Architecture Note");
 	assert.equal(links[0].heading, "Section");
 	assert.equal(links[0].alias, "Arch");
 
 	assert.equal(links[1].target, "Missing Note");
+	assert.equal(links[2].target, "../../etc/passwd");
 
 	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-test-"));
 	try {
 		fs.writeFileSync(path.join(tempVault, "Architecture Note.md"), "# Arch", "utf8");
+		fs.mkdirSync(path.join(tempVault, ".git"), { recursive: true });
+		fs.writeFileSync(path.join(tempVault, ".git", "Secret.md"), "# Secret", "utf8");
+
 		const verified = verifyVaultLinks(links, tempVault);
 		assert.equal(verified[0].exists, true);
 		assert.equal(verified[1].exists, false);
+		assert.equal(verified[2].exists, false); // Traversal rejected
+
+		const secretCheck = verifyVaultLinks([{ raw: "[[Secret]]", target: "Secret", heading: null, alias: null }], tempVault);
+		assert.equal(secretCheck[0].exists, false); // Ignores .git folder
 	} finally {
 		fs.rmSync(tempVault, { recursive: true, force: true });
 	}

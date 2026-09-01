@@ -258,7 +258,7 @@ export async function executeWorker(handoff, options = {}) {
 }
 
 export function parseFrontmatter(content) {
-	const text = String(content || "");
+	const text = String(content || "").replace(/^\uFEFF/, "");
 	const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
 	if (!match) {
 		return { frontmatter: {}, body: text, rawYaml: "" };
@@ -361,6 +361,7 @@ function findFileInVault(dir, targetBaseName) {
 	if (!fs.existsSync(dir)) return null;
 	const entries = fs.readdirSync(dir, { withFileTypes: true });
 	for (const entry of entries) {
+		if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
 		const full = path.join(dir, entry.name);
 		if (entry.isDirectory()) {
 			const res = findFileInVault(full, targetBaseName);
@@ -381,6 +382,9 @@ export function verifyVaultLinks(links, vaultRoot = DEFAULT_VAULT_ROOT) {
 			targetPath += ".md";
 		}
 		const directPath = path.resolve(resolvedVault, targetPath);
+		if (!directPath.startsWith(resolvedVault + path.sep) && directPath !== resolvedVault) {
+			return { ...link, exists: false, resolvedPath: null };
+		}
 		let exists = false;
 		let resolvedPath = directPath;
 		if (fs.existsSync(directPath)) {
@@ -459,11 +463,15 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 			updated: today,
 		};
 
-		if (extraFrontmatter.tags && Array.isArray(existingFm.tags)) {
-			updatedFm.tags = Array.from(new Set([...existingFm.tags, ...extraFrontmatter.tags]));
+		if (extraFrontmatter.tags) {
+			const existingArr = Array.isArray(existingFm.tags) ? existingFm.tags : existingFm.tags ? [existingFm.tags] : [];
+			const extraArr = Array.isArray(extraFrontmatter.tags) ? extraFrontmatter.tags : [extraFrontmatter.tags];
+			updatedFm.tags = Array.from(new Set([...existingArr, ...extraArr]));
 		}
-		if (extraFrontmatter.aliases && Array.isArray(existingFm.aliases)) {
-			updatedFm.aliases = Array.from(new Set([...existingFm.aliases, ...extraFrontmatter.aliases]));
+		if (extraFrontmatter.aliases) {
+			const existingArr = Array.isArray(existingFm.aliases) ? existingFm.aliases : existingFm.aliases ? [existingFm.aliases] : [];
+			const extraArr = Array.isArray(extraFrontmatter.aliases) ? extraFrontmatter.aliases : [extraFrontmatter.aliases];
+			updatedFm.aliases = Array.from(new Set([...existingArr, ...extraArr]));
 		}
 
 		const appendEntry = `\n\n## Note Update (${today})\n\n- ${topic}\n`;
