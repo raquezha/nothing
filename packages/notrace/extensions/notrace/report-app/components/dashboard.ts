@@ -19,13 +19,9 @@ function renderDateCell(value: string | number): string {
 
 function renderSessionRow(s: any, index: number, totalCount: number): string {
   const rowNumber = totalCount - index;
-  const link = safeHref(
-    s.artifacts?.html
-      ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
-      : s.artifacts?.record
-        ? s.artifacts.record
-        : "#"
-  );
+  const rawPath = s.artifacts?.html || s.artifacts?.record || "#";
+  const normalizedPath = typeof rawPath === "string" ? rawPath.replace(/^(?:\.\/)?\.notrace[/\\]/, "") : "#";
+  const link = safeHref(normalizedPath);
 
   const workflow = s.task?.workflow || "generic";
   const workflowLabel = workflowDisplayName(workflow);

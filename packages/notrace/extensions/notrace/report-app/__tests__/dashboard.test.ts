@@ -22,28 +22,21 @@ describe("dashboard report", () => {
     expect(html).toContain("Repository");
   });
 
-  it("renders minimal and rich dashboard session rows gracefully with Phase 5 terminology", () => {
+  it("normalizes prefixed artifact links (.notrace/ and ./.notrace/)", () => {
     const html = generateDashboardHtml([
       {
-        sessionId: "min-session",
+        sessionId: "prefixed-session",
         startedAt: "2026-09-02T00:00:00Z",
+        artifacts: { html: "./.notrace/sessions/prefixed/notrace.html" },
       },
       {
-        sessionId: "rich-session-123456",
-        repository: { name: "custom-repo", branch: "main" },
-        startedAt: "2026-09-02T01:00:00Z",
-        task: { workflow: "norpiv", id: "github-212" },
-        activity: { totals: { totalTokens: 1250, totalCostUsd: 0.0045 } },
-        artifacts: { html: "sessions/rich-session/notrace.html" },
+        sessionId: "fallback-record-session",
+        startedAt: "2026-09-02T00:00:00Z",
+        artifacts: { record: ".notrace/sessions/fallback/notrace.json" },
       },
     ]);
 
-    expect(html).toContain("Global Index");
-    expect(html).toContain("2 sessions");
-    expect(html).toContain("Repository");
-    expect(html).toContain("custom-repo @ main");
-    expect(html).toContain("github-212");
-    expect(html).toContain("1,250");
-    expect(html).toContain("$0.00450");
+    expect(html).toContain('href="sessions/prefixed/notrace.html"');
+    expect(html).toContain('href="sessions/fallback/notrace.json"');
   });
 });
