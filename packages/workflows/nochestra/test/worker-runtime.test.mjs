@@ -163,6 +163,23 @@ test("worker runtime CLI reads --handoff file and prints compact JSON only", () 
 	}
 });
 
+test("executeWorker writes a real timestamped log entry for local stage execution", async () => {
+	const repoDir = makeRepo();
+	const id = `log-${Date.now()}`;
+
+	try {
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+		const frameHandoff = { ...handoffFor(id), destination: "frame", selectedSkills: ["frame"] };
+		await executeWorker(frameHandoff, { cwd: repoDir });
+
+		const workText = fs.readFileSync(path.join(repoDir, `.workflow/tasks/local-${id}/WORK.md`), "utf8");
+		assert.match(workText, /- \d{4}-\d{2}-\d{2} \d{2}:\d{2} [AP]M: Framed active task into a proposal brief/);
+		assert.doesNotMatch(workText, /2026-08-27 03:00 PM/);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("executeWorker handles active RPIV frame, grill-with-docs, and plan stages", async () => {
 	const repoDir = makeRepo();
 	const id = `seq-${Date.now()}`;
@@ -476,6 +493,33 @@ test("executeWorker delegates stage execution to sub-process when command is sup
 		if (fs.existsSync(scriptPath)) {
 			fs.unlinkSync(scriptPath);
 		}
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("executeWorker stage subprocess honors default write lock for write-capable stages", async () => {
+	const repoDir = makeRepo();
+	const id = `subproc-lock-${Date.now()}`;
+	const scriptPath = path.join(os.tmpdir(), `test-stage-lock-${Date.now()}.cjs`);
+	const lockPath = path.join(os.tmpdir(), `nochestra-stage-lock-${Date.now()}.lock`);
+
+	fs.writeFileSync(scriptPath, `process.exit(0);`, "utf8");
+
+	try {
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+		await (await import("../adapters/writer-lock.mjs")).acquireWriterLock("holder", lockPath);
+		await assert.rejects(
+			() => executeWorker({ ...handoffFor(id), destination: "frame" }, {
+				cwd: repoDir,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath,
+			}),
+			/Writer lock is currently held by another executor/,
+		);
+		await (await import("../adapters/writer-lock.mjs")).releaseWriterLock("holder", lockPath);
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
 });

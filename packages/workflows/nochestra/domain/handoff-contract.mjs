@@ -2,6 +2,8 @@ import {
 	COMPACT_WORKER_RESULT_KEYS,
 	FORBIDDEN_TRANSCRIPT_FIELDS,
 	FORBIDDEN_WORKER_RESULT_FIELDS,
+	hasExplicitWritePermission,
+	isValidWorkspaceAccess,
 	OPTIONAL_WORKER_RESULT_KEYS,
 } from "./handoff-policy.mjs";
 
@@ -30,6 +32,20 @@ export function validateWorkerHandoff(handoff) {
 	assertPlainObject(handoff, "Worker handoff");
 	if (!handoff.assignment || typeof handoff.assignment !== "string") {
 		throw new Error("Worker handoff requires assignment string");
+	}
+	if (handoff.permissions !== undefined) {
+		if (!Array.isArray(handoff.permissions) || handoff.permissions.length === 0) {
+			throw new Error("Worker handoff permissions must be a non-empty array");
+		}
+		if (handoff.permissions.some((permission) => typeof permission !== "string" || !permission.trim())) {
+			throw new Error("Worker handoff permissions must contain only non-empty strings");
+		}
+	}
+	if (!isValidWorkspaceAccess(handoff.workspaceAccess)) {
+		throw new Error(`Worker handoff workspaceAccess must be one of: read-only, write-checkout`);
+	}
+	if (handoff.workspaceAccess === "read-only" && hasExplicitWritePermission(handoff)) {
+		throw new Error("Worker handoff cannot declare read-only workspaceAccess with write-checkout permissions");
 	}
 	assertNoTranscriptFields(handoff, "worker handoff");
 	return true;

@@ -2,6 +2,15 @@ export const FORBIDDEN_TRANSCRIPT_FIELDS = Object.freeze(["parentTranscript", "m
 export const COMPACT_WORKER_RESULT_KEYS = Object.freeze(["status", "taskId", "summary", "nextStep"]);
 export const OPTIONAL_WORKER_RESULT_KEYS = Object.freeze(["artifacts", "verification", "blockers", "warnings", "recovery", "evidence", "fallbackApplied"]);
 export const FORBIDDEN_WORKER_RESULT_FIELDS = Object.freeze(["transcript", "messages", "rawWorkerLog", "fullParentTranscript"]);
+export const WORKSPACE_ACCESS_VALUES = Object.freeze(["read-only", "write-checkout"]);
+
+export function isValidWorkspaceAccess(value) {
+	return value === undefined || WORKSPACE_ACCESS_VALUES.includes(value);
+}
+
+export function hasExplicitWritePermission(handoff) {
+	return Array.isArray(handoff?.permissions) && handoff.permissions.includes("write-checkout");
+}
 
 export function isReadOnlyHandoff(handoff) {
 	if (handoff?.workspaceAccess === "read-only") {

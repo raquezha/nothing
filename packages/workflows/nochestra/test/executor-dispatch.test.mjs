@@ -63,6 +63,30 @@ test("buildBoundedHandoff requires assignment and explicit context budget", () =
 	);
 });
 
+test("buildBoundedHandoff validates permissions and workspaceAccess shape", () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: null }),
+		/permissions must be a non-empty array/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: [] }),
+		/permissions must be a non-empty array/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: [""] }),
+		/permissions must contain only non-empty strings/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, workspaceAccess: "readonly" }),
+		/workspaceAccess must be one of: read-only, write-checkout/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: ["write-checkout"], workspaceAccess: "read-only" }),
+		/cannot declare read-only workspaceAccess with write-checkout permissions/,
+	);
+});
+
 test("dispatchExecutor launches predefined executor and returns compact parent presentation without transcript", async () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
