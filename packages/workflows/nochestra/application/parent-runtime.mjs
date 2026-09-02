@@ -15,6 +15,10 @@ const DEFAULT_WORKER_RUNTIME_PATH = process.env.NOCH_WORKER_RUNTIME_PATH || file
 const DEFAULT_CHECKPOINT_PATH = process.env.NOCH_CHECKPOINT_PATH || path.join(".workflow", "nochestra-checkpoint.json");
 const DELIVERY_CONTEXT_BUDGET = { maxTokens: 4000, maxTurns: 4 };
 
+function deliveryPermissions(command) {
+	return command === "research" ? ["read-only"] : ["write-checkout"];
+}
+
 function readJson(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
@@ -220,7 +224,7 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active, env }) {
 		},
 		contextBudget: DELIVERY_CONTEXT_BUDGET,
 		selectedSkills: [selectedSkill],
-		permissions: ["write-checkout"],
+		permissions: deliveryPermissions(parsed.command),
 		model,
 	});
 

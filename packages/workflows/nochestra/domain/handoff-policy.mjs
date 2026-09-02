@@ -3,8 +3,14 @@ export const COMPACT_WORKER_RESULT_KEYS = Object.freeze(["status", "taskId", "su
 export const OPTIONAL_WORKER_RESULT_KEYS = Object.freeze(["artifacts", "verification", "blockers", "warnings", "recovery", "evidence", "fallbackApplied"]);
 export const FORBIDDEN_WORKER_RESULT_FIELDS = Object.freeze(["transcript", "messages", "rawWorkerLog", "fullParentTranscript"]);
 
+export function isReadOnlyHandoff(handoff) {
+	return Array.isArray(handoff?.permissions)
+		&& handoff.permissions.length > 0
+		&& handoff.permissions.every((p) => p === "read-only");
+}
+
 export function isWriteCapableHandoff(handoff) {
-	return Array.isArray(handoff?.permissions) && handoff.permissions.some((p) => p.includes("write"));
+	return !isReadOnlyHandoff(handoff);
 }
 
 export function needsWriterLock(handoff, requiresWriteLock) {
