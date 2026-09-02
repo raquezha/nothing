@@ -464,6 +464,9 @@ export default function (pi: ExtensionAPI) {
     if (e?.destination != null) ev.destination = String(e.destination);
     if (e?.workItemId != null) ev.workItemId = String(e.workItemId);
     if (typeof e?.handoffBytes === "number") ev.handoffBytes = e.handoffBytes;
+    if (typeof e?.parentPromptBytes === "number") ev.parentPromptBytes = e.parentPromptBytes;
+    if (typeof e?.quarantineSavingsBytes === "number") ev.quarantineSavingsBytes = e.quarantineSavingsBytes;
+    if (typeof e?.quarantineEfficiencyRatio === "number") ev.quarantineEfficiencyRatio = e.quarantineEfficiencyRatio;
     if (e?.resultStatus != null) ev.resultStatus = String(e.resultStatus);
     if (e?.nextStep != null) ev.nextStep = String(e.nextStep);
     if (typeof e?.fallbackApplied === "boolean") ev.fallbackApplied = e.fallbackApplied;
@@ -471,7 +474,7 @@ export default function (pi: ExtensionAPI) {
     if (ctx) updateContextUsage(ctx);
   }
 
-  const boundaryTypes = ["epoch_start", "epoch_end", "compaction_start", "compaction_completion", "worker_handoff"];
+  const boundaryTypes = ["epoch_start", "epoch_end", "compaction_start", "compaction_completion", "worker_handoff", "context_quarantine_efficiency"];
   for (const bType of boundaryTypes) {
     pi.on(bType as any, async (e: any, ctx: any) => {
       recordBoundaryEvent({ ...e, type: bType }, ctx);

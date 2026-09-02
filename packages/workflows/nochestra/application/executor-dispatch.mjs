@@ -101,6 +101,7 @@ export async function dispatchExecutor({
 	lockPath = DEFAULT_LOCK_PATH,
 	approveWriteDispatch = null,
 	workerId = null,
+	parentPromptBytes = 0,
 	onEvidence = null,
 	events = null,
 } = {}) {
@@ -135,6 +136,7 @@ export async function dispatchExecutor({
 			workerId: effectiveWorkerId,
 			fallbackApplied: false,
 			handoffBytes,
+			parentPromptBytes,
 		});
 		emitExecutionEvidence({ evidence, onEvidence, events });
 		cancelledResult.evidence = evidence;
@@ -166,6 +168,7 @@ export async function dispatchExecutor({
 			workerId: effectiveWorkerId,
 			fallbackApplied: Boolean(result.fallbackApplied),
 			handoffBytes,
+			parentPromptBytes,
 		});
 		emitExecutionEvidence({ evidence, onEvidence, events });
 		result.evidence = evidence;

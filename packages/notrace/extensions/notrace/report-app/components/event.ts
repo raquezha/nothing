@@ -9,7 +9,7 @@ export function renderJsonBlock(title: string, value: unknown): string {
 export function eventBadgeClass(ev: any): string {
   if (ev.type === "llm_completion") return "badge badge-llm";
   if (ev.type === "tool_start" || ev.type === "tool_end") return ev.isError ? "badge badge-error" : "badge badge-tool";
-  if (ev.type === "epoch_start" || ev.type === "epoch_end" || ev.type === "compaction_start" || ev.type === "compaction_completion" || ev.type === "worker_handoff") return "badge badge-epoch";
+  if (ev.type === "epoch_start" || ev.type === "epoch_end" || ev.type === "compaction_start" || ev.type === "compaction_completion" || ev.type === "worker_handoff" || ev.type === "context_quarantine_efficiency") return "badge badge-epoch";
   return "badge badge-system";
 }
 
@@ -18,6 +18,9 @@ export function eventTitle(ev: any): string {
   if (ev.type === "worker_handoff" && (ev.workItemId || ev.destination)) {
     const target = [ev.workItemId, ev.destination].filter(Boolean).join(" → ");
     return `worker_handoff (${target})`;
+  }
+  if (ev.type === "context_quarantine_efficiency" && ev.workItemId) {
+    return `context_quarantine_efficiency (${ev.workItemId})`;
   }
   return ev.model || ev.toolName || ev.reason || ev.type;
 }
@@ -34,7 +37,7 @@ export function renderEventBody(ev: any): string {
     sections.push(`<section class="block"><h4>Arguments</h4><div class="msg-content"><div class="chat-tool-use"><div class="chat-tool-header"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg> Execution Input</div><pre class="chat-tool-body">${escapeHtml(typeof ev.args === 'string' ? ev.args : JSON.stringify(ev.args, null, 2))}</pre></div></div></section>`);
   } else if (ev.type === "tool_end") {
     sections.push(`<section class="block"><h4>${ev.isError ? "Error Result" : "Result"}</h4><div class="msg-content"><div class="chat-tool-use" style="${ev.isError ? 'border-color: rgba(239,127,127,0.3);' : ''}"><div class="chat-tool-header" style="${ev.isError ? 'color: var(--err);' : 'color: var(--muted);'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg> Execution Output</div><pre class="chat-tool-body">${escapeHtml(typeof ev.result === 'string' ? ev.result : JSON.stringify(ev.result, null, 2))}</pre></div></div></section>`);
-  } else if (ev.type === "epoch_start" || ev.type === "epoch_end" || ev.type === "compaction_start" || ev.type === "compaction_completion" || ev.type === "worker_handoff") {
+  } else if (ev.type === "epoch_start" || ev.type === "epoch_end" || ev.type === "compaction_start" || ev.type === "compaction_completion" || ev.type === "worker_handoff" || ev.type === "context_quarantine_efficiency") {
     const details: Record<string, unknown> = {};
     if (ev.epochId != null) details.epochId = ev.epochId;
     if (ev.workerId != null) details.workerId = ev.workerId;
@@ -45,6 +48,9 @@ export function renderEventBody(ev: any): string {
     if (ev.destination != null) details.destination = ev.destination;
     if (ev.workItemId != null) details.workItemId = ev.workItemId;
     if (ev.handoffBytes != null) details.handoffBytes = ev.handoffBytes;
+    if (ev.parentPromptBytes != null) details.parentPromptBytes = ev.parentPromptBytes;
+    if (ev.quarantineSavingsBytes != null) details.quarantineSavingsBytes = ev.quarantineSavingsBytes;
+    if (ev.quarantineEfficiencyRatio != null) details.quarantineEfficiencyRatio = ev.quarantineEfficiencyRatio;
     if (ev.resultStatus != null) details.resultStatus = ev.resultStatus;
     if (ev.nextStep != null) details.nextStep = ev.nextStep;
     if (ev.fallbackApplied != null) details.fallbackApplied = ev.fallbackApplied;
