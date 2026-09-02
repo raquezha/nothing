@@ -29,6 +29,12 @@ function statusBadgeClass(status?: string | null): string {
   }
 }
 
+function formatDetailValue(val: unknown): string {
+  if (val === null || val === undefined) return "-";
+  if (typeof val === "object") return JSON.stringify(val);
+  return String(val);
+}
+
 export function renderExtensionCard(name: string, data: ExtensionTelemetryItem): string {
   const status = data?.status || "unknown";
   const statusLabel = formatTelemetryStatus(status);
@@ -50,13 +56,13 @@ export function renderExtensionCard(name: string, data: ExtensionTelemetryItem):
       guardSkips != null ? `<span>Guard Skips <strong>${Number(guardSkips)}</strong></span>` : "",
     ].filter(Boolean).join("");
 
-    return `<div class="card extension-card" style="padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--panel-strong);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><strong style="font-size: 1rem; color: var(--text);">${escapeHtml(name)}</strong><span class="badge ${badgeClass}">${escapeHtml(statusLabel)}</span></div>${summary ? `<div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; line-height: 1.5;">${escapeHtml(summary)}</div>` : ""}${statsHtml ? `<div class="tiny-breakdown" style="margin: 0; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;">${statsHtml}</div>` : `<div style="color: var(--muted); font-size: 0.85rem; italic;">No optimization activity recorded.</div>`}</div>`;
+    return `<div class="card extension-card" style="padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--panel-strong);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><strong style="font-size: 1rem; color: var(--text);">${escapeHtml(name)}</strong><span class="badge ${badgeClass}">${escapeHtml(statusLabel)}</span></div>${summary ? `<div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; line-height: 1.5;">${escapeHtml(summary)}</div>` : ""}${statsHtml ? `<div class="tiny-breakdown" style="margin: 0; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;">${statsHtml}</div>` : `<div style="color: var(--muted); font-size: 0.85rem; font-style: italic;">No optimization activity recorded.</div>`}</div>`;
   }
 
   // Generic extension telemetry card
   const detailKeys = Object.keys(details);
   const genericDetailsHtml = detailKeys.length
-    ? `<div class="tiny-breakdown" style="margin: 0; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;">${detailKeys.map((k) => `<span>${escapeHtml(k)} <strong>${escapeHtml(String(details[k]))}</strong></span>`).join("")}</div>`
+    ? `<div class="tiny-breakdown" style="margin: 0; background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 8px;">${detailKeys.map((k) => `<span>${escapeHtml(k)} <strong>${escapeHtml(formatDetailValue(details[k]))}</strong></span>`).join("")}</div>`
     : "";
 
   return `<div class="card extension-card" style="padding: 16px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; background: var(--panel-strong);"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><strong style="font-size: 1rem; color: var(--text);">${escapeHtml(name)}</strong><span class="badge ${badgeClass}">${escapeHtml(statusLabel)}</span></div>${summary ? `<div style="color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; line-height: 1.5;">${escapeHtml(summary)}</div>` : ""}${genericDetailsHtml}</div>`;
