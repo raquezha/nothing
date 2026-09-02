@@ -1,6 +1,49 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import type { NotraceCorrelationInfo, WorkflowContext } from "./types.js";
+import type { NochestraContextSavings, NochestraTelemetry, NotraceCorrelationInfo, WorkflowContext } from "./types.js";
+
+export function extractNochestraTelemetry(content?: any): NochestraTelemetry | null {
+  const envSavings: NochestraContextSavings = {};
+  let hasEnvSavings = false;
+
+  if (process.env.NOCHESTRA_PARENT_PROMPT_TOKENS) {
+    envSavings.parentPromptTokens = Number(process.env.NOCHESTRA_PARENT_PROMPT_TOKENS);
+    hasEnvSavings = true;
+  }
+  if (process.env.NOCHESTRA_PARENT_CONTEXT_TOKENS) {
+    envSavings.parentContextTokens = Number(process.env.NOCHESTRA_PARENT_CONTEXT_TOKENS);
+    hasEnvSavings = true;
+  }
+  if (process.env.NOCHESTRA_BOUNDED_HANDOFF_TOKENS) {
+    envSavings.boundedHandoffTokens = Number(process.env.NOCHESTRA_BOUNDED_HANDOFF_TOKENS);
+    hasEnvSavings = true;
+  }
+  if (process.env.NOCHESTRA_QUARANTINE_SAVINGS_TOKENS) {
+    envSavings.quarantineSavingsTokens = Number(process.env.NOCHESTRA_QUARANTINE_SAVINGS_TOKENS);
+    hasEnvSavings = true;
+  }
+  if (process.env.NOCHESTRA_QUARANTINE_SAVINGS_PERCENT) {
+    envSavings.quarantineSavingsPercent = Number(process.env.NOCHESTRA_QUARANTINE_SAVINGS_PERCENT);
+    hasEnvSavings = true;
+  }
+
+  const payload = content?.nochestra || content;
+  const workers = payload?.workers || null;
+  const epochs = payload?.epochs || null;
+  const remediations = payload?.remediations || null;
+  const quarantineSavings = payload?.quarantineSavings || (hasEnvSavings ? envSavings : null);
+
+  if (!workers && !epochs && !remediations && !quarantineSavings) {
+    return null;
+  }
+
+  return {
+    ...(workers ? { workers } : {}),
+    ...(epochs ? { epochs } : {}),
+    ...(remediations ? { remediations } : {}),
+    ...(quarantineSavings ? { quarantineSavings } : {}),
+  };
+}
 
 export function extractCorrelation(content?: any): NotraceCorrelationInfo | null {
   const runId = process.env.NOCHESTRA_RUN_ID || content?.runId || content?.run_id || content?.correlation?.runId || null;

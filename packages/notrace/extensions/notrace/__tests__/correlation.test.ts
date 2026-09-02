@@ -3,7 +3,7 @@ import { handleSessionShutdown, type SessionShutdownDeps } from "../index.js";
 import { cleanupTempNotraceDir, makeTempNotraceDir } from "./helpers.js";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import { extractCorrelation, ActiveWorkflowAdapter } from "../adapters.js";
+import { extractCorrelation, extractNochestraTelemetry, ActiveWorkflowAdapter } from "../adapters.js";
 
 describe("Nochestra Correlation Integration", () => {
   const originalEnv = { ...process.env };
@@ -15,6 +15,11 @@ describe("Nochestra Correlation Integration", () => {
     delete process.env.NOCHESTRA_SESSION_ID;
     delete process.env.NOCHESTRA_EPOCH_ID;
     delete process.env.NOCHESTRA_PARENT_SESSION_ID;
+    delete process.env.NOCHESTRA_PARENT_PROMPT_TOKENS;
+    delete process.env.NOCHESTRA_PARENT_CONTEXT_TOKENS;
+    delete process.env.NOCHESTRA_BOUNDED_HANDOFF_TOKENS;
+    delete process.env.NOCHESTRA_QUARANTINE_SAVINGS_TOKENS;
+    delete process.env.NOCHESTRA_QUARANTINE_SAVINGS_PERCENT;
   });
 
   afterEach(() => {
@@ -92,5 +97,22 @@ describe("Nochestra Correlation Integration", () => {
     });
 
     cleanupTempNotraceDir(notraceDir);
+  });
+
+  it("extracts Nochestra context quarantine savings telemetry from environment variables", () => {
+    process.env.NOCHESTRA_PARENT_PROMPT_TOKENS = "10000";
+    process.env.NOCHESTRA_BOUNDED_HANDOFF_TOKENS = "2000";
+    process.env.NOCHESTRA_QUARANTINE_SAVINGS_TOKENS = "8000";
+    process.env.NOCHESTRA_QUARANTINE_SAVINGS_PERCENT = "80";
+
+    const telemetry = extractNochestraTelemetry();
+    expect(telemetry).toEqual({
+      quarantineSavings: {
+        parentPromptTokens: 10000,
+        boundedHandoffTokens: 2000,
+        quarantineSavingsTokens: 8000,
+        quarantineSavingsPercent: 80,
+      },
+    });
   });
 });

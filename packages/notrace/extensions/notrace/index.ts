@@ -12,7 +12,7 @@ import type {
   NotraceRunRecord,
   WorkflowContext,
 } from "./types.js";
-import { extractCorrelation, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
+import { extractCorrelation, extractNochestraTelemetry, getActiveAdapter, type WorkflowAdapter } from "./adapters.js";
 import { generateDashboardHtml } from "./report-app/dashboard-report.js";
 import { generateSessionSummaryHtml } from "./report-app/report.js";
 
@@ -222,6 +222,7 @@ function createIndexEntry(record: NotraceRunRecord, recordPath: string, htmlPath
     captureMode: record.captureMode,
     task: record.task,
     correlation: record.correlation ?? null,
+    nochestra: record.nochestra ?? null,
     conditions: record.conditions,
     activity: record.activity,
     artifacts: {
@@ -293,6 +294,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
   const telemetry = Object.fromEntries([...deps.extensionTelemetry.entries()].sort(([a], [b]) => a.localeCompare(b)));
   const role = context?.role ?? process.env.NOCHESTRA_ROLE ?? process.env.PI_ROLE ?? null;
   const correlation = context?.correlation ?? extractCorrelation();
+  const nochestra = (context as any)?.nochestra ?? extractNochestraTelemetry();
 
   const record: NotraceRunRecord = {
     kind: "notrace-run",
@@ -313,6 +315,7 @@ export async function handleSessionShutdown(e: any, ctx: any, deps: SessionShutd
     },
     task: toTaskInfo(context) || originalTask,
     correlation: correlation ?? null,
+    nochestra: nochestra ?? null,
     captureMode: deps.captureMode,
     conditions: buildConditions(mergedEvents, telemetry),
     activity,
