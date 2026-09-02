@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { executeResearchWorker, executeTriageWorker, executeWorker, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, parsePlanSliceLine, resolveVaultNotePath } from "../application/worker-runtime.mjs";
+import { executeNotesWorker, executeResearchWorker, executeTriageWorker, executeWorker, extractWikiLinks, hasMeaningfulContent, hasUncheckedAfkSlice, inferNextStep, parseFrontmatter, parsePlanSliceLine, resolveVaultNotePath, stringifyFrontmatter, verifyVaultLinks } from "../application/worker-runtime.mjs";
 
 const TRIAGE_HELPER_PATH = path.join(process.cwd(), "packages/workflows/norpiv/scripts/triage_helper.sh");
 const RESEARCH_HELPER_PATH = path.join(process.cwd(), "packages/workflows/noresearch/scripts/research_helper.sh");
@@ -477,5 +477,148 @@ test("executeWorker delegates stage execution to sub-process when command is sup
 			fs.unlinkSync(scriptPath);
 		}
 		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("parseFrontmatter and stringifyFrontmatter handle YAML frontmatter objects and arrays", () => {
+	const sample = `---
+user.id: 123
+tags:
+  - obsidian
+  - notes
+title: "Architecture: Deep Dive"
+aliases: [ai-note, distilled-note]
+created: 2026-01-01
+updated: 2026-01-01
+---
+
+# Title
+Body text
+`;
+
+	const parsed = parseFrontmatter(sample);
+	assert.deepEqual(parsed.frontmatter, {
+		"user.id": 123,
+		tags: ["obsidian", "notes"],
+		title: "Architecture: Deep Dive",
+		aliases: ["ai-note", "distilled-note"],
+		created: "2026-01-01",
+		updated: "2026-01-01",
+	});
+	assert.equal(parsed.body.trim(), "# Title\nBody text");
+
+	const reserialized = stringifyFrontmatter(parsed.frontmatter);
+	assert.match(reserialized, /---/);
+	assert.match(reserialized, /user\.id: 123/);
+	assert.match(reserialized, /title: "Architecture: Deep Dive"/);
+	assert.match(reserialized, /tags:/);
+	assert.match(reserialized, /- obsidian/);
+	assert.match(reserialized, /created: 2026-01-01/);
+});
+
+test("extractWikiLinks and verifyVaultLinks accurately extract and resolve links while ignoring code blocks", () => {
+	const text = `See [[Architecture Note#Section|Arch]], [[Missing Note]], and [[../../etc/passwd]].
+Here is code: \`[[Code Note]]\` and:
+\`\`\`markdown
+[[Ignored Note]]
+\`\`\``;
+	const links = extractWikiLinks(text);
+	assert.equal(links.length, 3);
+	assert.equal(links[0].target, "Architecture Note");
+	assert.equal(links[0].heading, "Section");
+	assert.equal(links[0].alias, "Arch");
+
+	assert.equal(links[1].target, "Missing Note");
+	assert.equal(links[2].target, "../../etc/passwd");
+
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-test-"));
+	try {
+		fs.writeFileSync(path.join(tempVault, "Architecture Note.md"), "# Arch", "utf8");
+		fs.mkdirSync(path.join(tempVault, ".git"), { recursive: true });
+		fs.writeFileSync(path.join(tempVault, ".git", "Secret.md"), "# Secret", "utf8");
+
+		const verified = verifyVaultLinks(links, tempVault);
+		assert.equal(verified[0].exists, true);
+		assert.equal(verified[1].exists, false);
+		assert.equal(verified[2].exists, false); // Traversal rejected
+
+		const secretCheck = verifyVaultLinks([{ raw: "[[Secret]]", target: "Secret", heading: null, alias: null }], tempVault);
+		assert.equal(secretCheck[0].exists, false); // Ignores .git folder
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
+	}
+});
+
+test("executeNotesWorker supports custom note content in handoff", async () => {
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-custom-"));
+	try {
+		const handoff = {
+			assignment: 'Run note for "custom content note"',
+			destination: "note",
+			artifact: {
+				topic: "custom content note",
+				content: "# Custom Header\n\nCustom body content for the note.",
+			},
+		};
+
+		const res = await executeNotesWorker(handoff, { vaultRoot: tempVault });
+		assert.equal(res.status, "created");
+		const notePath = res.artifacts[0].path;
+		const content = fs.readFileSync(notePath, "utf8");
+		assert.ok(content.includes("# Custom Header"));
+		assert.ok(content.includes("Custom body content for the note."));
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
+	}
+});
+
+test("executeNotesWorker creates and updates notes while preserving frontmatter", async () => {
+	const tempVault = fs.mkdtempSync(path.join(os.tmpdir(), "vault-notes-"));
+	try {
+		const handoff = {
+			assignment: 'Run note for "vault architecture"',
+			destination: "note",
+			artifact: {
+				topic: "vault architecture",
+				path: "ai/architecture.md",
+				frontmatter: { tags: ["arch"], aliases: ["vault-arch"] },
+			},
+		};
+
+		const createRes = await executeNotesWorker(handoff, { vaultRoot: tempVault });
+		assert.equal(createRes.status, "created");
+		assert.equal(createRes.artifacts.length, 1);
+
+		const notePath = createRes.artifacts[0].path;
+		assert.equal(fs.existsSync(notePath), true);
+
+		const initialContent = fs.readFileSync(notePath, "utf8");
+		const parsed1 = parseFrontmatter(initialContent);
+		assert.deepEqual(parsed1.frontmatter.tags, ["arch"]);
+		assert.equal(parsed1.frontmatter.type, "note");
+		assert.ok(parsed1.frontmatter.created);
+
+		// Now update note
+		const updateHandoff = {
+			assignment: 'Run note for "vault architecture"',
+			destination: "note",
+			artifact: {
+				topic: "vault architecture",
+				path: "ai/architecture.md",
+				frontmatter: { tags: ["updated-tag"] },
+			},
+		};
+
+		const updateRes = await executeNotesWorker(updateHandoff, { vaultRoot: tempVault });
+		assert.equal(updateRes.status, "updated");
+
+		const updatedContent = fs.readFileSync(notePath, "utf8");
+		const parsed2 = parseFrontmatter(updatedContent);
+		assert.ok(parsed2.frontmatter.tags.includes("arch"));
+		assert.ok(parsed2.frontmatter.tags.includes("updated-tag"));
+		assert.equal(parsed2.frontmatter.created, parsed1.frontmatter.created);
+		assert.ok(parsed2.body.includes("Note Update"));
+	} finally {
+		fs.rmSync(tempVault, { recursive: true, force: true });
 	}
 });

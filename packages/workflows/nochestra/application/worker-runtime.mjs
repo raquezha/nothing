@@ -257,6 +257,142 @@ export async function executeWorker(handoff, options = {}) {
 	};
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const YAML_KEY_RE = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/;
+const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;
+const YAML_QUOTE_RE = /[:#\[\]{}%@`*?|<>=!&]|\s$/;
+
+function stripQuotes(value) {
+	return String(value).trim().replace(/^['"]|['"]$/g, "");
+}
+
+function parseYamlValue(value) {
+	const trimmed = value.trim();
+	if (!trimmed) return "";
+	if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+		return trimmed.slice(1, -1).split(",").map(stripQuotes).filter(Boolean);
+	}
+	if (trimmed === "true") return true;
+	if (trimmed === "false") return false;
+	if (!Number.isNaN(Number(trimmed))) return Number(trimmed);
+	return stripQuotes(trimmed);
+}
+
+function appendYamlListItem(frontmatter, key, rawValue) {
+	frontmatter[key] = Array.isArray(frontmatter[key]) ? frontmatter[key] : [];
+	frontmatter[key].push(stripQuotes(rawValue));
+}
+
+export function parseFrontmatter(content) {
+	const text = String(content || "").replace(/^\uFEFF/, "");
+	const match = text.match(FRONTMATTER_RE);
+	if (!match) return { frontmatter: {}, body: text, rawYaml: "" };
+
+	const frontmatter = {};
+	let currentKey = null;
+
+	for (const line of match[1].split(/\r?\n/)) {
+		if (!line.trim() || line.trim().startsWith("#")) continue;
+
+		const listItem = line.match(/^\s*-\s+(.*)$/);
+		if (listItem && currentKey) {
+			appendYamlListItem(frontmatter, currentKey, listItem[1]);
+			continue;
+		}
+
+		const keyValue = line.match(YAML_KEY_RE);
+		if (!keyValue) continue;
+		currentKey = keyValue[1].trim();
+		frontmatter[currentKey] = parseYamlValue(keyValue[2]);
+	}
+
+	return { frontmatter, body: text.slice(match[0].length), rawYaml: match[1] };
+}
+
+function safeYamlValue(v) {
+	if (typeof v === "number" || typeof v === "boolean") return String(v);
+	const str = String(v);
+	return YAML_QUOTE_RE.test(str) || str.trim() !== str ? JSON.stringify(str) : str;
+}
+
+function stringifyYamlEntry([key, val]) {
+	if (val === undefined || val === null) return [];
+	if (!Array.isArray(val)) return [`${key}: ${safeYamlValue(val)}`];
+	if (val.length === 0) return [`${key}: []`];
+	return [`${key}:`, ...val.map((item) => `  - ${safeYamlValue(item)}`)];
+}
+
+export function stringifyFrontmatter(fmObj) {
+	if (!fmObj || typeof fmObj !== "object" || Object.keys(fmObj).length === 0) return "";
+	return ["---", ...Object.entries(fmObj).flatMap(stringifyYamlEntry), "---"].join("\n");
+}
+
+function splitWikiLink(rawInner) {
+	const [targetAndHeading, alias = null] = rawInner.trim().split("|", 2);
+	const [target, heading = null] = targetAndHeading.trim().split("#", 2);
+	return { target: target || "", heading, alias };
+}
+
+export function extractWikiLinks(content) {
+	const stripped = String(content || "").replace(/```[\s\S]*?```/g, "").replace(/`[^`]+`/g, "");
+	return [...stripped.matchAll(WIKI_LINK_RE)].map((match) => ({
+		raw: match[0],
+		...splitWikiLink(match[1]),
+	}));
+}
+
+function findFileInVault(dir, targetBaseName) {
+	if (!fs.existsSync(dir)) return null;
+	const entries = fs.readdirSync(dir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+		const full = path.join(dir, entry.name);
+		if (entry.isDirectory()) {
+			const res = findFileInVault(full, targetBaseName);
+			if (res) return res;
+		} else if (entry.isFile() && entry.name.toLowerCase() === targetBaseName.toLowerCase()) {
+			return full;
+		}
+	}
+	return null;
+}
+
+export function verifyVaultLinks(links, vaultRoot = DEFAULT_VAULT_ROOT) {
+	const resolvedVault = path.resolve(vaultRoot);
+	return links.map((link) => {
+		if (!link.target) return { ...link, exists: false, resolvedPath: null };
+		let targetPath = link.target;
+		if (!targetPath.endsWith(".md")) {
+			targetPath += ".md";
+		}
+		const directPath = path.resolve(resolvedVault, targetPath);
+		if (!directPath.startsWith(resolvedVault + path.sep) && directPath !== resolvedVault) {
+			return { ...link, exists: false, resolvedPath: null };
+		}
+		let exists = false;
+		let resolvedPath = directPath;
+		if (fs.existsSync(directPath)) {
+			exists = true;
+		} else {
+			try {
+				const baseName = path.basename(targetPath);
+				const found = findFileInVault(resolvedVault, baseName);
+				if (found) {
+					exists = true;
+					resolvedPath = found;
+				}
+			} catch {
+				exists = false;
+			}
+		}
+		return {
+			...link,
+			exists,
+			resolvedPath: exists ? resolvedPath : null,
+		};
+	});
+}
+
 export function resolveVaultNotePath(topic, vaultRoot = DEFAULT_VAULT_ROOT, customRelPath = null) {
 	const slug = slugifyTopic(topic);
 	const today = new Date().toISOString().slice(0, 10);
@@ -287,7 +423,9 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	}
 
 	const customPath = handoff.artifact?.path ?? handoff.artifactSnapshot?.path ?? null;
-	const { resolvedTarget } = resolveVaultNotePath(topic, vaultRoot, customPath);
+	const customContent = handoff.artifact?.content ?? handoff.artifactSnapshot?.content ?? null;
+	const extraFrontmatter = handoff.artifact?.frontmatter ?? handoff.artifactSnapshot?.frontmatter ?? {};
+	const { resolvedTarget, resolvedVault } = resolveVaultNotePath(topic, vaultRoot, customPath);
 
 	if (fs.existsSync(resolvedTarget) && fs.statSync(resolvedTarget).isDirectory()) {
 		throw new Error(`Target note path is a directory: ${resolvedTarget}`);
@@ -297,35 +435,68 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 	fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
 
 	const today = new Date().toISOString().slice(0, 10);
+	let finalContent = "";
 
 	if (isUpdate) {
-		const existingContent = fs.readFileSync(resolvedTarget, "utf8");
-		const appendEntry = `\n\n## Note Update (${today})\n\n- ${topic}\n`;
-		fs.writeFileSync(resolvedTarget, existingContent + appendEntry, "utf8");
+		const existingText = fs.readFileSync(resolvedTarget, "utf8");
+		const { frontmatter: existingFm, body: existingBody } = parseFrontmatter(existingText);
+
+		const updatedFm = {
+			...existingFm,
+			...extraFrontmatter,
+			created: existingFm.created || today,
+			updated: today,
+		};
+
+		if (extraFrontmatter.tags) {
+			const existingArr = Array.isArray(existingFm.tags) ? existingFm.tags : existingFm.tags ? [existingFm.tags] : [];
+			const extraArr = Array.isArray(extraFrontmatter.tags) ? extraFrontmatter.tags : [extraFrontmatter.tags];
+			updatedFm.tags = Array.from(new Set([...existingArr, ...extraArr]));
+		}
+		if (extraFrontmatter.aliases) {
+			const existingArr = Array.isArray(existingFm.aliases) ? existingFm.aliases : existingFm.aliases ? [existingFm.aliases] : [];
+			const extraArr = Array.isArray(extraFrontmatter.aliases) ? extraFrontmatter.aliases : [extraFrontmatter.aliases];
+			updatedFm.aliases = Array.from(new Set([...existingArr, ...extraArr]));
+		}
+
+		const appendEntry = customContent ? `\n\n## Note Update (${today})\n\n${customContent.trim()}\n` : `\n\n## Note Update (${today})\n\n- ${topic}\n`;
+		const fmYaml = stringifyFrontmatter(updatedFm);
+		finalContent = fmYaml ? `${fmYaml}\n\n${existingBody.trim()}${appendEntry}` : `${existingBody.trim()}${appendEntry}`;
 	} else {
-		const initialContent = [
-			"---",
-			`distilled: ${today}`,
-			"type: note",
-			"---",
-			"",
-			`# ${topic}`,
-			"",
-			`> ${topic}`,
-			"",
-			"## Note",
-			"",
-			`- ${topic}`,
-			"",
-			"## Resume prompt",
-			"",
-			`> Review and continue notes on ${topic}`,
-			"",
-		].join("\n");
-		fs.writeFileSync(resolvedTarget, initialContent, "utf8");
+		const initialFm = {
+			distilled: today,
+			type: "note",
+			created: today,
+			updated: today,
+			...extraFrontmatter,
+		};
+
+		const initialBody = customContent
+			? customContent.trim()
+			: [
+					`# ${topic}`,
+					"",
+					`> ${topic}`,
+					"",
+					"## Note",
+					"",
+					`- ${topic}`,
+					"",
+					"## Resume prompt",
+					"",
+					`> Review and continue notes on ${topic}`,
+					"",
+				].join("\n");
+
+		const fmYaml = stringifyFrontmatter(initialFm);
+		finalContent = `${fmYaml}\n\n${initialBody}`;
 	}
 
+	fs.writeFileSync(resolvedTarget, finalContent, "utf8");
+
 	const status = isUpdate ? "updated" : "created";
+	const wikiLinks = extractWikiLinks(finalContent);
+	const verifiedLinks = verifyVaultLinks(wikiLinks, resolvedVault);
 
 	return {
 		status,
@@ -333,6 +504,7 @@ export async function executeNotesWorker(handoff, { cwd = process.cwd(), vaultRo
 		summary: `Note ${status} for "${topic}"`,
 		nextStep: "review note",
 		artifacts: [{ path: resolvedTarget, kind: "obsidian-note" }],
+		links: verifiedLinks,
 	};
 }
 
