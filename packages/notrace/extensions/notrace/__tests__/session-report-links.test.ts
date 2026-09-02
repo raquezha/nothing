@@ -44,7 +44,7 @@ describe("session report artifacts", () => {
     expect(existsSync(reportPath)).toBe(true);
     const reportHtml = readFileSync(reportPath, "utf-8");
     expect(reportHtml).toContain("Session summary");
-    expect(reportHtml).not.toContain("Timeline");
+    expect(reportHtml).toContain("Timeline / Events");
     expect(reportHtml).toContain("Open canonical record");
     expect(reportHtml).toContain("Parent Session");
 
