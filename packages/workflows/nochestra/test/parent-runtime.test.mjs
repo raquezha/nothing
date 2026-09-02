@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext } from "../application/parent-runtime.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext, dispatchDeliveryCommand } from "../application/parent-runtime.mjs";
 import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
@@ -49,6 +49,130 @@ test("buildNochestraDeliveryHandoff keeps delivery state bounded and transcript-
 	assert.equal(handoff.artifactSnapshot.activeWorkflow.branch, "feat/140");
 	assert.equal("transcript" in handoff, false);
 	assert.equal("messages" in handoff, false);
+});
+
+test("buildNochestraDeliveryHandoff selects model tier based on task complexity", () => {
+	const checkpoint = readCheckpoint(CHECKPOINT_FIXTURE_PATH);
+
+	// Lightweight task: triage prefers local fast model
+	const triageParsed = parseNochestraInput("/triage github:194");
+	const triageHandoff = buildNochestraDeliveryHandoff({
+		parsed: triageParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(triageHandoff.model.provider, "ollama");
+	assert.equal(triageHandoff.model.name, "ornith:9b");
+
+	// Heavy task: plan prefers cloud premium model
+	const planParsed = parseNochestraInput("/plan github:194");
+	const planHandoff = buildNochestraDeliveryHandoff({
+		parsed: planParsed,
+		checkpoint,
+		active: { id: "github-194", stateFile: ".workflow/tasks/github-194/WORK.md" },
+	});
+	assert.equal(planHandoff.model.provider, "antigravity");
+	assert.equal(planHandoff.model.name, "gemini-3.6-flash");
+
+	// Explicit override: /triage github:194 use gpt-5.4-mini
+	const overrideParsed = parseNochestraInput("/triage github:194 use gpt-5.4-mini");
+	const overrideHandoff = buildNochestraDeliveryHandoff({
+		parsed: overrideParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(overrideHandoff.model.provider, "openai-codex");
+	assert.equal(overrideHandoff.model.name, "gpt-5.4-mini");
+
+	// Explicit full spec override preserves actual catalog context window
+	const fullSpecParsed = parseNochestraInput("/triage github:194 use antigravity/gemini-3.6-flash");
+	const fullSpecHandoff = buildNochestraDeliveryHandoff({
+		parsed: fullSpecParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(fullSpecHandoff.model.provider, "antigravity");
+	assert.equal(fullSpecHandoff.model.name, "gemini-3.6-flash");
+	assert.equal(fullSpecHandoff.model.contextWindow, 1048576);
+
+	// Provider alias resolution (openai -> openai-codex)
+	const providerAliasParsed = parseNochestraInput("/triage github:194 use openai/gpt-5.4-mini");
+	const providerAliasHandoff = buildNochestraDeliveryHandoff({
+		parsed: providerAliasParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(providerAliasHandoff.model.provider, "openai-codex");
+	assert.equal(providerAliasHandoff.model.name, "gpt-5.4-mini");
+
+	// Real prompts often contain spaces instead of exact catalog punctuation
+	const spacedModelParsed = parseNochestraInput("/plan github:194 use openai gpt 5.4 mini please");
+	const spacedModelHandoff = buildNochestraDeliveryHandoff({ parsed: spacedModelParsed, checkpoint, active: null });
+	assert.equal(spacedModelHandoff.model.provider, "openai-codex");
+	assert.equal(spacedModelHandoff.model.name, "gpt-5.4-mini");
+
+	// Shortcut and typo resolution (3.6-flash -> gemini-3.6-flash, ornith -> ornith:9b)
+	const shortcutParsed1 = parseNochestraInput("/triage github:194 use 3.6-flash");
+	const shortcutHandoff1 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed1, checkpoint, active: null });
+	assert.equal(shortcutHandoff1.model.name, "gemini-3.6-flash");
+
+	const shortcutParsed2 = parseNochestraInput("/plan github:194 use ornith");
+	const shortcutHandoff2 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed2, checkpoint, active: null });
+	assert.equal(shortcutHandoff2.model.name, "ornith:9b");
+
+	// Vague or unrecognized model override stops before dispatch and asks for clarification
+	const unknownParsed = parseNochestraInput("/plan github:194 use unknown-random-model-xyz");
+	assert.throws(
+		() => buildNochestraDeliveryHandoff({ parsed: unknownParsed, checkpoint, active: null }),
+		/Which model did you mean by "unknown-random-model-xyz"\?/
+	);
+});
+
+test("dispatchDeliveryCommand falls back to cloud model when local model override is requested but unavailable", async () => {
+	const repoDir = makeRepo();
+	const scriptPath = path.join(os.tmpdir(), `test-override-fallback-${Date.now()}.cjs`);
+
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		if (providerVal === 'ollama') process.exit(1);
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-194',
+			summary: 'Fallback execution success',
+			nextStep: '/implement'
+		}));
+	`, "utf8");
+
+	try {
+		const parsed = parseNochestraInput("/plan github:194 use ornith:9b");
+		const result = await dispatchDeliveryCommand({
+			parsed,
+			cwd: repoDir,
+			workerRuntimePath: scriptPath,
+			checkProviderAvailable: (provider) => provider !== "ollama",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.fallbackApplied, true);
+
+		// Custom local provider env override fallback
+		const customLocalParsed = parseNochestraInput("/plan github:194 use custom-local/model-a");
+		const customResult = await dispatchDeliveryCommand({
+			parsed: customLocalParsed,
+			cwd: repoDir,
+			workerRuntimePath: scriptPath,
+			env: { ...process.env, NOCH_LOCAL_PROVIDER: "custom-local" },
+			checkProviderAvailable: (provider) => provider !== "custom-local",
+		});
+
+		assert.equal(customResult.status, "ok");
+		assert.equal(customResult.fallbackApplied, true);
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
 });
 
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {

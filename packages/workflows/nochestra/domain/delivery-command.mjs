@@ -123,6 +123,41 @@ export function recommendNochestraRoute(input) {
 	};
 }
 
+const MODEL_OVERRIDE_STOP_WORDS = new Set(["please", "pls", "thanks", "thx"]);
+
+function cleanModelToken(token) {
+	return stripOuterQuotes(token).replace(/^[,.!;]+|[,.!;]+$/g, "");
+}
+
+function extractModelOverride(args) {
+	if (!Array.isArray(args) || args.length === 0) return { cleanArgs: args || [], requestedModel: null };
+	const clean = [];
+	let requestedModel = null;
+	for (let i = 0; i < args.length; i++) {
+		const token = args[i];
+		const lower = token.toLowerCase();
+		if ((lower === "use" || lower === "with" || lower === "using" || lower === "--model") && i + 1 < args.length) {
+			let targetIdx = i + 1;
+			const nextLower = args[targetIdx].toLowerCase();
+			if ((nextLower === "model" || nextLower === "provider") && targetIdx + 1 < args.length) {
+				targetIdx++;
+			}
+			const parts = [];
+			for (let j = targetIdx; j < args.length; j++) {
+				const part = cleanModelToken(args[j]);
+				const partLower = part.toLowerCase();
+				if (!part || !/[a-z0-9]/i.test(part) || MODEL_OVERRIDE_STOP_WORDS.has(partLower) || partLower.startsWith("--")) break;
+				parts.push(part);
+				i = j;
+			}
+			requestedModel = stripOuterQuotes(parts.join(" "));
+		} else {
+			clean.push(token);
+		}
+	}
+	return { cleanArgs: clean, requestedModel };
+}
+
 export function parseNochestraInput(input) {
 	const raw = normalizeInput(input);
 	if (!raw) {
@@ -207,12 +242,16 @@ export function parseNochestraInput(input) {
 		};
 	}
 
+	const remainingArgs = task ? rest.slice(1) : rest;
+	const { cleanArgs, requestedModel } = extractModelOverride(remainingArgs);
+
 	return {
 		kind: "delivery",
 		route: "delivery",
 		command,
 		task: task || null,
-		args: task ? rest.slice(1) : rest,
+		args: cleanArgs,
+		...(requestedModel ? { requestedModel } : {}),
 		raw,
 	};
 }

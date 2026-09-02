@@ -37,7 +37,7 @@ test("buildBoundedHandoff creates handoff with explicit context budget and accep
 	assert.deepEqual(handoff.selectedSkills, ["ponytail"]);
 	assert.deepEqual(handoff.expectedResultShape, {
 		required: ["status", "taskId", "summary", "nextStep"],
-		optional: ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"],
+		optional: ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence", "fallbackApplied"],
 	});
 	assert.equal("parentTranscript" in handoff, false);
 	assert.equal("transcript" in handoff, false);
@@ -570,6 +570,59 @@ test("spawnWorkerProcess rejects malformed stdout JSON from worker sub-process",
 	}
 });
 
+test("spawnWorkerProcess cleans up temporary handoff files on process fallback", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Temp file cleanup test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-temp-cleanup-${Date.now()}.cjs`);
+	let createdTempFile = null;
+
+	fs.writeFileSync(scriptPath, `
+		const fs = require('fs');
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		const handoffIdx = args.indexOf('--handoff');
+		const handoffPath = handoffIdx !== -1 ? args[handoffIdx + 1] : null;
+		if (handoffPath && fs.existsSync(handoffPath)) {
+			console.error('TEMP_PATH:' + handoffPath);
+		}
+		if (providerVal === 'ollama') process.exit(1);
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-194-temp',
+			summary: 'Temp cleanup fallback success',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			handoffMode: "file",
+			fallbackModel: { provider: "cloud-anthropic", name: "claude-3-5-sonnet" },
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.fallbackApplied, true);
+
+		if (result.evidence?.tempFilePath) {
+			assert.equal(fs.existsSync(result.evidence.tempFilePath), false, "Temporary handoff file should be unlinked");
+		}
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
+	}
+});
+
 test("buildBoundedHandoff supports valid model specification and rejects malformed model config", () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
@@ -902,6 +955,7 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 	const handoff = {
 		destination: "triage",
 		artifactSnapshot: { source: "github", id: "175", route: "delivery" },
+		model: { provider: "ollama", name: "qwen:7b" },
 	};
 	const result = { status: "created", taskId: "github-175", nextStep: "/frame" };
 	const evidence = buildExecutionEvidence({
@@ -920,6 +974,8 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 		handoffBytes: 1200,
 		resultStatus: "created",
 		nextStep: "/frame",
+		provider: "ollama",
+		model: "qwen:7b",
 		fallbackApplied: false,
 	});
 	assert.equal("parentTranscript" in evidence, false);

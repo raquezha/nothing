@@ -79,6 +79,41 @@ test("parseNochestraInput rejects research command without topic", () => {
 	});
 });
 
+test("parseNochestraInput parses natural language model override using 'use <model>'", () => {
+	const result1 = parseNochestraInput("/triage github:194 use gpt-5.4-mini");
+	assert.equal(result1.kind, "delivery");
+	assert.equal(result1.requestedModel, "gpt-5.4-mini");
+
+	const result2 = parseNochestraInput("/triage github:194 use model gpt-5.4-mini");
+	assert.equal(result2.kind, "delivery");
+	assert.equal(result2.requestedModel, "gpt-5.4-mini");
+
+	const result3 = parseNochestraInput("/triage github:194 with model gpt-5.4-mini");
+	assert.equal(result3.kind, "delivery");
+	assert.equal(result3.requestedModel, "gpt-5.4-mini");
+
+	const result4 = parseNochestraInput('/triage github:194 use "gpt-5.4-mini"');
+	assert.equal(result4.kind, "delivery");
+	assert.equal(result4.requestedModel, "gpt-5.4-mini");
+
+	const result5 = parseNochestraInput("/triage github:194 use gpt-5.4-mini, please");
+	assert.equal(result5.kind, "delivery");
+	assert.equal(result5.requestedModel, "gpt-5.4-mini");
+
+	const result6 = parseNochestraInput("/triage github:194 using 'ornith:9b' 🚀");
+	assert.equal(result6.kind, "delivery");
+	assert.equal(result6.requestedModel, "ornith:9b");
+
+	const result7 = parseNochestraInput("/plan github:194 use gpt 5.4 mini please");
+	assert.equal(result7.kind, "delivery");
+	assert.equal(result7.requestedModel, "gpt 5.4 mini");
+
+	const result8 = parseNochestraInput("/plan github:194 reopen using openai gpt 5.4 mini");
+	assert.equal(result8.kind, "delivery");
+	assert.deepEqual(result8.args, ["reopen"]);
+	assert.equal(result8.requestedModel, "openai gpt 5.4 mini");
+});
+
 test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
 	const result = parseNochestraInput("/triage github:143");
 

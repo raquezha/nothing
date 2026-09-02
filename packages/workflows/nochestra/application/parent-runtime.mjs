@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput, slugifyTopic } from "../domain/delivery-command.mjs";
 import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
+import { resolveModelTier, resolveModelOverride } from "../domain/model-tier-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
@@ -187,71 +188,52 @@ function activeWorkflowSnapshot(active) {
 	} : null;
 }
 
-export function buildDeliveryHandoff({ parsed, checkpoint, active }) {
+export function buildDeliveryHandoff({ parsed, checkpoint, active, env }) {
 	const task = resolveDeliveryTask(parsed, active);
+	let destination = parsed.command;
+	let selectedSkill = parsed.command;
 	if (parsed.command === "research") {
-		const base = buildBoundedHandoff({
-			assignment: `Run research for "${task.topic || task.id}"`,
-			checkpoint,
-			artifactSnapshot: {
-				...task,
-				activeWorkflow: activeWorkflowSnapshot(active),
-			},
-			contextBudget: DELIVERY_CONTEXT_BUDGET,
-			selectedSkills: ["research"],
-			permissions: ["write-checkout"],
-		});
-
-		return {
-			...base,
-			destination: "research",
-			artifact: {
-				...task,
-				stateFile: active?.workflow === "research" ? active.stateFile : null,
-			},
-		};
+		destination = "research";
+		selectedSkill = "research";
+	} else if (parsed.command === "note") {
+		destination = "note";
+		selectedSkill = "distill";
 	}
-	if (parsed.command === "note") {
-		const base = buildBoundedHandoff({
-			assignment: `Run note for "${task.topic || task.id}"`,
-			checkpoint,
-			artifactSnapshot: {
-				...task,
-				activeWorkflow: activeWorkflowSnapshot(active),
-			},
-			contextBudget: DELIVERY_CONTEXT_BUDGET,
-			selectedSkills: ["distill"],
-			permissions: ["write-checkout"],
-		});
 
-		return {
-			...base,
-			destination: "note",
-			artifact: {
-				...task,
-				stateFile: active?.workflow === "notes" ? active.stateFile : null,
-			},
-		};
+	const { model: stageModel } = resolveModelTier(destination, { env });
+	const overrideModel = resolveModelOverride(parsed.requestedModel);
+	if (parsed.requestedModel && !overrideModel) {
+		throw new Error(`Which model did you mean by "${parsed.requestedModel}"? Use an exact catalog model or known shortcut (for example: ornith, 3.6-flash, sonnet, opus, gpt-5.4-mini).`);
 	}
+	const model = overrideModel || stageModel;
 
 	const base = buildBoundedHandoff({
-		assignment: `Run ${parsed.command} for ${task.source}:${task.id}`,
+		assignment: parsed.command === "research"
+			? `Run research for "${task.topic || task.id}"`
+			: parsed.command === "note"
+			? `Run note for "${task.topic || task.id}"`
+			: `Run ${parsed.command} for ${task.source}:${task.id}`,
 		checkpoint,
 		artifactSnapshot: {
 			...task,
 			activeWorkflow: activeWorkflowSnapshot(active),
 		},
 		contextBudget: DELIVERY_CONTEXT_BUDGET,
-		selectedSkills: [parsed.command],
+		selectedSkills: [selectedSkill],
 		permissions: ["write-checkout"],
+		model,
 	});
 
 	return {
 		...base,
-		destination: parsed.command,
+		destination,
 		artifact: {
 			...task,
-			stateFile: active?.stateFile ?? null,
+			stateFile: parsed.command === "research"
+				? (active?.workflow === "research" ? active.stateFile : null)
+				: parsed.command === "note"
+				? (active?.workflow === "notes" ? active.stateFile : null)
+				: (active?.stateFile ?? null),
 		},
 	};
 }
@@ -308,7 +290,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, vaultRoot = null } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, vaultRoot = null, checkProviderAvailable = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -321,14 +303,23 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		}
 		return approved;
 	};
-	const handoff = buildDeliveryHandoff({ parsed, ...context });
+
 	const env = vaultRoot ? { ...process.env, NOCH_VAULT_ROOT: vaultRoot } : process.env;
+	const handoff = buildDeliveryHandoff({ parsed, ...context, env });
+	const { fallbackModel: stageFallback } = resolveModelTier(handoff.destination, { env });
+	const { fallbackModel: defaultCloudFallback } = resolveModelTier("triage", { env });
+	const configuredLocalProvider = env.NOCH_LOCAL_PROVIDER || "ollama";
+	const isLocalTarget = handoff.model?.provider === configuredLocalProvider || handoff.model?.provider === "ollama" || handoff.model?.provider === "local";
+	const fallbackModel = (isLocalTarget || !stageFallback) ? defaultCloudFallback : stageFallback;
+
 	const result = await spawnWorkerProcess({
 		handoff,
 		command: process.execPath,
 		args: [workerRuntimePath],
 		cwd,
 		env,
+		fallbackModel,
+		checkProviderAvailable,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
 	const compact = compactDeliveryResult(parsed, result, task);
