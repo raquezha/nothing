@@ -4,6 +4,12 @@ export const OPTIONAL_WORKER_RESULT_KEYS = Object.freeze(["artifacts", "verifica
 export const FORBIDDEN_WORKER_RESULT_FIELDS = Object.freeze(["transcript", "messages", "rawWorkerLog", "fullParentTranscript"]);
 
 export function isReadOnlyHandoff(handoff) {
+	if (handoff?.workspaceAccess === "read-only") {
+		return true;
+	}
+	if (handoff?.workspaceAccess === "write-checkout") {
+		return false;
+	}
 	return Array.isArray(handoff?.permissions)
 		&& handoff.permissions.length > 0
 		&& handoff.permissions.every((p) => p === "read-only");

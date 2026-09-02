@@ -19,6 +19,10 @@ function deliveryPermissions(command) {
 	return command === "research" ? ["read-only"] : ["write-checkout"];
 }
 
+function deliveryWorkspaceAccess(command) {
+	return command === "research" ? "read-only" : "write-checkout";
+}
+
 function readJson(filePath) {
 	return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
@@ -225,6 +229,7 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active, env }) {
 		contextBudget: DELIVERY_CONTEXT_BUDGET,
 		selectedSkills: [selectedSkill],
 		permissions: deliveryPermissions(parsed.command),
+		workspaceAccess: deliveryWorkspaceAccess(parsed.command),
 		model,
 	});
 

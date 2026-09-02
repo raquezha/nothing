@@ -293,6 +293,32 @@ test("dispatchExecutor does not request approval for read-only handoff that stil
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
 });
 
+test("dispatchExecutor honors explicit read-only workspace access for richer permission sets", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Read-only jira lookup with telemetry",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["read-jira", "telemetry"],
+		workspaceAccess: "read-only",
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await dispatchExecutor({
+			handoff,
+			ownerId: "parent-explicit-readonly",
+			lockPath: TEST_LOCK_PATH,
+			executor: () => ({ status: "ok", taskId: "jira-lookup", summary: "looked up", nextStep: "/verify" }),
+		});
+
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
+});
+
 test("dispatchExecutor keeps non-read-only custom permissions behind writer lock by default", async () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
@@ -578,6 +604,46 @@ test("spawnWorkerProcess defaults read-only handoff to no writer lock", async ()
 
 		assert.equal(result.status, "ok");
 		assert.equal(result.taskId, "github-140-readonly");
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess honors explicit read-only workspace access for richer permission sets", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker jira lookup with telemetry",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["read-jira", "telemetry"],
+		workspaceAccess: "read-only",
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-explicit-readonly-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'jira-lookup-subprocess',
+			summary: 'Read-only lookup executed successfully',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			ownerId: "worker-proc-explicit-readonly",
+		});
+
 		assert.equal(result.writeLockAcquired, false);
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
 	} finally {

@@ -29,6 +29,7 @@ export function buildBoundedHandoff({
 	contextBudget,
 	selectedSkills = [],
 	permissions = ["read-only"],
+	workspaceAccess = permissions.length === 1 && permissions[0] === "read-only" ? "read-only" : "write-checkout",
 	expectedResultShape = {
 		required: [...COMPACT_WORKER_RESULT_KEYS],
 		optional: [...OPTIONAL_WORKER_RESULT_KEYS],
@@ -68,6 +69,7 @@ export function buildBoundedHandoff({
 		openQuestions: structuredClone(checkpoint.openQuestions),
 		selectedSkills: structuredClone(selectedSkills),
 		permissions: structuredClone(permissions),
+		workspaceAccess,
 		contextBudget: structuredClone(contextBudget),
 		expectedResultShape: structuredClone(expectedResultShape),
 	};
