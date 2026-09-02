@@ -385,7 +385,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false, parentPromptBytes = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -407,6 +407,11 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 	const isLocalTarget = handoff.model?.provider === configuredLocalProvider || handoff.model?.provider === "ollama" || handoff.model?.provider === "local";
 	const fallbackModel = (isLocalTarget || !stageFallback) ? defaultCloudFallback : stageFallback;
 
+	const effectiveParentPromptBytes = parentPromptBytes ?? (
+		(context.checkpoint ? Buffer.byteLength(JSON.stringify(context.checkpoint), "utf8") : 0) +
+		(context.active ? Buffer.byteLength(JSON.stringify(context.active), "utf8") : 0)
+	);
+
 	const result = await spawnWorkerProcess({
 		handoff,
 		command: process.execPath,
@@ -416,6 +421,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		fallbackModel,
 		checkProviderAvailable,
 		approveWriteDispatch: approveAndPersistCheckpoint,
+		parentPromptBytes: effectiveParentPromptBytes,
 	});
 
 	if ((result.status === "failed" || result.status === "blocked") && !isRemediationRetry) {
