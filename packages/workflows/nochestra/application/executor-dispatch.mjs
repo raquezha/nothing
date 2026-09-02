@@ -1,27 +1,16 @@
 import { validateCheckpoint } from "../domain/checkpoint-contract.mjs";
-import { assertNoTranscriptFields, extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
-import { COMPACT_WORKER_RESULT_KEYS, OPTIONAL_WORKER_RESULT_KEYS } from "../domain/handoff-policy.mjs";
+import { assertNoTranscriptFields, extractOptionalWorkerResultFields, validateCompactWorkerResult, validateWorkerHandoff } from "../domain/handoff-contract.mjs";
+import { COMPACT_WORKER_RESULT_KEYS, OPTIONAL_WORKER_RESULT_KEYS, isWriteCapableHandoff, needsWriterLock } from "../domain/handoff-policy.mjs";
 import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs";
 import { acquireWriterLock, releaseWriterLock } from "../adapters/writer-lock.mjs";
 import { buildExecutionEvidence, emitExecutionEvidence, spawnWorkerProcess } from "../adapters/process-runner.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
 
-function isWriteCapableHandoff(handoff) {
-	return Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write"));
-}
-
 function handoffTaskId(handoff) {
 	const source = handoff.artifactSnapshot?.source ?? handoff.artifact?.source;
 	const id = handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null;
 	return source && id ? `${source}-${id}` : id;
-}
-
-function needsWriterLock(handoff, requiresWriteLock) {
-	if (requiresWriteLock === false) {
-		return false;
-	}
-	return requiresWriteLock === true || isWriteCapableHandoff(handoff);
 }
 
 async function approveWriteHandoff({ handoff, approveWriteDispatch, destination = handoff.destination ?? handoff.artifact?.destination ?? null, requiresWriteLock, writeCapable }) {
@@ -40,6 +29,7 @@ export function buildBoundedHandoff({
 	contextBudget,
 	selectedSkills = [],
 	permissions = ["read-only"],
+	workspaceAccess,
 	expectedResultShape = {
 		required: [...COMPACT_WORKER_RESULT_KEYS],
 		optional: [...OPTIONAL_WORKER_RESULT_KEYS],
@@ -71,6 +61,15 @@ export function buildBoundedHandoff({
 		}
 	}
 
+	if (!Array.isArray(permissions) || permissions.length === 0) {
+		throw new Error("permissions must be a non-empty array");
+	}
+	if (permissions.some((permission) => typeof permission !== "string" || !permission.trim())) {
+		throw new Error("permissions must contain only non-empty strings");
+	}
+
+	const resolvedWorkspaceAccess = workspaceAccess ?? (permissions.length === 1 && permissions[0] === "read-only" ? "read-only" : "write-checkout");
+
 	const handoff = {
 		assignment,
 		artifactSnapshot: structuredClone(artifactSnapshot),
@@ -79,6 +78,7 @@ export function buildBoundedHandoff({
 		openQuestions: structuredClone(checkpoint.openQuestions),
 		selectedSkills: structuredClone(selectedSkills),
 		permissions: structuredClone(permissions),
+		workspaceAccess: resolvedWorkspaceAccess,
 		contextBudget: structuredClone(contextBudget),
 		expectedResultShape: structuredClone(expectedResultShape),
 	};
@@ -87,6 +87,7 @@ export function buildBoundedHandoff({
 		handoff.model = structuredClone(model);
 	}
 
+	validateWorkerHandoff(handoff);
 	assertNoTranscriptFields(handoff, "handoff");
 
 	return handoff;
@@ -96,7 +97,7 @@ export async function dispatchExecutor({
 	handoff,
 	executor,
 	ownerId = "nochestra-parent",
-	requiresWriteLock = true,
+	requiresWriteLock = null,
 	lockPath = DEFAULT_LOCK_PATH,
 	approveWriteDispatch = null,
 	workerId = null,

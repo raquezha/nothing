@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { acquireWriterLock, releaseWriterLock } from "./writer-lock.mjs";
 import { extractOptionalWorkerResultFields, validateCompactWorkerResult } from "../domain/handoff-contract.mjs";
+import { isWriteCapableHandoff, needsWriterLock } from "../domain/handoff-policy.mjs";
 import { buildWriteApprovalRequest } from "../domain/write-approval-request.mjs";
 
 const DEFAULT_LOCK_PATH = ".workflow/nochestra-writer.lock";
@@ -75,21 +76,10 @@ export function emitExecutionEvidence({ evidence, onEvidence = null, events = nu
 	} catch (_) {}
 }
 
-function isWriteCapableHandoff(handoff) {
-	return Array.isArray(handoff.permissions) && handoff.permissions.some((p) => p.includes("write"));
-}
-
 function handoffTaskId(handoff) {
 	const source = handoff.artifactSnapshot?.source ?? handoff.artifact?.source;
 	const id = handoff.artifactSnapshot?.id ?? handoff.artifact?.id ?? null;
 	return source && id ? `${source}-${id}` : id;
-}
-
-function needsWriterLock(handoff, requiresWriteLock) {
-	if (requiresWriteLock === false) {
-		return false;
-	}
-	return requiresWriteLock === true || isWriteCapableHandoff(handoff);
 }
 
 async function approveWriteHandoff({ handoff, approveWriteDispatch, destination = handoff.destination ?? handoff.artifact?.destination ?? null, requiresWriteLock, writeCapable }) {
@@ -109,7 +99,7 @@ export async function spawnWorkerProcess({
 	cwd = process.cwd(),
 	timeout = 30000,
 	ownerId = "nochestra-worker-runner",
-	requiresWriteLock = true,
+	requiresWriteLock = null,
 	lockPath = DEFAULT_LOCK_PATH,
 	handoffMode = "file",
 	fallbackModel = null,

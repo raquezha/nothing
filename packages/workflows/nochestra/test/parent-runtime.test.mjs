@@ -47,8 +47,25 @@ test("buildNochestraDeliveryHandoff keeps delivery state bounded and transcript-
 	});
 	assert.equal(handoff.assignment, "Run triage for github:143");
 	assert.equal(handoff.artifactSnapshot.activeWorkflow.branch, "feat/140");
+	assert.deepEqual(handoff.permissions, ["write-checkout"]);
+	assert.equal(handoff.workspaceAccess, "write-checkout");
 	assert.equal("transcript" in handoff, false);
 	assert.equal("messages" in handoff, false);
+});
+
+test("buildNochestraDeliveryHandoff marks research as explicit read-only", () => {
+	const checkpoint = readCheckpoint(CHECKPOINT_FIXTURE_PATH);
+	const parsed = parseNochestraInput('research "emoji search 😀 and spaces"');
+	const handoff = buildNochestraDeliveryHandoff({
+		parsed,
+		checkpoint,
+		active: null,
+	});
+
+	assert.equal(handoff.destination, "research");
+	assert.deepEqual(handoff.permissions, ["read-only"]);
+	assert.equal(handoff.workspaceAccess, "read-only");
+	assert.equal(handoff.assignment, 'Run research for "emoji search 😀 and spaces"');
 });
 
 test("buildNochestraDeliveryHandoff selects model tier based on task complexity", () => {

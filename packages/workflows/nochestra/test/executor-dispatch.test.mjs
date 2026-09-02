@@ -63,6 +63,30 @@ test("buildBoundedHandoff requires assignment and explicit context budget", () =
 	);
 });
 
+test("buildBoundedHandoff validates permissions and workspaceAccess shape", () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: null }),
+		/permissions must be a non-empty array/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: [] }),
+		/permissions must be a non-empty array/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: [""] }),
+		/permissions must contain only non-empty strings/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, workspaceAccess: "readonly" }),
+		/workspaceAccess must be one of: read-only, write-checkout/,
+	);
+	assert.throws(
+		() => buildBoundedHandoff({ assignment: "task", checkpoint, contextBudget: { maxTokens: 100 }, permissions: ["write-checkout"], workspaceAccess: "read-only" }),
+		/cannot declare read-only workspaceAccess with write-checkout permissions/,
+	);
+});
+
 test("dispatchExecutor launches predefined executor and returns compact parent presentation without transcript", async () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
@@ -241,6 +265,34 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 	}
 });
 
+test("dispatchExecutor defaults read-only handoff to no writer lock", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Read-only unlocked task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await dispatchExecutor({
+			handoff,
+			ownerId: "parent-readonly-unlocked",
+			lockPath: TEST_LOCK_PATH,
+			approveWriteDispatch: () => {
+				throw new Error("approval should not be requested");
+			},
+			executor: () => ({ status: "ok", taskId: "t1", summary: "read-only done", nextStep: "/verify" }),
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
+});
+
 test("dispatchExecutor does not request approval for read-only handoff that still needs a writer lock", async () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
@@ -263,6 +315,57 @@ test("dispatchExecutor does not request approval for read-only handoff that stil
 	assert.equal(result.status, "ok");
 	assert.equal(result.writeLockAcquired, true);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+});
+
+test("dispatchExecutor honors explicit read-only workspace access for richer permission sets", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Read-only jira lookup with telemetry",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["read-jira", "telemetry"],
+		workspaceAccess: "read-only",
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await dispatchExecutor({
+			handoff,
+			ownerId: "parent-explicit-readonly",
+			lockPath: TEST_LOCK_PATH,
+			executor: () => ({ status: "ok", taskId: "jira-lookup", summary: "looked up", nextStep: "/verify" }),
+		});
+
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
+});
+
+test("dispatchExecutor keeps non-read-only custom permissions behind writer lock by default", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Apply approved jira update",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["apply-approved-jira-update"],
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		await assert.rejects(
+			() => dispatchExecutor({
+				handoff,
+				ownerId: "parent-custom-permission",
+				lockPath: TEST_LOCK_PATH,
+				executor: () => ({ status: "ok", taskId: "jira-1", summary: "updated", nextStep: "/verify" }),
+			}),
+			/Writer lock is currently held by another executor/,
+		);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
 });
 
 test("dispatchExecutor cancels rejected write-capable dispatch before lock or executor", async () => {
@@ -294,6 +397,44 @@ test("dispatchExecutor cancels rejected write-capable dispatch before lock or ex
 	assert.equal(result.nextStep, "manual-takeover");
 	assert.equal(result.writeLockAcquired, false);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+});
+
+test("dispatchExecutor allows concurrent read-only dispatches with Promise.all", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Concurrent read-only task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const results = await Promise.all([
+			dispatchExecutor({
+				handoff,
+				ownerId: "reader-1",
+				lockPath: TEST_LOCK_PATH,
+				executor: async () => {
+					await new Promise((resolve) => setTimeout(resolve, 20));
+					return { status: "ok", taskId: "r1", summary: "done", nextStep: "/verify" };
+				},
+			}),
+			dispatchExecutor({
+				handoff,
+				ownerId: "reader-2",
+				lockPath: TEST_LOCK_PATH,
+				executor: async () => {
+					await new Promise((resolve) => setTimeout(resolve, 20));
+					return { status: "ok", taskId: "r2", summary: "done", nextStep: "/verify" };
+				},
+			}),
+		]);
+
+		assert.deepEqual(results.map((result) => result.writeLockAcquired), [false, false]);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
 });
 
 test("writer lock prevents concurrent write dispatches", async () => {
@@ -448,9 +589,121 @@ test("spawnWorkerProcess launches sub-process, passes handoff packet and --no-co
 		assert.equal(result.taskId, "github-140");
 		assert.equal(result.summary, "Sub-process executed successfully");
 		assert.equal(result.nextStep, "/verify");
-		assert.equal(result.writeLockAcquired, true);
+		assert.equal(result.writeLockAcquired, false);
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Lock must be released after sub-process finishes");
 	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess defaults read-only handoff to no writer lock", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker read-only assignment",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-readonly-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-140-readonly',
+			summary: 'Read-only sub-process executed successfully',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			ownerId: "worker-proc-readonly",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-140-readonly");
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess honors explicit read-only workspace access for richer permission sets", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker jira lookup with telemetry",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["read-jira", "telemetry"],
+		workspaceAccess: "read-only",
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-explicit-readonly-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'jira-lookup-subprocess',
+			summary: 'Read-only lookup executed successfully',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			ownerId: "worker-proc-explicit-readonly",
+		});
+
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess keeps non-read-only custom permissions behind writer lock by default", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker jira update assignment",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		permissions: ["apply-approved-jira-update"],
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-jira-update-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `process.exit(0);`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		await assert.rejects(
+			() => spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath: TEST_LOCK_PATH,
+				ownerId: "worker-proc-custom-permission",
+			}),
+			/Writer lock is currently held by another executor/,
+		);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
 		if (fs.existsSync(scriptPath)) {
 			fs.unlinkSync(scriptPath);
 		}
@@ -493,6 +746,55 @@ test("spawnWorkerProcess cancels rejected write-capable dispatch before spawning
 	assert.equal(result.nextStep, "manual-takeover");
 	assert.equal(result.writeLockAcquired, false);
 	assert.equal(isWriterLocked(TEST_LOCK_PATH), false);
+});
+
+test("spawnWorkerProcess allows concurrent read-only subprocesses with Promise.all", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Concurrent read-only subprocess task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-readonly-concurrent-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		setTimeout(() => {
+			console.log(JSON.stringify({
+				status: 'ok',
+				taskId: 'readonly-subprocess',
+				summary: 'Read-only subprocess done',
+				nextStep: '/verify'
+			}));
+		}, 20);
+	`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const results = await Promise.all([
+			spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath: TEST_LOCK_PATH,
+				ownerId: "worker-proc-readonly-1",
+			}),
+			spawnWorkerProcess({
+				handoff,
+				command: process.execPath,
+				args: [scriptPath],
+				lockPath: TEST_LOCK_PATH,
+				ownerId: "worker-proc-readonly-2",
+			}),
+		]);
+
+		assert.deepEqual(results.map((result) => result.writeLockAcquired), [false, false]);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
 });
 
 test("spawnWorkerProcess handles stdin handoffMode and validates worker output", async () => {

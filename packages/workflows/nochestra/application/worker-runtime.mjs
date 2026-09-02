@@ -124,9 +124,19 @@ function replaceSectionBody(text, section, content) {
 }
 
 function appendLogEntry(text, logMessage) {
-	const timestamp = "2026-08-27 03:00 PM";
+	const timestamp = new Date().toLocaleString("en-US", {
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: true,
+	}).replace(",", "");
+	const [month, day, yearAndTime] = timestamp.split("/");
+	const [year, ...timeParts] = yearAndTime.split(" ");
+	const normalizedTimestamp = `${year}-${month}-${day} ${timeParts.join(" ")}`;
 	const logRegex = /(^|\n)(## \[LOG\]\n)([\s\S]*?)(?=\n## \[|$)/;
-	const entry = `- ${timestamp}: ${logMessage}`;
+	const entry = `- ${normalizedTimestamp}: ${logMessage}`;
 	if (logRegex.test(text)) {
 		return text.replace(logRegex, (match, p1, p2, p3) => {
 			const existing = p3.trim();
@@ -198,7 +208,7 @@ export async function executeWorker(handoff, options = {}) {
 			args: [...baseArgs, ...extraSkillArgs],
 			cwd,
 			env: options.env || process.env,
-			requiresWriteLock: options.requiresWriteLock ?? false,
+			requiresWriteLock: options.requiresWriteLock ?? null,
 			lockPath: options.lockPath,
 			fallbackModel: options.fallbackModel || derivedFallback,
 			checkProviderAvailable: options.checkProviderAvailable,
