@@ -1,5 +1,16 @@
 # @raquezha/norpiv
 
+## 0.3.0
+
+### Minor Changes
+
+- bedc56b: feat(nochestra): execute true Pi skills in subprocess workers
+- 6d68e10: feat(nochestra): record parent worker execution evidence in Notrace
+
+### Patch Changes
+
+- 6a729d5: Implement automatic context epoch compaction and checkpoint synthesis in Nochestra parent runtime
+
 ## 0.2.1
 
 ### Patch Changes

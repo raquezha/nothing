@@ -1,5 +1,12 @@
 # @raquezha/notrace
 
+## 0.3.0
+
+### Minor Changes
+
+- 2340c8d: feat(nochestra): implement Notrace context quarantine telemetry and efficiency reporting
+- 6d68e10: feat(nochestra): record parent worker execution evidence in Notrace
+
 ## 0.2.7
 
 ### Patch Changes
