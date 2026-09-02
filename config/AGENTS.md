@@ -22,3 +22,4 @@ The environment has aggressive security guardrails. To avoid being **BLOCKED**:
 - **3 Real Modes**: Chat (ephemeral/no state), Research (think+write, `.workflow/research/`), and RPIV (execution, `.workflow/tasks/`).
 - **Pointer**: Always respect `.workflow/active.json`. If it exists, you are in that workflow.
 - **Domains**: CLI hats (`pi --research`, `pi --rpiv`) determine your loaded context. Do not try to auto-route or infer directories; trust the boundaries.
+- **Git Hygiene**: NEVER force-add (`git add -f`) or commit files under `.workflow/` or ignored state directories. `.workflow` state is local-only.

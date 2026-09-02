@@ -40,7 +40,7 @@ When changing a skill name, command, or directory:
 
 ### Retrospective & Workflow
 - `.notrace/`: Owns retrospective artifacts
-- `.workflow/`: Owns active task state
+- `.workflow/`: Owns active task state (local-only, NEVER force-add or commit `.workflow/` files into git)
 - Keep consumed metrics separate from optimization metrics (e.g., Headroom tokens saved)
 
 ### notrace Brand & Logo Guardrails
