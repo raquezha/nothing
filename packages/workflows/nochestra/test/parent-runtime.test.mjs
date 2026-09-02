@@ -71,8 +71,8 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 		checkpoint,
 		active: { id: "github-194", stateFile: ".workflow/tasks/github-194/WORK.md" },
 	});
-	assert.equal(planHandoff.model.provider, "openai");
-	assert.equal(planHandoff.model.name, "gpt-4o");
+	assert.equal(planHandoff.model.provider, "antigravity");
+	assert.equal(planHandoff.model.name, "gemini-3.6-flash");
 });
 
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {

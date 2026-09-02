@@ -5,9 +5,9 @@ export const DEFAULT_LOCAL_TIER = Object.freeze({
 });
 
 export const DEFAULT_CLOUD_TIER = Object.freeze({
-	provider: "openai",
-	name: "gpt-4o",
-	contextWindow: 128000,
+	provider: "antigravity",
+	name: "gemini-3.6-flash",
+	contextWindow: 1048576,
 });
 
 const LIGHTWEIGHT_DESTINATIONS = new Set(["triage", "frame", "note"]);
