@@ -131,15 +131,18 @@ export type NotraceTelemetry = {
   extensions: Record<string, NotraceExtensionTelemetry>;
 };
 
+export type NotraceReviewOutcome = "success" | "partial" | "failed" | "abandoned" | "inconclusive";
+export type NotraceReviewFriction = "low" | "medium" | "high";
+
 export type NotraceReviewRecord = {
-  kind: "notrace-review";
   schemaVersion: number;
+  kind: "notrace-review";
   traceId: string;
-  rating: "pass" | "fail" | "neutral" | "needs-followup" | string;
-  tags?: string[];
-  notes?: string | null;
-  reviewer?: string | null;
-  timestamp: number | string;
+  runRecord: string;
+  outcome: NotraceReviewOutcome | null;
+  friction: NotraceReviewFriction | null;
+  lesson: string;
+  nextChange: string;
 };
 
 /**

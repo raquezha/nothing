@@ -96,7 +96,7 @@ HTML session reports and dashboard views render 7 canonical sections from `notra
 4. **Dynamic Extension Telemetry**: `telemetry.extensions.*` (`loaded`, `enabled`, `active`, `status`, `summary`, `details`). Fallback: absent extensions render clean empty state ("No extension telemetry captured").
 5. **Timeline / Events**: `events` array & model switch breakdown. Fallback: empty array renders clean empty state ("No visible events captured").
 6. **Workflow / Task Attachments**: `task` (`workflow`, `id`, `path`, `dir`, `role`) & optional `correlation` (`runId`, `workItemId`, `workerId`, `parentSessionId`, `epochId`). Fallback: `task.workflow` defaults to `"generic"`; `correlation` fields rendered conditionally if present. Nochestra telemetry is never required.
-7. **Review Status**: Judgment record from `notrace.review.json` (`rating`, `tags`, `notes`, `timestamp`, `reviewer`). Fallback: missing file renders status "Unreviewed".
+7. **Review Status**: Judgment record from `notrace.review.json` (`outcome`, `friction`, `lesson`, `nextChange`, `runRecord`). Fallback: missing file renders status "Unreviewed".
 
 ## Retrospective spine
 

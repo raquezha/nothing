@@ -133,7 +133,7 @@ Session reports render 7 canonical sections with strict fallback and metric sepa
 4. **Dynamic Extension Telemetry**: Structured summaries for dynamic extensions (`status`, `summary`, `details`). Absent extensions render clean empty states without throwing.
 5. **Timeline / Events**: Event stream timeline and model switch breakdown.
 6. **Workflow / Task Attachments**: Task context (`workflow`, `id`, `path`, `dir`, `role`) and optional correlation identifiers (`runId`, `workItemId`, `workerId`, `parentSessionId`, `epochId`). Nochestra correlation fields are optional.
-7. **Review Status**: Judgment record from `notrace.review.json` (`rating`, `tags`, `notes`, `timestamp`, `reviewer`). Default status is "Unreviewed" when missing.
+7. **Review Status**: Judgment record from `notrace.review.json` (`outcome`, `friction`, `lesson`, `nextChange`, `runRecord`). Default status is "Unreviewed" when missing.
 
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
