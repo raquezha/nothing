@@ -32,6 +32,7 @@ export function buildExecutionEvidence({
 	workerId = "nochestra-worker-runner",
 	fallbackApplied = false,
 	handoffBytes = null,
+	activeModel = null,
 } = {}) {
 	const handoffString = handoff ? JSON.stringify(handoff) : null;
 	const computedBytes = handoffBytes ?? (handoffString ? Buffer.byteLength(handoffString, "utf8") : 0);
@@ -40,6 +41,7 @@ export function buildExecutionEvidence({
 	const destination = handoff?.destination ?? handoff?.artifactSnapshot?.destination ?? handoff?.artifact?.destination ?? null;
 	const resultStatus = result?.status ?? "failed";
 	const nextStep = result?.nextStep ?? "unknown";
+	const effectiveModel = activeModel ?? handoff?.model ?? null;
 
 	return {
 		route,
@@ -49,6 +51,8 @@ export function buildExecutionEvidence({
 		handoffBytes: computedBytes,
 		resultStatus,
 		nextStep,
+		provider: effectiveModel?.provider ?? null,
+		model: effectiveModel?.name ?? null,
 		fallbackApplied: Boolean(fallbackApplied || result?.fallbackApplied),
 	};
 }
@@ -175,6 +179,7 @@ export async function spawnWorkerProcess({
 			workerId: effectiveWorkerId,
 			fallbackApplied,
 			handoffBytes,
+			activeModel,
 		});
 		emitExecutionEvidence({ evidence, onEvidence, events });
 		cancelledResult.evidence = evidence;
@@ -307,6 +312,7 @@ export async function spawnWorkerProcess({
 				workerId: effectiveWorkerId,
 				fallbackApplied,
 				handoffBytes,
+				activeModel: targetModel,
 			});
 			emitExecutionEvidence({ evidence, onEvidence, events });
 			result.evidence = evidence;

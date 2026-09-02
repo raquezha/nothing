@@ -902,6 +902,7 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 	const handoff = {
 		destination: "triage",
 		artifactSnapshot: { source: "github", id: "175", route: "delivery" },
+		model: { provider: "ollama", name: "qwen:7b" },
 	};
 	const result = { status: "created", taskId: "github-175", nextStep: "/frame" };
 	const evidence = buildExecutionEvidence({
@@ -920,6 +921,8 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 		handoffBytes: 1200,
 		resultStatus: "created",
 		nextStep: "/frame",
+		provider: "ollama",
+		model: "qwen:7b",
 		fallbackApplied: false,
 	});
 	assert.equal("parentTranscript" in evidence, false);

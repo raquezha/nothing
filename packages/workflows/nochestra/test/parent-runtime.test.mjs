@@ -51,6 +51,30 @@ test("buildNochestraDeliveryHandoff keeps delivery state bounded and transcript-
 	assert.equal("messages" in handoff, false);
 });
 
+test("buildNochestraDeliveryHandoff selects model tier based on task complexity", () => {
+	const checkpoint = readCheckpoint(CHECKPOINT_FIXTURE_PATH);
+
+	// Lightweight task: triage prefers local fast model
+	const triageParsed = parseNochestraInput("/triage github:194");
+	const triageHandoff = buildNochestraDeliveryHandoff({
+		parsed: triageParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(triageHandoff.model.provider, "ollama");
+	assert.equal(triageHandoff.model.name, "qwen:7b");
+
+	// Heavy task: plan prefers cloud premium model
+	const planParsed = parseNochestraInput("/plan github:194");
+	const planHandoff = buildNochestraDeliveryHandoff({
+		parsed: planParsed,
+		checkpoint,
+		active: { id: "github-194", stateFile: ".workflow/tasks/github-194/WORK.md" },
+	});
+	assert.equal(planHandoff.model.provider, "cloud-anthropic");
+	assert.equal(planHandoff.model.name, "claude-3-5-sonnet");
+});
+
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
 	assert.equal(formatWriteApprovalPrompt({
 		assignment: "Run triage for github:159",
