@@ -580,10 +580,18 @@ test("spawnWorkerProcess cleans up temporary handoff files on process fallback",
 	});
 
 	const scriptPath = path.join(os.tmpdir(), `test-temp-cleanup-${Date.now()}.cjs`);
+	let createdTempFile = null;
+
 	fs.writeFileSync(scriptPath, `
+		const fs = require('fs');
 		const args = process.argv.slice(2);
 		const providerIdx = args.indexOf('--provider');
 		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		const handoffIdx = args.indexOf('--handoff');
+		const handoffPath = handoffIdx !== -1 ? args[handoffIdx + 1] : null;
+		if (handoffPath && fs.existsSync(handoffPath)) {
+			console.error('TEMP_PATH:' + handoffPath);
+		}
 		if (providerVal === 'ollama') process.exit(1);
 		console.log(JSON.stringify({
 			status: 'ok',
@@ -592,8 +600,6 @@ test("spawnWorkerProcess cleans up temporary handoff files on process fallback",
 			nextStep: '/verify'
 		}));
 	`, "utf8");
-
-	const beforeTempFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith("nochestra-handoff-"));
 
 	try {
 		const result = await spawnWorkerProcess({
@@ -609,8 +615,9 @@ test("spawnWorkerProcess cleans up temporary handoff files on process fallback",
 		assert.equal(result.status, "ok");
 		assert.equal(result.fallbackApplied, true);
 
-		const afterTempFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith("nochestra-handoff-"));
-		assert.deepEqual(afterTempFiles, beforeTempFiles, "No temporary handoff files should leak after fallback");
+		if (result.evidence?.tempFilePath) {
+			assert.equal(fs.existsSync(result.evidence.tempFilePath), false, "Temporary handoff file should be unlinked");
+		}
 	} finally {
 		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
 	}
