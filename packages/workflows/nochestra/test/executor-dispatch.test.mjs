@@ -241,6 +241,34 @@ test("dispatchExecutor can invoke the actual worker-runtime subprocess with a fa
 	}
 });
 
+test("dispatchExecutor defaults read-only handoff to no writer lock", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Read-only unlocked task",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await dispatchExecutor({
+			handoff,
+			ownerId: "parent-readonly-unlocked",
+			lockPath: TEST_LOCK_PATH,
+			approveWriteDispatch: () => {
+				throw new Error("approval should not be requested");
+			},
+			executor: () => ({ status: "ok", taskId: "t1", summary: "read-only done", nextStep: "/verify" }),
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
+	}
+});
+
 test("dispatchExecutor does not request approval for read-only handoff that still needs a writer lock", async () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
@@ -448,9 +476,49 @@ test("spawnWorkerProcess launches sub-process, passes handoff packet and --no-co
 		assert.equal(result.taskId, "github-140");
 		assert.equal(result.summary, "Sub-process executed successfully");
 		assert.equal(result.nextStep, "/verify");
-		assert.equal(result.writeLockAcquired, true);
+		assert.equal(result.writeLockAcquired, false);
 		assert.equal(isWriterLocked(TEST_LOCK_PATH), false, "Lock must be released after sub-process finishes");
 	} finally {
+		if (fs.existsSync(scriptPath)) {
+			fs.unlinkSync(scriptPath);
+		}
+	}
+});
+
+test("spawnWorkerProcess defaults read-only handoff to no writer lock", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "CLI worker read-only assignment",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-worker-readonly-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-140-readonly',
+			summary: 'Read-only sub-process executed successfully',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	await acquireWriterLock("worker-A", TEST_LOCK_PATH);
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			lockPath: TEST_LOCK_PATH,
+			ownerId: "worker-proc-readonly",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.taskId, "github-140-readonly");
+		assert.equal(result.writeLockAcquired, false);
+		assert.equal(isWriterLocked(TEST_LOCK_PATH), true);
+	} finally {
+		await releaseWriterLock("worker-A", TEST_LOCK_PATH);
 		if (fs.existsSync(scriptPath)) {
 			fs.unlinkSync(scriptPath);
 		}
