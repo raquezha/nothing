@@ -520,6 +520,23 @@ test("executeWorker delegates stage execution to sub-process with model fallback
 
 		assert.equal(result.status, "ok");
 		assert.equal(result.fallbackApplied, true);
+
+		// Heavy stage (plan) fallback when local model override is requested but unavailable
+		const planHandoff = {
+			...handoffFor(id),
+			destination: "plan",
+			model: { provider: "ollama", name: "ornith:9b", contextWindow: 8192 },
+		};
+
+		const planResult = await executeWorker(planHandoff, {
+			cwd: repoDir,
+			command: process.execPath,
+			args: [scriptPath],
+			checkProviderAvailable: (provider) => provider !== "ollama",
+		});
+
+		assert.equal(planResult.status, "ok");
+		assert.equal(planResult.fallbackApplied, true);
 	} finally {
 		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
 		fs.rmSync(repoDir, { recursive: true, force: true });

@@ -187,7 +187,11 @@ export async function executeWorker(handoff, options = {}) {
 		};
 		const baseArgs = options.args || [];
 		const extraSkillArgs = baseArgs.includes("--skill") ? [] : ["--skill", selectedSkill];
-		const { fallbackModel } = resolveModelTier(destination, { env: options.env || process.env });
+		const { fallbackModel: stageFallback } = resolveModelTier(destination, { env: options.env || process.env });
+		const { fallbackModel: defaultCloudFallback } = resolveModelTier("triage", { env: options.env || process.env });
+		const configuredLocalProvider = (options.env || process.env).NOCH_LOCAL_PROVIDER || "ollama";
+		const isLocalTarget = stageHandoff.model?.provider === configuredLocalProvider || stageHandoff.model?.provider === "ollama" || stageHandoff.model?.provider === "local";
+		const derivedFallback = (isLocalTarget || !stageFallback) ? defaultCloudFallback : stageFallback;
 		const spawnOptions = {
 			handoff: stageHandoff,
 			command: options.command || process.env.NOCH_STAGE_RUNNER || process.env.PI_BINARY || "pi",
@@ -196,7 +200,7 @@ export async function executeWorker(handoff, options = {}) {
 			env: options.env || process.env,
 			requiresWriteLock: options.requiresWriteLock ?? false,
 			lockPath: options.lockPath,
-			fallbackModel: options.fallbackModel || fallbackModel,
+			fallbackModel: options.fallbackModel || derivedFallback,
 			checkProviderAvailable: options.checkProviderAvailable,
 		};
 		return spawnWorkerProcess(spawnOptions);
