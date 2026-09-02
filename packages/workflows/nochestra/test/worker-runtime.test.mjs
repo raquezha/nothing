@@ -480,6 +480,52 @@ test("executeWorker delegates stage execution to sub-process when command is sup
 	}
 });
 
+test("executeWorker delegates stage execution to sub-process with model fallback support", async () => {
+	const repoDir = makeRepo();
+	const id = `subproc-fallback-${Date.now()}`;
+	const scriptPath = path.join(os.tmpdir(), `test-stage-fallback-${Date.now()}.cjs`);
+
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+
+		if (providerVal === 'ollama') {
+			process.exit(1);
+		}
+
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: '${id}',
+			summary: 'Stage fallback executed',
+			nextStep: '/grill-with-docs'
+		}));
+	`, "utf8");
+
+	try {
+		await executeWorker(handoffFor(id), { cwd: repoDir, triageHelperPath: TRIAGE_HELPER_PATH });
+
+		const frameHandoff = {
+			...handoffFor(id),
+			destination: "frame",
+			model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+		};
+
+		const result = await executeWorker(frameHandoff, {
+			cwd: repoDir,
+			command: process.execPath,
+			args: [scriptPath],
+			checkProviderAvailable: (provider) => provider !== "ollama",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.fallbackApplied, true);
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 test("parseFrontmatter and stringifyFrontmatter handle YAML frontmatter objects and arrays", () => {
 	const sample = `---
 user.id: 123
