@@ -14,10 +14,10 @@ export type ExtensionTelemetryItem = {
 function statusBadgeClass(status?: string | null): string {
   switch (status) {
     case "active":
-      return "badge-system";
+      return "badge-active";
     case "loaded-disabled":
     case "disabled":
-      return "badge-user";
+      return "badge-epoch";
     case "loaded-inactive":
     case "inactive":
       return "badge-tool";
@@ -25,7 +25,7 @@ function statusBadgeClass(status?: string | null): string {
       return "badge-error";
     case "absent":
     default:
-      return "badge-unknown";
+      return "badge-system";
   }
 }
 
