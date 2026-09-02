@@ -37,12 +37,20 @@ for (const models of Object.values(AVAILABLE_MODEL_TIERS)) {
 	}
 }
 
+const PROVIDER_ALIASES = new Map([
+	["openai", "openai-codex"],
+	["codex", "openai-codex"],
+	["gemini", "antigravity"],
+	["google", "antigravity"],
+]);
+
 export function resolveModelOverride(overrideSpec) {
 	if (!overrideSpec || typeof overrideSpec !== "string") return null;
 	const spec = overrideSpec.trim().toLowerCase();
 	if (spec.includes("/")) {
-		const [provider, ...rest] = spec.split("/");
+		let [provider, ...rest] = spec.split("/");
 		const name = rest.join("/");
+		provider = PROVIDER_ALIASES.get(provider) || provider;
 		const known = MODEL_ALIASES.get(name) || MODEL_ALIASES.get(name.replace(/[^a-z0-9]/g, ""));
 		return {
 			provider,

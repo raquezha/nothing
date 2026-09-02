@@ -94,6 +94,16 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	assert.equal(fullSpecHandoff.model.provider, "antigravity");
 	assert.equal(fullSpecHandoff.model.name, "gemini-3.6-flash");
 	assert.equal(fullSpecHandoff.model.contextWindow, 1048576);
+
+	// Provider alias resolution (openai -> openai-codex)
+	const providerAliasParsed = parseNochestraInput("/triage github:194 use openai/gpt-5.4-mini");
+	const providerAliasHandoff = buildNochestraDeliveryHandoff({
+		parsed: providerAliasParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(providerAliasHandoff.model.provider, "openai-codex");
+	assert.equal(providerAliasHandoff.model.name, "gpt-5.4-mini");
 });
 
 test("dispatchDeliveryCommand falls back to cloud model when local model override is requested but unavailable", async () => {
