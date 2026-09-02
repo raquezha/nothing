@@ -217,7 +217,8 @@ describe("report-app report", () => {
     expect(html).toContain("worker-a");
     expect(html).toContain("epoch-1");
     expect(html).toContain("noheadroom");
-    expect(html).toContain("tokensSaved");
+    expect(html).toContain("Optimization Tokens Saved");
+    expect(html).toContain("350");
     expect(html).toContain("350");
   });
 });

@@ -98,6 +98,8 @@ export function formatTelemetryStatus(value: MaybeString): string {
       return "Loaded disabled";
     case "loaded-inactive":
       return "Loaded inactive";
+    case "blocked":
+      return "Blocked";
     case "absent":
       return "Absent";
     case "unknown":
