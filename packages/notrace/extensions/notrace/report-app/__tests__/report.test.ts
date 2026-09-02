@@ -60,19 +60,44 @@ describe("report-app report", () => {
     expect(html).toContain("claude");
   });
 
-  it("renders a compact session summary without an embedded timeline", () => {
-    const html = generateSessionSummaryHtml({
-      ...record,
-      navigation: {
-        indexHref: "../../index.html",
-        recordHref: "notrace.json",
-        viewerHref: "../../index.html?session=session-1",
-      },
+  it("renders minimal and populated records gracefully in session summary html", () => {
+    const minimal = generateSessionSummaryHtml({
+      traceId: "min-summary-1",
+      repository: { name: "min-repo" },
+      session: { id: "min-summary-1", startedAt: "2026-09-02T00:00:00Z" },
     } as any);
-    expect(html).toContain("Session summary");
-    expect(html).toContain("Open dashboard view");
-    expect(html).toContain("Open canonical record");
-    expect(html).not.toContain("Timeline");
+    expect(minimal).toContain("min-summary-1");
+    expect(minimal).toContain("Session Summary");
+    expect(minimal).toContain("Usage Metrics");
+    expect(minimal).toContain("Activity Metrics");
+    expect(minimal).toContain("Timeline / Events");
+    expect(minimal).toContain("No visible events captured");
+    expect(minimal).toContain("unavailable");
+
+    const populated = generateSessionSummaryHtml({
+      traceId: "pop-summary-1",
+      repository: { name: "nothing", branch: "feat/209" },
+      session: { id: "pop-summary-1", startedAt: "2026-09-02T01:00:00Z", endedAt: "2026-09-02T01:05:00Z", durationMs: 300000 },
+      task: { workflow: "norpiv", id: "github-209", role: "worker" },
+      conditions: { providers: ["anthropic"], models: ["claude-3-5-sonnet"] },
+      activity: {
+        turnCount: 4,
+        llmCallCount: 2,
+        toolCallCount: 6,
+        toolErrorCount: 0,
+        totals: { inputTokens: 200, outputTokens: 100, cacheReadTokens: 50, cacheWriteTokens: 10, totalTokens: 360, totalCostUsd: 0.02 },
+        context: { activeTokens: 500, peakTokens: 1000, contextWindow: 200000 },
+      },
+      events: [
+        { type: "llm_completion", model: "claude-3-5-sonnet", provider: "anthropic", timestamp: 1710000000000, usage: { totalTokens: 360, cost: { total: 0.02 } } },
+      ],
+    } as any);
+    expect(populated).toContain("pop-summary-1");
+    expect(populated).toContain("norpiv");
+    expect(populated).toContain("anthropic");
+    expect(populated).toContain("claude-3-5-sonnet");
+    expect(populated).toContain("$0.02000");
+    expect(populated).toContain("360");
   });
 
   it("allows local relative hrefs and blocks schemes", () => {
