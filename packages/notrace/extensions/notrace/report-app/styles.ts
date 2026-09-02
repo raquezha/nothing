@@ -260,8 +260,10 @@ export const STYLES = `:root {
     .badge-llm { color: var(--accent); background: var(--accent-soft); border-color: rgba(216,132,98,0.24); }
     .badge-tool { color: #8ec5ff; background: rgba(142,197,255,0.1); border-color: rgba(142,197,255,0.22); }
     .badge-epoch { color: #d69e2e; background: rgba(214,158,46,0.12); border-color: rgba(214,158,46,0.24); }
+    .badge-active { color: #68d391; background: rgba(104,211,145,0.12); border-color: rgba(104,211,145,0.24); }
     .badge-system { color: var(--muted); }
     .badge-error { color: var(--err); background: rgba(239,127,127,0.12); border-color: rgba(239,127,127,0.24); }
+    .extension-card:last-child { margin-bottom: 0 !important; }
     .event-title { font-weight: 700; }
     .event-time { color: var(--muted); font-size: 0.9rem; white-space: nowrap; }
     .event-body { padding: 0 18px 18px; }

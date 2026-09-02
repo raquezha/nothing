@@ -9,6 +9,7 @@ describe("session report artifacts", () => {
     const notraceDir = makeTempNotraceDir();
     const sessionId = "html-session-1";
 
+    const testContext = { workflow: "rpiv", taskId: "task-1", taskPath: null, taskDir: null, role: "worker", correlation: { parentSessionId: "parent-1" } };
     const deps: SessionShutdownDeps = {
       events: [
         {
@@ -19,7 +20,6 @@ describe("session report artifacts", () => {
           usage: { inputTokens: 10, outputTokens: 5 },
         },
       ],
-      context: { workflow: "rpiv", taskId: "task-1", taskPath: null, taskDir: null, role: "worker", correlation: { parentSessionId: "parent-1" } },
       startTime: 1000,
       traceId: sessionId,
       extensionTelemetry: new Map(),
@@ -28,7 +28,7 @@ describe("session report artifacts", () => {
       adapter: {
         name: "test",
         detect: () => true,
-        getContext: () => null,
+        getContext: () => testContext as any,
         attach: () => {},
       },
     };
