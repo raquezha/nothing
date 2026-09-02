@@ -1,6 +1,7 @@
 import type { DateValue, MaybeNumber, MaybeString, Repoish, Taskish } from "./types.js";
 
 export function parseDate(value: DateValue): Date | null {
+  if (value == null || value === "") return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }

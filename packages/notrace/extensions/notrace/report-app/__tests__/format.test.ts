@@ -5,6 +5,9 @@ describe("report-app format", () => {
   it("parses valid dates and rejects invalid ones", () => {
     expect(parseDate("2026-06-17T17:00:00Z")?.toISOString()).toBe("2026-06-17T17:00:00.000Z");
     expect(parseDate("nope")).toBeNull();
+    expect(parseDate(null)).toBeNull();
+    expect(parseDate(undefined)).toBeNull();
+    expect(parseDate("")).toBeNull();
   });
 
   it("formats date and time pieces", () => {
