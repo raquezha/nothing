@@ -1253,7 +1253,7 @@ test("buildWorkerEnv sets correlation environment variables", () => {
 	assert.equal(env.NOCHESTRA_RUN_ID, "run-789");
 });
 
-test("buildExecutionEvidence constructs compact evidence snapshot without transcripts", () => {
+test("buildExecutionEvidence constructs compact evidence snapshot with context quarantine metrics", () => {
 	const handoff = {
 		destination: "triage",
 		artifactSnapshot: { source: "github", id: "175", route: "delivery" },
@@ -1266,6 +1266,7 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 		workerId: "nochestra-worker-175",
 		fallbackApplied: false,
 		handoffBytes: 1200,
+		parentPromptBytes: 6000,
 	});
 
 	assert.deepEqual(evidence, {
@@ -1273,7 +1274,10 @@ test("buildExecutionEvidence constructs compact evidence snapshot without transc
 		destination: "triage",
 		workItemId: "github-175",
 		workerId: "nochestra-worker-175",
+		parentPromptBytes: 6000,
 		handoffBytes: 1200,
+		quarantineSavingsBytes: 4800,
+		quarantineEfficiencyRatio: 0.8,
 		resultStatus: "created",
 		nextStep: "/frame",
 		provider: "ollama",
@@ -1328,10 +1332,13 @@ test("dispatchExecutor records evidence and calls onEvidence and events.emit, wi
 	assert.equal(result.evidence.workerId, "worker-evidence-1");
 
 	assert.deepEqual(capturedEvidence, result.evidence);
-	assert.equal(emittedEvents.length, 1);
+	assert.equal(emittedEvents.length, 2);
 	assert.equal(emittedEvents[0].event, "notrace.boundary");
 	assert.equal(emittedEvents[0].payload.type, "worker_handoff");
 	assert.equal(emittedEvents[0].payload.workItemId, "github-175");
+	assert.equal(emittedEvents[1].event, "notrace.boundary");
+	assert.equal(emittedEvents[1].payload.type, "context_quarantine_efficiency");
+	assert.equal(emittedEvents[1].payload.workItemId, "github-175");
 
 	// Fail-open check: when onEvidence throws and events.emit throws, execution succeeds
 	const failOpenResult = await dispatchExecutor({

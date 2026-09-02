@@ -34,6 +34,7 @@ export function buildExecutionEvidence({
 	fallbackApplied = false,
 	handoffBytes = null,
 	activeModel = null,
+	parentPromptBytes = 0,
 } = {}) {
 	const handoffString = handoff ? JSON.stringify(handoff) : null;
 	const computedBytes = handoffBytes ?? (handoffString ? Buffer.byteLength(handoffString, "utf8") : 0);
@@ -44,12 +45,19 @@ export function buildExecutionEvidence({
 	const nextStep = result?.nextStep ?? "unknown";
 	const effectiveModel = activeModel ?? handoff?.model ?? null;
 
+	const resolvedParentPrompt = typeof parentPromptBytes === "number" && Number.isFinite(parentPromptBytes) ? Math.max(0, parentPromptBytes) : 0;
+	const quarantineSavingsBytes = resolvedParentPrompt > 0 ? Math.max(0, resolvedParentPrompt - computedBytes) : 0;
+	const quarantineEfficiencyRatio = resolvedParentPrompt > 0 ? Number((quarantineSavingsBytes / resolvedParentPrompt).toFixed(4)) : 0;
+
 	return {
 		route,
 		destination,
 		workItemId,
 		workerId,
+		parentPromptBytes: resolvedParentPrompt,
 		handoffBytes: computedBytes,
+		quarantineSavingsBytes,
+		quarantineEfficiencyRatio,
 		resultStatus,
 		nextStep,
 		provider: effectiveModel?.provider ?? null,
@@ -71,6 +79,16 @@ export function emitExecutionEvidence({ evidence, onEvidence = null, events = nu
 				type: "worker_handoff",
 				timestamp: Date.now(),
 				...evidence,
+			});
+			events.emit("notrace.boundary", {
+				type: "context_quarantine_efficiency",
+				timestamp: Date.now(),
+				parentPromptBytes: evidence.parentPromptBytes,
+				handoffBytes: evidence.handoffBytes,
+				quarantineSavingsBytes: evidence.quarantineSavingsBytes,
+				quarantineEfficiencyRatio: evidence.quarantineEfficiencyRatio,
+				workerId: evidence.workerId,
+				workItemId: evidence.workItemId,
 			});
 		}
 	} catch (_) {}
@@ -109,6 +127,7 @@ export async function spawnWorkerProcess({
 	workerId = null,
 	workItemId = null,
 	runId = null,
+	parentPromptBytes = 0,
 	onEvidence = null,
 	events = null,
 } = {}) {
@@ -170,6 +189,7 @@ export async function spawnWorkerProcess({
 			fallbackApplied,
 			handoffBytes,
 			activeModel,
+			parentPromptBytes,
 		});
 		emitExecutionEvidence({ evidence, onEvidence, events });
 		cancelledResult.evidence = evidence;
@@ -303,6 +323,7 @@ export async function spawnWorkerProcess({
 				fallbackApplied,
 				handoffBytes,
 				activeModel: targetModel,
+				parentPromptBytes,
 			});
 			emitExecutionEvidence({ evidence, onEvidence, events });
 			result.evidence = evidence;

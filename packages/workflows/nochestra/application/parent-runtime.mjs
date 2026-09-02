@@ -140,12 +140,22 @@ function checkpointWithWorkerResult(checkpoint, result, parsed = null) {
 		? [...checkpoint.openQuestions, ...newBlockers, recoveryQuestion]
 		: [...checkpoint.openQuestions, ...newBlockers];
 
+	const quarantineEfficiency = result?.evidence?.quarantineEfficiencyRatio != null
+		? {
+			lastSavingsBytes: result.evidence.quarantineSavingsBytes ?? 0,
+			lastHandoffBytes: result.evidence.handoffBytes ?? 0,
+			lastParentPromptBytes: result.evidence.parentPromptBytes ?? 0,
+			lastRatio: result.evidence.quarantineEfficiencyRatio ?? 0,
+		}
+		: checkpoint.quarantineEfficiency ?? null;
+
 	return {
 		...checkpoint,
 		decisions,
 		openQuestions,
 		currentRoute: parsed?.route || checkpoint.currentRoute || "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
+		...(quarantineEfficiency ? { quarantineEfficiency } : {}),
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
 	};
 }
@@ -375,7 +385,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false, parentPromptBytes = null } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -397,6 +407,11 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 	const isLocalTarget = handoff.model?.provider === configuredLocalProvider || handoff.model?.provider === "ollama" || handoff.model?.provider === "local";
 	const fallbackModel = (isLocalTarget || !stageFallback) ? defaultCloudFallback : stageFallback;
 
+	const effectiveParentPromptBytes = parentPromptBytes ?? (
+		(context.checkpoint ? Buffer.byteLength(JSON.stringify(context.checkpoint), "utf8") : 0) +
+		(context.active ? Buffer.byteLength(JSON.stringify(context.active), "utf8") : 0)
+	);
+
 	const result = await spawnWorkerProcess({
 		handoff,
 		command: process.execPath,
@@ -406,6 +421,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		fallbackModel,
 		checkProviderAvailable,
 		approveWriteDispatch: approveAndPersistCheckpoint,
+		parentPromptBytes: effectiveParentPromptBytes,
 	});
 
 	if ((result.status === "failed" || result.status === "blocked") && !isRemediationRetry) {
@@ -508,12 +524,16 @@ export function handleCheckpointCommand({ parsed, cwd = process.cwd(), checkpoin
 	const checkpoint = readDeliveryCheckpoint(cwd, checkpointPath, null, active);
 
 	if (subcommand === "status") {
+		const qEff = checkpoint.quarantineEfficiency;
+		const efficiencyText = qEff
+			? `Quarantine efficiency: ${(qEff.lastRatio * 100).toFixed(1)}% (saved ${qEff.lastSavingsBytes}B)`
+			: "Quarantine efficiency: N/A";
 		return {
 			kind: "checkpoint",
 			subcommand: "status",
 			checkpointPath: resolvedPath,
 			checkpoint,
-			summary: `Checkpoint: ${checkpoint.subject} | Route: ${checkpoint.currentRoute} -> ${checkpoint.suggestedNextRoute} | Decisions: ${checkpoint.decisions.length}, Constraints: ${checkpoint.constraints.length}, Open questions: ${checkpoint.openQuestions.length}, Rejected options: ${checkpoint.rejectedOptions.length}`,
+			summary: `Checkpoint: ${checkpoint.subject} | Route: ${checkpoint.currentRoute} -> ${checkpoint.suggestedNextRoute} | Decisions: ${checkpoint.decisions.length}, Constraints: ${checkpoint.constraints.length}, Open questions: ${checkpoint.openQuestions.length}, Rejected options: ${checkpoint.rejectedOptions.length} | ${efficiencyText}`,
 		};
 	}
 
@@ -639,7 +659,7 @@ export function formatNochestraResult(result) {
 		`Summary: ${result.summary}`,
 		`Next step: ${result.nextStep}`,
 	];
-	for (const key of ["artifacts", "verification", "blockers", "warnings", "recovery"]) {
+	for (const key of ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"]) {
 		if (result[key] !== undefined && result[key] !== null) {
 			const label = key[0].toUpperCase() + key.slice(1);
 			lines.push(`${label}: ${JSON.stringify(result[key])}`);

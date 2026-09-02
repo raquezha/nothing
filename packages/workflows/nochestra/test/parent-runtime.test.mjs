@@ -845,4 +845,35 @@ if (handoff.assignment && handoff.assignment.includes('verify')) {
 	}
 });
 
+test("checkpoint status includes context quarantine efficiency summary when available", async () => {
+	const repoDir = makeRepo();
+	try {
+		const checkpointPath = path.join(repoDir, ".workflow", "nochestra-checkpoint.json");
+		const checkpoint = {
+			subject: "github:198",
+			goal: "Test status summary",
+			decisions: [],
+			constraints: [],
+			openQuestions: [],
+			rejectedOptions: [],
+			currentRoute: "delivery",
+			suggestedNextRoute: "/frame",
+			quarantineEfficiency: {
+				lastSavingsBytes: 4000,
+				lastHandoffBytes: 1000,
+				lastParentPromptBytes: 5000,
+				lastRatio: 0.8,
+			},
+		};
+		writeCheckpoint(checkpointPath, checkpoint);
+
+		const statusRes = await dispatchNochestraInput({ input: "checkpoint status", cwd: repoDir });
+		assert.equal(statusRes.kind, "checkpoint");
+		assert.equal(statusRes.subcommand, "status");
+		assert.match(statusRes.summary, /Quarantine efficiency: 80\.0% \(saved 4000B\)/);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 
