@@ -5,9 +5,9 @@ export const DEFAULT_LOCAL_TIER = Object.freeze({
 });
 
 export const DEFAULT_CLOUD_TIER = Object.freeze({
-	provider: "cloud-anthropic",
-	name: "claude-3-5-sonnet",
-	contextWindow: 200000,
+	provider: "openai",
+	name: "gpt-4o",
+	contextWindow: 128000,
 });
 
 const LIGHTWEIGHT_DESTINATIONS = new Set(["triage", "frame", "note"]);
