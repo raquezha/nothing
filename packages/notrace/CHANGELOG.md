@@ -1,5 +1,18 @@
 # @raquezha/notrace
 
+## 0.4.0
+
+### Minor Changes
+
+- d44e4d4: Render Nochestra Phase 4 workflow evidence and context quarantine savings in Notrace reports
+
+### Patch Changes
+
+- 7a58dd7: Align dashboard samples and vitest suites with Phase 5 retrospective report model.
+- f83fc3b: Define Phase 5 report architecture contract and renderer section fallbacks for session reports and dashboard views
+- ec0e662: Render dynamic extension telemetry panels in Notrace reports with safe absent, inactive, blocked, and active states.
+- f6b67ce: Render session summary, usage metrics, activity metrics, and timeline sections in session report HTML.
+
 ## 0.3.0
 
 ### Minor Changes
