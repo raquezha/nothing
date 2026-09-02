@@ -36,6 +36,30 @@ for (const models of Object.values(AVAILABLE_MODEL_TIERS)) {
 	}
 }
 
+// Typo and shortcut alias mappings
+const TYPO_ALIASES = [
+	["ornith", AVAILABLE_MODEL_TIERS.ollama[0]],
+	["ornith9", AVAILABLE_MODEL_TIERS.ollama[0]],
+	["ornith-9b", AVAILABLE_MODEL_TIERS.ollama[0]],
+	["3.6flash", AVAILABLE_MODEL_TIERS.antigravity[1]],
+	["3.6-flash", AVAILABLE_MODEL_TIERS.antigravity[1]],
+	["36flash", AVAILABLE_MODEL_TIERS.antigravity[1]],
+	["3.7flash", AVAILABLE_MODEL_TIERS.antigravity[0]],
+	["3.7-flash", AVAILABLE_MODEL_TIERS.antigravity[0]],
+	["37flash", AVAILABLE_MODEL_TIERS.antigravity[0]],
+	["sonnet", AVAILABLE_MODEL_TIERS.antigravity[4]],
+	["opus", AVAILABLE_MODEL_TIERS.antigravity[5]],
+	["gpt54", AVAILABLE_MODEL_TIERS["openai-codex"][1]],
+	["gpt54m", AVAILABLE_MODEL_TIERS["openai-codex"][2]],
+	["gpt54mini", AVAILABLE_MODEL_TIERS["openai-codex"][2]],
+];
+
+for (const [alias, model] of TYPO_ALIASES) {
+	if (!MODEL_ALIASES.has(alias)) {
+		MODEL_ALIASES.set(alias, model);
+	}
+}
+
 const PROVIDER_ALIASES = new Map([
 	["openai", "openai-codex"],
 	["codex", "openai-codex"],

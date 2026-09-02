@@ -104,6 +104,15 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	});
 	assert.equal(providerAliasHandoff.model.provider, "openai-codex");
 	assert.equal(providerAliasHandoff.model.name, "gpt-5.4-mini");
+
+	// Shortcut and typo resolution (3.6-flash -> gemini-3.6-flash, ornith -> ornith:9b)
+	const shortcutParsed1 = parseNochestraInput("/triage github:194 use 3.6-flash");
+	const shortcutHandoff1 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed1, checkpoint, active: null });
+	assert.equal(shortcutHandoff1.model.name, "gemini-3.6-flash");
+
+	const shortcutParsed2 = parseNochestraInput("/plan github:194 use ornith");
+	const shortcutHandoff2 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed2, checkpoint, active: null });
+	assert.equal(shortcutHandoff2.model.name, "ornith:9b");
 });
 
 test("dispatchDeliveryCommand falls back to cloud model when local model override is requested but unavailable", async () => {
@@ -134,6 +143,19 @@ test("dispatchDeliveryCommand falls back to cloud model when local model overrid
 
 		assert.equal(result.status, "ok");
 		assert.equal(result.fallbackApplied, true);
+
+		// Custom local provider env override fallback
+		const customLocalParsed = parseNochestraInput("/plan github:194 use custom-local/model-a");
+		const customResult = await dispatchDeliveryCommand({
+			parsed: customLocalParsed,
+			cwd: repoDir,
+			workerRuntimePath: scriptPath,
+			env: { ...process.env, NOCH_LOCAL_PROVIDER: "custom-local" },
+			checkProviderAvailable: (provider) => provider !== "custom-local",
+		});
+
+		assert.equal(customResult.status, "ok");
+		assert.equal(customResult.fallbackApplied, true);
 	} finally {
 		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
 		fs.rmSync(repoDir, { recursive: true, force: true });
