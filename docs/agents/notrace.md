@@ -86,6 +86,18 @@ Rules:
 `notrace` accepts optional Nochestra correlation fields (`runId`, `workItemId`, `workerId`, `sessionId`, `epochId`) attached via context pointers or `NOCHESTRA_*` environment variables.
 `notrace` only records supplied correlation fields and does not control worker lifecycle or epoch policies.
 
+## Phase 5 report renderer contract
+
+HTML session reports and dashboard views render 7 canonical sections from `notrace.json` (and optional `notrace.review.json`):
+
+1. **Session Summary**: `traceId`, `repository` (`name`, `branch`), `session` (`id`, `startedAt`, `endedAt`, `durationMs`, `shutdownReason`), `conditions` (`harness`, `models`, `providers`, `extensions`), `captureMode`. Fallback: missing fields default gracefully to `"unknown"` or `"generic"`.
+2. **Usage Metrics**: `activity.totals` (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`, `totalCostUsd`), `activity.context` (`activeTokens`, `peakTokens`, `contextWindow`). Fallback: missing fields default to `0` or `"unavailable"`.
+3. **Activity Metrics**: `activity` (`turnCount`, `llmCallCount`, `toolCallCount`, `toolErrorCount`, `durationMs`). Fallback: missing counts default to `0`.
+4. **Dynamic Extension Telemetry**: `telemetry.extensions.*` (`loaded`, `enabled`, `active`, `status`, `summary`, `details`). Fallback: absent extensions render clean empty state ("No extension telemetry captured").
+5. **Timeline / Events**: `events` array & model switch breakdown. Fallback: empty array renders clean empty state ("No visible events captured").
+6. **Workflow / Task Attachments**: `task` (`workflow`, `id`, `path`, `dir`, `role`) & optional `correlation` (`runId`, `workItemId`, `workerId`, `parentSessionId`, `epochId`). Fallback: `task.workflow` defaults to `"generic"`; `correlation` fields rendered conditionally if present. Nochestra telemetry is never required.
+7. **Review Status**: Judgment record from `notrace.review.json` (`outcome`, `friction`, `lesson`, `nextChange`, `runRecord`). Fallback: missing file renders status "Unreviewed".
+
 ## Retrospective spine
 
 A session is complete only when it follows the spine:
