@@ -136,7 +136,9 @@ function extractModelOverride(args) {
 			if ((nextLower === "model" || nextLower === "provider") && targetIdx + 1 < args.length) {
 				targetIdx++;
 			}
-			requestedModel = args[targetIdx];
+			let rawModel = stripOuterQuotes(args[targetIdx]);
+			rawModel = rawModel.replace(/[,.!;]+$/, "");
+			requestedModel = stripOuterQuotes(rawModel);
 			i = targetIdx;
 		} else {
 			clean.push(token);
