@@ -6,18 +6,11 @@ SAFE_PWD=$(pwd | sed 's/\//-/g' | sed 's/^-/--/')
 TARGET_DIR="$HOME/.pi/agent/sessions/${SAFE_PWD}--"
 
 if [ -d "$TARGET_DIR" ]; then
-    LATEST_FILE=$(ls -t "$TARGET_DIR" | head -n 1 2>/dev/null)
-    if [ -n "$LATEST_FILE" ]; then
-        PROVIDER=$(cat "$TARGET_DIR/$LATEST_FILE" | grep -o '"provider":"[^"]*"' | tail -n 1 | cut -d'"' -f4)
-        MODEL=$(cat "$TARGET_DIR/$LATEST_FILE" | grep -o '"model":"[^"]*"' | tail -n 1 | cut -d'"' -f4)
-        
-        if [ -n "$MODEL" ]; then
-            # If provider exists, prefix it, otherwise just return model
-            if [ -n "$PROVIDER" ]; then
-                echo "$PROVIDER:$MODEL"
-            else
-                echo "UnknownProvider:$MODEL"
-            fi
+    LATEST_FILE=$(find "$TARGET_DIR" -maxdepth 1 -type f -exec stat -f "%m %N" {} + 2>/dev/null | sort -rn | head -n 1 | cut -d' ' -f2-)
+    if [ -n "$LATEST_FILE" ] && [ -f "$LATEST_FILE" ]; then
+        MODEL_INFO=$(jq -r 'select(.provider != null or .message.provider != null) | "\(.provider // .message.provider):\(.modelId // .model // .message.model)"' "$LATEST_FILE" 2>/dev/null | tail -n 1)
+        if [ -n "$MODEL_INFO" ] && [ "$MODEL_INFO" != "null:null" ]; then
+            echo "$MODEL_INFO"
             exit 0
         fi
     fi

@@ -166,6 +166,45 @@ export type NotraceReportSection =
   | "workflow_attachments"
   | "review_status";
 
+export type NochestraWorkerSession = {
+  sessionId?: string | null;
+  workerId?: string | null;
+  role: string;
+  route?: string | null;
+  command?: string | null;
+  modelTier?: string | null;
+  status?: string | null;
+};
+
+export type NochestraContextSavings = {
+  parentPromptTokens?: number | null;
+  parentContextTokens?: number | null;
+  boundedHandoffTokens?: number | null;
+  quarantineSavingsTokens?: number | null;
+  quarantineSavingsPercent?: number | null;
+};
+
+export type NochestraEpochBoundary = {
+  epochId: string;
+  startedAt?: string | number | null;
+  endedAt?: string | number | null;
+  checkpointRef?: string | null;
+};
+
+export type NochestraRemediationEvent = {
+  eventId?: string | null;
+  type: string;
+  description: string;
+  status?: string | null;
+};
+
+export type NochestraTelemetry = {
+  workers?: NochestraWorkerSession[];
+  quarantineSavings?: NochestraContextSavings | null;
+  epochs?: NochestraEpochBoundary[];
+  remediations?: NochestraRemediationEvent[];
+};
+
 export type NotraceRunRecord = {
   kind: "notrace-run";
   schemaVersion: number;
@@ -174,6 +213,7 @@ export type NotraceRunRecord = {
   session: NotraceSessionInfo;
   task: NotraceTaskInfo | null;
   correlation?: NotraceCorrelationInfo | null;
+  nochestra?: NochestraTelemetry | null;
   captureMode: NotraceCaptureMode;
   conditions: NotraceConditions;
   activity: NotraceActivity;
