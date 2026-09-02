@@ -124,6 +124,17 @@ Default mode remains `redacted` so payload histories are available for local deb
 - Dashboard links prefer per-session HTML summaries which link to `notrace.json` and the shared dashboard viewer (`index.html?session=<id>`), avoiding duplicated trace event content across files.
 - Static reports allow only local relative navigation links; scheme URLs are blocked.
 
+### Phase 5 report renderer contract
+
+Session reports render 7 canonical sections with strict fallback and metric separation rules:
+1. **Session Summary**: `traceId`, `repository` (`name`, `branch`), `session` (`id`, `startedAt`, `endedAt`, `durationMs`, `shutdownReason`), `conditions` (`harness`, `models`, `providers`, `extensions`), `captureMode`.
+2. **Usage Metrics**: Consumed tokens (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) and `totalCostUsd`.
+3. **Activity Metrics**: Turn count, LLM call count, tool call count, tool error count, session duration.
+4. **Dynamic Extension Telemetry**: Structured summaries for dynamic extensions (`status`, `summary`, `details`). Absent extensions render clean empty states without throwing.
+5. **Timeline / Events**: Event stream timeline and model switch breakdown.
+6. **Workflow / Task Attachments**: Task context (`workflow`, `id`, `path`, `dir`, `role`) and optional correlation identifiers (`runId`, `workItemId`, `workerId`, `parentSessionId`, `epochId`). Nochestra correlation fields are optional.
+7. **Review Status**: Judgment record from `notrace.review.json` (`rating`, `tags`, `notes`, `timestamp`, `reviewer`). Default status is "Unreviewed" when missing.
+
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
 ## Cleanup

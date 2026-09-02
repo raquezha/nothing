@@ -131,6 +131,38 @@ export type NotraceTelemetry = {
   extensions: Record<string, NotraceExtensionTelemetry>;
 };
 
+export type NotraceReviewRecord = {
+  kind: "notrace-review";
+  schemaVersion: number;
+  traceId: string;
+  rating: "pass" | "fail" | "neutral" | "needs-followup" | string;
+  tags?: string[];
+  notes?: string | null;
+  reviewer?: string | null;
+  timestamp: number | string;
+};
+
+/**
+ * Phase 5 Retrospective Report Section Contract
+ *
+ * Session reports and dashboard views render 7 canonical sections:
+ * 1. Session Summary (`session`, `repository`, `conditions`, `captureMode`)
+ * 2. Usage Metrics (`activity.totals`, `activity.context`)
+ * 3. Activity Metrics (`activity` counts, `durationMs`)
+ * 4. Dynamic Extension Telemetry (`telemetry.extensions.*`)
+ * 5. Timeline / Events (`events`, model switches)
+ * 6. Workflow / Task Attachments (`task`, optional `correlation`)
+ * 7. Review Status (`notrace.review.json` judgment record)
+ */
+export type NotraceReportSection =
+  | "session_summary"
+  | "usage_metrics"
+  | "activity_metrics"
+  | "extension_telemetry"
+  | "timeline"
+  | "workflow_attachments"
+  | "review_status";
+
 export type NotraceRunRecord = {
   kind: "notrace-run";
   schemaVersion: number;
