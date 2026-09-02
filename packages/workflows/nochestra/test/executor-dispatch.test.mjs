@@ -570,6 +570,52 @@ test("spawnWorkerProcess rejects malformed stdout JSON from worker sub-process",
 	}
 });
 
+test("spawnWorkerProcess cleans up temporary handoff files on process fallback", async () => {
+	const checkpoint = readCheckpoint(FIXTURE_PATH);
+	const handoff = buildBoundedHandoff({
+		assignment: "Temp file cleanup test",
+		checkpoint,
+		contextBudget: { maxTokens: 4000 },
+		model: { provider: "ollama", name: "qwen:7b", contextWindow: 8192 },
+	});
+
+	const scriptPath = path.join(os.tmpdir(), `test-temp-cleanup-${Date.now()}.cjs`);
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		if (providerVal === 'ollama') process.exit(1);
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-194-temp',
+			summary: 'Temp cleanup fallback success',
+			nextStep: '/verify'
+		}));
+	`, "utf8");
+
+	const beforeTempFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith("nochestra-handoff-"));
+
+	try {
+		const result = await spawnWorkerProcess({
+			handoff,
+			command: process.execPath,
+			args: [scriptPath],
+			handoffMode: "file",
+			fallbackModel: { provider: "cloud-anthropic", name: "claude-3-5-sonnet" },
+			lockPath: TEST_LOCK_PATH,
+			requiresWriteLock: false,
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.fallbackApplied, true);
+
+		const afterTempFiles = fs.readdirSync(os.tmpdir()).filter((f) => f.startsWith("nochestra-handoff-"));
+		assert.deepEqual(afterTempFiles, beforeTempFiles, "No temporary handoff files should leak after fallback");
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
+	}
+});
+
 test("buildBoundedHandoff supports valid model specification and rejects malformed model config", () => {
 	const checkpoint = readCheckpoint(FIXTURE_PATH);
 	const handoff = buildBoundedHandoff({
