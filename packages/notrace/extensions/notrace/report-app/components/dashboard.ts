@@ -4,6 +4,7 @@ import {
   formatTimeMinutes,
   formatUsd,
   parseDate,
+  resolveRepoName,
   taskDisplay,
   workflowClassName,
   workflowDisplayName,
@@ -41,7 +42,7 @@ function renderSessionRow(s: any, index: number, totalCount: number): string {
       <span class="session-sub">${escapeHtml(String(s.sessionId || ""))}</span>
     </a>
   </td>
-  <td><span class="hero-pill">${escapeHtml(s.repositoryName || "Unknown")}</span></td>
+  <td><span class="hero-pill">${escapeHtml(resolveRepoName(s))}</span></td>
   <td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td>
   <td>${renderDateCell(s.startedAt)}</td>
   <td>${escapeHtml(taskDisplay(s))}</td>
@@ -69,7 +70,7 @@ function renderSessionTable(reversed: any[]): string {
         </button>
       </th>
       <th>Session</th>
-      <th>Project</th>
+      <th>Repository</th>
       <th class="sortable-head">
         <button class="sort-btn" data-sort-key="workflow">
           <span class="sort-label">Workflow</span>
