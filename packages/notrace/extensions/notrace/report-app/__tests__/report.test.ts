@@ -221,4 +221,77 @@ describe("report-app report", () => {
     expect(html).toContain("350");
     expect(html).toContain("350");
   });
+
+  it("renders Nochestra evidence section when present and handles null fallbacks gracefully", () => {
+    const nochestraRecord = {
+      traceId: "nochestra-session-1",
+      repository: { name: "nothing", branch: "main" },
+      session: { id: "nochestra-session-1", startedAt: "2026-09-02T02:00:00Z", durationMs: 12000 },
+      task: { workflow: "norpiv", id: "github-211" },
+      nochestra: {
+        workers: [
+          { sessionId: "parent-1", role: "parent", route: "delivery", modelTier: "premium", status: "completed" },
+          { workerId: "worker-1", role: "executor", route: "delivery", command: "/triage", modelTier: "standard", status: "completed" },
+        ],
+        quarantineSavings: {
+          parentPromptTokens: 20000,
+          parentContextTokens: 25000,
+          boundedHandoffTokens: 5000,
+          quarantineSavingsTokens: 20000,
+          quarantineSavingsPercent: 80,
+        },
+        epochs: [
+          { epochId: "epoch-1", checkpointRef: ".workflow/tasks/github-211/WORK.md" },
+        ],
+        remediations: [
+          { type: "remediation", description: "Retried failed checkout lock", status: "resolved" },
+        ],
+      },
+      captureMode: "full",
+      conditions: { providers: ["anthropic"] },
+      activity: {
+        llmCallCount: 2,
+        toolCallCount: 3,
+        toolErrorCount: 0,
+        totals: { inputTokens: 5000, outputTokens: 500, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 5500, totalCostUsd: 0.04 },
+      },
+      telemetry: { extensions: {} },
+      events: [],
+    };
+
+    const html = generateHtmlReport(nochestraRecord as any);
+    expect(html).toContain("Nochestra Workflow Evidence");
+    expect(html).toContain("Context Quarantine Savings");
+    expect(html).toContain("20.0k");
+    expect(html).toContain("5.0k");
+    expect(html).toContain("80%");
+    expect(html).toContain("Worker Session Timeline");
+    expect(html).toContain("parent");
+    expect(html).toContain("executor");
+    expect(html).toContain("Context Epoch Boundaries");
+    expect(html).toContain("epoch-1");
+    expect(html).toContain("Remediation &amp; Blocker Events");
+    expect(html).toContain("Retried failed checkout lock");
+
+    const summaryHtml = generateSessionSummaryHtml(nochestraRecord as any);
+    expect(summaryHtml).toContain("Nochestra Workflow Evidence");
+
+    // Partial / null fallback check
+    const partialNochestraRecord = {
+      ...nochestraRecord,
+      traceId: "partial-nochestra-1",
+      nochestra: {
+        quarantineSavings: {
+          parentPromptTokens: null,
+          parentContextTokens: null,
+          boundedHandoffTokens: null,
+          quarantineSavingsTokens: null,
+          quarantineSavingsPercent: null,
+        },
+      },
+    };
+    const partialHtml = generateHtmlReport(partialNochestraRecord as any);
+    expect(partialHtml).toContain("Nochestra Workflow Evidence");
+    expect(partialHtml).toContain("unavailable");
+  });
 });
