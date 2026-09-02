@@ -43,7 +43,12 @@ export function resolveModelOverride(overrideSpec) {
 	if (spec.includes("/")) {
 		const [provider, ...rest] = spec.split("/");
 		const name = rest.join("/");
-		return { provider, name, contextWindow: 128000 };
+		const known = MODEL_ALIASES.get(name) || MODEL_ALIASES.get(name.replace(/[^a-z0-9]/g, ""));
+		return {
+			provider,
+			name,
+			contextWindow: known?.contextWindow || 128000,
+		};
 	}
 	const direct = MODEL_ALIASES.get(spec);
 	if (direct) return direct;

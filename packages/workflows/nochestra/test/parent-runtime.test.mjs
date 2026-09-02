@@ -83,6 +83,17 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	});
 	assert.equal(overrideHandoff.model.provider, "openai-codex");
 	assert.equal(overrideHandoff.model.name, "gpt-5.4-mini");
+
+	// Explicit full spec override preserves actual catalog context window
+	const fullSpecParsed = parseNochestraInput("/triage github:194 use antigravity/gemini-3.6-flash");
+	const fullSpecHandoff = buildNochestraDeliveryHandoff({
+		parsed: fullSpecParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(fullSpecHandoff.model.provider, "antigravity");
+	assert.equal(fullSpecHandoff.model.name, "gemini-3.6-flash");
+	assert.equal(fullSpecHandoff.model.contextWindow, 1048576);
 });
 
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {
