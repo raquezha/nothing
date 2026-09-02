@@ -133,10 +133,17 @@ function checkpointWithWorkerResult(checkpoint, result, parsed = null) {
 		.map((b) => (typeof b === "string" ? b : JSON.stringify(b)))
 		.filter((b) => !checkpoint.openQuestions.includes(b));
 
+	const recoveryQuestion = result.recovery
+		? `Recovery proposed for ${result.taskId || "Worker"}: ${typeof result.recovery === "string" ? result.recovery : JSON.stringify(result.recovery)}`
+		: null;
+	const openQuestions = (recoveryQuestion && !checkpoint.openQuestions.includes(recoveryQuestion))
+		? [...checkpoint.openQuestions, ...newBlockers, recoveryQuestion]
+		: [...checkpoint.openQuestions, ...newBlockers];
+
 	return {
 		...checkpoint,
 		decisions,
-		openQuestions: [...checkpoint.openQuestions, ...newBlockers],
+		openQuestions,
 		currentRoute: parsed?.route || checkpoint.currentRoute || "delivery",
 		suggestedNextRoute: result.nextStep || checkpoint.suggestedNextRoute,
 		...(result.recovery !== undefined ? { recovery: result.recovery } : {}),
@@ -262,6 +269,75 @@ function compactDeliveryResult(parsed, result, contextTask = null) {
 	};
 }
 
+export function resolveWorkerRemediation(result) {
+	if (!result || (result.status !== "failed" && result.status !== "blocked")) {
+		return null;
+	}
+
+	const explicitWorker = typeof result.recovery === "object" && result.recovery !== null
+		? (result.recovery.recommendedWorker || result.recovery.action || result.recovery.destination)
+		: (typeof result.recovery === "string" ? result.recovery : null);
+
+	if (explicitWorker) {
+		const clean = String(explicitWorker).toLowerCase().replace(/^\//, "");
+		return {
+			recommendedWorker: clean,
+			remediationCommand: `/${clean}`,
+			rationale: result.recovery?.rationale || `Explicit recovery requested: ${clean}`,
+		};
+	}
+
+	const text = [
+		result.summary || "",
+		...(Array.isArray(result.blockers) ? result.blockers : []),
+		typeof result.recovery === "string" ? result.recovery : "",
+	].join(" ").toLowerCase();
+
+	let recommendedWorker = "verify";
+	let rationale = "Default remediation worker on failure";
+
+	if (/test|assert|verification|verify|check|fail/i.test(text)) {
+		recommendedWorker = "verify";
+		rationale = "Test failure or verification gap detected";
+	} else if (/evidence|spec|design|formula/i.test(text)) {
+		recommendedWorker = "refine";
+		rationale = "Missing evidence or specification gap detected";
+	} else if (/brief|intake|framing|goal/i.test(text)) {
+		recommendedWorker = "frame";
+		rationale = "Framing or intake issue detected";
+	}
+
+	return {
+		recommendedWorker,
+		remediationCommand: `/${recommendedWorker}`,
+		rationale,
+	};
+}
+
+export function formatRemediationPrompt({ result, proposal, task }) {
+	const taskLabel = task ? `${task.source}:${task.id}` : (result.taskId || "unknown");
+	const blockersText = (result.blockers || []).map((b) => `- ${b}`).join("\n");
+	return [
+		`Worker ${result.status.toUpperCase()} for task ${taskLabel}: ${result.summary}`,
+		...(blockersText ? ["Blockers:", blockersText] : []),
+		`Proposed remediation: Retry with worker '/${proposal.recommendedWorker}' (${proposal.rationale})`,
+		"Options: [R]etry with remediation worker, [S]kip to manual, [C]ancel",
+	].join("\n");
+}
+
+export async function promptForRemediation(proposalContext, { input = process.stdin, output = process.stderr } = {}) {
+	const rl = readline.createInterface({ input, output });
+	try {
+		const answer = await rl.question(`${formatRemediationPrompt(proposalContext)}\nChoice [R/s/c]: `);
+		const trimmed = answer.trim().toLowerCase();
+		if (trimmed === "s" || trimmed === "skip") return "skip";
+		if (trimmed === "c" || trimmed === "cancel") return "cancel";
+		return "retry";
+	} finally {
+		rl.close();
+	}
+}
+
 export function formatWriteApprovalPrompt({ assignment, destination, permissions = [], writeScope = null, requiresWriteLock = false, task = null } = {}) {
 	const scope = writeScope ?? resolveWriteScope({ destination, assignment, task });
 
@@ -299,7 +375,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, vaultRoot = null, checkProviderAvailable = null } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -331,6 +407,63 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		checkProviderAvailable,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 	});
+
+	if ((result.status === "failed" || result.status === "blocked") && !isRemediationRetry) {
+		const proposal = resolveWorkerRemediation(result);
+		if (proposal) {
+			result.recovery = {
+				...proposal,
+				...(typeof result.recovery === "object" ? result.recovery : {}),
+			};
+
+			const promptFn = promptRemediation ?? (process.stdin.isTTY ? promptForRemediation : null);
+			if (promptFn) {
+				const choiceRaw = await promptFn({ result, proposal, parsed, task });
+				const choice = typeof choiceRaw === "string" ? choiceRaw.toLowerCase() : choiceRaw?.choice || "skip";
+
+				if (choice === "retry" || choice === "r") {
+					const remediationParsed = parseNochestraInput(`/${proposal.recommendedWorker} ${task.source}:${task.id}`);
+					const remediationContext = loadDeliveryContext({ cwd, checkpointPath, parsed: remediationParsed });
+					remediationContext.checkpoint.constraints = [
+						...remediationContext.checkpoint.constraints,
+						`Failure remediation context: previous worker ${result.taskId || parsed.command} returned status '${result.status}'. Summary: ${result.summary}. Blockers: ${(result.blockers || []).join("; ")}`,
+					];
+					remediationContext.checkpoint.decisions = [
+						...remediationContext.checkpoint.decisions,
+						`Accepted remediation retry with worker /${proposal.recommendedWorker} following status '${result.status}'`,
+					];
+					writeDeliveryCheckpoint(cwd, checkpointPath, remediationContext.checkpoint);
+
+					return dispatchDeliveryCommand({
+						parsed: remediationParsed.kind === "delivery" ? remediationParsed : parsed,
+						cwd,
+						workerRuntimePath,
+						checkpointPath,
+						approveWriteDispatch,
+						promptRemediation: null,
+						vaultRoot,
+						checkProviderAvailable,
+						isRemediationRetry: true,
+					});
+				} else if (choice === "cancel" || choice === "c") {
+					const cancelledResult = {
+						kind: "delivery",
+						command: parsed.command,
+						task,
+						status: "cancelled",
+						taskId: result.taskId || task.id,
+						summary: `Worker dispatch cancelled by user at remediation gate for /${parsed.command}`,
+						nextStep: parsed.command,
+						recovery: { ...result.recovery, actionTaken: "cancelled" },
+					};
+					return cancelledResult;
+				} else {
+					result.recovery = { ...result.recovery, actionTaken: "skipped" };
+				}
+			}
+		}
+	}
+
 	const compact = compactDeliveryResult(parsed, result, task);
 	if (result.status !== "cancelled") {
 		writeDeliveryCheckpoint(cwd, checkpointPath, checkpointWithWorkerResult(context.checkpoint, result, parsed));
@@ -520,6 +653,7 @@ export async function runNochestraParent(args = process.argv.slice(2), options =
 		input: args,
 		...options,
 		approveWriteDispatch: options.approveWriteDispatch ?? ((request) => promptForWriteDispatch(request, options)),
+		promptRemediation: options.promptRemediation ?? ((context) => promptForRemediation(context, options)),
 	});
 }
 

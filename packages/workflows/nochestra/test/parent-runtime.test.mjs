@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext, dispatchDeliveryCommand } from "../application/parent-runtime.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext, dispatchDeliveryCommand, resolveWorkerRemediation, formatRemediationPrompt } from "../application/parent-runtime.mjs";
 import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
@@ -752,4 +752,97 @@ test("dispatchNochestraInput handles missing checkpoint for read-only subcommand
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
 });
+
+test("resolveWorkerRemediation maps worker failure patterns and explicit recovery suggestions to remediation targets", () => {
+	// Explicit recovery payload
+	const explicit = resolveWorkerRemediation({
+		status: "failed",
+		summary: "Step failed",
+		recovery: { recommendedWorker: "refine", rationale: "Refine specifications" },
+	});
+	assert.equal(explicit.recommendedWorker, "refine");
+
+	// Pattern match test failure -> verify
+	const testFail = resolveWorkerRemediation({
+		status: "failed",
+		summary: "Unit tests failed in test/parent-runtime.test.mjs",
+		blockers: ["2 tests failing"],
+	});
+	assert.equal(testFail.recommendedWorker, "verify");
+
+	// Pattern match missing evidence -> refine
+	const evidenceFail = resolveWorkerRemediation({
+		status: "blocked",
+		summary: "Missing design spec and formula evidence",
+		blockers: ["No formula truth table"],
+	});
+	assert.equal(evidenceFail.recommendedWorker, "refine");
+
+	// Non-failure returns null
+	assert.equal(resolveWorkerRemediation({ status: "ok", summary: "Success" }), null);
+});
+
+test("dispatchDeliveryCommand handles automated remediation proposal and interactive prompt gate", async () => {
+	const repoDir = makeRepo();
+	const workerRuntimePath = path.join(os.tmpdir(), `test-remediation-worker-${Date.now()}.cjs`);
+
+	// Create mock worker runtime script that fails on first call but succeeds on remediation call
+	fs.writeFileSync(
+		workerRuntimePath,
+		`
+const fs = require('fs');
+let handoff;
+if (process.argv.includes('--handoff')) {
+	const handoffPath = process.argv[process.argv.indexOf('--handoff') + 1];
+	handoff = JSON.parse(fs.readFileSync(handoffPath, 'utf8'));
+}
+
+if (handoff.assignment && handoff.assignment.includes('verify')) {
+	process.stdout.write(JSON.stringify({
+		status: 'ok',
+		taskId: handoff.artifactSnapshot ? handoff.artifactSnapshot.id : '194',
+		summary: 'Remediation verify worker succeeded',
+		nextStep: '/implement',
+	}) + '\\n');
+} else {
+	process.stdout.write(JSON.stringify({
+		status: 'failed',
+		taskId: '194',
+		summary: 'Execution failed due to test failure',
+		blockers: ['test/runtime.test.mjs assertion failed'],
+		nextStep: '/plan',
+	}) + '\\n');
+}
+`,
+		"utf8"
+	);
+
+	try {
+		let promptCalled = false;
+		let receivedProposal = null;
+
+		const result = await dispatchDeliveryCommand({
+			parsed: parseNochestraInput("/implement github:194"),
+			cwd: repoDir,
+			workerRuntimePath,
+			promptRemediation: async ({ proposal, result: origResult }) => {
+				promptCalled = true;
+				receivedProposal = proposal;
+				return "retry";
+			},
+		});
+
+		assert.equal(promptCalled, true);
+		assert.equal(receivedProposal.recommendedWorker, "verify");
+		assert.equal(result.status, "ok");
+		assert.equal(result.summary, "Remediation verify worker succeeded");
+
+		const checkpoint = readCheckpoint(path.join(repoDir, ".workflow", "nochestra-checkpoint.json"));
+		assert.ok(checkpoint.decisions.some((d) => d.includes("Accepted remediation retry")));
+	} finally {
+		fs.rmSync(workerRuntimePath, { force: true });
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
 
