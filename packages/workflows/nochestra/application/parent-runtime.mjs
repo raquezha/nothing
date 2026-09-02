@@ -202,6 +202,9 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active, env }) {
 
 	const { model: stageModel } = resolveModelTier(destination, { env });
 	const overrideModel = resolveModelOverride(parsed.requestedModel);
+	if (parsed.requestedModel && !overrideModel) {
+		throw new Error(`Which model did you mean by "${parsed.requestedModel}"? Use an exact catalog model or known shortcut (for example: ornith, 3.6-flash, sonnet, opus, gpt-5.4-mini).`);
+	}
 	const model = overrideModel || stageModel;
 
 	const base = buildBoundedHandoff({
