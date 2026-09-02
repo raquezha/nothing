@@ -105,6 +105,12 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	assert.equal(providerAliasHandoff.model.provider, "openai-codex");
 	assert.equal(providerAliasHandoff.model.name, "gpt-5.4-mini");
 
+	// Real prompts often contain spaces instead of exact catalog punctuation
+	const spacedModelParsed = parseNochestraInput("/plan github:194 use openai gpt 5.4 mini please");
+	const spacedModelHandoff = buildNochestraDeliveryHandoff({ parsed: spacedModelParsed, checkpoint, active: null });
+	assert.equal(spacedModelHandoff.model.provider, "openai-codex");
+	assert.equal(spacedModelHandoff.model.name, "gpt-5.4-mini");
+
 	// Shortcut and typo resolution (3.6-flash -> gemini-3.6-flash, ornith -> ornith:9b)
 	const shortcutParsed1 = parseNochestraInput("/triage github:194 use 3.6-flash");
 	const shortcutHandoff1 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed1, checkpoint, active: null });

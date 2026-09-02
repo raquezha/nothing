@@ -123,6 +123,12 @@ export function recommendNochestraRoute(input) {
 	};
 }
 
+const MODEL_OVERRIDE_STOP_WORDS = new Set(["please", "pls", "thanks", "thx"]);
+
+function cleanModelToken(token) {
+	return stripOuterQuotes(token).replace(/^[,.!;]+|[,.!;]+$/g, "");
+}
+
 function extractModelOverride(args) {
 	if (!Array.isArray(args) || args.length === 0) return { cleanArgs: args || [], requestedModel: null };
 	const clean = [];
@@ -136,10 +142,15 @@ function extractModelOverride(args) {
 			if ((nextLower === "model" || nextLower === "provider") && targetIdx + 1 < args.length) {
 				targetIdx++;
 			}
-			let rawModel = stripOuterQuotes(args[targetIdx]);
-			rawModel = rawModel.replace(/[,.!;]+$/, "");
-			requestedModel = stripOuterQuotes(rawModel);
-			i = targetIdx;
+			const parts = [];
+			for (let j = targetIdx; j < args.length; j++) {
+				const part = cleanModelToken(args[j]);
+				const partLower = part.toLowerCase();
+				if (!part || !/[a-z0-9]/i.test(part) || MODEL_OVERRIDE_STOP_WORDS.has(partLower) || partLower.startsWith("--")) break;
+				parts.push(part);
+				i = j;
+			}
+			requestedModel = stripOuterQuotes(parts.join(" "));
 		} else {
 			clean.push(token);
 		}

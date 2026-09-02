@@ -305,9 +305,9 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 	const handoff = buildDeliveryHandoff({ parsed, ...context, env });
 	const { fallbackModel: stageFallback } = resolveModelTier(handoff.destination, { env });
 	const { fallbackModel: defaultCloudFallback } = resolveModelTier("triage", { env });
-	const fallbackModel = (handoff.model?.provider === "ollama" || handoff.model?.provider === "local")
-		? defaultCloudFallback
-		: stageFallback;
+	const configuredLocalProvider = env.NOCH_LOCAL_PROVIDER || "ollama";
+	const isLocalTarget = handoff.model?.provider === configuredLocalProvider || handoff.model?.provider === "ollama" || handoff.model?.provider === "local";
+	const fallbackModel = (isLocalTarget || !stageFallback) ? defaultCloudFallback : stageFallback;
 
 	const result = await spawnWorkerProcess({
 		handoff,

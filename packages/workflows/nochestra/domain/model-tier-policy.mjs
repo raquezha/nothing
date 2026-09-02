@@ -84,7 +84,17 @@ export function resolveModelOverride(overrideSpec) {
 	const direct = MODEL_ALIASES.get(spec);
 	if (direct) return direct;
 	const compactSpec = spec.replace(/[^a-z0-9]/g, "");
-	return MODEL_ALIASES.get(compactSpec) || null;
+	const compactDirect = MODEL_ALIASES.get(compactSpec);
+	if (compactDirect) return compactDirect;
+	for (const [alias, provider] of PROVIDER_ALIASES) {
+		if (spec.startsWith(`${alias} `)) {
+			const name = spec.slice(alias.length).trim();
+			const known = MODEL_ALIASES.get(name) || MODEL_ALIASES.get(name.replace(/[^a-z0-9]/g, ""));
+			if (known) return known;
+			return { provider, name, contextWindow: 128000 };
+		}
+	}
+	return null;
 }
 
 const LIGHTWEIGHT_DESTINATIONS = new Set(["triage", "frame", "note"]);
