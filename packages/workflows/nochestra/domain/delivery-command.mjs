@@ -123,6 +123,23 @@ export function recommendNochestraRoute(input) {
 	};
 }
 
+function extractModelOverride(args) {
+	if (!Array.isArray(args) || args.length === 0) return { cleanArgs: args || [], requestedModel: null };
+	const clean = [];
+	let requestedModel = null;
+	for (let i = 0; i < args.length; i++) {
+		const token = args[i];
+		const lower = token.toLowerCase();
+		if ((lower === "use" || lower === "with" || lower === "--model") && i + 1 < args.length) {
+			requestedModel = args[i + 1];
+			i++;
+		} else {
+			clean.push(token);
+		}
+	}
+	return { cleanArgs: clean, requestedModel };
+}
+
 export function parseNochestraInput(input) {
 	const raw = normalizeInput(input);
 	if (!raw) {
@@ -207,12 +224,16 @@ export function parseNochestraInput(input) {
 		};
 	}
 
+	const remainingArgs = task ? rest.slice(1) : rest;
+	const { cleanArgs, requestedModel } = extractModelOverride(remainingArgs);
+
 	return {
 		kind: "delivery",
 		route: "delivery",
 		command,
 		task: task || null,
-		args: task ? rest.slice(1) : rest,
+		args: cleanArgs,
+		...(requestedModel ? { requestedModel } : {}),
 		raw,
 	};
 }

@@ -73,6 +73,16 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	});
 	assert.equal(planHandoff.model.provider, "antigravity");
 	assert.equal(planHandoff.model.name, "gemini-3.6-flash");
+
+	// Explicit override: /triage github:194 use gpt-5.4-mini
+	const overrideParsed = parseNochestraInput("/triage github:194 use gpt-5.4-mini");
+	const overrideHandoff = buildNochestraDeliveryHandoff({
+		parsed: overrideParsed,
+		checkpoint,
+		active: null,
+	});
+	assert.equal(overrideHandoff.model.provider, "openai-codex");
+	assert.equal(overrideHandoff.model.name, "gpt-5.4-mini");
 });
 
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {

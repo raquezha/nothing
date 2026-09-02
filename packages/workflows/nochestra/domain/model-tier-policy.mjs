@@ -26,6 +26,31 @@ export const AVAILABLE_MODEL_TIERS = Object.freeze({
 export const DEFAULT_LOCAL_TIER = Object.freeze(AVAILABLE_MODEL_TIERS.ollama[0]);
 export const DEFAULT_CLOUD_TIER = Object.freeze(AVAILABLE_MODEL_TIERS.antigravity[1]);
 
+const MODEL_ALIASES = new Map();
+for (const models of Object.values(AVAILABLE_MODEL_TIERS)) {
+	for (const m of models) {
+		MODEL_ALIASES.set(m.name.toLowerCase(), m);
+		const compact = m.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+		if (!MODEL_ALIASES.has(compact)) {
+			MODEL_ALIASES.set(compact, m);
+		}
+	}
+}
+
+export function resolveModelOverride(overrideSpec) {
+	if (!overrideSpec || typeof overrideSpec !== "string") return null;
+	const spec = overrideSpec.trim().toLowerCase();
+	if (spec.includes("/")) {
+		const [provider, ...rest] = spec.split("/");
+		const name = rest.join("/");
+		return { provider, name, contextWindow: 128000 };
+	}
+	const direct = MODEL_ALIASES.get(spec);
+	if (direct) return direct;
+	const compactSpec = spec.replace(/[^a-z0-9]/g, "");
+	return MODEL_ALIASES.get(compactSpec) || null;
+}
+
 const LIGHTWEIGHT_DESTINATIONS = new Set(["triage", "frame", "note"]);
 
 export function resolveModelTier(destination, options = {}) {

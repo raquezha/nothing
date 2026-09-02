@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput, slugifyTopic } from "../domain/delivery-command.mjs";
 import { resolveWriteScope } from "../domain/write-scope-policy.mjs";
-import { resolveModelTier } from "../domain/model-tier-policy.mjs";
+import { resolveModelTier, resolveModelOverride } from "../domain/model-tier-policy.mjs";
 import { extractOptionalWorkerResultFields } from "../domain/handoff-contract.mjs";
 import { buildBoundedHandoff } from "./executor-dispatch.mjs";
 import { spawnWorkerProcess } from "../adapters/process-runner.mjs";
@@ -200,7 +200,9 @@ export function buildDeliveryHandoff({ parsed, checkpoint, active, env }) {
 		selectedSkill = "distill";
 	}
 
-	const { model } = resolveModelTier(destination, { env });
+	const { model: stageModel } = resolveModelTier(destination, { env });
+	const overrideModel = resolveModelOverride(parsed.requestedModel);
+	const model = overrideModel || stageModel;
 
 	const base = buildBoundedHandoff({
 		assignment: parsed.command === "research"
