@@ -2,4 +2,4 @@
 "@raquezha/nochestra": patch
 ---
 
-Add parse support for interactive checkpoint CLI subcommands (`status`, `show`, `compact`, `reset`, `prune`). Refs #196
+Implement interactive checkpoint CLI subcommands (`status`, `show`, `compact`, `reset`, `prune`) in Nochestra parent runtime. Refs #196

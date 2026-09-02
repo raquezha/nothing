@@ -338,10 +338,151 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 	return compact;
 }
 
+export function handleCheckpointCommand({ parsed, cwd = process.cwd(), checkpointPath = DEFAULT_CHECKPOINT_PATH, options = {} } = {}) {
+	const subcommand = parsed.subcommand ? parsed.subcommand.toLowerCase() : null;
+	const resolvedPath = path.resolve(cwd, checkpointPath);
+
+	const validSubcommands = new Set(["status", "show", "compact", "reset", "prune"]);
+	if (!subcommand || !validSubcommands.has(subcommand)) {
+		throw new Error(`Unknown checkpoint subcommand: "${parsed.subcommand || ""}". Usage: pi --nochestra checkpoint [status|show|compact|reset|prune]`);
+	}
+
+	if (subcommand === "reset") {
+		const active = readActiveWorkflow(cwd);
+		const newCheckpoint = active
+			? defaultCheckpointForTask({ command: "triage" }, active)
+			: {
+					subject: "nochestra:session",
+					goal: "Interactive session",
+					decisions: [],
+					constraints: ["Preserve existing workflow rules"],
+					openQuestions: [],
+					rejectedOptions: [],
+					currentRoute: "chat",
+					suggestedNextRoute: "triage",
+			  };
+		writeDeliveryCheckpoint(cwd, checkpointPath, newCheckpoint);
+		return {
+			kind: "checkpoint",
+			subcommand: "reset",
+			checkpointPath: resolvedPath,
+			checkpoint: newCheckpoint,
+			summary: `Reset Nochestra checkpoint at ${checkpointPath} (${newCheckpoint.subject})`,
+		};
+	}
+
+	const active = readActiveWorkflow(cwd);
+	const checkpoint = readDeliveryCheckpoint(cwd, checkpointPath, null, active);
+
+	if (subcommand === "status") {
+		return {
+			kind: "checkpoint",
+			subcommand: "status",
+			checkpointPath: resolvedPath,
+			checkpoint,
+			summary: `Checkpoint: ${checkpoint.subject} | Route: ${checkpoint.currentRoute} -> ${checkpoint.suggestedNextRoute} | Decisions: ${checkpoint.decisions.length}, Constraints: ${checkpoint.constraints.length}, Open questions: ${checkpoint.openQuestions.length}, Rejected options: ${checkpoint.rejectedOptions.length}`,
+		};
+	}
+
+	if (subcommand === "show") {
+		const formatList = (items) => (items && items.length > 0 ? items.map((i) => `- ${i}`).join("\n") : "_None_");
+		const text = [
+			`# Checkpoint: ${checkpoint.subject}`,
+			"",
+			`**Goal**: ${checkpoint.goal}`,
+			`**Route**: ${checkpoint.currentRoute} -> ${checkpoint.suggestedNextRoute}`,
+			"",
+			"## Decisions",
+			formatList(checkpoint.decisions),
+			"",
+			"## Constraints",
+			formatList(checkpoint.constraints),
+			"",
+			"## Open Questions",
+			formatList(checkpoint.openQuestions),
+			"",
+			"## Rejected Options",
+			formatList(checkpoint.rejectedOptions),
+		].join("\n");
+
+		return {
+			kind: "checkpoint",
+			subcommand: "show",
+			checkpointPath: resolvedPath,
+			checkpoint,
+			text,
+			summary: text,
+		};
+	}
+
+	if (subcommand === "prune") {
+		const seen = new Set();
+		const newOpenQuestions = [];
+		for (const q of checkpoint.openQuestions || []) {
+			const trimmed = String(q || "").trim();
+			if (!trimmed) continue;
+			const lower = trimmed.toLowerCase();
+			if (lower.startsWith("resolved:") || lower.startsWith("stale:")) continue;
+			if (!seen.has(trimmed)) {
+				seen.add(trimmed);
+				newOpenQuestions.push(trimmed);
+			}
+		}
+
+		const beforeCount = checkpoint.openQuestions.length;
+		const prunedCount = beforeCount - newOpenQuestions.length;
+		const updatedCheckpoint = {
+			...checkpoint,
+			openQuestions: newOpenQuestions,
+		};
+
+		if (prunedCount > 0) {
+			writeDeliveryCheckpoint(cwd, checkpointPath, updatedCheckpoint);
+		}
+
+		return {
+			kind: "checkpoint",
+			subcommand: "prune",
+			checkpointPath: resolvedPath,
+			checkpoint: updatedCheckpoint,
+			summary: prunedCount > 0
+				? `Pruned ${prunedCount} open question(s) from checkpoint at ${checkpointPath}`
+				: `No open questions pruned from checkpoint at ${checkpointPath}`,
+		};
+	}
+
+	if (subcommand === "compact") {
+		const transition = compactParentEpoch({
+			currentEpochId: options.currentEpochId || "epoch-1",
+			checkpoint,
+			instructions: options.instructions || "",
+			transcript: options.transcript || [],
+			quarantineWindowSize: options.quarantineWindowSize ?? 2,
+			currentApprovals: options.currentApprovals || [],
+			taskMaterial: options.taskMaterial || {},
+			contextSnapshot: options.activeTokens ? { activeTokens: options.activeTokens } : null,
+		});
+
+		writeDeliveryCheckpoint(cwd, checkpointPath, transition.hotContext.checkpoint);
+
+		return {
+			kind: "checkpoint",
+			subcommand: "compact",
+			checkpointPath: resolvedPath,
+			checkpoint: transition.hotContext.checkpoint,
+			epoch: transition,
+			summary: `Compacted parent epoch (${transition.previousEpochId} -> ${transition.epochId}) for checkpoint at ${checkpointPath}`,
+		};
+	}
+}
+
 export async function dispatchNochestraInput(options = {}) {
 	const parsed = parseNochestraInput(options.input);
 	if (parsed.kind === "delivery-error") {
 		throw new Error(parsed.error);
+	}
+	if (parsed.kind === "checkpoint") {
+		return handleCheckpointCommand({ ...options, parsed });
 	}
 	if (parsed.kind === "delivery") {
 		return dispatchDeliveryCommand({ ...options, parsed });
@@ -352,6 +493,9 @@ export async function dispatchNochestraInput(options = {}) {
 export function formatNochestraResult(result) {
 	if (result.kind === "chat") {
 		return result.prompt;
+	}
+	if (result.kind === "checkpoint") {
+		return result.subcommand === "show" ? result.text : result.summary;
 	}
 	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
 	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");

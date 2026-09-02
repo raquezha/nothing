@@ -27,6 +27,9 @@ pi --nochestra /plan
 # Discovery & Notes entrypoints
 pi --nochestra research "topic"
 pi --nochestra note "topic"
+
+# Checkpoint management
+pi --nochestra checkpoint [status|show|compact|reset|prune]
 ```
 
 ### Direct Escape Hatches
@@ -43,6 +46,7 @@ You can bypass Nochestra at any time by invoking direct workflow hats:
 
 - **Create**: Initialized when entering Nochestra or starting a task/epoch.
 - **Update**: Continuously records accepted intent, decisions, and active state across turns.
+- **CLI Management**: Inspect with `pi --nochestra checkpoint [status|show]`, prune stale open questions with `prune`, compact parent epoch with `compact`, or safely restore default valid state with `reset`.
 - **Cancel**: Reset or dropped when abandoning an epoch, leaving cold archives intact without mutating repository state.
 
 ### Approval & Write-Scope Rules
