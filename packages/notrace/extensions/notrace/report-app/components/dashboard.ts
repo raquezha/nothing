@@ -4,6 +4,7 @@ import {
   formatTimeMinutes,
   formatUsd,
   parseDate,
+  resolveRepoName,
   taskDisplay,
   workflowClassName,
   workflowDisplayName,
@@ -18,13 +19,9 @@ function renderDateCell(value: string | number): string {
 
 function renderSessionRow(s: any, index: number, totalCount: number): string {
   const rowNumber = totalCount - index;
-  const link = safeHref(
-    s.artifacts?.html
-      ? (s.artifacts.html.startsWith(".notrace/") ? s.artifacts.html.substring(9) : s.artifacts.html)
-      : s.artifacts?.record
-        ? s.artifacts.record
-        : "#"
-  );
+  const rawPath = s.artifacts?.html || s.artifacts?.record || "#";
+  const normalizedPath = typeof rawPath === "string" ? rawPath.replace(/^(?:\.\/)?\.notrace[/\\]/, "") : "#";
+  const link = safeHref(normalizedPath);
 
   const workflow = s.task?.workflow || "generic";
   const workflowLabel = workflowDisplayName(workflow);
@@ -41,7 +38,7 @@ function renderSessionRow(s: any, index: number, totalCount: number): string {
       <span class="session-sub">${escapeHtml(String(s.sessionId || ""))}</span>
     </a>
   </td>
-  <td><span class="hero-pill">${escapeHtml(s.repositoryName || "Unknown")}</span></td>
+  <td><span class="hero-pill">${escapeHtml(resolveRepoName(s))}</span></td>
   <td><span class="workflow-pill ${workflowClassName(workflow)}">${escapeHtml(workflowLabel)}</span></td>
   <td>${renderDateCell(s.startedAt)}</td>
   <td>${escapeHtml(taskDisplay(s))}</td>
@@ -69,7 +66,7 @@ function renderSessionTable(reversed: any[]): string {
         </button>
       </th>
       <th>Session</th>
-      <th>Project</th>
+      <th>Repository</th>
       <th class="sortable-head">
         <button class="sort-btn" data-sort-key="workflow">
           <span class="sort-label">Workflow</span>

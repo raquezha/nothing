@@ -19,5 +19,24 @@ describe("dashboard report", () => {
 
     expect(html).toContain('href="sessions/session-1/notrace.html"');
     expect(html).not.toContain('href="sessions/session-1/notrace.json"');
+    expect(html).toContain("Repository");
+  });
+
+  it("normalizes prefixed artifact links (.notrace/ and ./.notrace/)", () => {
+    const html = generateDashboardHtml([
+      {
+        sessionId: "prefixed-session",
+        startedAt: "2026-09-02T00:00:00Z",
+        artifacts: { html: "./.notrace/sessions/prefixed/notrace.html" },
+      },
+      {
+        sessionId: "fallback-record-session",
+        startedAt: "2026-09-02T00:00:00Z",
+        artifacts: { record: ".notrace/sessions/fallback/notrace.json" },
+      },
+    ]);
+
+    expect(html).toContain('href="sessions/prefixed/notrace.html"');
+    expect(html).toContain('href="sessions/fallback/notrace.json"');
   });
 });
