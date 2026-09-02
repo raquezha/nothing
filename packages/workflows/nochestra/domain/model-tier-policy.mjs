@@ -1,7 +1,6 @@
 export const AVAILABLE_MODEL_TIERS = Object.freeze({
 	ollama: [
 		{ provider: "ollama", name: "ornith:9b", contextWindow: 262144 },
-		{ provider: "ollama", name: "ornith:35b", contextWindow: 262144 },
 	],
 	antigravity: [
 		{ provider: "antigravity", name: "gemini-3.7-flash", contextWindow: 1048576 },
