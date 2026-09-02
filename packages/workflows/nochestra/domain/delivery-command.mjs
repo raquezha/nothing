@@ -130,9 +130,14 @@ function extractModelOverride(args) {
 	for (let i = 0; i < args.length; i++) {
 		const token = args[i];
 		const lower = token.toLowerCase();
-		if ((lower === "use" || lower === "with" || lower === "--model") && i + 1 < args.length) {
-			requestedModel = args[i + 1];
-			i++;
+		if ((lower === "use" || lower === "with" || lower === "using" || lower === "--model") && i + 1 < args.length) {
+			let targetIdx = i + 1;
+			const nextLower = args[targetIdx].toLowerCase();
+			if ((nextLower === "model" || nextLower === "provider") && targetIdx + 1 < args.length) {
+				targetIdx++;
+			}
+			requestedModel = args[targetIdx];
+			i = targetIdx;
 		} else {
 			clean.push(token);
 		}

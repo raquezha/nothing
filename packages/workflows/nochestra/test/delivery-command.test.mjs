@@ -80,9 +80,17 @@ test("parseNochestraInput rejects research command without topic", () => {
 });
 
 test("parseNochestraInput parses natural language model override using 'use <model>'", () => {
-	const result = parseNochestraInput("/triage github:194 use gpt-5.4-mini");
-	assert.equal(result.kind, "delivery");
-	assert.equal(result.requestedModel, "gpt-5.4-mini");
+	const result1 = parseNochestraInput("/triage github:194 use gpt-5.4-mini");
+	assert.equal(result1.kind, "delivery");
+	assert.equal(result1.requestedModel, "gpt-5.4-mini");
+
+	const result2 = parseNochestraInput("/triage github:194 use model gpt-5.4-mini");
+	assert.equal(result2.kind, "delivery");
+	assert.equal(result2.requestedModel, "gpt-5.4-mini");
+
+	const result3 = parseNochestraInput("/triage github:194 with model gpt-5.4-mini");
+	assert.equal(result3.kind, "delivery");
+	assert.equal(result3.requestedModel, "gpt-5.4-mini");
 });
 
 test("parseNochestraInput recognizes /triage with explicit task target as an executable delivery command", () => {
