@@ -37,7 +37,7 @@ test("buildBoundedHandoff creates handoff with explicit context budget and accep
 	assert.deepEqual(handoff.selectedSkills, ["ponytail"]);
 	assert.deepEqual(handoff.expectedResultShape, {
 		required: ["status", "taskId", "summary", "nextStep"],
-		optional: ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"],
+		optional: ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence", "fallbackApplied"],
 	});
 	assert.equal("parentTranscript" in handoff, false);
 	assert.equal("transcript" in handoff, false);

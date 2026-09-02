@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
-import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext } from "../application/parent-runtime.mjs";
+import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext, dispatchDeliveryCommand } from "../application/parent-runtime.mjs";
 import { readCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
@@ -94,6 +94,40 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	assert.equal(fullSpecHandoff.model.provider, "antigravity");
 	assert.equal(fullSpecHandoff.model.name, "gemini-3.6-flash");
 	assert.equal(fullSpecHandoff.model.contextWindow, 1048576);
+});
+
+test("dispatchDeliveryCommand falls back to cloud model when local model override is requested but unavailable", async () => {
+	const repoDir = makeRepo();
+	const scriptPath = path.join(os.tmpdir(), `test-override-fallback-${Date.now()}.cjs`);
+
+	fs.writeFileSync(scriptPath, `
+		const args = process.argv.slice(2);
+		const providerIdx = args.indexOf('--provider');
+		const providerVal = providerIdx !== -1 ? args[providerIdx + 1] : null;
+		if (providerVal === 'ollama') process.exit(1);
+		console.log(JSON.stringify({
+			status: 'ok',
+			taskId: 'github-194',
+			summary: 'Fallback execution success',
+			nextStep: '/implement'
+		}));
+	`, "utf8");
+
+	try {
+		const parsed = parseNochestraInput("/plan github:194 use ornith:9b");
+		const result = await dispatchDeliveryCommand({
+			parsed,
+			cwd: repoDir,
+			workerRuntimePath: scriptPath,
+			checkProviderAvailable: (provider) => provider !== "ollama",
+		});
+
+		assert.equal(result.status, "ok");
+		assert.equal(result.fallbackApplied, true);
+	} finally {
+		if (fs.existsSync(scriptPath)) fs.unlinkSync(scriptPath);
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
 });
 
 test("formatWriteApprovalPrompt renders friendly write dispatch prompt", () => {

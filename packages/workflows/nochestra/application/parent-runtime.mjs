@@ -303,7 +303,11 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 
 	const env = vaultRoot ? { ...process.env, NOCH_VAULT_ROOT: vaultRoot } : process.env;
 	const handoff = buildDeliveryHandoff({ parsed, ...context, env });
-	const { fallbackModel } = resolveModelTier(handoff.destination, { env });
+	const { fallbackModel: stageFallback } = resolveModelTier(handoff.destination, { env });
+	const { fallbackModel: defaultCloudFallback } = resolveModelTier("triage", { env });
+	const fallbackModel = (handoff.model?.provider === "ollama" || handoff.model?.provider === "local")
+		? defaultCloudFallback
+		: stageFallback;
 
 	const result = await spawnWorkerProcess({
 		handoff,
