@@ -157,6 +157,46 @@ test("parseNochestraInput recognizes /frame, /grill-with-docs, /plan with or wit
 	});
 });
 
+test("parseNochestraInput recognizes checkpoint commands as parent-runtime commands", () => {
+	for (const subcommand of ["status", "show", "compact", "reset", "prune"]) {
+		assert.deepEqual(parseNochestraInput(`checkpoint ${subcommand}`), {
+			kind: "checkpoint",
+			route: "checkpoint",
+			command: "checkpoint",
+			subcommand,
+			args: [subcommand],
+			raw: `checkpoint ${subcommand}`,
+		});
+	}
+
+	assert.deepEqual(parseNochestraInput("/checkpoint status --json"), {
+		kind: "checkpoint",
+		route: "checkpoint",
+		command: "checkpoint",
+		subcommand: "status",
+		args: ["status", "--json"],
+		raw: "/checkpoint status --json",
+	});
+
+	assert.deepEqual(parseNochestraInput("checkpoint"), {
+		kind: "checkpoint",
+		route: "checkpoint",
+		command: "checkpoint",
+		subcommand: null,
+		args: [],
+		raw: "checkpoint",
+	});
+
+	assert.deepEqual(parseNochestraInput("checkpoint bogus"), {
+		kind: "checkpoint",
+		route: "checkpoint",
+		command: "checkpoint",
+		subcommand: "bogus",
+		args: ["bogus"],
+		raw: "checkpoint bogus",
+	});
+});
+
 test("parseNochestraInput recognizes /implement, /verify, /sync as executable delivery stage commands", () => {
 	assert.deepEqual(parseNochestraInput("/implement github:143"), {
 		kind: "delivery",

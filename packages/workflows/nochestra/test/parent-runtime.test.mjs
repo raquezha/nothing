@@ -678,3 +678,78 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		"Next step: manual-takeover",
 	].join("\n"));
 });
+
+test("dispatchNochestraInput handles checkpoint subcommands status, show, reset, prune, compact", async () => {
+	const repoDir = makeRepo();
+
+	try {
+		// status
+		const statusRes = await dispatchNochestraInput({ input: "checkpoint status", cwd: repoDir });
+		assert.equal(statusRes.kind, "checkpoint");
+		assert.equal(statusRes.subcommand, "status");
+		assert.match(formatNochestraResult(statusRes), /Checkpoint: Jira ABC-123/);
+
+		// show
+		const showRes = await dispatchNochestraInput({ input: "checkpoint show", cwd: repoDir });
+		assert.equal(showRes.kind, "checkpoint");
+		assert.equal(showRes.subcommand, "show");
+		assert.match(formatNochestraResult(showRes), /# Checkpoint: Jira ABC-123/);
+
+		// prune with resolved/stale/duplicate open questions
+		const checkpointPath = path.join(repoDir, ".workflow", "nochestra-checkpoint.json");
+		const currentCheckpoint = readCheckpoint(checkpointPath);
+		currentCheckpoint.openQuestions = [
+			"What is the final storage path?",
+			"resolved: answered in ADR 1",
+			"stale: legacy question",
+			"",
+			"What is the final storage path?",
+		];
+		fs.writeFileSync(checkpointPath, JSON.stringify(currentCheckpoint, null, 2), "utf8");
+
+		const pruneRes = await dispatchNochestraInput({ input: "checkpoint prune", cwd: repoDir });
+		assert.equal(pruneRes.kind, "checkpoint");
+		assert.equal(pruneRes.subcommand, "prune");
+		assert.match(pruneRes.summary, /Pruned 4 open question\(s\)/);
+
+		const updatedCheckpoint = readCheckpoint(checkpointPath);
+		assert.deepEqual(updatedCheckpoint.openQuestions, ["What is the final storage path?"]);
+
+		// compact
+		const compactRes = await dispatchNochestraInput({ input: "checkpoint compact", cwd: repoDir });
+		assert.equal(compactRes.kind, "checkpoint");
+		assert.equal(compactRes.subcommand, "compact");
+		assert.match(compactRes.summary, /Compacted parent epoch/);
+
+		// reset
+		const resetRes = await dispatchNochestraInput({ input: "checkpoint reset", cwd: repoDir });
+		assert.equal(resetRes.kind, "checkpoint");
+		assert.equal(resetRes.subcommand, "reset");
+		assert.match(resetRes.summary, /Reset Nochestra checkpoint/);
+
+		// missing subcommand or unknown subcommand throws clear usage error
+		await assert.rejects(
+			() => dispatchNochestraInput({ input: "checkpoint", cwd: repoDir }),
+			/Unknown checkpoint subcommand: "". Usage: pi --nochestra checkpoint/
+		);
+		await assert.rejects(
+			() => dispatchNochestraInput({ input: "checkpoint invalid", cwd: repoDir }),
+			/Unknown checkpoint subcommand: "invalid". Usage: pi --nochestra checkpoint/
+		);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+
+test("dispatchNochestraInput handles missing checkpoint for read-only subcommands", async () => {
+	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "nochestra-no-checkpoint-"));
+	try {
+		await assert.rejects(
+			() => dispatchNochestraInput({ input: "checkpoint status", cwd: repoDir }),
+			/No Nochestra checkpoint found/
+		);
+	} finally {
+		fs.rmSync(repoDir, { recursive: true, force: true });
+	}
+});
+

@@ -180,6 +180,9 @@ export function parseNochestraInput(input) {
 		} else if (lowerHead === "note") {
 			command = "note";
 			rest = r;
+		} else if (lowerHead === "checkpoint") {
+			command = "checkpoint";
+			rest = r;
 		}
 	}
 
@@ -221,6 +224,17 @@ export function parseNochestraInput(input) {
 			task: { source: "note", id },
 			topic,
 			args: [topic],
+			raw,
+		};
+	}
+
+	if (command === "checkpoint") {
+		return {
+			kind: "checkpoint",
+			route: "checkpoint",
+			command: "checkpoint",
+			subcommand: rest[0]?.toLowerCase() || null,
+			args: rest,
 			raw,
 		};
 	}
