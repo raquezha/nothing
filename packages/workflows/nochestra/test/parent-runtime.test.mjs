@@ -62,7 +62,7 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 		active: null,
 	});
 	assert.equal(triageHandoff.model.provider, "ollama");
-	assert.equal(triageHandoff.model.name, "qwen:7b");
+	assert.equal(triageHandoff.model.name, "ornith:9b");
 
 	// Heavy task: plan prefers cloud premium model
 	const planParsed = parseNochestraInput("/plan github:194");

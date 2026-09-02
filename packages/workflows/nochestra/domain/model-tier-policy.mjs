@@ -1,6 +1,6 @@
 export const DEFAULT_LOCAL_TIER = Object.freeze({
 	provider: "ollama",
-	name: "qwen:7b",
+	name: "ornith:9b",
 	contextWindow: 8192,
 });
 
