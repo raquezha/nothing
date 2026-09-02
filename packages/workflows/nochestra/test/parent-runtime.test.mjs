@@ -113,6 +113,11 @@ test("buildNochestraDeliveryHandoff selects model tier based on task complexity"
 	const shortcutParsed2 = parseNochestraInput("/plan github:194 use ornith");
 	const shortcutHandoff2 = buildNochestraDeliveryHandoff({ parsed: shortcutParsed2, checkpoint, active: null });
 	assert.equal(shortcutHandoff2.model.name, "ornith:9b");
+
+	// Unrecognized model override falls back safely to default stage model without crashing
+	const unknownParsed = parseNochestraInput("/plan github:194 use unknown-random-model-xyz");
+	const unknownHandoff = buildNochestraDeliveryHandoff({ parsed: unknownParsed, checkpoint, active: null });
+	assert.equal(unknownHandoff.model.name, "gemini-3.6-flash");
 });
 
 test("dispatchDeliveryCommand falls back to cloud model when local model override is requested but unavailable", async () => {
