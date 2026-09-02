@@ -1,14 +1,30 @@
-export const DEFAULT_LOCAL_TIER = Object.freeze({
-	provider: "ollama",
-	name: "ornith:9b",
-	contextWindow: 8192,
+export const AVAILABLE_MODEL_TIERS = Object.freeze({
+	ollama: [
+		{ provider: "ollama", name: "ornith:9b", contextWindow: 262144 },
+		{ provider: "ollama", name: "ornith:35b", contextWindow: 262144 },
+	],
+	antigravity: [
+		{ provider: "antigravity", name: "gemini-3.7-flash", contextWindow: 1048576 },
+		{ provider: "antigravity", name: "gemini-3.6-flash", contextWindow: 1048576 },
+		{ provider: "antigravity", name: "gemini-3.5-flash", contextWindow: 1048576 },
+		{ provider: "antigravity", name: "gemini-3.1-pro", contextWindow: 1048576 },
+		{ provider: "antigravity", name: "claude-sonnet-4-6", contextWindow: 250000 },
+		{ provider: "antigravity", name: "claude-opus-4-6", contextWindow: 250000 },
+		{ provider: "antigravity", name: "gpt-oss-120b", contextWindow: 131072 },
+	],
+	"openai-codex": [
+		{ provider: "openai-codex", name: "gpt-5.3-codex-spark", contextWindow: 128000 },
+		{ provider: "openai-codex", name: "gpt-5.4", contextWindow: 272000 },
+		{ provider: "openai-codex", name: "gpt-5.4-mini", contextWindow: 272000 },
+		{ provider: "openai-codex", name: "gpt-5.5", contextWindow: 272000 },
+		{ provider: "openai-codex", name: "gpt-5.6-luna", contextWindow: 272000 },
+		{ provider: "openai-codex", name: "gpt-5.6-sol", contextWindow: 272000 },
+		{ provider: "openai-codex", name: "gpt-5.6-terra", contextWindow: 272000 },
+	],
 });
 
-export const DEFAULT_CLOUD_TIER = Object.freeze({
-	provider: "antigravity",
-	name: "gemini-3.6-flash",
-	contextWindow: 1048576,
-});
+export const DEFAULT_LOCAL_TIER = Object.freeze(AVAILABLE_MODEL_TIERS.ollama[0]);
+export const DEFAULT_CLOUD_TIER = Object.freeze(AVAILABLE_MODEL_TIERS.antigravity[1]);
 
 const LIGHTWEIGHT_DESTINATIONS = new Set(["triage", "frame", "note"]);
 
