@@ -204,7 +204,7 @@ export function parseNochestraInput(input) {
 			task: { source: "research", id },
 			topic,
 			args: [topic],
-			requestedModel,
+			...(requestedModel ? { requestedModel } : {}),
 			raw,
 		};
 	}
@@ -227,7 +227,7 @@ export function parseNochestraInput(input) {
 			task: { source: "note", id },
 			topic,
 			args: [topic],
-			requestedModel,
+			...(requestedModel ? { requestedModel } : {}),
 			raw,
 		};
 	}
