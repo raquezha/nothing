@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nochestra",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "description": "Nochestra local workflow bundle and front-door extension",
   "type": "module",

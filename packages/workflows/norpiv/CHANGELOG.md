@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.3.7
+
+### Patch Changes
+
+- Render the final Nochestra result with UI notify instead of stdout to avoid pushing the TUI divider line.
+
 ## 0.3.6
 
 ### Patch Changes

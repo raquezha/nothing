@@ -35,7 +35,7 @@ export default function (pi: ExtensionAPI) {
 					clearInterval(timer);
 					setStatus("");
 					if (result && result.kind !== "chat") {
-						process.stdout.write(`\n${formatNochestraResult(result)}\n`);
+						ctx?.ui?.notify?.(formatNochestraResult(result), "info");
 					}
 				} catch (err: any) {
 					clearInterval(timer);

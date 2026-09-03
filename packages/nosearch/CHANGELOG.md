@@ -1,5 +1,11 @@
 # @raquezha/nosearch
 
+## 0.0.11
+
+### Patch Changes
+
+- Render the final Nochestra result with UI notify instead of stdout to avoid pushing the TUI divider line.
+
 ## 0.0.10
 
 ### Patch Changes
