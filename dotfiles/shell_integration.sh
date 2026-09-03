@@ -23,6 +23,10 @@ if [[ -d "$HOME/.local/bin" ]]; then
 fi
 
 pi() {
+  if [[ -n "${ZSH_VERSION:-}" ]]; then
+    emulate -L sh
+  fi
+
   # Pi subcommands must remain the first argv token. If we inject extensions or
   # skills before them, the CLI treats the subcommand as an initial chat prompt
   # instead (for example: `pi update` opens Pi with "update" as input).
@@ -589,7 +593,8 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nochestra" && ${#ARGS[@]} -gt 0 ]]; then
-    case "${ARGS[0]}" in
+    local first_arg="${ARGS[0]:-${ARGS[1]:-}}"
+    case "$first_arg" in
       /triage|/frame|/grill-with-docs|/plan|/implement|/verify|/sync|research|note|checkpoint)
         node "$NOTHING_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "${ARGS[@]}"
         return $?
