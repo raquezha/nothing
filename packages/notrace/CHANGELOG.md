@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.4.3
+
+### Patch Changes
+
+- Add nochestra extension entry to mindsets.json extensions array so pi --nochestra loads the extension.
+
 ## 0.4.2
 
 ### Patch Changes
