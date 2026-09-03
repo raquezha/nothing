@@ -1,5 +1,16 @@
 # @raquezha/norpiv
 
+## 0.3.1
+
+### Patch Changes
+
+- ed13430: Enable direct sub-agent worker process dispatch and Powerline badge rendering for interactive Nochestra session inputs.
+- 21c0cef: Auto-approve interactive Nochestra write dispatches and return action handled to stop parent LLM token consumption.
+- 45b48e1: Add route recommendation rules for Nochestra stage commands (/frame, /grill-with-docs, /plan, /implement, /verify, /sync, /refine) to prevent chat fallback.
+- cf1a779: Fix release closer package listing and expand repository manifest verifications.
+- 576a8e4: Fix shellcheck warnings in triage helper and search worker shell scripts.
+- f4c23a2: Register Nochestra stage commands natively with pi.registerCommand to guarantee zero LLM token burn.
+
 ## 0.3.0
 
 ### Minor Changes

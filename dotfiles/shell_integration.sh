@@ -14,10 +14,6 @@ else
 fi
 _NOTHING_REPO_DIR="$(cd "$(dirname "$_nothing_shell_source")/.." && pwd)"
 
-if [[ "${_nothing_shell_source:-}" == "$0" ]]; then
-  echo "⚠️  Do not run as an executable script: ./dotfiles/shell_integration.sh" >&2
-  echo "   Please run: source dotfiles/shell_integration.sh" >&2
-fi
 
 unset _nothing_shell_source
 

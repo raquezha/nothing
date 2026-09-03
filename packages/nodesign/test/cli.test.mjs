@@ -53,9 +53,10 @@ try {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --url/);
 
+  const pkgJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
   result = run(["--version"]);
   assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "0.0.1");
+  assert.equal(result.stdout.trim(), pkgJson.version);
 
   result = run(["preflight", "--json", "--path", path.join(root, "empty")]);
   assert.equal(result.status, 0);
