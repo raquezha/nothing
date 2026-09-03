@@ -653,32 +653,23 @@ export function formatNochestraResult(result) {
 	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
 	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");
 	const ev = result.evidence;
-	const modelLabel = ev?.provider && ev?.model ? `${ev.provider} / ${ev.model}` : "completed";
-	const artifactLabel = Array.isArray(result.artifacts) && result.artifacts.length > 0 ? result.artifacts[0].path : "-";
+	const modelLabel = ev?.provider && ev?.model ? `${ev.provider}/${ev.model}` : "completed";
+	const firstArtifact = Array.isArray(result.artifacts) && result.artifacts.length > 0 ? result.artifacts[0].path : null;
+	const artifactLabel = firstArtifact ? path.basename(firstArtifact) : "artifact";
+	const nextStepLabel = result.nextStep ? ` → Next: ${result.nextStep}` : "";
+	const statusIcon = result.status === "created" || result.status === "ok" || result.status === "resumed" ? "✔" : "✖";
 
-	const card = [
-		"┌─────────────────────────────────────────────────────────────────────────────┐",
-		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
-		"├─────────────────────────────────────────────────────────────────────────────┤",
-		`│ Command: ${commandLabel}`,
-		`│ Task: ${taskLabel}`,
-		`│ Status: ${result.status || "ok"}`,
-		`│ Summary: ${result.summary || ""}`,
-		`│ Next step: ${result.nextStep || ""}`,
-		`│ Artifact: ${artifactLabel}`,
-		`│ Sub-Agent: ${modelLabel}`,
-		"└─────────────────────────────────────────────────────────────────────────────┘",
-	].join("\n");
+	const powerline = `${statusIcon} NOCHESTRA ▶ ${taskLabel} ▶ ${commandLabel} ▶ 🤖 ${modelLabel} ▶ [${artifactLabel}] ▶ ${result.status || "done"}${nextStepLabel}`;
 
 	const extraLines = [];
-	for (const key of ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"]) {
+	for (const key of ["verification", "blockers", "warnings", "recovery"]) {
 		if (result[key] !== undefined && result[key] !== null) {
 			const label = key[0].toUpperCase() + key.slice(1);
 			extraLines.push(`${label}: ${JSON.stringify(result[key])}`);
 		}
 	}
 
-	return extraLines.length > 0 ? `${card}\n${extraLines.join("\n")}` : card;
+	return extraLines.length > 0 ? `${powerline}\n${extraLines.join("\n")}` : powerline;
 }
 
 export async function runNochestraParent(args = process.argv.slice(2), options = {}) {

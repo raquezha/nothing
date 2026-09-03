@@ -305,7 +305,7 @@ test("dispatchNochestraInput spawns a worker subprocess and returns compact next
 		assert.deepEqual(result.artifacts, [{ path: ".workflow/tasks/local-parent-runtime-proof/WORK.md", kind: "workflow-state" }]);
 		assert.ok(result.evidence);
 		assert.equal(result.evidence.workItemId, "local-parent-runtime-proof");
-		assert.match(formatNochestraResult(result), /Next step: \/frame/);
+		assert.match(formatNochestraResult(result), /Next: \/frame/);
 	} finally {
 		fs.rmSync(repoDir, { recursive: true, force: true });
 	}
@@ -411,12 +411,10 @@ test("formatNochestraResult renders optional fields when present", () => {
 	};
 
 	const formatted = formatNochestraResult(result);
-	assert.match(formatted, /Command: \/triage/);
-	assert.match(formatted, /Task: github:173/);
-	assert.match(formatted, /Status: ok/);
-	assert.match(formatted, /Summary: Plan created/);
-	assert.match(formatted, /Next step: \/implement/);
-	assert.match(formatted, /Artifacts: \[\{"path":".workflow\/tasks\/github-173\/WORK.md","kind":"workflow-state"\}\]/);
+	assert.match(formatted, /\/triage/);
+	assert.match(formatted, /github:173/);
+	assert.match(formatted, /ok/);
+	assert.match(formatted, /Next: \/implement/);
 	assert.match(formatted, /Verification: \[\{"command":"node --test","status":"passed"\}\]/);
 	assert.match(formatted, /Blockers: \["Waiting for design review"\]/);
 	assert.match(formatted, /Warnings: \["Stale main branch"\]/);
@@ -534,10 +532,10 @@ test("dispatchNochestraInput dispatches explicit note request and returns note a
 		assert.equal(result.artifacts[0].kind, "obsidian-note");
 
 		const formatted = formatNochestraResult(result);
-		assert.match(formatted, /Command: \/note/);
-		assert.match(formatted, /Task: note:summarize-nochestra-front-door-ux/);
-		assert.match(formatted, /Status: created/);
-		assert.match(formatted, /Next step: review note/);
+		assert.match(formatted, /\/note/);
+		assert.match(formatted, /note:summarize-nochestra-front-door-ux/);
+		assert.match(formatted, /created/);
+		assert.match(formatted, /Next: review note/);
 
 		// Artifact isolation check: no RPIV task workspace created
 		assert.equal(fs.existsSync(path.join(repoDir, ".workflow/tasks")), false);
@@ -570,10 +568,10 @@ test("dispatchNochestraInput dispatches explicit research request and returns re
 		assert.equal(result.evidence.destination, "research");
 
 		const formatted = formatNochestraResult(result);
-		assert.match(formatted, /Command: \/research/);
-		assert.match(formatted, /Task: research:best-way-to-test-nochestra-routing/);
-		assert.match(formatted, /Status: created/);
-		assert.match(formatted, /Next step: review research artifact/);
+		assert.match(formatted, /\/research/);
+		assert.match(formatted, /research:best-way-to-test-nochestra-routing/);
+		assert.match(formatted, /created/);
+		assert.match(formatted, /Next: review research artifact/);
 		assert.match(formatted, /RESEARCH\.md/);
 
 		// Artifact isolation check: no RPIV task workspace created
@@ -597,8 +595,8 @@ test("formatNochestraResult handles missing task property safely", () => {
 		summary: "Note created",
 		nextStep: "review note",
 	});
-	assert.match(formatted, /Command: \/note/);
-	assert.match(formatted, /Task: note-123/);
+	assert.match(formatted, /\/note/);
+	assert.match(formatted, /note-123/);
 });
 
 test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled states", () => {
@@ -612,20 +610,7 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		nextStep: "/frame",
 		artifacts: [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }],
 	});
-	assert.equal(okResult, [
-		"┌─────────────────────────────────────────────────────────────────────────────┐",
-		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
-		"├─────────────────────────────────────────────────────────────────────────────┤",
-		"│ Command: /triage",
-		"│ Task: github:173",
-		"│ Status: ok",
-		"│ Summary: Triage completed successfully",
-		"│ Next step: /frame",
-		"│ Artifact: .workflow/tasks/github-173/WORK.md",
-		"│ Sub-Agent: completed",
-		"└─────────────────────────────────────────────────────────────────────────────┘",
-		'Artifacts: [{"path":".workflow/tasks/github-173/WORK.md","kind":"workflow-state"}]',
-	].join("\n"));
+	assert.equal(okResult, "✔ NOCHESTRA ▶ github:173 ▶ /triage ▶ 🤖 completed ▶ [WORK.md] ▶ ok → Next: /frame");
 
 	const blockedResult = formatNochestraResult({
 		kind: "delivery",
@@ -638,17 +623,7 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		blockers: ["Missing UI direct link"],
 	});
 	assert.equal(blockedResult, [
-		"┌─────────────────────────────────────────────────────────────────────────────┐",
-		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
-		"├─────────────────────────────────────────────────────────────────────────────┤",
-		"│ Command: /plan",
-		"│ Task: github:173",
-		"│ Status: blocked",
-		"│ Summary: Planning blocked by missing evidence",
-		"│ Next step: /grill-with-docs",
-		"│ Artifact: -",
-		"│ Sub-Agent: completed",
-		"└─────────────────────────────────────────────────────────────────────────────┘",
+		"✖ NOCHESTRA ▶ github:173 ▶ /plan ▶ 🤖 completed ▶ [artifact] ▶ blocked → Next: /grill-with-docs",
 		'Blockers: ["Missing UI direct link"]',
 	].join("\n"));
 
@@ -664,17 +639,7 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		recovery: { action: "re-run script" },
 	});
 	assert.equal(failedResult, [
-		"┌─────────────────────────────────────────────────────────────────────────────┐",
-		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
-		"├─────────────────────────────────────────────────────────────────────────────┤",
-		"│ Command: /implement",
-		"│ Task: github:173",
-		"│ Status: failed",
-		"│ Summary: Build execution failed",
-		"│ Next step: manual-fix",
-		"│ Artifact: -",
-		"│ Sub-Agent: completed",
-		"└─────────────────────────────────────────────────────────────────────────────┘",
+		"✖ NOCHESTRA ▶ github:173 ▶ /implement ▶ 🤖 completed ▶ [artifact] ▶ failed → Next: manual-fix",
 		'Warnings: ["Compiler warning emitted"]',
 		'Recovery: {"action":"re-run script"}',
 	].join("\n"));
@@ -688,19 +653,7 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		summary: "Write dispatch cancelled by user",
 		nextStep: "manual-takeover",
 	});
-	assert.equal(cancelledResult, [
-		"┌─────────────────────────────────────────────────────────────────────────────┐",
-		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
-		"├─────────────────────────────────────────────────────────────────────────────┤",
-		"│ Command: /triage",
-		"│ Task: github:173",
-		"│ Status: cancelled",
-		"│ Summary: Write dispatch cancelled by user",
-		"│ Next step: manual-takeover",
-		"│ Artifact: -",
-		"│ Sub-Agent: completed",
-		"└─────────────────────────────────────────────────────────────────────────────┘",
-	].join("\n"));
+	assert.equal(cancelledResult, "✖ NOCHESTRA ▶ github:173 ▶ /triage ▶ 🤖 completed ▶ [artifact] ▶ cancelled → Next: manual-takeover");
 });
 
 test("dispatchNochestraInput handles checkpoint subcommands status, show, reset, prune, compact", async () => {
