@@ -4,6 +4,9 @@
   "private": true,
   "description": "Nochestra local workflow bundle and front-door extension",
   "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
     "extensions": [
       "extensions"
