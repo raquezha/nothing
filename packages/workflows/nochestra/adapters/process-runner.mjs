@@ -225,7 +225,17 @@ export async function spawnWorkerProcess({
 
 			const providerName = targetModel?.provider || activeModel?.provider || "ollama";
 			const modelName = targetModel?.name || activeModel?.name || "ornith:9b";
-			console.log(`🤖 Spawning sub-agent worker on ${providerName}/${modelName}...`);
+			const tierLabel = providerName === "ollama" ? "local-fast" : "cloud-premium";
+
+			console.log(`
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ⚡ NOCHESTRA WORKER DELEGATION                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Task Target: ${effectiveWorkItemId}
+│  Sub-Agent:   ${providerName} / ${modelName} (${tierLabel})
+│  Handoff:     ${handoffBytes} B packet | bounded context
+└─────────────────────────────────────────────────────────────────────────────┘
+`.trim());
 
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				cwd,

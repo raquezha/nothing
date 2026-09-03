@@ -613,11 +613,17 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		artifacts: [{ path: ".workflow/tasks/github-173/WORK.md", kind: "workflow-state" }],
 	});
 	assert.equal(okResult, [
-		"Command: /triage",
-		"Task: github:173",
-		"Status: ok",
-		"Summary: Triage completed successfully",
-		"Next step: /frame",
+		"┌─────────────────────────────────────────────────────────────────────────────┐",
+		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
+		"├─────────────────────────────────────────────────────────────────────────────┤",
+		"│ Command: /triage",
+		"│ Task: github:173",
+		"│ Status: ok",
+		"│ Summary: Triage completed successfully",
+		"│ Next step: /frame",
+		"│ Artifact: .workflow/tasks/github-173/WORK.md",
+		"│ Sub-Agent: completed",
+		"└─────────────────────────────────────────────────────────────────────────────┘",
 		'Artifacts: [{"path":".workflow/tasks/github-173/WORK.md","kind":"workflow-state"}]',
 	].join("\n"));
 
@@ -632,11 +638,17 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		blockers: ["Missing UI direct link"],
 	});
 	assert.equal(blockedResult, [
-		"Command: /plan",
-		"Task: github:173",
-		"Status: blocked",
-		"Summary: Planning blocked by missing evidence",
-		"Next step: /grill-with-docs",
+		"┌─────────────────────────────────────────────────────────────────────────────┐",
+		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
+		"├─────────────────────────────────────────────────────────────────────────────┤",
+		"│ Command: /plan",
+		"│ Task: github:173",
+		"│ Status: blocked",
+		"│ Summary: Planning blocked by missing evidence",
+		"│ Next step: /grill-with-docs",
+		"│ Artifact: -",
+		"│ Sub-Agent: completed",
+		"└─────────────────────────────────────────────────────────────────────────────┘",
 		'Blockers: ["Missing UI direct link"]',
 	].join("\n"));
 
@@ -652,11 +664,17 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		recovery: { action: "re-run script" },
 	});
 	assert.equal(failedResult, [
-		"Command: /implement",
-		"Task: github:173",
-		"Status: failed",
-		"Summary: Build execution failed",
-		"Next step: manual-fix",
+		"┌─────────────────────────────────────────────────────────────────────────────┐",
+		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
+		"├─────────────────────────────────────────────────────────────────────────────┤",
+		"│ Command: /implement",
+		"│ Task: github:173",
+		"│ Status: failed",
+		"│ Summary: Build execution failed",
+		"│ Next step: manual-fix",
+		"│ Artifact: -",
+		"│ Sub-Agent: completed",
+		"└─────────────────────────────────────────────────────────────────────────────┘",
 		'Warnings: ["Compiler warning emitted"]',
 		'Recovery: {"action":"re-run script"}',
 	].join("\n"));
@@ -671,11 +689,17 @@ test("formatNochestraResult snapshots cover ok, blocked, failed, and cancelled s
 		nextStep: "manual-takeover",
 	});
 	assert.equal(cancelledResult, [
-		"Command: /triage",
-		"Task: github:173",
-		"Status: cancelled",
-		"Summary: Write dispatch cancelled by user",
-		"Next step: manual-takeover",
+		"┌─────────────────────────────────────────────────────────────────────────────┐",
+		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
+		"├─────────────────────────────────────────────────────────────────────────────┤",
+		"│ Command: /triage",
+		"│ Task: github:173",
+		"│ Status: cancelled",
+		"│ Summary: Write dispatch cancelled by user",
+		"│ Next step: manual-takeover",
+		"│ Artifact: -",
+		"│ Sub-Agent: completed",
+		"└─────────────────────────────────────────────────────────────────────────────┘",
 	].join("\n"));
 });
 
