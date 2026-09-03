@@ -1,5 +1,12 @@
 # @raquezha/norpiv
 
+## 0.3.1
+
+### Patch Changes
+
+- ed6c584: Fix release closer package listing and expand repository manifest verifications.
+- 8be8cf8: Fix shellcheck warnings in triage helper and search worker shell scripts.
+
 ## 0.3.0
 
 ### Minor Changes

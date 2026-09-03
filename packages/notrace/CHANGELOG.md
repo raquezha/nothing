@@ -1,5 +1,16 @@
 # @raquezha/notrace
 
+## 0.4.1
+
+### Patch Changes
+
+- 555f637: Align notrace README report model docs with the implemented Phase 5 renderer and index behavior.
+- 62db10c: fix(nochestra): normalize input model overrides and slash command routing
+- ed6c584: Fix release closer package listing and expand repository manifest verifications.
+- 8be8cf8: Fix shellcheck warnings in triage helper and search worker shell scripts.
+- 4c28252: Fix writer lock release cleanup error handling and notrace cleanup directory walk resilience.
+- 25717a8: Chore: empty release marker for workspace status alignment.
+
 ## 0.4.0
 
 ### Minor Changes

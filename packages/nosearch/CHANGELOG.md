@@ -1,5 +1,12 @@
 # @raquezha/nosearch
 
+## 0.0.5
+
+### Patch Changes
+
+- ed6c584: Fix release closer package listing and expand repository manifest verifications.
+- 8be8cf8: Fix shellcheck warnings in triage helper and search worker shell scripts.
+
 ## 0.0.4
 
 ### Patch Changes

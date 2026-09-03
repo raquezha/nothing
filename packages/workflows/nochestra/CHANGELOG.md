@@ -1,5 +1,15 @@
 # @raquezha/nochestra
 
+## 0.2.1
+
+### Patch Changes
+
+- a38c08d: Fix Nochestra unsupported delivery action route pattern matching with model override arguments.
+- ed6c584: Fix release closer package listing and expand repository manifest verifications.
+- 4c28252: Fix writer lock release cleanup error handling and notrace cleanup directory walk resilience.
+- 737e88d: Format worker delegation spawning and result completion cards into clean open-right border boxes.
+- 4388a75: Implement Solution 2 compact Powerline badge formatting for worker delegation and result display.
+
 ## 0.2.0
 
 ### Minor Changes
