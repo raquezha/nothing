@@ -49,6 +49,12 @@ Live footer output, resume hints, and extension footer badges may appear near `n
       notrace.review.json
 ```
 
+Index rules:
+- `index.json` stays compact: one summary entry per session, not duplicated event payloads
+- each entry links both `artifacts.html` and `artifacts.record`
+- per-session `notrace.html` links back to the shared index/viewer and to its canonical `notrace.json`
+- `index.json.lock` protects read-modify-write; if the lock cannot be acquired, notrace keeps the session artifacts and skips only the index update
+
 ## Canonical run model
 
 Generated `notrace.json` is the source of truth for runtime output, HTML rendering, and downstream tooling.
@@ -79,9 +85,17 @@ Current first target is `noheadroom`.
 If an extension is absent, `notrace` should still succeed.
 If an extension is present, it can contribute a structured summary such as:
 - loaded / enabled / active state
+- status: `absent`, `loaded-disabled`, `loaded-inactive`, `active`, or `unknown`
 - optimization attempts
 - tokens saved
 - last applied compression summary
+
+Example `noheadroom` detail fields:
+- `attempts`
+- `applied`
+- `guardSkips`
+- `tokensSaved`
+- `last`
 
 ## Capture modes
 
@@ -126,14 +140,24 @@ Default mode remains `redacted` so payload histories are available for local deb
 
 ### Phase 5 report renderer contract
 
-Session reports render 7 canonical sections with strict fallback and metric separation rules:
+`notrace.json` defines the 7 canonical report sections. Generated per-session `notrace.html` currently renders the compact canonical summary view; the older full retrospective renderer still uses `Run Summary` and `Timeline` labels for the same underlying data.
+
+Canonical sections:
 1. **Session Summary**: `traceId`, `repository` (`name`, `branch`), `session` (`id`, `startedAt`, `endedAt`, `durationMs`, `shutdownReason`), `conditions` (`harness`, `models`, `providers`, `extensions`), `captureMode`.
-2. **Usage Metrics**: Consumed tokens (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) and `totalCostUsd`.
+2. **Usage Metrics**: Consumed tokens (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`) and `totalCostUsd`; saved tokens stay under extension telemetry.
 3. **Activity Metrics**: Turn count, LLM call count, tool call count, tool error count, session duration.
-4. **Dynamic Extension Telemetry**: Structured summaries for dynamic extensions (`status`, `summary`, `details`). Absent extensions render clean empty states without throwing.
+4. **Dynamic Extension Telemetry**: `telemetry.extensions.*` cards with `status`, `summary`, and `details`. Absent extensions render clean empty states without throwing.
 5. **Timeline / Events**: Event stream timeline and model switch breakdown.
-6. **Workflow / Task Attachments**: Task context (`workflow`, `id`, `path`, `dir`, `role`) and optional correlation identifiers (`runId`, `workItemId`, `workerId`, `parentSessionId`, `epochId`). Nochestra correlation fields are optional.
+6. **Workflow / Task Attachments**: Task context (`workflow`, `id`, `path`, `dir`, `role`) and optional correlation identifiers (`runId`, `workItemId`, `workerId`, `parentSessionId`, `sessionId`, `epochId`). Nochestra correlation fields are optional.
 7. **Review Status**: Judgment record from `notrace.review.json` (`outcome`, `friction`, `lesson`, `nextChange`, `runRecord`). Default status is "Unreviewed" when missing.
+
+Nochestra evidence fields render when present:
+- worker sessions: `sessionId`, `workerId`, `role`, `route`, `command`, `modelTier`, `status`
+- epoch boundaries: `epochId`, optional local `checkpointRef`
+- remediation/blocker events: `type`, `description`, `status`
+- context quarantine savings: `parentPromptTokens`, `parentContextTokens`, `boundedHandoffTokens`, `quarantineSavingsTokens`, `quarantineSavingsPercent`
+
+Report links pass through `safeHref`: local relative links are allowed, scheme URLs and protocol-relative URLs are blocked.
 
 **Security warning:** `full` reports can contain prompts, tool arguments, tool outputs, local paths, model payloads, and secrets returned by tools. `redacted` mode removes common secret-shaped values and sensitive keys, but redaction is best-effort and can miss project-specific secrets. `metadata` mode is safest for sharing because prompt/tool bodies are omitted, but reports can still reveal repository names, paths, timing, models, providers, and workflow metadata. Do not publish generated reports without review.
 
