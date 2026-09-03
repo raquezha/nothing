@@ -223,6 +223,10 @@ export async function spawnWorkerProcess({
 				spawnArgs.push("--handoff", tempFilePath);
 			}
 
+			const providerName = targetModel?.provider || activeModel?.provider || "ollama";
+			const modelName = targetModel?.name || activeModel?.name || "ornith:9b";
+			console.log(`🤖 Spawning sub-agent worker on ${providerName}/${modelName}...`);
+
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				cwd,
 				env: buildWorkerEnv(env, {
