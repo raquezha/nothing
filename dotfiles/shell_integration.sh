@@ -28,6 +28,10 @@ if [[ -d "$HOME/.local/bin" ]]; then
   esac
 fi
 
+nochestra() {
+  node "$_NOTHING_REPO_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "$@"
+}
+
 pi() {
   if [[ -n "${ZSH_VERSION:-}" ]]; then
     emulate -L sh
