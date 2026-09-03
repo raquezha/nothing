@@ -31,8 +31,7 @@ test("nochestra extension transforms un-slashed executable triage prompt to slas
 		text: "triage github:201",
 	});
 
-	assert.equal(res.action, "transform");
-	assert.match(res.text, /✔ NOCHESTRA/);
+	assert.equal(res.action, "handled");
 });
 
 test("nochestra extension transforms explicit research prompt to pi --research command", async () => {

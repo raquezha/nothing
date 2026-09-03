@@ -28,16 +28,12 @@ export default function (pi: ExtensionAPI) {
 
 				if (result && result.kind !== "chat") {
 					const formatted = formatNochestraResult(result);
-					return {
-						action: "transform",
-						text: ` Nochestra worker dispatch completed:\n${formatted}`,
-					};
+					console.log(formatted);
+					return { action: "handled" };
 				}
 			} catch (err: any) {
-				return {
-					action: "transform",
-					text: ` Nochestra dispatch error: ${err?.message || String(err)}`,
-				};
+				console.error(`✖ NOCHESTRA ▶ Error: ${err?.message || String(err)}`);
+				return { action: "handled" };
 			}
 		}
 
