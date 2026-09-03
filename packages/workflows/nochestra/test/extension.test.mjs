@@ -4,6 +4,8 @@ import nochestraExtension from "../extensions/nochestra/index.ts";
 
 function createMockPi() {
 	const handlers = new Map();
+	const commands = new Map();
+
 	return {
 		on(event, handler) {
 			if (!handlers.has(event)) {
@@ -11,96 +13,33 @@ function createMockPi() {
 			}
 			handlers.get(event).push(handler);
 		},
-		async emitInput(event, ctx = {}) {
-			const list = handlers.get("input") || [];
-			let lastResult;
-			for (const fn of list) {
-				lastResult = await fn(event, ctx);
-			}
-			return lastResult;
+		registerCommand(name, config) {
+			commands.set(name, config);
+		},
+		getCommand(name) {
+			return commands.get(name);
+		},
+		async emitCommand(name, args, ctx = {}) {
+			const cmd = commands.get(name);
+			if (!cmd) throw new Error(`Command ${name} not registered`);
+			return await cmd.handler(args, ctx);
 		},
 	};
 }
 
-test("nochestra extension transforms un-slashed executable triage prompt to slash command", async () => {
+test("nochestra extension registers native commands for all stage routes", () => {
 	const pi = createMockPi();
 	nochestraExtension(pi);
 
-	const res = await pi.emitInput({
-		source: "interactive",
-		text: "triage github:201",
-	});
-
-	assert.equal(res.action, "handled");
-});
-
-test("nochestra extension dispatches explicit research prompt and marks handled", async () => {
-	const pi = createMockPi();
-	nochestraExtension(pi);
-
-	const res = await pi.emitInput({
-		source: "interactive",
-		text: "research model routing options",
-	});
-
-	assert.equal(res.action, "handled");
-});
-
-test("nochestra extension protects multi-line pasted transcript starting with slash command", async () => {
-	const pi = createMockPi();
-	nochestraExtension(pi);
-
-	const transcript = "/triage github:201\nWorker output:\nCompleted slice 1";
-	const res = await pi.emitInput({
-		source: "interactive",
-		text: transcript,
-	});
-
-	assert.deepEqual(res, {
-		action: "transform",
-		text: ` ${transcript}`,
-	});
-});
-
-test("nochestra extension passes multi-line transcript without leading slash through as chat", async () => {
-	const pi = createMockPi();
-	nochestraExtension(pi);
-
-	const transcript = "User transcript:\n/triage github:201 was executed.\nWhat is next?";
-	const res = await pi.emitInput({
-		source: "interactive",
-		text: transcript,
-	});
-
-	assert.deepEqual(res, {
-		action: "continue",
-	});
-});
-
-test("nochestra extension passes non-interactive inputs through untouched", async () => {
-	const pi = createMockPi();
-	nochestraExtension(pi);
-
-	for (const source of ["rpc", "extension"]) {
-		const res = await pi.emitInput({
-			source,
-			text: "triage github:201",
-		});
-
-		assert.deepEqual(res, {
-			action: "continue",
-		});
+	const expected = ["triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "checkpoint"];
+	for (const cmd of expected) {
+		assert.ok(pi.getCommand(cmd), `Expected /${cmd} command to be registered`);
 	}
 });
 
-test("nochestra extension dispatches single-line stage slash command and marks handled", async () => {
+test("nochestra extension executes registered /triage command natively", async () => {
 	const pi = createMockPi();
 	nochestraExtension(pi);
 
-	const res = await pi.emitInput({
-		source: "interactive",
-		text: "/frame",
-	});
-
-	assert.equal(res.action, "handled");
+	await pi.emitCommand("triage", "github:201");
 });
