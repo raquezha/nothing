@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.4.1
+
+### Patch Changes
+
+- 555f637: Align notrace README report model docs with the implemented Phase 5 renderer and index behavior.
+
 ## 0.4.0
 
 ### Minor Changes
