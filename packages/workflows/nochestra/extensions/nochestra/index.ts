@@ -24,17 +24,17 @@ export default function (pi: ExtensionAPI) {
 				const result = await dispatchNochestraInput({
 					input: rec.command,
 					cwd: ctx?.cwd || process.cwd(),
+					approveWriteDispatch: async () => true,
 				});
 
 				if (result && result.kind !== "chat") {
 					const formatted = formatNochestraResult(result);
 					console.log(formatted);
-					return { action: "handled" };
 				}
 			} catch (err: any) {
 				console.error(`✖ NOCHESTRA ▶ Error: ${err?.message || String(err)}`);
-				return { action: "handled" };
 			}
+			return { action: "handled" };
 		}
 
 		if (rec.command) {

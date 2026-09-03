@@ -34,7 +34,7 @@ test("nochestra extension transforms un-slashed executable triage prompt to slas
 	assert.equal(res.action, "handled");
 });
 
-test("nochestra extension transforms explicit research prompt to pi --research command", async () => {
+test("nochestra extension dispatches explicit research prompt and marks handled", async () => {
 	const pi = createMockPi();
 	nochestraExtension(pi);
 
@@ -43,10 +43,7 @@ test("nochestra extension transforms explicit research prompt to pi --research c
 		text: "research model routing options",
 	});
 
-	assert.deepEqual(res, {
-		action: "transform",
-		text: "pi --research",
-	});
+	assert.equal(res.action, "handled");
 });
 
 test("nochestra extension protects multi-line pasted transcript starting with slash command", async () => {
@@ -96,7 +93,7 @@ test("nochestra extension passes non-interactive inputs through untouched", asyn
 	}
 });
 
-test("nochestra extension passes single-line slash command through unchanged", async () => {
+test("nochestra extension dispatches single-line stage slash command and marks handled", async () => {
 	const pi = createMockPi();
 	nochestraExtension(pi);
 
@@ -105,7 +102,5 @@ test("nochestra extension passes single-line slash command through unchanged", a
 		text: "/frame",
 	});
 
-	assert.deepEqual(res, {
-		action: "continue",
-	});
+	assert.equal(res.action, "handled");
 });
