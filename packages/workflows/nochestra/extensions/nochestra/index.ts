@@ -12,14 +12,14 @@ export default function (pi: ExtensionAPI) {
 			return { action: "continue" };
 		}
 
+		if (rawText.startsWith("/") && rawText.includes("\n")) {
+			return { action: "transform", text: ` ${rawText}` };
+		}
+
 		const rec = recommendNochestraRoute(rawText);
 
 		if (rec.command) {
 			return { action: "transform", text: rec.command };
-		}
-
-		if (rawText.startsWith("/") && rawText.includes("\n")) {
-			return { action: "transform", text: ` ${rawText}` };
 		}
 
 		return { action: "continue" };
