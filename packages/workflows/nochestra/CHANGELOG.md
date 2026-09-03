@@ -1,5 +1,11 @@
 # @raquezha/nochestra
 
+## 0.2.3
+
+### Patch Changes
+
+- Fix three bugs in nochestra extension: null-coalesce cwd, skip remediation prompt on stdin to prevent hang, improve error message to include command name.
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @raquezha/nosearch
 
+## 0.0.7
+
+### Patch Changes
+
+- Fix three bugs in nochestra extension: null-coalesce cwd, skip remediation prompt on stdin to prevent hang, improve error message to include command name.
+
 ## 0.0.6
 
 ### Patch Changes

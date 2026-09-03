@@ -27,8 +27,9 @@ export default function (pi: ExtensionAPI) {
 				try {
 					const result = await dispatchNochestraInput({
 						input: fullInput,
-						cwd: ctx?.cwd || process.cwd(),
+						cwd: ctx?.cwd ?? process.cwd(),
 						approveWriteDispatch: async () => true,
+						promptRemediation: async () => "skip",
 					});
 					clearInterval(timer);
 					setStatus("");
@@ -38,7 +39,8 @@ export default function (pi: ExtensionAPI) {
 				} catch (err: any) {
 					clearInterval(timer);
 					setStatus("");
-					console.error(`❖ NOCHESTRA ▶ Error: ${err?.message || String(err)}`);
+					const msg = err?.message || String(err);
+					console.error(`❖ NOCHESTRA ▶ /${cmdName} ▶ ${msg}`);
 				}
 			},
 		});
