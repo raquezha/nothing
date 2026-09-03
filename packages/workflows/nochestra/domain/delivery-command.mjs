@@ -29,7 +29,7 @@ const ROUTE_RULES = [
 	{
 		id: "delivery-unsupported-action-ref",
 		route: "delivery",
-		pattern: new RegExp(`^/?(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}$`, "i"),
+		pattern: new RegExp(`^/?(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}(?:\\s+(.*))?$`, "i"),
 		command: () => null,
 	},
 	{
