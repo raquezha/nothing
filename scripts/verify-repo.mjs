@@ -510,7 +510,7 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(result.status === 0, "--nochestra /triage dispatches through parent runtime");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.length === 0, "--nochestra /triage does not call the parent pi chat process");
-    assert(result.stdout.includes("Next step: /frame"), "--nochestra /triage prints a compact next action");
+    assert(result.stdout.includes("Next: /frame"), "--nochestra /triage prints a compact next action");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --rpiv hello`], root, { env });
