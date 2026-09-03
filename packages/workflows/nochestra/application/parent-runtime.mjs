@@ -53,7 +53,7 @@ function resolveDeliveryTask(parsed, active) {
 	if (!task) {
 		throw new Error(`Command /${parsed.command} requires an active RPIV task in .workflow/active.json or an explicit source:id target.`);
 	}
-	return { source: task.source, id: task.id, mode: parsed.args[0] || "auto" };
+	return { source: task.source, id: task.id, mode: parsed.args?.[0] || "auto" };
 }
 
 function defaultCheckpointForTask(parsed, active = null) {

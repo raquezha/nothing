@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { buildNochestraDeliveryHandoff, dispatchNochestraInput, formatNochestraResult, formatWriteApprovalPrompt, checkAndCompactParentContext, dispatchDeliveryCommand, resolveWorkerRemediation, formatRemediationPrompt } from "../application/parent-runtime.mjs";
-import { readCheckpoint } from "../adapters/checkpoint.mjs";
+import { readCheckpoint, writeCheckpoint } from "../adapters/checkpoint.mjs";
 import { parseNochestraInput } from "../domain/delivery-command.mjs";
 
 const PARENT_RUNTIME_PATH = path.join(process.cwd(), "packages/workflows/nochestra/application/parent-runtime.mjs");
