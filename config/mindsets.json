@@ -110,11 +110,42 @@
       "extensions": ["notrace", "noleaks", "antigravity"]
     },
     "nochestra": {
-      "skills": ["nochestra/nochestra"],
-      "extensions": []
+      "skills": [
+        "nochestra/nochestra",
+        "nosearch",
+        "norpiv/refine",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/post-merge-prune",
+        "nometa/pulse"
+      ],
+      "extensions": [
+        "notrace",
+        "antigravity"
+      ]
     },
     "nochestra-worker": {
-      "skills": ["nochestra/nochestra"],
+      "skills": [
+        "nochestra/nochestra",
+        "nosearch",
+        "norpiv/refine",
+        "norpiv/triage",
+        "norpiv/frame",
+        "norpiv/grill-with-docs",
+        "norpiv/plan",
+        "norpiv/implement",
+        "norpiv/verify",
+        "norpiv/sync",
+        "norpiv/update-docs",
+        "norpiv/post-merge-prune",
+        "nometa/pulse"
+      ],
       "extensions": []
     },
     "antigravity": {
