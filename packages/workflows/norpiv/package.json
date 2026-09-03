@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/norpiv",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Bundled RPIV workflow skills for Pi, Claude, and Codex-style coding agents",
   "type": "commonjs",
   "bin": {
