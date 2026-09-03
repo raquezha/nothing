@@ -605,6 +605,8 @@ EOF
   local -a NOTHING_FLAGS=()
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
     NOTHING_FLAGS+=("--system-prompt" "" "--no-builtin-tools" "--no-skills" "--no-extensions" "--no-prompt-templates" "--no-themes" "--no-context-files")
+  elif [[ "$BASE_MINDSET" == "nochestra" ]]; then
+    NOTHING_FLAGS+=("--no-skills")
   elif [[ "$BASE_MINDSET" == "nochestra-worker" ]]; then
     NOTHING_FLAGS+=("--no-context-files")
   fi
