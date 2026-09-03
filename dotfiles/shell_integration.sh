@@ -590,7 +590,7 @@ EOF
 
   if [[ "$BASE_MINDSET" == "nochestra" && ${#ARGS[@]} -gt 0 ]]; then
     case "${ARGS[0]}" in
-      /triage|/frame|/grill-with-docs|/plan|/implement|/verify|/sync|research|note)
+      /triage|/frame|/grill-with-docs|/plan|/implement|/verify|/sync|research|note|checkpoint)
         node "$NOTHING_DIR/packages/workflows/nochestra/application/parent-runtime.mjs" "${ARGS[@]}"
         return $?
         ;;
