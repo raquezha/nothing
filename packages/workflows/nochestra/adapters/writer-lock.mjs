@@ -45,9 +45,14 @@ export async function releaseWriterLock(ownerId, lockPath = DEFAULT_LOCK_PATH) {
 	if (!held || held.owner !== ownerId) {
 		return false;
 	}
-	await held.release();
-	writerReleases.delete(lockPath);
-	fs.rmSync(lockOwnerPath(lockPath), { force: true });
+	try {
+		await held.release();
+	} catch {
+		// Ignore stale lock release errors so memory and owner state cleanup proceeds safely
+	} finally {
+		writerReleases.delete(lockPath);
+		fs.rmSync(lockOwnerPath(lockPath), { force: true });
+	}
 	return true;
 }
 

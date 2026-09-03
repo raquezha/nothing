@@ -54,19 +54,23 @@ export function defaultNotraceDir() {
 }
 
 function walk(filePath) {
-  const stat = statSync(filePath);
-  if (!stat.isDirectory()) {
-    return { totalBytes: stat.size, fileCount: 1 };
-  }
+  try {
+    const stat = statSync(filePath);
+    if (!stat.isDirectory()) {
+      return { totalBytes: stat.size, fileCount: 1 };
+    }
 
-  let totalBytes = 0;
-  let fileCount = 0;
-  for (const entry of readdirSync(filePath, { withFileTypes: true })) {
-    const child = walk(join(filePath, entry.name));
-    totalBytes += child.totalBytes;
-    fileCount += child.fileCount;
+    let totalBytes = 0;
+    let fileCount = 0;
+    for (const entry of readdirSync(filePath, { withFileTypes: true })) {
+      const child = walk(join(filePath, entry.name));
+      totalBytes += child.totalBytes;
+      fileCount += child.fileCount;
+    }
+    return { totalBytes, fileCount };
+  } catch {
+    return { totalBytes: 0, fileCount: 0 };
   }
-  return { totalBytes, fileCount };
 }
 
 function readJson(filePath) {
