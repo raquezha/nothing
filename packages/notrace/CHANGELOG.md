@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.4.6
+
+### Patch Changes
+
+- Fix nochestra status bar timer, safe cwd, stdin hang guard, and result formatting labels.
+
 ## 0.4.5
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @raquezha/nochestra
 
+## 0.2.5
+
+### Patch Changes
+
+- Fix nochestra status bar timer, safe cwd, stdin hang guard, and result formatting labels.
+
 ## 0.2.4
 
 ### Patch Changes
