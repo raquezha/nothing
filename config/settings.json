@@ -1,5 +1,6 @@
 {
-  "defaultProvider": "groq",
+  "defaultProvider": "antigravity",
+  "defaultModel": "gemini-3.6-flash",
   "theme": "dracula-vibrant",
   "packages": [
     "npm:pi-mcp-adapter@2.11.0"
