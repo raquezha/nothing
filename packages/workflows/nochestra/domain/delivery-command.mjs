@@ -187,7 +187,8 @@ export function parseNochestraInput(input) {
 	}
 
 	if (command === "research") {
-		const topic = stripOuterQuotes(rest.join(" "));
+		const { cleanArgs, requestedModel } = extractModelOverride(rest);
+		const topic = stripOuterQuotes(cleanArgs.join(" "));
 		if (!topic) {
 			return {
 				kind: "delivery-error",
@@ -203,12 +204,14 @@ export function parseNochestraInput(input) {
 			task: { source: "research", id },
 			topic,
 			args: [topic],
+			requestedModel,
 			raw,
 		};
 	}
 
 	if (command === "note") {
-		const topic = stripOuterQuotes(rest.join(" "));
+		const { cleanArgs, requestedModel } = extractModelOverride(rest);
+		const topic = stripOuterQuotes(cleanArgs.join(" "));
 		if (!topic) {
 			return {
 				kind: "delivery-error",
@@ -224,6 +227,7 @@ export function parseNochestraInput(input) {
 			task: { source: "note", id },
 			topic,
 			args: [topic],
+			requestedModel,
 			raw,
 		};
 	}
