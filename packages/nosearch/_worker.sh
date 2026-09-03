@@ -94,10 +94,7 @@ search_worker_run() {
   stderr_file="$temp_dir/stderr"
   code_file="$temp_dir/exit-code"
 
-  cleanup() {
-    rm -rf "$temp_dir"
-  }
-  trap cleanup RETURN
+  trap 'rm -rf "$temp_dir"' EXIT
 
   if [[ "$mode" == "inline" ]]; then
     set +e
