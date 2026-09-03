@@ -27,6 +27,16 @@ const ROUTE_RULES = [
 		command: (match) => `/triage ${normalizeTrackedTaskRef(match[1])}${match[2] ? ` ${match[2].trim()}` : ""}`,
 	},
 	{
+		id: "delivery-stage-command",
+		route: "delivery",
+		pattern: /^\/?(frame|grill[- ]?with[- ]?docs|grill|plan|implement|verify|sync|refine)(?:\s+(.*))?$/i,
+		command: (match) => {
+			const rawCmd = match[1].toLowerCase().replace(/\s+/g, "-");
+			const normalizedCmd = rawCmd.startsWith("grill") ? "grill-with-docs" : rawCmd;
+			return `/${normalizedCmd}${match[2] ? ` ${match[2].trim()}` : ""}`;
+		},
+	},
+	{
 		id: "delivery-unsupported-action-ref",
 		route: "delivery",
 		pattern: new RegExp(`^/?(?:implement|verify|fix|ship|deliver)\\s+${TRACKED_REF_PATTERN}(?:\\s+(.*))?$`, "i"),
