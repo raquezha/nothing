@@ -70,7 +70,7 @@ for (const item of published) {
 }
 
 function listPackageDirs() {
-  const stdout = execFileSync("git", ["ls-files", "packages/*/package.json"], { encoding: "utf8" });
+  const stdout = execFileSync("git", ["ls-files", "packages/*/package.json", "packages/workflows/*/package.json"], { encoding: "utf8" });
   return stdout
     .split("\n")
     .map((line) => line.trim())
