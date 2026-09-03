@@ -23,8 +23,8 @@ const ROUTE_RULES = [
 	{
 		id: "delivery-triage-ref",
 		route: "delivery",
-		pattern: new RegExp(`^/?triage\\s+${TRACKED_REF_PATTERN}$`, "i"),
-		command: (match) => `/triage ${normalizeTrackedTaskRef(match[1])}`,
+		pattern: new RegExp(`^/?triage\\s+${TRACKED_REF_PATTERN}(?:\\s+(.*))?$`, "i"),
+		command: (match) => `/triage ${normalizeTrackedTaskRef(match[1])}${match[2] ? ` ${match[2].trim()}` : ""}`,
 	},
 	{
 		id: "delivery-unsupported-action-ref",
