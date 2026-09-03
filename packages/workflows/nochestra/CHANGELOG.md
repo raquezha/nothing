@@ -1,5 +1,11 @@
 # @raquezha/nochestra
 
+## 0.2.4
+
+### Patch Changes
+
+- Fix formatNochestraResult: correct artifact fallback label, model fallback label, and deduplicate status variable.
+
 ## 0.2.3
 
 ### Patch Changes

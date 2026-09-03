@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.3.4
+
+### Patch Changes
+
+- Fix formatNochestraResult: correct artifact fallback label, model fallback label, and deduplicate status variable.
+
 ## 0.3.3
 
 ### Patch Changes

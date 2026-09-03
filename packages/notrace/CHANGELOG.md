@@ -1,5 +1,11 @@
 # @raquezha/notrace
 
+## 0.4.5
+
+### Patch Changes
+
+- Fix formatNochestraResult: correct artifact fallback label, model fallback label, and deduplicate status variable.
+
 ## 0.4.4
 
 ### Patch Changes

@@ -653,13 +653,14 @@ export function formatNochestraResult(result) {
 	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
 	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");
 	const ev = result.evidence;
-	const modelLabel = ev?.provider && ev?.model ? `${ev.provider}/${ev.model}` : "completed";
+	const modelLabel = ev?.provider && ev?.model ? `${ev.provider}/${ev.model}` : "worker";
 	const firstArtifact = Array.isArray(result.artifacts) && result.artifacts.length > 0 ? result.artifacts[0].path : null;
-	const artifactLabel = firstArtifact ? path.basename(firstArtifact) : "artifact";
+	const artifactLabel = firstArtifact ? path.basename(firstArtifact) : "WORK.md";
 	const nextStepLabel = result.nextStep ? ` → Next: ${result.nextStep}` : "";
-	const statusIcon = result.status === "created" || result.status === "ok" || result.status === "resumed" ? "✔" : "✖";
+	const status = result.status || "done";
+	const statusIcon = (status === "created" || status === "ok" || status === "resumed") ? "✔" : "✖";
 
-	const powerline = `${statusIcon} NOCHESTRA ▶ ${taskLabel} ▶ ${commandLabel} ▶ 🤖 ${modelLabel} ▶ [${artifactLabel}] ▶ ${result.status || "done"}${nextStepLabel}`;
+	const powerline = `${statusIcon} NOCHESTRA ▶ ${taskLabel} ▶ ${commandLabel} ▶ 🤖 ${modelLabel} ▶ [${artifactLabel}] ▶ ${status}${nextStepLabel}`;
 
 	const extraLines = [];
 	for (const key of ["verification", "blockers", "warnings", "recovery"]) {

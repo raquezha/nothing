@@ -1,5 +1,11 @@
 # @raquezha/nosearch
 
+## 0.0.8
+
+### Patch Changes
+
+- Fix formatNochestraResult: correct artifact fallback label, model fallback label, and deduplicate status variable.
+
 ## 0.0.7
 
 ### Patch Changes
