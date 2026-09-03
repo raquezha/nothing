@@ -44,7 +44,7 @@ ISO_NOW=$(LC_TIME=C date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Sanitize local ID if generic (case-insensitive check)
 ID_LOWER=$(echo "$ID" | tr '[:upper:]' '[:lower:]')
 if [[ "$SOURCE" == "local" && "$ID_LOWER" =~ ^(problem|task|issue|work|todo)$ ]]; then
-    ID=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g')
+    ID="${BRANCH_NAME//[^a-zA-Z0-9]/-}"
     echo "Generic local ID detected. Falling back to branch-derived name '$ID'..."
 fi
 
