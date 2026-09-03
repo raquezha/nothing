@@ -1,5 +1,11 @@
 # @raquezha/nochestra
 
+## 0.2.6
+
+### Patch Changes
+
+- Suppress duplicate Nochestra worker start log in the TUI and print the final result on its own line.
+
 ## 0.2.5
 
 ### Patch Changes

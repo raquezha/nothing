@@ -30,11 +30,12 @@ export default function (pi: ExtensionAPI) {
 						cwd: ctx?.cwd ?? process.cwd(),
 						approveWriteDispatch: async () => true,
 						promptRemediation: async () => "skip",
+						showStartLog: false,
 					});
 					clearInterval(timer);
 					setStatus("");
 					if (result && result.kind !== "chat") {
-						console.log(formatNochestraResult(result));
+						process.stdout.write(`\n${formatNochestraResult(result)}\n`);
 					}
 				} catch (err: any) {
 					clearInterval(timer);

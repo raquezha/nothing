@@ -385,7 +385,7 @@ export async function promptForWriteDispatch(request, { input = process.stdin, o
 	}
 }
 
-export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false, parentPromptBytes = null } = {}) {
+export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), workerRuntimePath = DEFAULT_WORKER_RUNTIME_PATH, checkpointPath = DEFAULT_CHECKPOINT_PATH, approveWriteDispatch = null, promptRemediation = null, vaultRoot = null, checkProviderAvailable = null, isRemediationRetry = false, parentPromptBytes = null, showStartLog = true } = {}) {
 	const context = loadDeliveryContext({ cwd, checkpointPath, parsed });
 	const task = resolveDeliveryTask(parsed, context.active);
 	let checkpointPersisted = false;
@@ -422,6 +422,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 		checkProviderAvailable,
 		approveWriteDispatch: approveAndPersistCheckpoint,
 		parentPromptBytes: effectiveParentPromptBytes,
+		showStartLog,
 	});
 
 	if ((result.status === "failed" || result.status === "blocked") && !isRemediationRetry) {
@@ -460,6 +461,7 @@ export async function dispatchDeliveryCommand({ parsed, cwd = process.cwd(), wor
 						vaultRoot,
 						checkProviderAvailable,
 						isRemediationRetry: true,
+						showStartLog,
 					});
 				} else if (choice === "cancel" || choice === "c") {
 					const cancelledResult = {

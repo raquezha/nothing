@@ -128,6 +128,7 @@ export async function spawnWorkerProcess({
 	workItemId = null,
 	runId = null,
 	parentPromptBytes = 0,
+	showStartLog = true,
 	onEvidence = null,
 	events = null,
 } = {}) {
@@ -228,7 +229,9 @@ export async function spawnWorkerProcess({
 			const handoffKb = (handoffBytes / 1024).toFixed(1);
 			const destLabel = handoff.destination ? (handoff.destination.startsWith("/") ? handoff.destination : `/${handoff.destination}`) : "/worker";
 
-			console.log(`⚡ NOCHESTRA ▶ ${effectiveWorkItemId} ▶ ${destLabel} ▶ 🤖 ${providerName}/${modelName} ▶ [${handoffKb} kB] ▶ ⏳ Running...`);
+			if (showStartLog) {
+				console.log(`⚡ NOCHESTRA ▶ ${effectiveWorkItemId} ▶ ${destLabel} ▶ 🤖 ${providerName}/${modelName} ▶ [${handoffKb} kB] ▶ ⏳ Running...`);
+			}
 
 			const workerProcess = spawn(targetCommand, spawnArgs, {
 				cwd,
