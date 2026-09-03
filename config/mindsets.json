@@ -111,19 +111,7 @@
     },
     "nochestra": {
       "skills": [
-        "nochestra/nochestra",
-        "nosearch",
-        "norpiv/refine",
-        "norpiv/triage",
-        "norpiv/frame",
-        "norpiv/grill-with-docs",
-        "norpiv/plan",
-        "norpiv/implement",
-        "norpiv/verify",
-        "norpiv/sync",
-        "norpiv/update-docs",
-        "norpiv/post-merge-prune",
-        "nometa/pulse"
+        "nochestra/nochestra"
       ],
       "extensions": [
         "notrace",
