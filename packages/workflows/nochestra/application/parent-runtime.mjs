@@ -652,20 +652,33 @@ export function formatNochestraResult(result) {
 	}
 	const commandLabel = result.command ? (result.command.startsWith("/") ? result.command : `/${result.command}`) : "/command";
 	const taskLabel = result.task ? `${result.task.source}:${result.task.id}` : (result.taskId || "unknown");
-	const lines = [
-		`Command: ${commandLabel}`,
-		`Task: ${taskLabel}`,
-		`Status: ${result.status}`,
-		`Summary: ${result.summary}`,
-		`Next step: ${result.nextStep}`,
-	];
+	const ev = result.evidence;
+	const modelLabel = ev?.provider && ev?.model ? `${ev.provider} / ${ev.model}` : "completed";
+	const artifactLabel = Array.isArray(result.artifacts) && result.artifacts.length > 0 ? result.artifacts[0].path : "-";
+
+	const card = [
+		"┌─────────────────────────────────────────────────────────────────────────────┐",
+		"│ ✔ WORKER DELEGATION COMPLETE                                               │",
+		"├─────────────────────────────────────────────────────────────────────────────┤",
+		`│ Command: ${commandLabel}`,
+		`│ Task: ${taskLabel}`,
+		`│ Status: ${result.status || "ok"}`,
+		`│ Summary: ${result.summary || ""}`,
+		`│ Next step: ${result.nextStep || ""}`,
+		`│ Artifact: ${artifactLabel}`,
+		`│ Sub-Agent: ${modelLabel}`,
+		"└─────────────────────────────────────────────────────────────────────────────┘",
+	].join("\n");
+
+	const extraLines = [];
 	for (const key of ["artifacts", "verification", "blockers", "warnings", "recovery", "evidence"]) {
 		if (result[key] !== undefined && result[key] !== null) {
 			const label = key[0].toUpperCase() + key.slice(1);
-			lines.push(`${label}: ${JSON.stringify(result[key])}`);
+			extraLines.push(`${label}: ${JSON.stringify(result[key])}`);
 		}
 	}
-	return lines.join("\n");
+
+	return extraLines.length > 0 ? `${card}\n${extraLines.join("\n")}` : card;
 }
 
 export async function runNochestraParent(args = process.argv.slice(2), options = {}) {
