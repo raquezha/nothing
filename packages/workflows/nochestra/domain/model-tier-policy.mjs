@@ -12,13 +12,8 @@ export const AVAILABLE_MODEL_TIERS = Object.freeze({
 		{ provider: "antigravity", name: "gpt-oss-120b", contextWindow: 131072 },
 	],
 	"openai-codex": [
-		{ provider: "openai-codex", name: "gpt-5.3-codex-spark", contextWindow: 128000 },
 		{ provider: "openai-codex", name: "gpt-5.4", contextWindow: 272000 },
 		{ provider: "openai-codex", name: "gpt-5.4-mini", contextWindow: 272000 },
-		{ provider: "openai-codex", name: "gpt-5.5", contextWindow: 272000 },
-		{ provider: "openai-codex", name: "gpt-5.6-luna", contextWindow: 272000 },
-		{ provider: "openai-codex", name: "gpt-5.6-sol", contextWindow: 272000 },
-		{ provider: "openai-codex", name: "gpt-5.6-terra", contextWindow: 272000 },
 	],
 });
 
