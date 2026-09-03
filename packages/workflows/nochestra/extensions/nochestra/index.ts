@@ -18,10 +18,11 @@ export default function (pi: ExtensionAPI) {
 			description: `Run Nochestra /${cmdName} via worker sub-process`,
 			handler: async (args, ctx) => {
 				const fullInput = args ? `/${cmdName} ${args}` : `/${cmdName}`;
+				const setStatus = (msg: string) => ctx?.ui?.setStatus?.("nochestra", msg);
 				const start = Date.now();
 				const timer = setInterval(() => {
 					const s = ((Date.now() - start) / 1000).toFixed(1);
-					ctx.ui.setStatus("nochestra", `⚡ /${cmdName} ▶ 🤖 ornith ▶ ⏳ ${s}s`);
+					setStatus(`⚡ /${cmdName} ▶ 🤖 ornith ▶ ⏳ ${s}s`);
 				}, 500);
 				try {
 					const result = await dispatchNochestraInput({
@@ -30,15 +31,14 @@ export default function (pi: ExtensionAPI) {
 						approveWriteDispatch: async () => true,
 					});
 					clearInterval(timer);
-					ctx.ui.setStatus("nochestra", "");
+					setStatus("");
 					if (result && result.kind !== "chat") {
-						const formatted = formatNochestraResult(result);
-						console.log(formatted);
+						console.log(formatNochestraResult(result));
 					}
 				} catch (err: any) {
 					clearInterval(timer);
-					ctx.ui.setStatus("nochestra", "");
-					console.error(`✖ NOCHESTRA ▶ Error: ${err?.message || String(err)}`);
+					setStatus("");
+					console.error(`❖ NOCHESTRA ▶ Error: ${err?.message || String(err)}`);
 				}
 			},
 		});
