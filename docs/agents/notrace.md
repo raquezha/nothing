@@ -59,7 +59,8 @@ Use `full` when debugging local extension/runtime behavior and you accept the hi
 - `metadata` omits prompt/tool/provider bodies; `redacted` preserves bodies but redacts supported sensitive keys and values.
 - Non-ghost sessions write both `notrace.json` (canonical event stream) and `notrace.html` (compact session summary).
 - Dashboard/index entries carry both `artifacts.html` and `artifacts.record`, and dashboard links prefer per-session HTML summaries which route to `notrace.json` or the shared viewer.
-- Static reports are offline-first: local relative links allowed, scheme-based links blocked, inline event handlers avoided, and CSP enforced.
+- `index.json` stays memory-safe: keep one compact summary per session and never duplicate event payloads into the index.
+- Static reports are offline-first: local relative links allowed, scheme-based and protocol-relative links blocked, inline event handlers avoided, and CSP enforced with `Content-Security-Policy`.
 
 ## Metric families
 
@@ -78,17 +79,20 @@ Current first-class example is `noheadroom`.
 Rules:
 - absence of an extension must not break `notrace`
 - extension telemetry should arrive through a structured contract
+- statuses are `absent`, `loaded-disabled`, `loaded-inactive`, `active`, or `unknown`
 - do not scrape UI strings for canonical evidence
 - prefer side-channel integration over conversation/session mutation during compression-sensitive flows
 
 ## Correlation model
 
-`notrace` accepts optional Nochestra correlation fields (`runId`, `workItemId`, `workerId`, `sessionId`, `epochId`) attached via context pointers or `NOCHESTRA_*` environment variables.
+`notrace` accepts optional Nochestra correlation fields (`runId`, `workItemId`, `workerId`, `parentSessionId`, `sessionId`, `epochId`) attached via context pointers or `NOCHESTRA_*` environment variables.
 `notrace` only records supplied correlation fields and does not control worker lifecycle or epoch policies.
+
+Nochestra evidence may include worker sessions, epoch boundaries, remediation/blocker events, and context quarantine savings. These fields are optional evidence, not required workflow state.
 
 ## Phase 5 report renderer contract
 
-HTML session reports and dashboard views render 7 canonical sections from `notrace.json` (and optional `notrace.review.json`):
+`notrace.json` defines 7 canonical sections for session reports and dashboard views. Generated compact session HTML uses the canonical section names; the older full retrospective renderer may still label the same data as `Run Summary` / `Timeline`.
 
 1. **Session Summary**: `traceId`, `repository` (`name`, `branch`), `session` (`id`, `startedAt`, `endedAt`, `durationMs`, `shutdownReason`), `conditions` (`harness`, `models`, `providers`, `extensions`), `captureMode`. Fallback: missing fields default gracefully to `"unknown"` or `"generic"`.
 2. **Usage Metrics**: `activity.totals` (`inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens`, `totalCostUsd`), `activity.context` (`activeTokens`, `peakTokens`, `contextWindow`). Fallback: missing fields default to `0` or `"unavailable"`.

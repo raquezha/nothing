@@ -168,6 +168,7 @@ Inspect current local usage:
 ```bash
 cd packages/notrace
 npm run cleanup -- --dry-run --json
+npm run cleanup -- --dir ~/.notrace --dry-run --json
 ```
 
 Preview explicit retention by age or size:
@@ -175,6 +176,7 @@ Preview explicit retention by age or size:
 ```bash
 npm run cleanup -- --dry-run --max-age-days 30 --json
 npm run cleanup -- --dry-run --max-total-mb 500 --json
+npm run cleanup -- --dry-run --max-total-bytes 524288000 --json
 ```
 
 Apply cleanup only when you mean it:
@@ -182,6 +184,15 @@ Apply cleanup only when you mean it:
 ```bash
 npm run cleanup -- --apply --max-age-days 30
 ```
+
+Flags:
+- `--dir <path>` chooses a trace directory; default is `$NOTRACE_DIR` or `~/.notrace`
+- `--dry-run` previews candidates
+- `--apply` deletes candidates
+- `--json` emits machine-readable output
+- `--max-age-days <n>` deletes sessions older than `n` days
+- `--max-total-mb <n>` or `--max-total-bytes <n>` enforces a total size budget
+- `--help` / `-h` prints usage
 
 Rules:
 - nothing is deleted unless you pass explicit retention flags with `--apply`
