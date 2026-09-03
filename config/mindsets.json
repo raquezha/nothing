@@ -114,6 +114,7 @@
         "nochestra/nochestra"
       ],
       "extensions": [
+        "nochestra",
         "notrace",
         "antigravity"
       ]
