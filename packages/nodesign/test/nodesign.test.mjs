@@ -53,6 +53,10 @@ try {
   assert.equal(parsedZeplin.status, "ready");
   assert.equal(parsedZeplin.link.provider, "zeplin");
 
+  const parsedZeplinUri = parseDesignLink("zpl://screen/AOGOKp6");
+  assert.equal(parsedZeplinUri.status, "ready");
+  assert.equal(parsedZeplinUri.link.provider, "zeplin");
+
   // 5. Tindahang Tapat 3 experiment screens fixtures
   const screens = [
     {

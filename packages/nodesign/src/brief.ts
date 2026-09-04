@@ -12,7 +12,7 @@ export function parseDesignLink(rawUrl: string): { link: DesignLink; status: Evi
     };
   }
 
-  if (url.includes("zpl.io") || url.includes("zeplin.io")) {
+  if (url.startsWith("zpl://") || url.includes("zpl.io") || url.includes("zeplin.io")) {
     return {
       link: { provider: "zeplin", url, label: "Zeplin screen" },
       status: "ready",

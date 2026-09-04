@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,7 +53,7 @@ try {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --url/);
 
-  const pkgJson = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+  const pkgJson = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8"));
   result = run(["--version"]);
   assert.equal(result.status, 0);
   assert.equal(result.stdout.trim(), pkgJson.version);

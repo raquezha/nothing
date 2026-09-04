@@ -24,6 +24,7 @@ function makeMockFetch(responses) {
       statusText: res.statusText || "OK",
       json: async () => res.json || {},
       text: async () => res.text || JSON.stringify(res.json || {}),
+      arrayBuffer: async () => Buffer.from(res.text || "data"),
     };
   };
 }
@@ -34,6 +35,7 @@ try {
   // 1. URL Parsing
   assert.equal(parseZeplinScreenId("https://zpl.io/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("https://app.zeplin.io/project/123/screen/456"), "456");
+  assert.equal(parseZeplinScreenId("zpl://screen/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("direct-id-789"), "direct-id-789");
 
   // 2. RGB to HEX helper
@@ -51,6 +53,7 @@ try {
   const mock401 = makeMockFetch({ "/screens/AOGOKp6": { status: 401 } });
   const res401 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
+  assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
 
   const mock403 = makeMockFetch({ "/screens/AOGOKp6": { status: 403 } });
   const res403 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock403);
@@ -80,10 +83,16 @@ try {
         name: "Reports Screen",
         width: 360,
         height: 640,
+        image_url: "https://mock.cdn/screen_render.png",
         colors: [{ r: 40, g: 120, b: 240, a: 1, hex: "#2878F0" }],
         layers: [{ name: "Header" }, { name: "ReportList" }],
       },
     },
+    "screen_render.png": {
+      status: 200,
+      text: "png-bytes",
+    },
+
     "ic_reports.svg": {
       status: 200,
       text: '<svg width="24" height="24"></svg>',
@@ -92,10 +101,16 @@ try {
 
   const res200 = await resolveZeplinScreen("AOGOKp6", "dummy-token", outputDir, mock200);
   assert.equal(res200.status, "SUCCESS");
+  assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.screen.name, "Reports Screen");
   assert.equal(res200.screen.colors[0].hex, "#2878F0");
+  assert.equal(res200.extract.colors[0].hex, "#2878F0");
+  assert.equal(res200.extract.hierarchy[0].name, "Header");
   assert.equal(res200.assets.length, 1);
   assert.equal(res200.savedAssets.length, 1);
+  assert(res200.renderedImage);
+  assert(res200.renderedImage.endsWith("zeplin_AOGOKp6.png"));
+
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');
 

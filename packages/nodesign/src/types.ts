@@ -3,6 +3,7 @@ import type { FigmaResolutionResult } from "./figma.js";
 
 /** Evidence status for design assets. */
 export type EvidenceStatus = "missing" | "ambiguous" | "ready";
+export type ProviderStatus = "SUCCESS" | "AUTH_REQUIRED" | "TOKEN_INVALID" | "FILE_FORBIDDEN" | "NODE_NOT_FOUND" | "RATE_LIMITED" | "API_UNAVAILABLE" | "AMBIGUOUS_URL";
 
 /** Detected Android/KMP UI stack. */
 export type AndroidUIStack =
