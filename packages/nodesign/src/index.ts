@@ -1,5 +1,6 @@
 export type {
   EvidenceStatus,
+  ProviderStatus,
   AndroidUIStack,
   DesignLink,
   ComponentFact,

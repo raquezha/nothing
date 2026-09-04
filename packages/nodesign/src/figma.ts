@@ -1,4 +1,5 @@
 import { resolveCredentials } from "./auth.js";
+import type { ProviderStatus } from "./types.js";
 
 export type FigmaErrorStatus =
   | "SUCCESS"
@@ -12,11 +13,21 @@ export type FigmaErrorStatus =
 
 export interface FigmaResolutionResult {
   status: FigmaErrorStatus;
+  normalizedStatus: ProviderStatus;
   url: string;
   fileKey?: string;
   nodeId?: string;
   name?: string;
   note?: string;
+}
+
+function normalizeProviderStatus(status: FigmaErrorStatus): ProviderStatus {
+  switch (status) {
+    case "AUTH_REJECTED": return "TOKEN_INVALID";
+    case "ACCESS_DENIED": return "FILE_FORBIDDEN";
+    case "DESIGN_NOT_FOUND": return "NODE_NOT_FOUND";
+    default: return status;
+  }
 }
 
 export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: string } {
@@ -48,6 +59,7 @@ export async function resolveFigmaLink(
   if (!fileKey) {
     return {
       status: "AMBIGUOUS_URL",
+      normalizedStatus: "AMBIGUOUS_URL",
       url: cleanUrl,
       note: "Could not extract Figma file key from URL",
     };
@@ -57,6 +69,7 @@ export async function resolveFigmaLink(
   if (!authToken) {
     return {
       status: "AUTH_REQUIRED",
+      normalizedStatus: "AUTH_REQUIRED",
       url: cleanUrl,
       fileKey,
       nodeId,
@@ -77,19 +90,19 @@ export async function resolveFigmaLink(
     });
 
     if (res.status === 401) {
-      return { status: "AUTH_REJECTED", url: cleanUrl, fileKey, nodeId, note: "Figma authentication rejected (401 invalid token)" };
+      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), url: cleanUrl, fileKey, nodeId, note: "Figma authentication rejected (401 invalid token)" };
     }
     if (res.status === 403) {
-      return { status: "ACCESS_DENIED", url: cleanUrl, fileKey, nodeId, note: "Figma access denied (403 forbidden)" };
+      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), url: cleanUrl, fileKey, nodeId, note: "Figma access denied (403 forbidden)" };
     }
     if (res.status === 404) {
-      return { status: "DESIGN_NOT_FOUND", url: cleanUrl, fileKey, nodeId, note: `Figma resource ${fileKey} not found (404)` };
+      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), url: cleanUrl, fileKey, nodeId, note: `Figma resource ${fileKey} not found (404)` };
     }
     if (res.status === 429) {
-      return { status: "RATE_LIMITED", url: cleanUrl, fileKey, nodeId, note: "Figma API rate limit exceeded (429)" };
+      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), url: cleanUrl, fileKey, nodeId, note: "Figma API rate limit exceeded (429)" };
     }
     if (!res.ok) {
-      return { status: "API_UNAVAILABLE", url: cleanUrl, fileKey, nodeId, note: `Figma API error (${res.status} ${res.statusText})` };
+      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), url: cleanUrl, fileKey, nodeId, note: `Figma API error (${res.status} ${res.statusText})` };
     }
 
     const data = (await res.json()) as any;
@@ -101,6 +114,7 @@ export async function resolveFigmaLink(
 
     return {
       status: "SUCCESS",
+      normalizedStatus: "SUCCESS",
       url: cleanUrl,
       fileKey,
       nodeId,
@@ -111,6 +125,7 @@ export async function resolveFigmaLink(
     const msg = error instanceof Error ? error.message : String(error);
     return {
       status: "API_UNAVAILABLE",
+      normalizedStatus: "API_UNAVAILABLE",
       url: cleanUrl,
       fileKey,
       nodeId,

@@ -33,6 +33,7 @@ try {
   const mock401 = makeMockFetch({ "/v1/files/": { status: 401 } });
   const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
+  assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
 
   const mock403 = makeMockFetch({ "/v1/files/": { status: 403 } });
   const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock403);
@@ -41,6 +42,7 @@ try {
   const mock404 = makeMockFetch({ "/v1/files/": { status: 404 } });
   const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
+  assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
 
   const mock429 = makeMockFetch({ "/v1/files/": { status: 429 } });
   const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock429);
@@ -63,6 +65,7 @@ try {
 
   const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock200);
   assert.equal(res200.status, "SUCCESS");
+  assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.name, "Checkout Frame");
   assert.equal(res200.fileKey, "KEY");
   assert.equal(res200.nodeId, "1:2");

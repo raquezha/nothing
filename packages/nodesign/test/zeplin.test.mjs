@@ -34,6 +34,7 @@ try {
   // 1. URL Parsing
   assert.equal(parseZeplinScreenId("https://zpl.io/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("https://app.zeplin.io/project/123/screen/456"), "456");
+  assert.equal(parseZeplinScreenId("zpl://screen/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("direct-id-789"), "direct-id-789");
 
   // 2. RGB to HEX helper
@@ -51,6 +52,7 @@ try {
   const mock401 = makeMockFetch({ "/screens/AOGOKp6": { status: 401 } });
   const res401 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
+  assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
 
   const mock403 = makeMockFetch({ "/screens/AOGOKp6": { status: 403 } });
   const res403 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock403);
@@ -92,6 +94,7 @@ try {
 
   const res200 = await resolveZeplinScreen("AOGOKp6", "dummy-token", outputDir, mock200);
   assert.equal(res200.status, "SUCCESS");
+  assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.screen.name, "Reports Screen");
   assert.equal(res200.screen.colors[0].hex, "#2878F0");
   assert.equal(res200.assets.length, 1);
