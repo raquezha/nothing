@@ -45,10 +45,22 @@ try {
   const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
 
-  const mock404 = makeMockFetch({ "/v1/files/": { status: 404 } });
+  const mock404 = makeMockFetch({
+    "/v1/files/KEY?depth=2": {
+      status: 200,
+      json: {
+        document: {
+          children: [{ name: "Checkout Redesign", type: "FRAME", id: "10:20" }],
+        },
+      },
+    },
+    "/v1/files/KEY/nodes": { status: 404 },
+  });
   const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
   assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
+  assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
+
 
   const mock429 = makeMockFetch({ "/v1/files/": { status: 429 } });
   const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock429);

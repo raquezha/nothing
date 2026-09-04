@@ -59,6 +59,7 @@ export interface FigmaResolutionResult {
   name?: string;
   extract?: FigmaExtractSpec;
   renderedImage?: string;
+  suggestedFrames?: string[];
   note?: string;
 }
 
@@ -166,6 +167,39 @@ function extractDetails(node: any): FigmaExtractSpec {
   };
 }
 
+async function fetchSuggestedFrames(
+  fileKey: string,
+  authToken: string,
+  fetchFn: typeof fetch,
+): Promise<string[]> {
+  try {
+    const res = await fetchFn(`https://api.figma.com/v1/files/${fileKey}?depth=2`, {
+      headers: { "X-Figma-Token": authToken },
+    });
+    if (!res.ok) return [];
+    const data = (await res.json()) as any;
+    const frames: string[] = [];
+
+    const scan = (node: any) => {
+      if (!node || typeof node !== "object") return;
+      if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "SECTION") {
+        if (typeof node.name === "string" && node.name) {
+          frames.push(`${node.name}${node.id ? ` (node-id=${node.id.replace(":", "-")})` : ""}`);
+        }
+      }
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) scan(child);
+      }
+    };
+
+    scan(data.document);
+    return frames.slice(0, 10);
+  } catch {
+    return [];
+  }
+}
+
+
 export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: string } {
   const clean = urlOrId.trim().replace(/[.,;)]+$/, "");
   let fileKey: string | undefined;
@@ -233,7 +267,18 @@ export async function resolveFigmaLink(
       return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), url: cleanUrl, fileKey, nodeId, note: "Figma access denied (403 forbidden)" };
     }
     if (res.status === 404) {
-      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), url: cleanUrl, fileKey, nodeId, note: `Figma resource ${fileKey} not found (404)` };
+      const suggestedFrames = nodeId && fileKey && authToken ? await fetchSuggestedFrames(fileKey, authToken, fetchFn) : [];
+      return {
+        status: "DESIGN_NOT_FOUND",
+        normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
+        url: cleanUrl,
+        fileKey,
+        nodeId,
+        suggestedFrames: suggestedFrames.length ? suggestedFrames : undefined,
+        note: suggestedFrames.length
+          ? `Figma node ${nodeId} not found. Suggested frames in file ${fileKey}: ${suggestedFrames.join(", ")}`
+          : `Figma resource ${fileKey} not found (404)`,
+      };
     }
     if (res.status === 429) {
       return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), url: cleanUrl, fileKey, nodeId, note: "Figma API rate limit exceeded (429)" };
