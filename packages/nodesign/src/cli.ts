@@ -278,6 +278,14 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                 console.log(`Screen: ${zeplin.screen.name} (${zeplin.screen.width}x${zeplin.screen.height})`);
                 if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
               }
+              if (zeplin.extract) {
+                if (zeplin.extract.typography.length) {
+                  console.log(`Typography: ${zeplin.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
+                }
+                if (zeplin.extract.layout.width || zeplin.extract.layout.height) {
+                  console.log(`Layout: ${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
+                }
+              }
               if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
               if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
             }
@@ -285,6 +293,15 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               console.log(`Figma Resolution: ${figma.status}`);
               if (figma.fileKey) console.log(`File Key: ${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}`);
               if (figma.name) console.log(`Name: ${figma.name}`);
+              if (figma.extract) {
+                if (figma.extract.colors.length) console.log(`Colors: ${figma.extract.colors.map((c) => c.hex).join(", ")}`);
+                if (figma.extract.typography.length) {
+                  console.log(`Typography: ${figma.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
+                }
+                if (figma.extract.layout.width || figma.extract.layout.height) {
+                  console.log(`Layout: ${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
+                }
+              }
               if (figma.note) console.log(`Figma Note: ${figma.note}`);
             }
           }

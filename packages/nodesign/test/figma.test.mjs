@@ -56,7 +56,17 @@ try {
         name: "File Title",
         nodes: {
           "1:2": {
-            document: { name: "Checkout Frame" },
+            document: {
+              name: "Checkout Frame",
+              absoluteBoundingBox: { width: 360, height: 640 },
+              fills: [{ color: { r: 0.2, g: 0.4, b: 0.8 } }],
+              children: [
+                {
+                  name: "Header",
+                  style: { fontFamily: "Inter", fontSize: 16 },
+                },
+              ],
+            },
           },
         },
       },
@@ -69,6 +79,9 @@ try {
   assert.equal(res200.name, "Checkout Frame");
   assert.equal(res200.fileKey, "KEY");
   assert.equal(res200.nodeId, "1:2");
+  assert.equal(res200.extract.layout.width, 360);
+  assert.equal(res200.extract.typography[0].fontFamily, "Inter");
+
 
   console.log("nodesign figma test ok");
 } catch (err) {

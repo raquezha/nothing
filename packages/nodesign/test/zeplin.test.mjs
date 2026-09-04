@@ -97,6 +97,8 @@ try {
   assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.screen.name, "Reports Screen");
   assert.equal(res200.screen.colors[0].hex, "#2878F0");
+  assert.equal(res200.extract.colors[0].hex, "#2878F0");
+  assert.equal(res200.extract.hierarchy[0].name, "Header");
   assert.equal(res200.assets.length, 1);
   assert.equal(res200.savedAssets.length, 1);
   assert(existsSync(res200.savedAssets[0]));

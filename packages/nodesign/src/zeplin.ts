@@ -20,6 +20,38 @@ export interface ZeplinColorSpec {
   hex: string;
 }
 
+export interface ZeplinTypographySpec {
+  text?: string;
+  fontFamily?: string;
+  fontWeight?: number | string;
+  fontSize?: number;
+  lineHeight?: number;
+  color?: string;
+}
+
+export interface ZeplinLayoutSpec {
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+  direction?: string;
+  gap?: number;
+  padding?: { top?: number; right?: number; bottom?: number; left?: number };
+}
+
+export interface ZeplinNodeSpec {
+  name: string;
+  type?: string;
+  children?: ZeplinNodeSpec[];
+}
+
+export interface ZeplinExtractSpec {
+  colors: ZeplinColorSpec[];
+  typography: ZeplinTypographySpec[];
+  layout: ZeplinLayoutSpec;
+  hierarchy: ZeplinNodeSpec[];
+}
+
 export interface ZeplinScreenSpec {
   id: string;
   name: string;
@@ -40,6 +72,7 @@ export interface ZeplinResolutionResult {
   status: ZeplinErrorStatus;
   normalizedStatus: ProviderStatus;
   screen?: ZeplinScreenSpec;
+  extract?: ZeplinExtractSpec;
   assets?: ZeplinAssetSpec[];
   savedAssets?: string[];
   note?: string;
@@ -74,6 +107,119 @@ export function parseZeplinScreenId(urlOrId: string): string {
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+function toColorSpec(color: any): ZeplinColorSpec | undefined {
+  if (!color || typeof color !== "object") return undefined;
+  const r = color.r ?? color.red ?? 0;
+  const g = color.g ?? color.green ?? 0;
+  const b = color.b ?? color.blue ?? 0;
+  const a = color.a ?? color.alpha ?? 1;
+  return {
+    r,
+    g,
+    b,
+    a,
+    hex: color.hex || rgbToHex(r, g, b),
+  };
+}
+
+function collectColors(node: any, out: ZeplinColorSpec[], seen: Set<string>): void {
+  if (!node || typeof node !== "object") return;
+  const colorCandidates = [node.color, node.fill, node.backgroundColor, node.textColor];
+  for (const candidate of colorCandidates) {
+    const spec = toColorSpec(candidate);
+    if (!spec) continue;
+    const key = `${spec.hex}:${spec.a}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(spec);
+  }
+  if (Array.isArray(node.colors)) {
+    for (const color of node.colors) {
+      const spec = toColorSpec(color);
+      if (!spec) continue;
+      const key = `${spec.hex}:${spec.a}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(spec);
+    }
+  }
+  if (Array.isArray(node.layers)) {
+    for (const layer of node.layers) collectColors(layer, out, seen);
+  }
+}
+
+function collectTypography(node: any, out: ZeplinTypographySpec[]): void {
+  if (!node || typeof node !== "object") return;
+  const style = node.textStyles || node.style || node;
+  if (node.type === "text" || style.fontFamily || style.fontSize || style.lineHeight) {
+    const color = toColorSpec(style.color || node.color);
+    out.push({
+      text: typeof node.content === "string" ? node.content : typeof node.name === "string" ? node.name : undefined,
+      fontFamily: style.fontFamily,
+      fontWeight: style.fontWeight,
+      fontSize: style.fontSize,
+      lineHeight: style.lineHeight,
+      color: color?.hex,
+    });
+  }
+  if (Array.isArray(node.layers)) {
+    for (const layer of node.layers) collectTypography(layer, out);
+  }
+}
+
+function toHierarchy(node: any): ZeplinNodeSpec | undefined {
+  if (!node || typeof node !== "object") return undefined;
+  const children = Array.isArray(node.layers)
+    ? node.layers.map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[]
+    : undefined;
+  const name = typeof node.name === "string" && node.name ? node.name : typeof node.id === "string" ? node.id : undefined;
+  if (!name) return undefined;
+  return {
+    name,
+    type: typeof node.type === "string" ? node.type : undefined,
+    ...(children && children.length ? { children } : {}),
+  };
+}
+
+function extractLayout(data: any): ZeplinLayoutSpec {
+  const rect = data?.rect || data?.bounds || {};
+  return {
+    width: data?.width ?? rect.width,
+    height: data?.height ?? rect.height,
+    x: rect.x,
+    y: rect.y,
+    direction: data?.layout?.direction || data?.flexDirection,
+    gap: data?.layout?.gap ?? data?.itemSpacing,
+    padding: data?.layout?.padding || data?.padding,
+  };
+}
+
+function extractScreen(data: any, fallbackId: string): ZeplinScreenSpec {
+  const colors = (data.colors || []).map(toColorSpec).filter(Boolean) as ZeplinColorSpec[];
+  return {
+    id: data.id || fallbackId,
+    name: data.name || "Untitled Screen",
+    width: data.width || 0,
+    height: data.height || 0,
+    colors,
+    layerNames: (data.layers || []).map((l: any) => l.name).filter(Boolean),
+  };
+}
+
+function extractDetails(data: any, screen: ZeplinScreenSpec): ZeplinExtractSpec {
+  const colors = [...screen.colors];
+  const seen = new Set(colors.map((c) => `${c.hex}:${c.a}`));
+  collectColors(data, colors, seen);
+  const typography: ZeplinTypographySpec[] = [];
+  collectTypography(data, typography);
+  return {
+    colors,
+    typography,
+    layout: extractLayout(data),
+    hierarchy: (data.layers || []).map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[],
+  };
 }
 
 export async function resolveZeplinScreen(
@@ -117,27 +263,11 @@ export async function resolveZeplinScreen(
     }
 
     const data = (await res.json()) as any;
-    const colors: ZeplinColorSpec[] = (data.colors || []).map((c: any) => ({
-      r: c.r ?? 0,
-      g: c.g ?? 0,
-      b: c.b ?? 0,
-      a: c.a ?? 1,
-      hex: c.hex || rgbToHex(c.r ?? 0, c.g ?? 0, c.b ?? 0),
-    }));
-
-    const screen: ZeplinScreenSpec = {
-      id: data.id || screenId,
-      name: data.name || "Untitled Screen",
-      width: data.width || 0,
-      height: data.height || 0,
-      colors,
-      layerNames: (data.layers || []).map((l: any) => l.name).filter(Boolean),
-    };
-
+    const screen = extractScreen(data, screenId);
+    const extract = extractDetails(data, screen);
     const savedAssets: string[] = [];
     let assets: ZeplinAssetSpec[] = [];
 
-    // Fetch assets if endpoint is reachable
     try {
       const assetRes = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}/assets`, {
         headers: { "Zeplin-Access-Token": authToken },
@@ -155,31 +285,27 @@ export async function resolveZeplinScreen(
         if (outputDir && assets.length > 0) {
           if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
           for (const asset of assets) {
-            if (asset.url) {
-              const fileName = `${asset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.${asset.format}`;
-              const filePath = path.join(outputDir, fileName);
-              try {
-                const imgRes = await fetchFn(asset.url);
-                if (imgRes.ok) {
-                  const content = await imgRes.text();
-                  writeFileSync(filePath, content, "utf8");
-                  savedAssets.push(filePath);
-                }
-              } catch {
-                // Ignore individual asset download errors
+            if (!asset.url) continue;
+            const fileName = `${asset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.${asset.format}`;
+            const filePath = path.join(outputDir, fileName);
+            try {
+              const imgRes = await fetchFn(asset.url);
+              if (imgRes.ok) {
+                const content = await imgRes.text();
+                writeFileSync(filePath, content, "utf8");
+                savedAssets.push(filePath);
               }
-            }
+            } catch {}
           }
         }
       }
-    } catch {
-      // Assets fetch is optional
-    }
+    } catch {}
 
     return {
       status: "SUCCESS",
       normalizedStatus: "SUCCESS",
       screen,
+      extract,
       assets,
       savedAssets,
     };
