@@ -53,7 +53,7 @@ export async function resolveFigmaLink(
     };
   }
 
-  const authToken = providedToken || resolveCredentials().figmaToken;
+  const authToken = providedToken === undefined ? resolveCredentials().figmaToken : providedToken || undefined;
   if (!authToken) {
     return {
       status: "AUTH_REQUIRED",

@@ -31,7 +31,7 @@ export { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./b
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
-export { resolveCredentials, storeCredential } from "./auth.js";
+export { resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
 export {
   compareUiProperty,
   verifyUiProperties,

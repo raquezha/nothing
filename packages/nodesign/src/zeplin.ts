@@ -68,7 +68,7 @@ export async function resolveZeplinScreen(
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<ZeplinResolutionResult> {
   const screenId = parseZeplinScreenId(screenUrlOrId);
-  const authToken = providedToken || resolveCredentials().zeplinToken;
+  const authToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
 
   if (!authToken) {
     return {
