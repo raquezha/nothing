@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { rmSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseFigmaUrl, resolveFigmaLink } from "../dist/index.js";
+
+const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function makeMockFetch(responses) {
   return async function mockFetch(url) {
@@ -11,6 +16,7 @@ function makeMockFetch(responses) {
       statusText: res.statusText || "OK",
       json: async () => res.json || {},
       text: async () => res.text || JSON.stringify(res.json || {}),
+      arrayBuffer: async () => Buffer.from(res.text || "data"),
     };
   };
 }
@@ -50,6 +56,14 @@ try {
 
   // 4. Success case
   const mock200 = makeMockFetch({
+    "/v1/images/KEY": {
+      status: 200,
+      json: { images: { "1:2": "https://mock.cdn/render.png" } },
+    },
+    "render.png": {
+      status: 200,
+      text: "png-data",
+    },
     "/v1/files/KEY/nodes": {
       status: 200,
       json: {
@@ -73,7 +87,8 @@ try {
     },
   });
 
-  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock200);
+  const renderDir = path.join(path.dirname(packageDir), "..", "tmp-figma-render");
+  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock200, renderDir);
   assert.equal(res200.status, "SUCCESS");
   assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.name, "Checkout Frame");
@@ -81,10 +96,14 @@ try {
   assert.equal(res200.nodeId, "1:2");
   assert.equal(res200.extract.layout.width, 360);
   assert.equal(res200.extract.typography[0].fontFamily, "Inter");
+  assert(res200.renderedImage);
+  assert(res200.renderedImage.endsWith("KEY_1-2.png"));
+
 
 
   console.log("nodesign figma test ok");
-} catch (err) {
-  console.error("nodesign figma test failed:", err);
-  process.exit(1);
+} finally {
+  const renderDir = path.join(path.dirname(packageDir), "..", "tmp-figma-render");
+  rmSync(renderDir, { recursive: true, force: true });
 }
+

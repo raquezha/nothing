@@ -24,6 +24,7 @@ function makeMockFetch(responses) {
       statusText: res.statusText || "OK",
       json: async () => res.json || {},
       text: async () => res.text || JSON.stringify(res.json || {}),
+      arrayBuffer: async () => Buffer.from(res.text || "data"),
     };
   };
 }
@@ -82,10 +83,16 @@ try {
         name: "Reports Screen",
         width: 360,
         height: 640,
+        image_url: "https://mock.cdn/screen_render.png",
         colors: [{ r: 40, g: 120, b: 240, a: 1, hex: "#2878F0" }],
         layers: [{ name: "Header" }, { name: "ReportList" }],
       },
     },
+    "screen_render.png": {
+      status: 200,
+      text: "png-bytes",
+    },
+
     "ic_reports.svg": {
       status: 200,
       text: '<svg width="24" height="24"></svg>',
@@ -101,6 +108,9 @@ try {
   assert.equal(res200.extract.hierarchy[0].name, "Header");
   assert.equal(res200.assets.length, 1);
   assert.equal(res200.savedAssets.length, 1);
+  assert(res200.renderedImage);
+  assert(res200.renderedImage.endsWith("zeplin_AOGOKp6.png"));
+
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');
 

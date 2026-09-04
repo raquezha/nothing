@@ -23,7 +23,7 @@ const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
   nodesign preflight [--json] [--path <dir>] [--task <id>] [--url <design-url>]
-  nodesign extract   [--json] [--url <design-url>]
+  nodesign extract   [--json] [--url <design-url>] [--render] [--out <dir>]
   nodesign auth login [--provider figma|zeplin] [--token <pat>]
   nodesign auth status
   nodesign --help
@@ -51,6 +51,8 @@ interface ParsedArgs {
   authAction?: "login" | "status";
   provider?: "figma" | "zeplin";
   token?: string;
+  render?: boolean;
+  out?: string;
   json: boolean;
   path: string;
   task: string;
@@ -131,6 +133,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       i += 1;
     } else if (arg === "--token") {
       result.token = requireValue(args, i, "--token");
+      i += 1;
+    } else if (arg === "--render") {
+      result.render = true;
+    } else if (arg === "--out") {
+      result.out = requireValue(args, i, "--out");
       i += 1;
     } else {
       fail(`Unknown argument: ${arg}`);
@@ -258,12 +265,13 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
         case "extract": {
           const parsed = parseDesignLink(args.url);
           const taskPath = findWorkflowTaskPath(process.cwd());
-          const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
+          const defaultDir = taskPath ? path.join(taskPath, "evidence") : path.resolve(process.cwd(), "design-renders");
+          const outputDir = args.out ? path.resolve(args.out) : (args.render || taskPath) ? defaultDir : undefined;
           const zeplin = parsed.link.provider === "zeplin"
             ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
           const figma = parsed.link.provider === "figma"
-            ? await resolveFigmaLink(parsed.link.url, undefined, fetchFn)
+            ? await resolveFigmaLink(parsed.link.url, undefined, fetchFn, outputDir)
             : undefined;
 
           if (args.json) {
@@ -286,6 +294,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                   console.log(`Layout: ${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
                 }
               }
+              if (zeplin.renderedImage) console.log(`Rendered Image: ${zeplin.renderedImage}`);
               if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
               if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
             }
@@ -302,6 +311,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                   console.log(`Layout: ${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
                 }
               }
+              if (figma.renderedImage) console.log(`Rendered Image: ${figma.renderedImage}`);
               if (figma.note) console.log(`Figma Note: ${figma.note}`);
             }
           }

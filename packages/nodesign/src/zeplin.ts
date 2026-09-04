@@ -75,6 +75,7 @@ export interface ZeplinResolutionResult {
   extract?: ZeplinExtractSpec;
   assets?: ZeplinAssetSpec[];
   savedAssets?: string[];
+  renderedImage?: string;
   note?: string;
 }
 
@@ -267,6 +268,21 @@ export async function resolveZeplinScreen(
     const extract = extractDetails(data, screen);
     const savedAssets: string[] = [];
     let assets: ZeplinAssetSpec[] = [];
+    let renderedImage: string | undefined;
+
+    const imageUrl = data.image?.original_url || data.image?.png_url || data.image_url;
+    if (outputDir && imageUrl) {
+      try {
+        const imgRes = await fetchFn(imageUrl);
+        if (imgRes.ok) {
+          const buffer = Buffer.from(await imgRes.arrayBuffer());
+          if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+          const filePath = path.join(outputDir, `zeplin_${screenId}.png`);
+          writeFileSync(filePath, buffer);
+          renderedImage = filePath;
+        }
+      } catch {}
+    }
 
     try {
       const assetRes = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}/assets`, {
@@ -308,6 +324,7 @@ export async function resolveZeplinScreen(
       extract,
       assets,
       savedAssets,
+      renderedImage,
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

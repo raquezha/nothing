@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { resolveCredentials } from "./auth.js";
 import type { ProviderStatus } from "./types.js";
 
@@ -56,6 +58,7 @@ export interface FigmaResolutionResult {
   nodeId?: string;
   name?: string;
   extract?: FigmaExtractSpec;
+  renderedImage?: string;
   note?: string;
 }
 
@@ -185,6 +188,7 @@ export async function resolveFigmaLink(
   figmaUrl: string,
   providedToken?: string,
   fetchFn: typeof fetch = globalThis.fetch,
+  outputDir?: string,
 ): Promise<FigmaResolutionResult> {
   const cleanUrl = figmaUrl.trim().replace(/[.,;)]+$/, "");
   const { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
@@ -241,6 +245,29 @@ export async function resolveFigmaLink(
     const data = (await res.json()) as any;
     const documentNode = nodeId && data.nodes ? data.nodes[nodeId]?.document : data.document;
     const name = documentNode?.name || data.name;
+    let renderedImage: string | undefined;
+
+    if (outputDir && fileKey && nodeId) {
+      try {
+        const imgRes = await fetchFn(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(nodeId)}&format=png`, {
+          headers: { "X-Figma-Token": authToken },
+        });
+        if (imgRes.ok) {
+          const imgData = (await imgRes.json()) as any;
+          const imageUrl = imgData?.images?.[nodeId];
+          if (imageUrl) {
+            const dlRes = await fetchFn(imageUrl);
+            if (dlRes.ok) {
+              const buffer = Buffer.from(await dlRes.arrayBuffer());
+              if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+              const filePath = path.join(outputDir, `${fileKey}_${nodeId.replace(":", "-")}.png`);
+              writeFileSync(filePath, buffer);
+              renderedImage = filePath;
+            }
+          }
+        }
+      } catch {}
+    }
 
     return {
       status: "SUCCESS",
@@ -250,6 +277,7 @@ export async function resolveFigmaLink(
       nodeId,
       name,
       extract: documentNode ? extractDetails(documentNode) : undefined,
+      renderedImage,
       note: nodeId ? undefined : "Validated file reachability, but URL missing node-id parameter for direct frame layout",
     };
   } catch (error) {
