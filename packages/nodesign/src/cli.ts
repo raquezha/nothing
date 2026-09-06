@@ -9,7 +9,8 @@ import { inspectAndroidProject } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
-import { resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
+import { deleteCredential, resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
+import { generateCodeSnippet } from "./code.js";
 
 function getVersion(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -22,9 +23,10 @@ const VERSION = getVersion();
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
-  nodesign preflight [--json] [--path <dir>] [--task <id>] [--url <design-url>]
-  nodesign extract   [--json] [--url <design-url>] [--render] [--out <dir>]
+  nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>]
+  nodesign extract   [--json] [--markdown] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
   nodesign auth login [--provider figma|zeplin] [--token <pat>]
+  nodesign auth logout [--provider figma|zeplin]
   nodesign auth status
   nodesign --help
   nodesign --version
@@ -33,10 +35,14 @@ Commands:
   preflight     Run design preflight checks (default)
   extract       Extract design details from a URL
   auth login    Store credentials in OS keychain or config file
+  auth logout   Clear stored credentials
   auth status   Show credential source and validation status
 
 Options:
   --json        Output machine-readable JSON
+  --markdown    Output clean markdown context
+  --code        Generate starter code (compose, react, html)
+  --find        Find canvas frame/node by name in Figma file
   --path        Project root to inspect (default: cwd)
   --task        Task identifier for the brief
   --url         Design URL (Figma, Zeplin)
@@ -48,11 +54,14 @@ Options:
 
 interface ParsedArgs {
   command: "preflight" | "extract" | "auth" | "help" | "version";
-  authAction?: "login" | "status";
+  authAction?: "login" | "logout" | "status";
   provider?: "figma" | "zeplin";
   token?: string;
   render?: boolean;
   out?: string;
+  find?: string;
+  code?: "compose" | "react" | "html";
+  markdown?: boolean;
   json: boolean;
   path: string;
   task: string;
@@ -102,9 +111,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.command = cmd;
       i = 1;
     } else if (cmd === "auth") {
-      if (args[1] !== "login" && args[1] !== "status") fail("Supported auth commands: `nodesign auth login` or `nodesign auth status`");
+      if (args[1] !== "login" && args[1] !== "status" && args[1] !== "logout") {
+        fail("Supported auth commands: `nodesign auth login`, `nodesign auth logout`, or `nodesign auth status`");
+      }
       result.command = "auth";
-      result.authAction = args[1];
+      result.authAction = args[1] as any;
       i = 2;
     } else {
       fail(`Unknown command: ${cmd}`);
@@ -119,6 +130,16 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.command = "version";
     } else if (arg === "--json") {
       result.json = true;
+    } else if (arg === "--markdown") {
+      result.markdown = true;
+    } else if (arg === "--find") {
+      result.find = requireValue(args, i, "--find");
+      i += 1;
+    } else if (arg === "--code") {
+      const val = requireValue(args, i, "--code").toLowerCase();
+      if (val !== "compose" && val !== "react" && val !== "html") fail("Supported --code targets: compose, react, html");
+      result.code = val as any;
+      i += 1;
     } else if (arg === "--path") {
       result.path = requireValue(args, i, "--path");
       i += 1;
@@ -257,6 +278,15 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             return;
           }
 
+          if (args.authAction === "logout") {
+            const providers = args.provider ? [args.provider] : (["figma", "zeplin"] as const);
+            for (const p of providers) {
+              deleteCredential(p);
+              console.log(`Cleared stored ${p} token`);
+            }
+            return;
+          }
+
           const creds = await promptAuth(args);
           const stored = storeCredential(creds.provider, creds.token);
           if (!stored.ok) fail(`Could not store ${creds.provider} token`);
@@ -273,7 +303,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
           const figma = parsed.link.provider === "figma"
-            ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn)
+            ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn, args.find)
             : undefined;
 
           const providerResult = zeplin || figma;
@@ -281,8 +311,31 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             process.exitCode = 1;
           }
 
+          const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
+          const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
+
           if (args.json) {
-            console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}), ...(figma ? { figma } : {}) }, null, 2));
+            console.log(JSON.stringify({
+              ...parsed,
+              ...(zeplin ? { zeplin } : {}),
+              ...(figma ? { figma } : {}),
+              ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName) } : {}),
+            }, null, 2));
+          } else if (args.markdown) {
+            console.log(`# Extracted Design: ${screenName}\n`);
+            console.log(`- **Provider**: ${parsed.link.provider}`);
+            console.log(`- **URL**: ${parsed.link.url}`);
+            console.log(`- **Status**: ${providerResult?.status || parsed.status}`);
+            if (hierarchy.length) {
+              console.log("\n## UI Blueprint\n```text");
+              for (const line of formatTreeBlueprint(hierarchy, 0)) console.log(line);
+              console.log("```");
+            }
+            if (args.code) {
+              console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName));
+              console.log("```");
+            }
           } else {
             console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
             console.log(`Status: ${parsed.status}`);
@@ -336,6 +389,10 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                 console.log(`Suggested Frames: ${figma.suggestedFrames.join(", ")}`);
               }
               if (figma.note) console.log(`Figma Note: ${figma.note}`);
+            }
+            if (args.code && hierarchy.length) {
+              console.log(`\nGenerated Code (${args.code}):`);
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName));
             }
           }
           return;

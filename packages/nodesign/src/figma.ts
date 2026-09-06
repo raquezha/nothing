@@ -241,9 +241,10 @@ export async function resolveFigmaLink(
   providedToken?: string,
   outputDir?: string,
   fetchFn: typeof fetch = globalThis.fetch,
+  findName?: string,
 ): Promise<FigmaResolutionResult> {
   const cleanUrl = figmaUrl.trim().replace(/[.,;)]+$/, "");
-  const { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
+  let { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
 
   if (!fileKey) {
     return {
@@ -266,7 +267,37 @@ export async function resolveFigmaLink(
     };
   }
 
-  const queryNodeId = nodeId ? encodeURIComponent(nodeId) : undefined;
+  let queryNodeId = nodeId ? encodeURIComponent(nodeId) : undefined;
+
+  if (!nodeId && findName) {
+    try {
+      const searchRes = await fetchFn(`https://api.figma.com/v1/files/${fileKey}?depth=3`, {
+        headers: { "X-Figma-Token": authToken },
+      });
+      if (searchRes.ok) {
+        const searchData = (await searchRes.json()) as any;
+        let matchedId: string | undefined;
+
+        const scanFind = (node: any) => {
+          if (!node || typeof node !== "object" || matchedId) return;
+          if (typeof node.name === "string" && node.name.toLowerCase().includes(findName.toLowerCase())) {
+            matchedId = node.id;
+            return;
+          }
+          if (Array.isArray(node.children)) {
+            for (const child of node.children) scanFind(child);
+          }
+        };
+
+        scanFind(searchData.document);
+        if (matchedId) {
+          nodeId = matchedId.replace("-", ":");
+          queryNodeId = encodeURIComponent(nodeId);
+        }
+      }
+    } catch {}
+  }
+
   const apiUrl = queryNodeId
     ? `https://api.figma.com/v1/files/${fileKey}/nodes?ids=${queryNodeId}`
     : `https://api.figma.com/v1/files/${fileKey}?depth=1`;

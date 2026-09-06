@@ -32,7 +32,8 @@ export { formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvide
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
-export { resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
+export { resolveCredential, resolveCredentials, storeCredential, validateCredential, deleteCredential } from "./auth.js";
+export { generateCodeSnippet } from "./code.js";
 export {
   compareUiProperty,
   verifyUiProperties,

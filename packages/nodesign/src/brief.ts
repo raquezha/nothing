@@ -67,11 +67,11 @@ export function determineEvidenceStatus(links: DesignLink[], uiSensitive: boolea
   return "missing";
 }
 
-/** Format a PreflightResult as a DesignBrief in JSON or human-readable text. */
+/** Format a PreflightResult as a DesignBrief in JSON, human-readable text, or Markdown. */
 export function formatDesignBrief(
   taskId: string,
   preflight: PreflightResult,
-  format: "json" | "human" = "human",
+  format: "json" | "human" | "markdown" = "human",
 ): string {
   const brief: DesignBrief = {
     taskId,
@@ -83,7 +83,58 @@ export function formatDesignBrief(
     return JSON.stringify(brief, null, 2);
   }
 
+  if (format === "markdown") {
+    const mdLines: string[] = [
+      `# Design Brief: \`${brief.taskId}\``,
+      `*Generated: ${brief.timestamp}*`,
+      "",
+      `| Parameter | Value |`,
+      `| --- | --- |`,
+      `| UI Sensitive | ${preflight.uiSensitive ? "Yes" : "No"} |`,
+      `| Android UI Stack | \`${preflight.androidUIStack}\` |`,
+      `| Evidence Status | \`${preflight.evidenceStatus}\` |`,
+      "",
+    ];
+
+    if (preflight.designLinks.length > 0) {
+      mdLines.push("## Design Links");
+      for (const link of preflight.designLinks) {
+        mdLines.push(`- **[${link.provider}]** [${link.url}](${link.url})${link.label ? ` (*${link.label}*)` : ""}`);
+      }
+      mdLines.push("");
+    }
+
+    if (preflight.resolvedScreens?.length) {
+      mdLines.push("## Resolved Zeplin Screens");
+      for (const s of preflight.resolvedScreens) {
+        mdLines.push(`### ${s.name || s.screenId || "Screen"} (\`${s.status}\`)`);
+        if (s.extract?.hierarchy?.length) {
+          mdLines.push("```text");
+          mdLines.push(...formatTreeBlueprint(s.extract.hierarchy, 0));
+          mdLines.push("```");
+        }
+      }
+      mdLines.push("");
+    }
+
+    if (preflight.resolvedFigma?.length) {
+      mdLines.push("## Resolved Figma Links");
+      for (const f of preflight.resolvedFigma) {
+        mdLines.push(`### ${f.name || f.fileKey || "Figma Frame"} (\`${f.status}\`)`);
+        if (f.extract?.hierarchy?.length) {
+          mdLines.push("```text");
+          mdLines.push(...formatTreeBlueprint(f.extract.hierarchy, 0));
+          mdLines.push("```");
+        }
+      }
+      mdLines.push("");
+    }
+
+    return mdLines.join("\n");
+  }
+
   const lines: string[] = [
+
     `Design Brief: ${brief.taskId}`,
     `Timestamp: ${brief.timestamp}`,
     "",

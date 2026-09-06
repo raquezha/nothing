@@ -37,9 +37,13 @@ try {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown command/);
 
-  result = run(["auth", "logout"]);
+  result = run(["auth", "invalid"]);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /auth login/);
+  assert.match(result.stderr, /Supported auth commands/);
+
+  result = run(["auth", "logout"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Cleared stored/);
 
   result = run(["preflight", "--path"]);
   assert.notEqual(result.status, 0);

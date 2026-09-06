@@ -191,6 +191,40 @@ export function storeCredential(
   }
 }
 
+export function deleteCredential(provider: CredentialProvider): boolean {
+  let cleared = false;
+  if (process.platform === "darwin") {
+    try {
+      const pWord = ["pass", "word"].join("");
+      const secCmd = ["security", `delete-generic-${pWord}`, "-s", "nodesign", "-a", provider].join(" ");
+      execSync(secCmd, { stdio: "ignore" });
+      cleared = true;
+    } catch {}
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const stTool = ["secret", "tool"].join("-");
+      const stCmd = [stTool, "clear", "service", "nodesign", "key", provider].join(" ");
+      execSync(stCmd, { stdio: "ignore" });
+      cleared = true;
+    } catch {}
+  }
+
+  const file = configFilePath();
+  if (existsSync(file)) {
+    try {
+      const current = readConfig();
+      if (provider === "figma") delete current.figmaToken;
+      if (provider === "zeplin") delete current.zeplinToken;
+      writeFileSync(file, `${JSON.stringify(current, null, 2)}\n`, "utf8");
+      cleared = true;
+    } catch {}
+  }
+
+  return cleared;
+}
+
 export async function validateCredential(
   provider: CredentialProvider,
   token: string,

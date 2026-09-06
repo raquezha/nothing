@@ -7,6 +7,7 @@ import {
   determineEvidenceStatus,
   formatDesignBrief,
   formatTreeBlueprint,
+  generateCodeSnippet,
   resolveCredentials,
   inspectAndroidProject,
 } from "../dist/index.js";
@@ -145,6 +146,21 @@ try {
   assert(blueprintLines[0].includes("360x56"));
   assert(blueprintLines[1].includes("text=\"Checkout\""));
   assert(blueprintLines[1].includes("Inter"));
+
+  // 9. Code Snippet Generator (Compose, React, HTML)
+  const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen");
+  assert(composeCode.includes("fun CheckoutScreen()"));
+  assert(composeCode.includes("Text("));
+  assert(composeCode.includes('"Checkout"'));
+
+  const reactCode = generateCodeSnippet(treeNodes, "react", "CheckoutScreen");
+  assert(reactCode.includes("export function CheckoutScreen()"));
+  assert(reactCode.includes("<span"));
+  assert(reactCode.includes("Checkout</span>"));
+
+  const htmlCode = generateCodeSnippet(treeNodes, "html", "CheckoutScreen");
+  assert(htmlCode.includes("<div class=\"checkoutscreen\">"));
+  assert(htmlCode.includes("Checkout</span>"));
 
   console.log("nodesign suite test ok");
 } finally {
