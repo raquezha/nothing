@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
-import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
+import { formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
@@ -295,6 +295,12 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                 if (zeplin.extract.layout.width || zeplin.extract.layout.height) {
                   console.log(`Layout: ${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
                 }
+                if (zeplin.extract.hierarchy.length) {
+                  console.log("UI Blueprint:");
+                  for (const line of formatTreeBlueprint(zeplin.extract.hierarchy, 1)) {
+                    console.log(`  ${line}`);
+                  }
+                }
               }
               if (zeplin.renderedImage) console.log(`Rendered Image: ${zeplin.renderedImage}`);
               if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
@@ -311,6 +317,12 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                 }
                 if (figma.extract.layout.width || figma.extract.layout.height) {
                   console.log(`Layout: ${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
+                }
+                if (figma.extract.hierarchy.length) {
+                  console.log("UI Blueprint:");
+                  for (const line of formatTreeBlueprint(figma.extract.hierarchy, 1)) {
+                    console.log(`  ${line}`);
+                  }
                 }
               }
               if (figma.renderedImage) console.log(`Rendered Image: ${figma.renderedImage}`);

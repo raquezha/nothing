@@ -6,6 +6,7 @@ import {
   parseDesignLink,
   determineEvidenceStatus,
   formatDesignBrief,
+  formatTreeBlueprint,
   resolveCredentials,
   inspectAndroidProject,
 } from "../dist/index.js";
@@ -125,6 +126,25 @@ try {
   // 7. Auth Credentials Resolver
   const creds = resolveCredentials();
   assert(typeof creds === "object");
+
+  // 8. Tree Blueprint Formatter
+  const treeNodes = [
+    {
+      name: "Header",
+      type: "FRAME",
+      layout: { width: 360, height: 56, direction: "ROW" },
+      color: "#2878F0",
+      children: [
+        { name: "TitleText", text: "Checkout", font: { fontFamily: "Inter", fontSize: 18, fontWeight: 600 }, color: "#FFFFFF" },
+      ],
+    },
+  ];
+  const blueprintLines = formatTreeBlueprint(treeNodes);
+  assert.equal(blueprintLines.length, 2);
+  assert(blueprintLines[0].includes("[FRAME] Header"));
+  assert(blueprintLines[0].includes("360x56"));
+  assert(blueprintLines[1].includes("text=\"Checkout\""));
+  assert(blueprintLines[1].includes("Inter"));
 
   console.log("nodesign suite test ok");
 } finally {

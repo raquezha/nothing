@@ -42,6 +42,10 @@ export interface ZeplinLayoutSpec {
 export interface ZeplinNodeSpec {
   name: string;
   type?: string;
+  text?: string;
+  color?: string;
+  font?: { fontFamily?: string; fontSize?: number; fontWeight?: number | string };
+  layout?: ZeplinLayoutSpec;
   children?: ZeplinNodeSpec[];
 }
 
@@ -177,9 +181,24 @@ function toHierarchy(node: any): ZeplinNodeSpec | undefined {
     : undefined;
   const name = typeof node.name === "string" && node.name ? node.name : typeof node.id === "string" ? node.id : undefined;
   if (!name) return undefined;
+
+  const style = node.textStyles || node.style || {};
+  const colorSpec = toColorSpec(node.color || node.fill || style.color);
+  const font = (style.fontFamily || style.fontSize) ? {
+    fontFamily: style.fontFamily,
+    fontSize: style.fontSize,
+    fontWeight: style.fontWeight,
+  } : undefined;
+  const layout = extractLayout(node);
+  const text = typeof node.content === "string" ? node.content : undefined;
+
   return {
     name,
     type: typeof node.type === "string" ? node.type : undefined,
+    ...(text ? { text } : {}),
+    ...(colorSpec?.hex ? { color: colorSpec.hex } : {}),
+    ...(font ? { font } : {}),
+    ...(layout.width || layout.height || layout.direction ? { layout } : {}),
     ...(children && children.length ? { children } : {}),
   };
 }

@@ -40,6 +40,10 @@ export interface FigmaLayoutSpec {
 export interface FigmaNodeSpec {
   name: string;
   type?: string;
+  text?: string;
+  color?: string;
+  font?: { fontFamily?: string; fontSize?: number; fontWeight?: number | string };
+  layout?: FigmaLayoutSpec;
   children?: FigmaNodeSpec[];
 }
 
@@ -129,9 +133,23 @@ function toHierarchy(node: any): FigmaNodeSpec | undefined {
   const children = Array.isArray(node.children)
     ? node.children.map(toHierarchy).filter(Boolean) as FigmaNodeSpec[]
     : undefined;
+
+  const fill = Array.isArray(node.fills) ? colorFromPaint(node.fills[0]) : undefined;
+  const font = node.style ? {
+    fontFamily: node.style.fontFamily,
+    fontSize: node.style.fontSize,
+    fontWeight: node.style.fontWeight,
+  } : undefined;
+  const layout = extractLayout(node);
+  const text = typeof node.characters === "string" ? node.characters : undefined;
+
   return {
     name: node.name,
     type: node.type,
+    ...(text ? { text } : {}),
+    ...(fill?.hex ? { color: fill.hex } : {}),
+    ...(font?.fontFamily || font?.fontSize ? { font } : {}),
+    ...(layout.width || layout.height || layout.direction ? { layout } : {}),
     ...(children && children.length ? { children } : {}),
   };
 }
