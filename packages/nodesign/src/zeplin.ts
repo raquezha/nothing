@@ -75,6 +75,8 @@ export interface ZeplinAssetSpec {
 export interface ZeplinResolutionResult {
   status: ZeplinErrorStatus;
   normalizedStatus: ProviderStatus;
+  screenId?: string;
+  name?: string;
   screen?: ZeplinScreenSpec;
   extract?: ZeplinExtractSpec;
   assets?: ZeplinAssetSpec[];
@@ -267,19 +269,19 @@ export async function resolveZeplinScreen(
     });
 
     if (res.status === 401) {
-      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), note: "Zeplin authentication rejected (401 invalid token)" };
+      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
     }
     if (res.status === 403) {
-      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), note: "Zeplin access denied (403 forbidden)" };
+      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), screenId, note: "Zeplin access denied (403 forbidden)" };
     }
     if (res.status === 404) {
-      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), note: `Zeplin screen ${screenId} not found (404)` };
+      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), screenId, note: `Zeplin screen ${screenId} not found (404)` };
     }
     if (res.status === 429) {
-      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), note: "Zeplin API rate limit exceeded (429)" };
+      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), screenId, note: "Zeplin API rate limit exceeded (429)" };
     }
     if (!res.ok) {
-      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), note: `Zeplin API error (${res.status} ${res.statusText})` };
+      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), screenId, note: `Zeplin API error (${res.status} ${res.statusText})` };
     }
 
     const data = (await res.json()) as any;
@@ -339,6 +341,8 @@ export async function resolveZeplinScreen(
     return {
       status: "SUCCESS",
       normalizedStatus: "SUCCESS",
+      screenId,
+      name: screen.name,
       screen,
       extract,
       assets,
@@ -350,6 +354,7 @@ export async function resolveZeplinScreen(
     return {
       status: "API_UNAVAILABLE",
       normalizedStatus: "API_UNAVAILABLE",
+      screenId,
       note: `Network or fetch failure querying Zeplin API: ${msg}`,
     };
   }

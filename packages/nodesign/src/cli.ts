@@ -289,8 +289,9 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             if (parsed.note) console.log(`Note: ${parsed.note}`);
             if (zeplin) {
               console.log(`Zeplin Resolution: ${zeplin.status}`);
+              if (zeplin.screenId) console.log(`Screen ID: ${zeplin.screenId}`);
+              if (zeplin.name) console.log(`Name: ${zeplin.name}`);
               if (zeplin.screen) {
-                console.log(`Screen: ${zeplin.screen.name} (${zeplin.screen.width}x${zeplin.screen.height})`);
                 if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
               }
               if (zeplin.extract) {

@@ -102,6 +102,8 @@ try {
   const res200 = await resolveZeplinScreen("AOGOKp6", "dummy-token", outputDir, mock200);
   assert.equal(res200.status, "SUCCESS");
   assert.equal(res200.normalizedStatus, "SUCCESS");
+  assert.equal(res200.screenId, "AOGOKp6");
+  assert.equal(res200.name, "Reports Screen");
   assert.equal(res200.screen.name, "Reports Screen");
   assert.equal(res200.screen.colors[0].hex, "#2878F0");
   assert.equal(res200.extract.colors[0].hex, "#2878F0");
