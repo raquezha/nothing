@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { resolveCredentials } from "./auth.js";
+import { resolveCredentials, fetchWithRateLimitRetry } from "./auth.js";
 import type { ProviderStatus, VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";
 
@@ -45,6 +45,7 @@ export interface FigmaNodeSpec {
   color?: string;
   font?: { fontFamily?: string; fontSize?: number; fontWeight?: number | string };
   layout?: FigmaLayoutSpec;
+  variant?: string;
   children?: FigmaNodeSpec[];
 }
 
@@ -133,6 +134,8 @@ function collectTypography(node: any, out: FigmaTypographySpec[]): void {
 
 function toHierarchy(node: any): FigmaNodeSpec | undefined {
   if (!node?.name) return undefined;
+  if (node.visible === false || node.opacity === 0) return undefined;
+
   const children = Array.isArray(node.children)
     ? node.children.map(toHierarchy).filter(Boolean) as FigmaNodeSpec[]
     : undefined;
@@ -145,6 +148,7 @@ function toHierarchy(node: any): FigmaNodeSpec | undefined {
   } : undefined;
   const layout = extractLayout(node);
   const text = typeof node.characters === "string" ? node.characters : undefined;
+  const variant = node.variantProperties ? Object.entries(node.variantProperties).map(([k, v]) => `${k}=${v}`).join(", ") : undefined;
 
   return {
     name: node.name,
@@ -153,9 +157,11 @@ function toHierarchy(node: any): FigmaNodeSpec | undefined {
     ...(fill?.hex ? { color: fill.hex } : {}),
     ...(font?.fontFamily || font?.fontSize ? { font } : {}),
     ...(layout.width || layout.height || layout.direction ? { layout } : {}),
+    ...(variant ? { variant } : {}),
     ...(children && children.length ? { children } : {}),
   };
 }
+
 
 function extractLayout(node: any): FigmaLayoutSpec {
   const box = node?.absoluteBoundingBox || {};
@@ -307,11 +313,12 @@ export async function resolveFigmaLink(
     : `https://api.figma.com/v1/files/${fileKey}?depth=1`;
 
   try {
-    const res = await fetchFn(apiUrl, {
+    const res = await fetchWithRateLimitRetry(apiUrl, {
       headers: {
         "X-Figma-Token": authToken,
       },
-    });
+    }, fetchFn);
+
 
     if (res.status === 401) {
       return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), url: cleanUrl, fileKey, nodeId, note: "Figma authentication rejected (401 invalid token)" };

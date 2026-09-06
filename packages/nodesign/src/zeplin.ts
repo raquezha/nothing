@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { resolveCredentials } from "./auth.js";
+import { resolveCredentials, fetchWithRateLimitRetry } from "./auth.js";
 import type { ProviderStatus, VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";
 
@@ -181,9 +181,12 @@ function collectTypography(node: any, out: ZeplinTypographySpec[]): void {
 
 function toHierarchy(node: any): ZeplinNodeSpec | undefined {
   if (!node || typeof node !== "object") return undefined;
+  if (node.visible === false || node.hidden === true || node.opacity === 0) return undefined;
+
   const children = Array.isArray(node.layers)
     ? node.layers.map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[]
     : undefined;
+
   const name = typeof node.name === "string" && node.name ? node.name : typeof node.id === "string" ? node.id : undefined;
   if (!name) return undefined;
 
@@ -265,11 +268,12 @@ export async function resolveZeplinScreen(
   }
 
   try {
-    const res = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}`, {
+    const res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, {
       headers: {
         "Zeplin-Access-Token": authToken,
       },
-    });
+    }, fetchFn);
+
 
     if (res.status === 401) {
       return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };

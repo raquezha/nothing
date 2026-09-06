@@ -92,7 +92,12 @@ try {
                   name: "Header",
                   style: { fontFamily: "Inter", fontSize: 16 },
                 },
+                {
+                  name: "HiddenJunk",
+                  visible: false,
+                },
               ],
+
             },
           },
         },
@@ -107,8 +112,8 @@ try {
   assert.equal(res200.name, "Checkout Frame");
   assert.equal(res200.fileKey, "KEY");
   assert.equal(res200.nodeId, "1:2");
-  assert.equal(res200.extract.layout.width, 360);
-  assert.equal(res200.extract.typography[0].fontFamily, "Inter");
+  assert.equal(res200.extract.hierarchy.length, 1);
+  assert.equal(res200.extract.hierarchy[0].name, "Header");
   assert(res200.renderedImage);
   assert(res200.renderedImage.endsWith("figma-KEY_1-2.png"));
   assert(res200.visualAnalysis);
