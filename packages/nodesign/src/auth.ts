@@ -156,9 +156,12 @@ function writeConfigCredential(provider: CredentialProvider, token: string): Sto
     ...(provider === "figma" ? { figmaToken: token } : { zeplinToken: token }),
   };
   writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-  chmodSync(file, 0o600);
+  try {
+    chmodSync(file, 0o600);
+  } catch {}
   return { ok: true, source: "config file", location: file };
 }
+
 
 export function storeCredential(
   provider: CredentialProvider,
