@@ -12,7 +12,7 @@ It also powers deterministic design preflight for `norpiv` workflows (`nodesign 
 
 ### 1. Authenticate
 
-Interactive terminal prompt with PAT creation guidance:
+Interactive terminal prompt with Personal Access Token (PAT) creation guidance:
 
 ```bash
 nodesign auth login
@@ -87,7 +87,7 @@ Output reports the exact source:
 ## Commands
 
 ### `auth login`
-Prompt or save PAT credentials for Figma and Zeplin.
+Prompt or save Personal Access Token (PAT) credentials for Figma and Zeplin.
 
 Flags:
 - `--provider <figma|zeplin>`
