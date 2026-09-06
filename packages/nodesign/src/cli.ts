@@ -182,11 +182,13 @@ async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fet
 }
 
 async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
+  const taskPath = findWorkflowTaskPath(process.cwd());
+  const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
   const results = [];
 
   for (const link of designLinks) {
     if (link.provider !== "figma") continue;
-    results.push(await resolveFigmaLink(link.url, undefined, fetchFn));
+    results.push(await resolveFigmaLink(link.url, undefined, fetchFn, outputDir));
   }
 
   return results;
