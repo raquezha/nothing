@@ -37,12 +37,12 @@ try {
 
   // 3. Status mappings
   const mock401 = makeMockFetch({ "/v1/files/": { status: 401 } });
-  const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock401);
+  const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
   assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
 
   const mock403 = makeMockFetch({ "/v1/files/": { status: 403 } });
-  const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock403);
+  const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
 
   const mock404 = makeMockFetch({
@@ -56,15 +56,16 @@ try {
     },
     "/v1/files/KEY/nodes": { status: 404 },
   });
-  const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock404);
+  const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
   assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
   assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
 
 
   const mock429 = makeMockFetch({ "/v1/files/": { status: 429 } });
-  const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock429);
+  const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock429);
   assert.equal(res429.status, "RATE_LIMITED");
+
 
   // 4. Success case
   const mock200 = makeMockFetch({
@@ -100,7 +101,7 @@ try {
   });
 
   const renderDir = path.join(path.dirname(packageDir), "..", "tmp-figma-render");
-  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock200, renderDir);
+  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", renderDir, mock200);
   assert.equal(res200.status, "SUCCESS");
   assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.name, "Checkout Frame");

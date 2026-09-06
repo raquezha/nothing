@@ -188,7 +188,7 @@ async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetc
 
   for (const link of designLinks) {
     if (link.provider !== "figma") continue;
-    results.push(await resolveFigmaLink(link.url, undefined, fetchFn, outputDir));
+    results.push(await resolveFigmaLink(link.url, undefined, outputDir, fetchFn));
   }
 
   return results;
@@ -273,7 +273,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
           const figma = parsed.link.provider === "figma"
-            ? await resolveFigmaLink(parsed.link.url, undefined, fetchFn, outputDir)
+            ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
 
           if (args.json) {

@@ -221,8 +221,8 @@ export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: str
 export async function resolveFigmaLink(
   figmaUrl: string,
   providedToken?: string,
-  fetchFn: typeof fetch = globalThis.fetch,
   outputDir?: string,
+  fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<FigmaResolutionResult> {
   const cleanUrl = figmaUrl.trim().replace(/[.,;)]+$/, "");
   const { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
