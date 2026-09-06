@@ -276,6 +276,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
 
+          const providerResult = zeplin || figma;
+          if (providerResult && providerResult.status !== "SUCCESS") {
+            process.exitCode = 1;
+          }
+
           if (args.json) {
             console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}), ...(figma ? { figma } : {}) }, null, 2));
           } else {
@@ -326,6 +331,9 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
                 }
               }
               if (figma.renderedImage) console.log(`Rendered Image: ${figma.renderedImage}`);
+              if (figma.suggestedFrames?.length) {
+                console.log(`Suggested Frames: ${figma.suggestedFrames.join(", ")}`);
+              }
               if (figma.note) console.log(`Figma Note: ${figma.note}`);
             }
           }

@@ -312,7 +312,7 @@ export async function resolveFigmaLink(
 
     if (outputDir && fileKey && nodeId) {
       try {
-        const imgRes = await fetchFn(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(nodeId)}&format=png`, {
+        const imgRes = await fetchFn(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(nodeId)}&scale=2&format=png`, {
           headers: { "X-Figma-Token": authToken },
         });
         if (imgRes.ok) {
