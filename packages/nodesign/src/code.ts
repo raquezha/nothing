@@ -3,20 +3,36 @@ import type { ZeplinNodeSpec } from "./zeplin.js";
 
 type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
 
+function toComposeColor(hex?: string): string {
+  if (!hex) return "Color.Unspecified";
+  let clean = hex.replace("#", "").toUpperCase();
+  if (clean.length === 3) {
+    clean = `${clean[0]}${clean[0]}${clean[1]}${clean[1]}${clean[2]}${clean[2]}`;
+  }
+  if (clean.length === 6) {
+    clean = `FF${clean}`;
+  }
+  return `Color(0x${clean})`;
+}
+
+function escapeString(val: string): string {
+  return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+}
+
 function nodeToCompose(node: UnifiedNode, indent = 1): string {
   const pad = "    ".repeat(indent);
-  const name = node.name.replace(/[^a-zA-Z0-9]/g, "");
+  const name = node.name.replace(/[^a-zA-Z0-9]/g, "") || "Element";
   const children: UnifiedNode[] = Array.isArray(node.children) ? node.children : [];
 
   if (node.text) {
     const fontSize = node.font?.fontSize ? `${node.font.fontSize}.sp` : "TextUnit.Unspecified";
-    const color = node.color ? `Color(0xFF${node.color.replace("#", "")})` : "Color.Unspecified";
-    return `${pad}// ${name}\n${pad}Text(\n${pad}    text = "${node.text.replace(/"/g, '\\"')}",\n${pad}    fontSize = ${fontSize},\n${pad}    color = ${color}\n${pad})`;
+    const color = toComposeColor(node.color);
+    return `${pad}// ${name}\n${pad}Text(\n${pad}    text = "${escapeString(node.text)}",\n${pad}    fontSize = ${fontSize},\n${pad}    color = ${color}\n${pad})`;
   }
 
   const isRow = node.layout?.direction === "ROW" || node.layout?.direction === "HORIZONTAL";
   const container = isRow ? "Row" : "Column";
-  const bg = node.color ? `\n${pad}        .background(Color(0xFF${node.color.replace("#", "")}))` : "";
+  const bg = node.color ? `\n${pad}        .background(${toComposeColor(node.color)})` : "";
   const size = node.layout?.width && node.layout?.height
     ? `\n${pad}        .size(${node.layout.width}.dp, ${node.layout.height}.dp)`
     : "";
@@ -24,6 +40,7 @@ function nodeToCompose(node: UnifiedNode, indent = 1): string {
   const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1)).join("\n");
   return `${pad}// ${name}\n${pad}${container}(\n${pad}    modifier = Modifier${size}${bg}\n${pad}) {\n${inner ? `${inner}\n` : ""}${pad}}`;
 }
+
 
 function nodeToReact(node: UnifiedNode, indent = 1): string {
   const pad = "  ".repeat(indent);
@@ -77,18 +94,24 @@ export function generateCodeSnippet(
 ): string {
   if (!nodes || nodes.length === 0) return "// No hierarchy nodes available for code generation";
 
+  let cleanName = screenName.replace(/[^a-zA-Z0-9]/g, "");
+  if (!cleanName || /^[0-9]/.test(cleanName)) {
+    cleanName = `Screen${cleanName}`;
+  }
+
   switch (target) {
     case "compose": {
       const body = nodes.map((n) => nodeToCompose(n, 1)).join("\n\n");
-      return `@Composable\nfun ${screenName.replace(/[^a-zA-Z0-9]/g, "")}() {\n${body}\n}`;
+      return `@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
     case "react": {
       const body = nodes.map((n) => nodeToReact(n, 2)).join("\n\n");
-      return `export function ${screenName.replace(/[^a-zA-Z0-9]/g, "")}() {\n  return (\n${body}\n  );\n}`;
+      return `export function ${cleanName}() {\n  return (\n${body}\n  );\n}`;
     }
     case "html": {
       const body = nodes.map((n) => nodeToHtml(n, 1)).join("\n\n");
-      return `<!-- Design Spec HTML -->\n<div class="${screenName.toLowerCase()}">\n${body}\n</div>`;
+      return `<!-- Design Spec HTML -->\n<div class="${cleanName.toLowerCase()}">\n${body}\n</div>`;
     }
   }
 }
+

@@ -337,7 +337,15 @@ export async function resolveFigmaLink(
     }
 
     const data = (await res.json()) as any;
-    const documentNode = nodeId && data.nodes ? data.nodes[nodeId]?.document : data.document;
+    let documentNode: any = undefined;
+    if (nodeId && data.nodes) {
+      documentNode = data.nodes[nodeId]?.document
+        || data.nodes[nodeId.replace(":", "-")]?.document
+        || data.nodes[encodeURIComponent(nodeId)]?.document
+        || (Object.values(data.nodes)[0] as any)?.document;
+    } else {
+      documentNode = data.document;
+    }
     const name = documentNode?.name || data.name;
     let renderedImage: string | undefined;
 
@@ -348,7 +356,9 @@ export async function resolveFigmaLink(
         });
         if (imgRes.ok) {
           const imgData = (await imgRes.json()) as any;
-          const imageUrl = imgData?.images?.[nodeId];
+          const imageUrl = imgData?.images?.[nodeId]
+            || imgData?.images?.[nodeId.replace(":", "-")]
+            || (imgData?.images ? (Object.values(imgData.images)[0] as string) : undefined);
           if (imageUrl) {
             const dlRes = await fetchFn(imageUrl);
             if (dlRes.ok) {
@@ -362,6 +372,7 @@ export async function resolveFigmaLink(
         }
       } catch {}
     }
+
 
     return {
       status: "SUCCESS",
