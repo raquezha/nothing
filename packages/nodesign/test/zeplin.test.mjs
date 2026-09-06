@@ -111,7 +111,9 @@ try {
   assert.equal(res200.assets.length, 1);
   assert.equal(res200.savedAssets.length, 1);
   assert(res200.renderedImage);
-  assert(res200.renderedImage.endsWith("zeplin_AOGOKp6.png"));
+  assert(res200.renderedImage.endsWith("zeplin-AOGOKp6.png"));
+  assert(res200.visualAnalysis);
+  assert.equal(res200.visualAnalysis.layoutType, "MOBILE_VIEW");
 
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');

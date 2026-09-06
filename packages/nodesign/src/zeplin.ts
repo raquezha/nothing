@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { resolveCredentials } from "./auth.js";
-import type { ProviderStatus } from "./types.js";
+import type { ProviderStatus, VisualAnalysis } from "./types.js";
+import { renderDesignNode, type RenderResult } from "./render.js";
 
 export type ZeplinErrorStatus =
   | "SUCCESS"
@@ -82,6 +83,8 @@ export interface ZeplinResolutionResult {
   assets?: ZeplinAssetSpec[];
   savedAssets?: string[];
   renderedImage?: string;
+  rendering?: RenderResult;
+  visualAnalysis?: VisualAnalysis;
   note?: string;
 }
 
@@ -290,20 +293,34 @@ export async function resolveZeplinScreen(
     const savedAssets: string[] = [];
     let assets: ZeplinAssetSpec[] = [];
     let renderedImage: string | undefined;
+    let rendering: RenderResult | undefined;
+    let visualAnalysis: VisualAnalysis | undefined;
 
-    const imageUrl = data.image?.original_url || data.image?.png_url || data.image_url;
-    if (outputDir && imageUrl) {
-      try {
-        const imgRes = await fetchFn(imageUrl);
-        if (imgRes.ok) {
-          const buffer = Buffer.from(await imgRes.arrayBuffer());
-          if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-          const filePath = path.join(outputDir, `zeplin_${screenId}.png`);
-          writeFileSync(filePath, buffer);
-          renderedImage = filePath;
-        }
-      } catch {}
+    if (outputDir) {
+      rendering = await renderDesignNode({
+        provider: "zeplin",
+        fileKeyOrScreenId: screenId,
+        authToken,
+        outputDir,
+      }, fetchFn);
+
+      if (rendering) {
+        renderedImage = rendering.savedPath;
+        const width = screen.width || 0;
+        const layoutType = width > 0 && width < 600 ? "MOBILE_VIEW" : width >= 600 ? "DESKTOP_VIEW" : "COMPONENT_CANVAS";
+        const visibleLabels = extract?.typography?.map((t) => t.text).filter(Boolean) as string[] || [];
+        const detectedComponents = screen.layerNames || [];
+
+        visualAnalysis = {
+          screenshotPath: rendering.savedPath,
+          detectedComponents,
+          layoutType,
+          visibleLabels,
+        };
+      }
     }
+
+
 
     try {
       const assetRes = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}/assets`, {
@@ -348,6 +365,8 @@ export async function resolveZeplinScreen(
       assets,
       savedAssets,
       renderedImage,
+      rendering,
+      visualAnalysis,
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

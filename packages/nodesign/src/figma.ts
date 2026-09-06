@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { resolveCredentials } from "./auth.js";
-import type { ProviderStatus } from "./types.js";
+import type { ProviderStatus, VisualAnalysis } from "./types.js";
+import { renderDesignNode, type RenderResult } from "./render.js";
 
 export type FigmaErrorStatus =
   | "SUCCESS"
@@ -63,6 +64,8 @@ export interface FigmaResolutionResult {
   name?: string;
   extract?: FigmaExtractSpec;
   renderedImage?: string;
+  rendering?: RenderResult;
+  visualAnalysis?: VisualAnalysis;
   suggestedFrames?: string[];
   note?: string;
 }
@@ -223,18 +226,19 @@ export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: str
   let fileKey: string | undefined;
   let nodeId: string | undefined;
 
-  const matchKey = clean.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/i);
+  const matchKey = clean.match(/figma\.com\/(?:file|design|proto|board)\/([a-zA-Z0-9_-]+)/i);
   if (matchKey) {
     fileKey = matchKey[1];
   }
 
   const matchNode = clean.match(/[?&](?:node-id|node_id)=([^&]+)/i);
   if (matchNode) {
-    nodeId = decodeURIComponent(matchNode[1]).replace("-", ":");
+    nodeId = decodeURIComponent(matchNode[1]).replace(/-/g, ":");
   }
 
   return { fileKey, nodeId };
 }
+
 
 export async function resolveFigmaLink(
   figmaUrl: string,
@@ -347,32 +351,37 @@ export async function resolveFigmaLink(
       documentNode = data.document;
     }
     const name = documentNode?.name || data.name;
+    const extract = documentNode ? extractDetails(documentNode) : undefined;
     let renderedImage: string | undefined;
+    let rendering: RenderResult | undefined;
+    let visualAnalysis: VisualAnalysis | undefined;
 
-    if (outputDir && fileKey && nodeId) {
-      try {
-        const imgRes = await fetchFn(`https://api.figma.com/v1/images/${fileKey}?ids=${encodeURIComponent(nodeId)}&scale=2&format=png`, {
-          headers: { "X-Figma-Token": authToken },
-        });
-        if (imgRes.ok) {
-          const imgData = (await imgRes.json()) as any;
-          const imageUrl = imgData?.images?.[nodeId]
-            || imgData?.images?.[nodeId.replace(":", "-")]
-            || (imgData?.images ? (Object.values(imgData.images)[0] as string) : undefined);
-          if (imageUrl) {
-            const dlRes = await fetchFn(imageUrl);
-            if (dlRes.ok) {
-              const buffer = Buffer.from(await dlRes.arrayBuffer());
-              if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-              const filePath = path.join(outputDir, `${fileKey}_${nodeId.replace(":", "-")}.png`);
-              writeFileSync(filePath, buffer);
-              renderedImage = filePath;
-            }
-          }
-        }
-      } catch {}
+    const targetRenderId = nodeId || documentNode?.id || (Array.isArray(documentNode?.children) && documentNode.children[0]?.id ? documentNode.children[0].id : undefined);
+
+    if (outputDir && fileKey && targetRenderId) {
+      rendering = await renderDesignNode({
+        provider: "figma",
+        fileKeyOrScreenId: fileKey,
+        nodeId: targetRenderId,
+        authToken,
+        outputDir,
+      }, fetchFn);
+
+      if (rendering) {
+        renderedImage = rendering.savedPath;
+        const width = extract?.layout?.width || 0;
+        const layoutType = width > 0 && width < 600 ? "MOBILE_VIEW" : width >= 600 ? "DESKTOP_VIEW" : "COMPONENT_CANVAS";
+        const visibleLabels = extract?.typography?.map((t) => t.text).filter(Boolean) as string[] || [];
+        const detectedComponents = extract?.hierarchy?.map((h) => h.name).filter(Boolean) as string[] || [];
+
+        visualAnalysis = {
+          screenshotPath: rendering.savedPath,
+          detectedComponents,
+          layoutType,
+          visibleLabels,
+        };
+      }
     }
-
 
     return {
       status: "SUCCESS",
@@ -381,8 +390,10 @@ export async function resolveFigmaLink(
       fileKey,
       nodeId,
       name,
-      extract: documentNode ? extractDetails(documentNode) : undefined,
+      extract,
       renderedImage,
+      rendering,
+      visualAnalysis,
       note: nodeId ? undefined : "Validated file reachability, but URL missing node-id parameter for direct frame layout",
     };
   } catch (error) {

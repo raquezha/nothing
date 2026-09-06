@@ -110,7 +110,9 @@ try {
   assert.equal(res200.extract.layout.width, 360);
   assert.equal(res200.extract.typography[0].fontFamily, "Inter");
   assert(res200.renderedImage);
-  assert(res200.renderedImage.endsWith("KEY_1-2.png"));
+  assert(res200.renderedImage.endsWith("figma-KEY_1-2.png"));
+  assert(res200.visualAnalysis);
+  assert.equal(res200.visualAnalysis.layoutType, "MOBILE_VIEW");
 
 
 

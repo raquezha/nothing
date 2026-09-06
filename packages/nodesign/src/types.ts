@@ -5,6 +5,13 @@ import type { FigmaResolutionResult } from "./figma.js";
 export type EvidenceStatus = "missing" | "ambiguous" | "ready";
 export type ProviderStatus = "SUCCESS" | "AUTH_REQUIRED" | "TOKEN_INVALID" | "FILE_FORBIDDEN" | "NODE_NOT_FOUND" | "RATE_LIMITED" | "API_UNAVAILABLE" | "AMBIGUOUS_URL";
 
+export interface VisualAnalysis {
+  screenshotPath: string;
+  detectedComponents: string[];
+  layoutType: "MOBILE_VIEW" | "DESKTOP_VIEW" | "COMPONENT_CANVAS";
+  visibleLabels: string[];
+}
+
 /** Detected Android/KMP UI stack. */
 export type AndroidUIStack =
   | "compose"
