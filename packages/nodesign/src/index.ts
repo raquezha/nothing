@@ -39,7 +39,10 @@ export { generateCodeSnippet } from "./code.js";
 export {
   compareUiProperty,
   verifyUiProperties,
+  verifyUiFidelity,
   formatPropertyVerification,
   normalizePropertyValue,
+  type UiFidelityReport,
 } from "./properties.js";
+
 export { run } from "./cli.js";

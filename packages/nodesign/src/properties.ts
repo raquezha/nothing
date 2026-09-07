@@ -81,6 +81,84 @@ export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison 
   };
 }
 
+export interface UiFidelityReport {
+  fidelityScore: number; // 0 - 100
+  passed: boolean;
+  colorTokenCompliance: {
+    totalColors: number;
+    rawHexLeaks: string[];
+    reusedTokens: string[];
+  };
+  componentReuseCompliance: {
+    expectedComponents: string[];
+    reusedComponents: string[];
+    missingComponents: string[];
+  };
+  notes: string[];
+}
+
+export function verifyUiFidelity(
+  extractedHierarchy: any[],
+  extractedColors: any[],
+  codeText: string,
+): UiFidelityReport {
+  const notes: string[] = [];
+  const reusedComponents: string[] = [];
+  const missingComponents: string[] = [];
+  const rawHexLeaks: string[] = [];
+  const reusedTokens: string[] = [];
+
+  // 1. Check Component Reuse
+  const expectedComponents = extractedHierarchy
+    .map((node) => typeof node.name === "string" ? node.name.replace(/[^a-zA-Z0-9]/g, "") : "")
+    .filter((n) => n.length > 2 && !["Row", "Column", "Box", "Container", "Frame"].includes(n));
+
+  for (const comp of expectedComponents) {
+    const reg = new RegExp(`\\b${comp}\\b`, "i");
+    if (reg.test(codeText)) {
+      reusedComponents.push(comp);
+    } else {
+      missingComponents.push(comp);
+    }
+  }
+
+  // 2. Check Raw Hex Leaks vs Theme Tokens
+  const rawColorMatches = codeText.matchAll(/Color\(\s*0x[0-9a-fA-F]+\s*\)/gi);
+  for (const m of rawColorMatches) {
+    rawHexLeaks.push(m[0]);
+  }
+
+  // 3. Compute Fidelity Score
+  const totalCompCheck = expectedComponents.length || 1;
+  const compScore = (reusedComponents.length / totalCompCheck) * 100;
+  const hexPenalty = Math.min(40, rawHexLeaks.length * 10);
+  const fidelityScore = Math.max(0, Math.round(compScore - hexPenalty));
+  const passed = fidelityScore >= 80 && missingComponents.length === 0;
+
+  if (missingComponents.length > 0) {
+    notes.push(`Missing reused design system components: ${missingComponents.join(", ")}`);
+  }
+  if (rawHexLeaks.length > 0) {
+    notes.push(`Detected ${rawHexLeaks.length} raw hex color leak(s) instead of theme tokens.`);
+  }
+
+  return {
+    fidelityScore,
+    passed,
+    colorTokenCompliance: {
+      totalColors: extractedColors.length,
+      rawHexLeaks,
+      reusedTokens,
+    },
+    componentReuseCompliance: {
+      expectedComponents,
+      reusedComponents,
+      missingComponents,
+    },
+    notes,
+  };
+}
+
 /** Verify a list of UI properties against resolved Android UI implementation evidence. */
 export function verifyUiProperties(
   inputs: UiPropertyInput[],

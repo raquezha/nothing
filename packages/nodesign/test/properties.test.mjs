@@ -119,4 +119,19 @@ const jsonReport = JSON.parse(formatPropertyVerification(resultPassed, "json"));
 assert.equal(jsonReport.passed, true);
 assert.equal(jsonReport.summary.match, 2);
 
+// 9. UI Fidelity Report (Figma/Zeplin vs Generated Code)
+import { verifyUiFidelity } from "../dist/index.js";
+const sampleExtractedNodes = [{ name: "HeaderTitle" }, { name: "PrimaryButton" }];
+const sampleExtractedColors = [{ hex: "#2878F0" }];
+const sampleCode = `
+@Composable fun CheckoutScreen() {
+    HeaderTitle()
+    PrimaryButton()
+}
+`;
+const fidelityReport = verifyUiFidelity(sampleExtractedNodes, sampleExtractedColors, sampleCode);
+assert.equal(fidelityReport.passed, true);
+assert.equal(fidelityReport.fidelityScore, 100);
+assert.equal(fidelityReport.componentReuseCompliance.reusedComponents.length, 2);
+
 console.log("properties verification suite test ok");
