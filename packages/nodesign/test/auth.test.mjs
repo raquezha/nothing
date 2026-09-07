@@ -34,7 +34,7 @@ try {
   delete process.env.FIGMA_TOKEN;
   delete process.env.ZEPLIN_TOKEN;
 
-  writeFileSync(path.join(tempCwd, ".env"), "FIGMA_TOKEN=figd_cwd\n", "utf8");
+  writeFileSync(path.join(tempCwd, ".env"), "FIGMA_TOKEN=figd_cwd # my token comment\n", "utf8");
 
   const figma = resolveCredential("figma");
   assert.equal(figma.token, "figd_cwd");

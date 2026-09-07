@@ -40,11 +40,17 @@ function parseEnvText(text: string): Record<string, string> {
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, "");
+    let value = trimmed.slice(eq + 1).trim();
+    if (!value.startsWith('"') && !value.startsWith("'")) {
+      const hashIndex = value.indexOf(" #");
+      if (hashIndex !== -1) value = value.slice(0, hashIndex).trim();
+    }
+    value = value.replace(/^['"]|['"]$/g, "");
     out[key] = value;
   }
   return out;
 }
+
 
 function readEnvFile(file: string): Record<string, string> {
   if (!existsSync(file)) return {};
@@ -226,6 +232,26 @@ export function deleteCredential(provider: CredentialProvider): boolean {
   }
 
   return cleared;
+}
+
+export async function fetchWithRateLimitRetry(
+  url: string,
+  options: RequestInit,
+  fetchFn: typeof fetch = globalThis.fetch,
+  maxRetries = 2,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetchFn(url, options);
+    if (res.status === 429 && attempt < maxRetries) {
+      const retryAfterHeader = res.headers?.get?.("Retry-After") || res.headers?.get?.("retry-after");
+      const retrySeconds = retryAfterHeader ? parseInt(retryAfterHeader, 10) : (attempt + 1) * 2;
+      const delayMs = Math.min((isNaN(retrySeconds) || retrySeconds <= 0 ? 2 : retrySeconds) * 1000, 10000);
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+    return res;
+  }
+  return fetchFn(url, options);
 }
 
 export async function validateCredential(

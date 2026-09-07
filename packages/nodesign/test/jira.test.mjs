@@ -58,6 +58,11 @@ try {
   assert.equal(unknownContext.designLinks.length, 0);
   assert.equal(unknownContext.notes[0], "No Jira issue ID provided");
 
+  const markdownText = `[Design Link](https://www.figma.com/design/KEY/Title?node-id=1-2#fragment)`;
+  const markdownLinks = extractDesignLinksFromText(markdownText);
+  assert.equal(markdownLinks.length, 1);
+  assert.equal(markdownLinks[0].url, "https://www.figma.com/design/KEY/Title?node-id=1-2#fragment");
+
   console.log("nodesign jira test ok");
 } catch (err) {
   console.error("nodesign jira test failed:", err);

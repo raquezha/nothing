@@ -36,6 +36,7 @@ try {
   assert.equal(parseZeplinScreenId("https://zpl.io/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("https://app.zeplin.io/project/123/screen/456"), "456");
   assert.equal(parseZeplinScreenId("zpl://screen/AOGOKp6"), "AOGOKp6");
+  assert.equal(parseZeplinScreenId("zpl://screen?sid=AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("direct-id-789"), "direct-id-789");
 
   // 2. RGB to HEX helper

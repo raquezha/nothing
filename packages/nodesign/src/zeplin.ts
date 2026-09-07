@@ -98,10 +98,14 @@ function normalizeProviderStatus(status: ZeplinErrorStatus): ProviderStatus {
 }
 
 export function parseZeplinScreenId(urlOrId: string): string {
-  const clean = urlOrId.trim();
+  const clean = urlOrId.trim().replace(/[.,;)\]>]+$/, "");
+  const sidMatch = clean.match(/[?&](?:sid|screenId|screen_id|coid|coId)=([^&?#]+)/i);
+  if (sidMatch) return sidMatch[1];
+
   if (clean.startsWith("zpl://")) {
-    const match = clean.match(/(?:screen\/|screen:)([^/?#]+)/i);
-    return match?.[1] || clean.replace(/^zpl:\/\//, "");
+    const match = clean.match(/(?:screen\/|screen:|components\/|component:)([^/?#]+)/i);
+    if (match) return match[1];
+    return clean.replace(/^zpl:\/\/[^/]*\/?/, "").split(/[?#]/)[0];
   }
   if (clean.includes("zpl.io/")) {
     const parts = clean.split("zpl.io/");
@@ -113,6 +117,7 @@ export function parseZeplinScreenId(urlOrId: string): string {
   }
   return clean;
 }
+
 
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0");

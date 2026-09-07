@@ -228,7 +228,7 @@ async function fetchSuggestedFrames(
 
 
 export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: string } {
-  const clean = urlOrId.trim().replace(/[.,;)]+$/, "");
+  const clean = urlOrId.trim().replace(/[.,;)\]>]+$/, "");
   let fileKey: string | undefined;
   let nodeId: string | undefined;
 
@@ -237,13 +237,14 @@ export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: str
     fileKey = matchKey[1];
   }
 
-  const matchNode = clean.match(/[?&](?:node-id|node_id)=([^&]+)/i);
+  const matchNode = clean.match(/[?&](?:node-id|node_id)=([^&?#]+)/i);
   if (matchNode) {
     nodeId = decodeURIComponent(matchNode[1]).replace(/-/g, ":");
   }
 
   return { fileKey, nodeId };
 }
+
 
 
 export async function resolveFigmaLink(
@@ -253,8 +254,9 @@ export async function resolveFigmaLink(
   fetchFn: typeof fetch = globalThis.fetch,
   findName?: string,
 ): Promise<FigmaResolutionResult> {
-  const cleanUrl = figmaUrl.trim().replace(/[.,;)]+$/, "");
+  const cleanUrl = figmaUrl.trim().replace(/[.,;)\]>]+$/, "");
   let { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
+
 
   if (!fileKey) {
     return {

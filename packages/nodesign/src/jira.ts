@@ -19,11 +19,12 @@ export function extractDesignLinksFromText(text: string): DesignLink[] {
 
   const seen = new Set<string>();
   for (const rawUrl of matches) {
-    const cleanUrl = rawUrl.replace(/[.,;)]+$/, "");
+    const cleanUrl = rawUrl.replace(/[.,;)\]>]+$/, "");
     if (seen.has(cleanUrl)) continue;
     seen.add(cleanUrl);
     links.push(parseDesignLink(cleanUrl).link);
   }
+
 
   return links;
 }
