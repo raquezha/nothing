@@ -60,9 +60,21 @@ try {
   const res403 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
 
-  const mock404 = makeMockFetch({ "/screens/AOGOKp6": { status: 404 } });
+  const mockComp = makeMockFetch({
+    "/screens/comp_1": { status: 404 },
+    "/components/comp_1": {
+      status: 200,
+      json: { id: "comp_1", name: "PrimaryButton", width: 120, height: 40 },
+    },
+  });
+  const resComp = await resolveZeplinScreen("comp_1", "dummy-token", undefined, mockComp);
+  assert.equal(resComp.status, "SUCCESS");
+  assert.equal(resComp.name, "PrimaryButton");
+
+  const mock404 = makeMockFetch({ "/screens/AOGOKp6": { status: 404 }, "/components/AOGOKp6": { status: 404 } });
   const res404 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
+
 
   const mock429 = makeMockFetch({ "/screens/AOGOKp6": { status: 429 } });
   const res429 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock429);

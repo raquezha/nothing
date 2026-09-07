@@ -92,12 +92,14 @@ function rgbaToHex(color: any): string {
 }
 
 function colorFromPaint(paint: any): FigmaColorSpec | undefined {
-  if (!paint?.color) return undefined;
+  if (!paint || paint.visible === false || !paint.color) return undefined;
+  const alpha = (paint.color.a ?? 1) * (paint.opacity ?? 1);
   return {
     hex: rgbaToHex(paint.color),
-    opacity: paint.opacity,
+    opacity: alpha,
   };
 }
+
 
 function collectColors(node: any, out: FigmaColorSpec[], seen: Set<string>): void {
   if (!node || typeof node !== "object") return;
@@ -279,7 +281,9 @@ export async function resolveFigmaLink(
     };
   }
 
-  let queryNodeId = nodeId ? encodeURIComponent(nodeId) : undefined;
+  const primaryNodeId = nodeId ? nodeId.split(",")[0].trim() : undefined;
+  let queryNodeId = primaryNodeId ? encodeURIComponent(primaryNodeId) : undefined;
+
 
   if (!nodeId && findName) {
     try {

@@ -273,12 +273,20 @@ export async function resolveZeplinScreen(
   }
 
   try {
-    const res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, {
+    let res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, {
       headers: {
         "Zeplin-Access-Token": authToken,
       },
     }, fetchFn);
 
+    if (res.status === 404) {
+      const compRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/components/${screenId}`, {
+        headers: { "Zeplin-Access-Token": authToken },
+      }, fetchFn);
+      if (compRes.ok) {
+        res = compRes;
+      }
+    }
 
     if (res.status === 401) {
       return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
@@ -287,7 +295,7 @@ export async function resolveZeplinScreen(
       return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), screenId, note: "Zeplin access denied (403 forbidden)" };
     }
     if (res.status === 404) {
-      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), screenId, note: `Zeplin screen ${screenId} not found (404)` };
+      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), screenId, note: `Zeplin screen or component ${screenId} not found (404)` };
     }
     if (res.status === 429) {
       return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), screenId, note: "Zeplin API rate limit exceeded (429)" };
@@ -295,6 +303,7 @@ export async function resolveZeplinScreen(
     if (!res.ok) {
       return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), screenId, note: `Zeplin API error (${res.status} ${res.statusText})` };
     }
+
 
     const data = (await res.json()) as any;
     const screen = extractScreen(data, screenId);
