@@ -64,14 +64,14 @@ function formatComposePadding(padStr: string, padding?: { top?: number; right?: 
   return `\n${padStr}        .padding(start = ${left}.dp, top = ${top}.dp, end = ${right}.dp, bottom = ${bottom}.dp)`;
 }
 
-function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeContext): string {
+function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeContext, rootScreenName?: string): string {
   const pad = "    ".repeat(indent);
   const name = node.name.replace(/[^a-zA-Z0-9]/g, "") || "Element";
   const children: UnifiedNode[] = Array.isArray(node.children) ? node.children : [];
 
   if (context?.components && context.components.length > 0) {
     const matchedComp = context.components.find(
-      (c) => c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === node.name.toLowerCase(),
+      (c) => (c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === node.name.toLowerCase()) && c.name.toLowerCase() !== rootScreenName?.toLowerCase(),
     );
     if (matchedComp) {
       return `${pad}// Reusing discovered component: ${matchedComp.path}\n${pad}${matchedComp.name}()`;
@@ -97,9 +97,10 @@ function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeConte
     ? (isRow ? `,\n${pad}    horizontalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)` : `,\n${pad}    verticalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)`)
     : "";
 
-  const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1, context)).join("\n");
+  const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1, context, rootScreenName)).join("\n");
   return `${pad}// ${name}\n${pad}${container}(\n${pad}    modifier = Modifier${size}${bg}${paddingMod}${gapArrangement}\n${pad}) {\n${inner ? `${inner}\n` : ""}${pad}}`;
 }
+
 
 
 
@@ -165,10 +166,12 @@ export function generateCodeSnippet(
   switch (target) {
     case "compose": {
       const baseImports = [
+
         "import androidx.compose.foundation.background",
         "import androidx.compose.foundation.layout.*",
         "import androidx.compose.material3.Text",
         "import androidx.compose.runtime.Composable",
+        "import androidx.compose.ui.Alignment",
         "import androidx.compose.ui.Modifier",
         "import androidx.compose.ui.graphics.Color",
         "import androidx.compose.ui.text.font.FontWeight",
@@ -187,9 +190,10 @@ export function generateCodeSnippet(
       const archHeader = context?.architectureType
         ? `// Architecture Structure: ${context.architectureType}\n`
         : "";
-      const body = nodes.map((n) => nodeToCompose(n, 1, context)).join("\n\n");
+      const body = nodes.map((n) => nodeToCompose(n, 1, context, cleanName)).join("\n\n");
       return `${archHeader}${allImports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
+
 
 
 
