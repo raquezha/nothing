@@ -215,7 +215,7 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
   return out.sort((a, b) => (b.count || 0) - (a.count || 0));
 }
 
-function detectArchitectureType(files: string[]): ArchitectureType {
+function detectArchitectureType(files: string[]): { type: ArchitectureType; details: string } {
   const normFiles = files.map((f) => f.toLowerCase());
 
   // 1. Directory signals
@@ -223,14 +223,19 @@ function detectArchitectureType(files: string[]): ArchitectureType {
   const hasData = normFiles.some((f) => f.includes(`${path.sep}data${path.sep}`) || f.includes(":data"));
   const hasPresentation = normFiles.some((f) => f.includes(`${path.sep}presentation${path.sep}`) || f.includes(":presentation"));
 
-  // 2. Code pattern & naming signals (UseCases, Interactors, Repositories, Gateways, Ports, Adapters)
+  // 2. Konsist-style declaration & class naming signals (UseCases, Interactors, Repositories, Gateways, Ports, Adapters)
   const useCaseFiles = normFiles.filter((f) => /usecase|interactor/i.test(path.basename(f)));
   const repositoryFiles = normFiles.filter((f) => /repository|gateway|port|adapter/i.test(path.basename(f)));
+  const viewModelFiles = normFiles.filter((f) => /viewmodel|state|intent/i.test(path.basename(f)));
+
   const hasCleanCodePatterns = (useCaseFiles.length > 0 || repositoryFiles.length > 0) &&
-    (hasPresentation || normFiles.some((f) => /viewmodel|state|intent/i.test(f)));
+    (hasPresentation || viewModelFiles.length > 0);
 
   if ((hasDomain && (hasData || hasPresentation)) || hasCleanCodePatterns || (useCaseFiles.length > 0 && repositoryFiles.length > 0)) {
-    return "CLEAN_ARCHITECTURE";
+    const details = useCaseFiles.length || repositoryFiles.length
+      ? `Verified Clean Architecture via ${useCaseFiles.length} UseCase(s) and ${repositoryFiles.length} Repository/Gateway declaration(s)`
+      : `Verified Clean Architecture via domain/data/presentation packages`;
+    return { type: "CLEAN_ARCHITECTURE", details };
   }
 
   const hasDesignSystemModule = normFiles.some((f) =>
@@ -239,24 +244,31 @@ function detectArchitectureType(files: string[]): ArchitectureType {
     f.includes(`${path.sep}core${path.sep}ui${path.sep}`) ||
     /theme|designsystem/i.test(path.basename(f))
   );
-  if (hasDesignSystemModule) return "DESIGN_SYSTEM_MODULE";
+  if (hasDesignSystemModule) {
+    return { type: "DESIGN_SYSTEM_MODULE", details: "Verified Design System module (designsystem/core:ui/theme)" };
+  }
 
   const hasFeatureByPackage = normFiles.some((f) =>
     f.includes(`${path.sep}feature${path.sep}`) ||
     f.includes(`${path.sep}features${path.sep}`) ||
     f.includes(":feature:")
   );
-  if (hasFeatureByPackage) return "FEATURE_BY_PACKAGE";
+  if (hasFeatureByPackage) {
+    return { type: "FEATURE_BY_PACKAGE", details: "Verified Feature-by-package structure (feature/*/)" };
+  }
 
   const hasLayerByPackage = normFiles.some((f) =>
     f.includes(`${path.sep}screens${path.sep}`) ||
     f.includes(`${path.sep}viewmodels${path.sep}`) ||
     f.includes(`${path.sep}ui${path.sep}components${path.sep}`)
   );
-  if (hasLayerByPackage) return "LAYER_BY_PACKAGE";
+  if (hasLayerByPackage) {
+    return { type: "LAYER_BY_PACKAGE", details: "Verified Layer-by-package structure (screens/viewmodels/components)" };
+  }
 
-  return "AD_HOC";
+  return { type: "AD_HOC", details: "Ad-hoc / single-folder structure" };
 }
+
 
 
 function inspectFiles(rootPath: string): AndroidInspection {
@@ -343,10 +355,12 @@ function inspectFiles(rootPath: string): AndroidInspection {
   else if (hasViews) androidUIStack = "views";
   else if (hasAndroidManifest || hasAndroidGradlePlugin) androidUIStack = "ambiguous";
 
-  const architectureType = detectArchitectureType(files);
+  const archInfo = detectArchitectureType(files);
+  const architectureType = archInfo.type;
 
   const notes: string[] = [];
-  notes.push(`Project Architecture Structure: ${architectureType}`);
+  notes.push(`Project Architecture Structure: ${architectureType} (${archInfo.details})`);
+
   if (androidUIStack === "n/a") notes.push(`No Android or KMP UI signals detected in ${rootPath}`);
   if (androidUIStack === "ambiguous") notes.push(`Android project found in ${rootPath}, but Compose/XML/KMP signals are ambiguous`);
   if (components.length === 0) notes.push(`No reusable ui/components files detected in ${rootPath}`);
