@@ -9,7 +9,9 @@ import { inspectAndroidProject, scanColorTokens } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
+import { checkUpdateNotice } from "./update.js";
 import { deleteCredential, resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
+
 import { generateCodeSnippet } from "./code.js";
 
 function getVersion(): string {
@@ -493,6 +495,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
 
           const format = args.json ? "json" : "human";
           console.log(formatDesignBrief(args.task, preflight, format));
+
+          const updateCheck = await checkUpdateNotice(VERSION, fetchFn);
+          if (updateCheck.hasUpdate && updateCheck.notice && !args.json) {
+            console.error(`\n${updateCheck.notice}`);
+          }
           return;
         }
       }

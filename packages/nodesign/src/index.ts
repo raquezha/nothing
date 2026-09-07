@@ -34,7 +34,9 @@ export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } f
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
 export { resolveCredential, resolveCredentials, storeCredential, validateCredential, deleteCredential } from "./auth.js";
+export { checkUpdateNotice } from "./update.js";
 export { renderDesignNode, type RenderOptions, type RenderResult } from "./render.js";
+
 export { generateCodeSnippet } from "./code.js";
 export {
   compareUiProperty,
