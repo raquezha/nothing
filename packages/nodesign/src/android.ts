@@ -6,6 +6,22 @@ const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".grad
 const COMPONENT_EXTENSIONS = /\.(kt|kts|xml|tsx|ts|jsx|js)$/i;
 const TEXT_EXTENSIONS = /\.(kt|kts|java|xml|properties|txt|md)$/i;
 
+const NON_UI_SUFFIXES = /Dao$|Api$|Impl$|Entity$|Raw$|UseCase$|Repository$|Service$|State$|Effect$|Event$|Presenter$|Validator$|Database$|Params$|Strategy$|Mapper$|Helper$|Utils$|Config$|Module$|Factory$|Provider$|Converter$|Exception$|Error$|Result$|Response$|Request$|Preference$|Store$/i;
+
+const UI_NAME_PATTERNS = /Button$|Dialog$|Screen$|Card$|Bar$|Item$|View$|Logo$|Header$|Footer$|TextField$|Image$|Icon$|Sheet$|Tab$|Row$|Column$|Container$|Toolbar$|Group$|Picker$|Slider$|Menu$|Badge$|Chip$|Avatar$|Fab$|Dropdown$|Switch$|CheckBox$|Radio$|Divider$|Banner$|Toast$/i;
+
+const COMMON_STDLIB_SYMBOLS = new Set([
+  "Column", "Row", "Box", "Text", "Spacer", "Surface", "Scaffold", "LazyColumn", "LazyRow", "LazyGrid",
+  "Modifier", "Color", "String", "Boolean", "Int", "Float", "Double", "List", "Set", "Map", "Remember",
+  "Composable", "DisposableEffect", "LaunchedEffect", "SideEffect", "State", "MutableState",
+  "Button", "IconButton", "Icon", "Image", "Card", "Divider", "CircularProgressIndicator",
+  "LinearProgressIndicator", "OutlinedTextField", "TextField", "Checkbox", "RadioButton", "Switch",
+  "TopAppBar", "BottomAppBar", "NavigationRail", "ModalBottomSheet", "AlertDialog",
+  "OptIn", "StateOf", "Font", "Resource", "Out", "CompositionLocalProvider", "LocalContext",
+  "DerivedStateOf", "ProduceState", "SnapshotState", "RememberCoroutineScope", "RememberUpdatedState",
+]);
+
+
 export interface ColorTokenFact {
   hex: string;
   token: string;
@@ -65,7 +81,6 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
     } catch {}
   }
 
-
   function addFact(hexRaw: string, token: string, file: string, pkg?: string) {
     let cleanHex = hexRaw.toUpperCase().trim();
     if (cleanHex.length === 4 && cleanHex.startsWith("#")) {
@@ -90,7 +105,6 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   }
 
   for (const file of files) {
-    // 1. Scan colors.xml
     if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
       const text = readText(file);
       const matches = text.matchAll(/<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi);
@@ -103,7 +117,6 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
       }
     }
 
-    // 2. Deep-scan all Kotlin files under theme / ui / designsystem / commonMain or ending in *Theme.kt, *Color.kt
     const isThemeFile = file.endsWith(".kt") && (
       file.includes(`${path.sep}theme${path.sep}`) ||
       file.includes(`${path.sep}ui${path.sep}`) ||
@@ -117,11 +130,9 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
       const pkgMatch = text.match(/^package\s+([a-zA-Z0-9_.]+)/m);
       const packageName = pkgMatch ? pkgMatch[1] : undefined;
 
-      // Check for theme object wrapper (e.g. object TapatTheme or object TapatColors)
       const objMatch = text.match(/object\s+([a-zA-Z0-9_]+Theme|[a-zA-Z0-9_]+Colors|[a-zA-Z0-9_]+DesignSystem)/);
       const themeObject = objMatch ? objMatch[1] : undefined;
 
-      // Matches val PrimaryBlue = Color(0xFF2878F0) or val primary: Color = Color(0x2878F0)
       const matches = text.matchAll(/val\s+([a-zA-Z0-9_]+)(?:\s*:\s*Color)?\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g);
       for (const m of matches) {
         const propName = m[1];
@@ -136,15 +147,6 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
 
   return colorFacts;
 }
-
-const COMMON_STDLIB_SYMBOLS = new Set([
-  "Column", "Row", "Box", "Text", "Spacer", "Surface", "Scaffold", "LazyColumn", "LazyRow", "LazyGrid",
-  "Modifier", "Color", "String", "Boolean", "Int", "Float", "Double", "List", "Set", "Map", "Remember",
-  "Composable", "DisposableEffect", "LaunchedEffect", "SideEffect", "State", "MutableState",
-  "Button", "IconButton", "Icon", "Image", "Card", "Divider", "CircularProgressIndicator",
-  "LinearProgressIndicator", "OutlinedTextField", "TextField", "Checkbox", "RadioButton", "Switch",
-  "TopAppBar", "BottomAppBar", "NavigationRail", "ModalBottomSheet", "AlertDialog",
-]);
 
 export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
   const files = walk(rootPath);
@@ -169,17 +171,40 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
     } catch {}
   }
 
-
   for (const file of files) {
     if (!COMPONENT_EXTENSIONS.test(file)) continue;
+    const normPath = file.toLowerCase();
+
+    // Skip non-UI files
+    if (normPath.includes(`${path.sep}data${path.sep}`) ||
+        normPath.includes(`${path.sep}domain${path.sep}`) ||
+        normPath.includes(`${path.sep}network${path.sep}`) ||
+        normPath.includes(`${path.sep}database${path.sep}`) ||
+        normPath.includes(`${path.sep}di${path.sep}`)) {
+      continue;
+    }
+
     const text = readText(file);
     const relPath = path.relative(rootPath, file);
 
-    // Match PascalCase component calls: ComponentName(...)
+    // Only scan files that contain Composable functions or UI elements
+    const isUiFile = text.includes("@Composable") ||
+      normPath.includes(`${path.sep}ui${path.sep}`) ||
+      normPath.includes(`${path.sep}components${path.sep}`) ||
+      normPath.includes(`${path.sep}screens${path.sep}`) ||
+      normPath.includes(`${path.sep}uikit${path.sep}`) ||
+      normPath.includes(`${path.sep}sharedui${path.sep}`);
+
+    if (!isUiFile) continue;
+
     const matches = text.matchAll(/([A-Z][a-zA-Z0-9_]{2,})\s*\(([^)]*)\)/g);
     for (const m of matches) {
       const compName = m[1];
       if (COMMON_STDLIB_SYMBOLS.has(compName)) continue;
+      if (NON_UI_SUFFIXES.test(compName)) continue;
+
+      const isKnownUiName = UI_NAME_PATTERNS.test(compName);
+      if (!isKnownUiName && !isUiFile) continue;
 
       const rawArgs = m[2].trim().replace(/\s+/g, " ");
       const sampleArgs = rawArgs.length > 50 ? `${rawArgs.slice(0, 47)}...` : rawArgs;
@@ -212,18 +237,16 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
     }
   }
 
-  return out.sort((a, b) => (b.count || 0) - (a.count || 0));
+  return out.sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 15);
 }
 
 function detectArchitectureType(files: string[]): { type: ArchitectureType; details: string } {
   const normFiles = files.map((f) => f.toLowerCase());
 
-  // 1. Directory signals
   const hasDomain = normFiles.some((f) => f.includes(`${path.sep}domain${path.sep}`) || f.includes(":domain"));
   const hasData = normFiles.some((f) => f.includes(`${path.sep}data${path.sep}`) || f.includes(":data"));
   const hasPresentation = normFiles.some((f) => f.includes(`${path.sep}presentation${path.sep}`) || f.includes(":presentation"));
 
-  // 2. Konsist-style declaration & class naming signals (UseCases, Interactors, Repositories, Gateways, Ports, Adapters)
   const useCaseFiles = normFiles.filter((f) => /usecase|interactor/i.test(path.basename(f)));
   const repositoryFiles = normFiles.filter((f) => /repository|gateway|port|adapter/i.test(path.basename(f)));
   const viewModelFiles = normFiles.filter((f) => /viewmodel|state|intent/i.test(path.basename(f)));
@@ -269,11 +292,7 @@ function detectArchitectureType(files: string[]): { type: ArchitectureType; deta
   return { type: "AD_HOC", details: "Ad-hoc / single-folder structure" };
 }
 
-
-
 function inspectFiles(rootPath: string): AndroidInspection {
-
-
   const files = walk(rootPath);
   const gradleFiles = files.filter((file) =>
     file.endsWith(".gradle") ||
@@ -316,7 +335,8 @@ function inspectFiles(rootPath: string): AndroidInspection {
     .filter((file) =>
       file.includes(`${path.sep}ui${path.sep}components${path.sep}`) ||
       file.includes(`${path.sep}components${path.sep}`) ||
-      file.includes(`${path.sep}ui${path.sep}`),
+      file.includes(`${path.sep}uikit${path.sep}`) ||
+      file.includes(`${path.sep}sharedui${path.sep}`),
     )
     .filter((file) => COMPONENT_EXTENSIONS.test(file))
     .map((file) => ({
@@ -328,7 +348,9 @@ function inspectFiles(rootPath: string): AndroidInspection {
   const componentMap = new Map<string, ComponentFact>();
 
   for (const fc of fileComponents) {
-    componentMap.set(fc.name, fc);
+    if (!NON_UI_SUFFIXES.test(fc.name)) {
+      componentMap.set(fc.name, fc);
+    }
   }
 
   for (const uc of usageComponents) {
@@ -345,8 +367,9 @@ function inspectFiles(rootPath: string): AndroidInspection {
     }
   }
 
-  const components = Array.from(componentMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-
+  const components = Array.from(componentMap.values())
+    .sort((a, b) => (b.count || 0) - (a.count || 0))
+    .slice(0, 15);
 
   let androidUIStack: AndroidUIStack = "n/a";
   if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) androidUIStack = "kmp";
@@ -360,17 +383,15 @@ function inspectFiles(rootPath: string): AndroidInspection {
 
   const notes: string[] = [];
   notes.push(`Project Architecture Structure: ${architectureType} (${archInfo.details})`);
-
   if (androidUIStack === "n/a") notes.push(`No Android or KMP UI signals detected in ${rootPath}`);
   if (androidUIStack === "ambiguous") notes.push(`Android project found in ${rootPath}, but Compose/XML/KMP signals are ambiguous`);
   if (components.length === 0) notes.push(`No reusable ui/components files detected in ${rootPath}`);
-  else notes.push(`Found ${components.length} reusable ui/components file(s) in ${rootPath}`);
+  else notes.push(`Found ${components.length} reusable UI component(s) in ${rootPath}`);
 
   return { androidUIStack, architectureType, components, notes };
 }
 
 export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
-
   return inspectFiles(rootPath).androidUIStack;
 }
 
