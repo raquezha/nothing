@@ -32,7 +32,10 @@ export interface DesignLink {
 export interface ComponentFact {
   name: string;
   path: string;
+  count?: number;
+  sampleUsage?: string;
 }
+
 
 /** Android/KMP inspection result. */
 export interface AndroidInspection {

@@ -24,13 +24,15 @@ try {
   const compose = makeProject("compose", {
     "app/build.gradle.kts": 'dependencies { implementation("androidx.compose.ui:ui:1.0.0") }',
     "ui/components/PrimaryButton.kt": "@Composable fun PrimaryButton() {}",
+    "ui/screens/HomeScreen.kt": '@Composable fun HomeScreen() { AppToolbar(title = "Home"); PrimaryButton(text = "Submit") }',
     "ui/components/notes.txt": "ignore me",
   });
   roots.push(compose);
   assert.equal(detectAndroidUIStack(compose), "compose");
   const composeInspection = inspectAndroidProject(compose);
-  assert.equal(composeInspection.components[0].name, "PrimaryButton");
-  assert.equal(composeInspection.components.length, 1);
+  assert(composeInspection.components.some((c) => c.name === "PrimaryButton"));
+  assert(composeInspection.components.some((c) => c.name === "AppToolbar"));
+
 
   const views = makeProject("views", {
     "app/src/main/res/layout-land/activity_main.xml": "<LinearLayout />",

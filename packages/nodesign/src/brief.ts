@@ -197,9 +197,11 @@ export function formatDesignBrief(
   if ((preflight.components?.length ?? 0) > 0) {
     lines.push("", "UI Components:");
     for (const component of preflight.components ?? []) {
-      lines.push(`  - ${component.name} (${component.path})`);
+      const usageInfo = component.sampleUsage ? ` sample="${component.sampleUsage}"` : "";
+      lines.push(`  - ${component.name} (${component.path})${usageInfo}`);
     }
   }
+
 
   if (preflight.notes.length > 0) {
     lines.push("", "Notes:");

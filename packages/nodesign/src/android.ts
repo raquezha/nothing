@@ -115,7 +115,66 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   return colorFacts;
 }
 
+const COMMON_STDLIB_SYMBOLS = new Set([
+  "Column", "Row", "Box", "Text", "Spacer", "Surface", "Scaffold", "LazyColumn", "LazyRow", "LazyGrid",
+  "Modifier", "Color", "String", "Boolean", "Int", "Float", "Double", "List", "Set", "Map", "Remember",
+  "Composable", "DisposableEffect", "LaunchedEffect", "SideEffect", "State", "MutableState",
+  "Button", "IconButton", "Icon", "Image", "Card", "Divider", "CircularProgressIndicator",
+  "LinearProgressIndicator", "OutlinedTextField", "TextField", "Checkbox", "RadioButton", "Switch",
+  "TopAppBar", "BottomAppBar", "NavigationRail", "ModalBottomSheet", "AlertDialog",
+]);
+
+export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
+  const files = walk(rootPath);
+  const usageMap = new Map<string, { name: string; count: number; sampleUsage?: string; sampleFile?: string }>();
+
+  for (const file of files) {
+    if (!COMPONENT_EXTENSIONS.test(file)) continue;
+    const text = readText(file);
+    const relPath = path.relative(rootPath, file);
+
+    // Match PascalCase component calls: ComponentName(...)
+    const matches = text.matchAll(/([A-Z][a-zA-Z0-9_]{2,})\s*\(([^)]*)\)/g);
+    for (const m of matches) {
+      const compName = m[1];
+      if (COMMON_STDLIB_SYMBOLS.has(compName)) continue;
+
+      const rawArgs = m[2].trim().replace(/\s+/g, " ");
+      const sampleArgs = rawArgs.length > 50 ? `${rawArgs.slice(0, 47)}...` : rawArgs;
+      const sampleCall = `${compName}(${sampleArgs})`;
+
+      const existing = usageMap.get(compName);
+      if (existing) {
+        existing.count++;
+        if (!existing.sampleUsage && sampleArgs.length > 0) existing.sampleUsage = sampleCall;
+      } else {
+        usageMap.set(compName, {
+          name: compName,
+          count: 1,
+          sampleUsage: sampleCall,
+          sampleFile: relPath,
+        });
+      }
+    }
+  }
+
+  const out: ComponentFact[] = [];
+  for (const [name, info] of usageMap.entries()) {
+    if (info.count >= 1) {
+      out.push({
+        name,
+        path: info.sampleFile ? `${info.sampleFile} (used ${info.count}x in codebase)` : `Discovered from usage (${info.count}x)`,
+        count: info.count,
+        sampleUsage: info.sampleUsage,
+      });
+    }
+  }
+
+  return out.sort((a, b) => (b.count || 0) - (a.count || 0));
+}
+
 function inspectFiles(rootPath: string): AndroidInspection {
+
   const files = walk(rootPath);
   const gradleFiles = files.filter((file) =>
     file.endsWith(".gradle") ||
@@ -154,7 +213,7 @@ function inspectFiles(rootPath: string): AndroidInspection {
     text.includes("libs.plugins.kotlin.android"),
   );
 
-  const components = files
+  const fileComponents = files
     .filter((file) =>
       file.includes(`${path.sep}ui${path.sep}components${path.sep}`) ||
       file.includes(`${path.sep}components${path.sep}`) ||
@@ -164,8 +223,31 @@ function inspectFiles(rootPath: string): AndroidInspection {
     .map((file) => ({
       name: path.basename(file).replace(/\.[^.]+$/, ""),
       path: path.relative(rootPath, file),
-    }))
-    .sort((a, b) => a.path.localeCompare(b.path));
+    }));
+
+  const usageComponents = scanUsagePatternFacts(rootPath);
+  const componentMap = new Map<string, ComponentFact>();
+
+  for (const fc of fileComponents) {
+    componentMap.set(fc.name, fc);
+  }
+
+  for (const uc of usageComponents) {
+    if (!componentMap.has(uc.name)) {
+      componentMap.set(uc.name, uc);
+    } else {
+      const existing = componentMap.get(uc.name)!;
+      componentMap.set(uc.name, {
+        ...existing,
+        count: uc.count,
+        sampleUsage: uc.sampleUsage,
+        path: `${existing.path} (used ${uc.count}x in codebase)`,
+      });
+    }
+  }
+
+  const components = Array.from(componentMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
 
   let androidUIStack: AndroidUIStack = "n/a";
   if (hasComposeResources || (hasCommonMain && (hasKmpComposeUsage || hasKmpComposeGradle))) androidUIStack = "kmp";
