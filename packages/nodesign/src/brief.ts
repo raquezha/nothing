@@ -26,12 +26,27 @@ export function parseDesignLink(rawUrl: string): { link: DesignLink; status: Evi
   };
 }
 
-export function formatAgentDirective(screenName = "Target UI"): string {
+export function formatAgentDirective(
+  screenName = "Target UI",
+  architectureType = "CLEAN_ARCHITECTURE",
+  archDetails = "Konsist-style code pattern scanner",
+): string {
+  const placementGuideline = architectureType === "CLEAN_ARCHITECTURE"
+    ? "Place new UI Composables inside presentation package (`presentation/` or `ui/screens/`). Keep business logic in UseCases."
+    : architectureType === "DESIGN_SYSTEM_MODULE"
+    ? "Use design system module components (`core:ui` / `designsystem`). Do not write ad-hoc Composables."
+    : architectureType === "FEATURE_BY_PACKAGE"
+    ? "Keep UI inside the relevant feature package (`feature/*/`)."
+    : "Create reusable Composables under `ui/components/`.";
+
   return [
     "================================================================================",
     "STRICT AI AGENT DIRECTIVE — ZERO-DRIFT UI IMPLEMENTATION CONTRACT",
     "================================================================================",
-    `You are implementing '${screenName}' based on extracted design evidence.`,
+    `Target UI: '${screenName}'`,
+    `Project Architecture: ${architectureType} (${archDetails})`,
+    `Placement Rule: ${placementGuideline}`,
+    "",
     "Follow these 4 non-negotiable rules:",
     "",
     "1. MANDATORY BLUEPRINT ADHERENCE:",
@@ -52,6 +67,7 @@ export function formatAgentDirective(screenName = "Target UI"): string {
     "================================================================================",
   ].join("\n");
 }
+
 
 export function formatTreeBlueprint(nodes: any[], indent = 0): string[] {
 

@@ -1,4 +1,4 @@
-import type { ComponentFact } from "./types.js";
+import type { ArchitectureType, ComponentFact } from "./types.js";
 import type { ColorTokenFact } from "./android.js";
 import type { FigmaNodeSpec } from "./figma.js";
 import type { ZeplinNodeSpec } from "./zeplin.js";
@@ -8,7 +8,9 @@ type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
 export interface ProjectCodeContext {
   components?: ComponentFact[];
   colorTokens?: ColorTokenFact[];
+  architectureType?: ArchitectureType;
 }
+
 
 function toComposeColor(hex?: string, colorTokens?: ColorTokenFact[]): string {
   if (!hex) return "Color.Unspecified";
@@ -182,9 +184,13 @@ export function generateCodeSnippet(
       }
 
       const allImports = [...baseImports, ...Array.from(customImports)].sort().join("\n");
+      const archHeader = context?.architectureType
+        ? `// Architecture Structure: ${context.architectureType}\n`
+        : "";
       const body = nodes.map((n) => nodeToCompose(n, 1, context)).join("\n\n");
-      return `${allImports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
+      return `${archHeader}${allImports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
+
 
 
 
