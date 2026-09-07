@@ -11,9 +11,13 @@ function toComposeColor(hex?: string): string {
   }
   if (clean.length === 6) {
     clean = `FF${clean}`;
+  } else if (clean.length === 8) {
+    // Convert #RRGGBBAA (CSS) to 0xAARRGGBB (Jetpack Compose)
+    clean = `${clean.slice(6, 8)}${clean.slice(0, 6)}`;
   }
   return `Color(0x${clean})`;
 }
+
 
 function escapeString(val: string): string {
   return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");

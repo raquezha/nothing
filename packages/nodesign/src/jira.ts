@@ -99,6 +99,7 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
   try {
     const rawText = execSync(`jira issue view "${issueId.replace(/"/g, "")}" --raw`, {
       encoding: "utf8",
+      timeout: 5000,
       stdio: ["ignore", "pipe", "ignore"],
     });
     return inspectJiraTaskText(rawText);
@@ -107,6 +108,7 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
     try {
       const acliText = execSync(`acli jira workitem view "${issueId.replace(/"/g, "")}" --json`, {
         encoding: "utf8",
+        timeout: 5000,
         stdio: ["ignore", "pipe", "ignore"],
       });
       return inspectJiraTaskText(acliText);
@@ -118,3 +120,4 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
     }
   }
 }
+
