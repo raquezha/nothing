@@ -217,16 +217,27 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
 
 function detectArchitectureType(files: string[]): ArchitectureType {
   const normFiles = files.map((f) => f.toLowerCase());
+
+  // 1. Directory signals
   const hasDomain = normFiles.some((f) => f.includes(`${path.sep}domain${path.sep}`) || f.includes(":domain"));
   const hasData = normFiles.some((f) => f.includes(`${path.sep}data${path.sep}`) || f.includes(":data"));
   const hasPresentation = normFiles.some((f) => f.includes(`${path.sep}presentation${path.sep}`) || f.includes(":presentation"));
 
-  if (hasDomain && (hasData || hasPresentation)) return "CLEAN_ARCHITECTURE";
+  // 2. Code pattern & naming signals (UseCases, Interactors, Repositories, Gateways, Ports, Adapters)
+  const useCaseFiles = normFiles.filter((f) => /usecase|interactor/i.test(path.basename(f)));
+  const repositoryFiles = normFiles.filter((f) => /repository|gateway|port|adapter/i.test(path.basename(f)));
+  const hasCleanCodePatterns = (useCaseFiles.length > 0 || repositoryFiles.length > 0) &&
+    (hasPresentation || normFiles.some((f) => /viewmodel|state|intent/i.test(f)));
+
+  if ((hasDomain && (hasData || hasPresentation)) || hasCleanCodePatterns || (useCaseFiles.length > 0 && repositoryFiles.length > 0)) {
+    return "CLEAN_ARCHITECTURE";
+  }
 
   const hasDesignSystemModule = normFiles.some((f) =>
     f.includes(`${path.sep}designsystem${path.sep}`) ||
     f.includes(":designsystem") ||
-    f.includes(`${path.sep}core${path.sep}ui${path.sep}`)
+    f.includes(`${path.sep}core${path.sep}ui${path.sep}`) ||
+    /theme|designsystem/i.test(path.basename(f))
   );
   if (hasDesignSystemModule) return "DESIGN_SYSTEM_MODULE";
 
@@ -246,6 +257,7 @@ function detectArchitectureType(files: string[]): ArchitectureType {
 
   return "AD_HOC";
 }
+
 
 function inspectFiles(rootPath: string): AndroidInspection {
 

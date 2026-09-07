@@ -99,6 +99,15 @@ try {
   const cfgInspected = inspectAndroidProject(withConfig);
   assert(cfgInspected.components.some((c) => c.name === "CustomHeader"));
 
+  const customCleanArch = makeProject("custom-clean-arch", {
+    "app/src/main/kotlin/com/app/checkout/GetCheckoutUseCase.kt": "class GetCheckoutUseCase",
+    "app/src/main/kotlin/com/app/checkout/CheckoutRepository.kt": "interface CheckoutRepository",
+    "app/src/main/kotlin/com/app/checkout/CheckoutViewModel.kt": "class CheckoutViewModel",
+  });
+  roots.push(customCleanArch);
+  const cleanInspected = inspectAndroidProject(customCleanArch);
+  assert.equal(cleanInspected.architectureType, "CLEAN_ARCHITECTURE");
+
   console.log("nodesign android test ok");
 } finally {
   cleanup(roots);
