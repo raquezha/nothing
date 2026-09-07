@@ -7,6 +7,7 @@ import {
   determineEvidenceStatus,
   formatDesignBrief,
   formatTreeBlueprint,
+  formatAgentDirective,
   generateCodeSnippet,
   resolveCredentials,
   inspectAndroidProject,
@@ -167,6 +168,11 @@ try {
   const htmlCode = generateCodeSnippet(treeNodes, "html", "CheckoutScreen");
   assert(htmlCode.includes("<div class=\"checkoutscreen\">"));
   assert(htmlCode.includes("Checkout</span>"));
+
+  // 10. Agent Directive Contract
+  const directive = formatAgentDirective("CheckoutScreen");
+  assert(directive.includes("STRICT AI AGENT DIRECTIVE"));
+  assert(directive.includes("MANDATORY BLUEPRINT ADHERENCE"));
 
   console.log("nodesign suite test ok");
 } finally {

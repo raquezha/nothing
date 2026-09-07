@@ -26,7 +26,35 @@ export function parseDesignLink(rawUrl: string): { link: DesignLink; status: Evi
   };
 }
 
+export function formatAgentDirective(screenName = "Target UI"): string {
+  return [
+    "================================================================================",
+    "STRICT AI AGENT DIRECTIVE — ZERO-DRIFT UI IMPLEMENTATION CONTRACT",
+    "================================================================================",
+    `You are implementing '${screenName}' based on extracted design evidence.`,
+    "Follow these 4 non-negotiable rules:",
+    "",
+    "1. MANDATORY BLUEPRINT ADHERENCE:",
+    "   - Build the exact component tree structure specified in the UI Blueprint below.",
+    "   - Do NOT alter container ordering, layout direction (ROW/COLUMN), or node nesting.",
+    "",
+    "2. REUSE DISCOVERED COMPONENTS & THEME TOKENS:",
+    "   - MUST reuse discovered project components (e.g. `Header()`, `PrimaryButton()`) wherever mapped.",
+    "   - MUST use discovered theme variables (e.g. `TapatColors.brandPrimary` or `PrimaryBlue`) instead of raw hex values.",
+    "   - Do NOT invent duplicate components or hardcode raw Color(0xFF...) when theme tokens exist.",
+    "",
+    "3. ZERO DRIFT GUARANTEE:",
+    "   - Do NOT add unrequested cards, extra wrappers, or random decorative elements.",
+    "   - Match all specified padding, spacing/gap, fonts, and dimensions 1:1.",
+    "",
+    "4. CODE INTEGRITY:",
+    "   - Ensure the generated code compiles cleanly with all required package imports.",
+    "================================================================================",
+  ].join("\n");
+}
+
 export function formatTreeBlueprint(nodes: any[], indent = 0): string[] {
+
   const lines: string[] = [];
   for (const node of nodes) {
     const prefix = "  ".repeat(indent) + (indent > 0 ? "├── " : "");

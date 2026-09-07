@@ -4,7 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
-import { formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
+import { formatAgentDirective, formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 import { inspectAndroidProject, scanColorTokens } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
@@ -320,12 +320,14 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           if (args.json) {
             console.log(JSON.stringify({
               ...parsed,
+              directive: formatAgentDirective(screenName),
               ...(zeplin ? { zeplin } : {}),
               ...(figma ? { figma } : {}),
               ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
             }, null, 2));
           } else if (args.markdown) {
-            console.log(`# Extracted Design: ${screenName}\n`);
+            console.log(formatAgentDirective(screenName));
+            console.log(`\n# Extracted Design: ${screenName}\n`);
             console.log(`- **Provider**: ${parsed.link.provider}`);
             console.log(`- **URL**: ${parsed.link.url}`);
             console.log(`- **Status**: ${providerResult?.status || parsed.status}`);
@@ -340,9 +342,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               console.log("```");
             }
           } else {
-            console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
+            console.log(formatAgentDirective(screenName));
+            console.log(`\nExtracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
             console.log(`Status: ${parsed.status}`);
             if (parsed.note) console.log(`Note: ${parsed.note}`);
+
             if (zeplin) {
               console.log(`Zeplin Resolution: ${zeplin.status}`);
               if (zeplin.screenId) console.log(`Screen ID: ${zeplin.screenId}`);

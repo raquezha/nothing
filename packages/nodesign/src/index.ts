@@ -29,7 +29,7 @@ export type {
 } from "./figma.js";
 
 export { inspectAndroidProject, detectAndroidUIStack, scanUiComponents } from "./android.js";
-export { formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
+export { formatDesignBrief, formatTreeBlueprint, formatAgentDirective, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
 export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
