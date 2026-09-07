@@ -162,14 +162,15 @@ export function formatDesignBrief(
   }
 
   const lines: string[] = [
-
     `Design Brief: ${brief.taskId}`,
     `Timestamp: ${brief.timestamp}`,
     "",
     `UI Sensitive: ${preflight.uiSensitive ? "yes" : "no"}`,
     `Android UI Stack: ${preflight.androidUIStack}`,
+    `Architecture Structure: ${preflight.architectureType || "AD_HOC"}`,
     `Evidence Status: ${preflight.evidenceStatus}`,
   ];
+
 
   if (preflight.designLinks.length > 0) {
     lines.push("", "Design Links:");

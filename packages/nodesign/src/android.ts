@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import type { AndroidInspection, AndroidUIStack, ComponentFact } from "./types.js";
+import type { AndroidInspection, AndroidUIStack, ArchitectureType, ComponentFact } from "./types.js";
 
 const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".gradle", "build"]);
 const COMPONENT_EXTENSIONS = /\.(kt|kts|xml|tsx|ts|jsx|js)$/i;
@@ -215,7 +215,40 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
   return out.sort((a, b) => (b.count || 0) - (a.count || 0));
 }
 
+function detectArchitectureType(files: string[]): ArchitectureType {
+  const normFiles = files.map((f) => f.toLowerCase());
+  const hasDomain = normFiles.some((f) => f.includes(`${path.sep}domain${path.sep}`) || f.includes(":domain"));
+  const hasData = normFiles.some((f) => f.includes(`${path.sep}data${path.sep}`) || f.includes(":data"));
+  const hasPresentation = normFiles.some((f) => f.includes(`${path.sep}presentation${path.sep}`) || f.includes(":presentation"));
+
+  if (hasDomain && (hasData || hasPresentation)) return "CLEAN_ARCHITECTURE";
+
+  const hasDesignSystemModule = normFiles.some((f) =>
+    f.includes(`${path.sep}designsystem${path.sep}`) ||
+    f.includes(":designsystem") ||
+    f.includes(`${path.sep}core${path.sep}ui${path.sep}`)
+  );
+  if (hasDesignSystemModule) return "DESIGN_SYSTEM_MODULE";
+
+  const hasFeatureByPackage = normFiles.some((f) =>
+    f.includes(`${path.sep}feature${path.sep}`) ||
+    f.includes(`${path.sep}features${path.sep}`) ||
+    f.includes(":feature:")
+  );
+  if (hasFeatureByPackage) return "FEATURE_BY_PACKAGE";
+
+  const hasLayerByPackage = normFiles.some((f) =>
+    f.includes(`${path.sep}screens${path.sep}`) ||
+    f.includes(`${path.sep}viewmodels${path.sep}`) ||
+    f.includes(`${path.sep}ui${path.sep}components${path.sep}`)
+  );
+  if (hasLayerByPackage) return "LAYER_BY_PACKAGE";
+
+  return "AD_HOC";
+}
+
 function inspectFiles(rootPath: string): AndroidInspection {
+
 
   const files = walk(rootPath);
   const gradleFiles = files.filter((file) =>
@@ -298,16 +331,20 @@ function inspectFiles(rootPath: string): AndroidInspection {
   else if (hasViews) androidUIStack = "views";
   else if (hasAndroidManifest || hasAndroidGradlePlugin) androidUIStack = "ambiguous";
 
+  const architectureType = detectArchitectureType(files);
+
   const notes: string[] = [];
+  notes.push(`Project Architecture Structure: ${architectureType}`);
   if (androidUIStack === "n/a") notes.push(`No Android or KMP UI signals detected in ${rootPath}`);
   if (androidUIStack === "ambiguous") notes.push(`Android project found in ${rootPath}, but Compose/XML/KMP signals are ambiguous`);
   if (components.length === 0) notes.push(`No reusable ui/components files detected in ${rootPath}`);
   else notes.push(`Found ${components.length} reusable ui/components file(s) in ${rootPath}`);
 
-  return { androidUIStack, components, notes };
+  return { androidUIStack, architectureType, components, notes };
 }
 
 export function detectAndroidUIStack(rootPath: string): AndroidUIStack {
+
   return inspectFiles(rootPath).androidUIStack;
 }
 

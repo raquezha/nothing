@@ -479,6 +479,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           const preflight: PreflightResult = {
             uiSensitive,
             androidUIStack: inspection.androidUIStack,
+            architectureType: inspection.architectureType,
             evidenceStatus,
             designLinks,
             resolvedScreens,
@@ -486,6 +487,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             components: inspection.components,
             notes,
           };
+
 
           const format = args.json ? "json" : "human";
           console.log(formatDesignBrief(args.task, preflight, format));
