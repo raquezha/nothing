@@ -88,6 +88,17 @@ try {
   assert.equal(inspected.androidUIStack, "n/a");
   assert.equal(inspected.components.length, 0);
 
+  const withConfig = makeProject("config-project", {
+    "app/build.gradle.kts": 'dependencies { implementation("androidx.compose.ui:ui:1.0.0") }',
+    ".nodesign.json": JSON.stringify({
+      components: [{ name: "CustomHeader", path: "ui/CustomHeader.kt", sampleUsage: 'CustomHeader(title = "Test")' }],
+      colorTokens: [{ hex: "#2878F0", token: "CustomTheme.colors.primary" }],
+    }),
+  });
+  roots.push(withConfig);
+  const cfgInspected = inspectAndroidProject(withConfig);
+  assert(cfgInspected.components.some((c) => c.name === "CustomHeader"));
+
   console.log("nodesign android test ok");
 } finally {
   cleanup(roots);

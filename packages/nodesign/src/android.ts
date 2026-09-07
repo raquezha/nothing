@@ -44,6 +44,28 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   const colorFacts: ColorTokenFact[] = [];
   const seen = new Set<string>();
 
+  const configPath = path.join(rootPath, ".nodesign.json");
+  if (existsSync(configPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(configPath, "utf8"));
+      if (Array.isArray(cfg?.colorTokens)) {
+        for (const ct of cfg.colorTokens) {
+          if (ct.hex && ct.token) {
+            const hexKey = ct.hex.startsWith("#") ? ct.hex.toUpperCase() : `#${ct.hex.toUpperCase()}`;
+            seen.add(hexKey);
+            colorFacts.push({
+              hex: hexKey,
+              token: ct.token,
+              sourceFile: ct.sourceFile || ".nodesign.json",
+              importStatement: ct.importStatement,
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+
   function addFact(hexRaw: string, token: string, file: string, pkg?: string) {
     let cleanHex = hexRaw.toUpperCase().trim();
     if (cleanHex.length === 4 && cleanHex.startsWith("#")) {
@@ -127,6 +149,26 @@ const COMMON_STDLIB_SYMBOLS = new Set([
 export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
   const files = walk(rootPath);
   const usageMap = new Map<string, { name: string; count: number; sampleUsage?: string; sampleFile?: string }>();
+
+  const configPath = path.join(rootPath, ".nodesign.json");
+  if (existsSync(configPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(configPath, "utf8"));
+      if (Array.isArray(cfg?.components)) {
+        for (const comp of cfg.components) {
+          if (comp.name) {
+            usageMap.set(comp.name, {
+              name: comp.name,
+              count: 999,
+              sampleUsage: comp.sampleUsage,
+              sampleFile: comp.path || ".nodesign.json",
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
 
   for (const file of files) {
     if (!COMPONENT_EXTENSIONS.test(file)) continue;
