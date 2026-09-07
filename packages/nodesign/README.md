@@ -84,6 +84,29 @@ Output reports the exact source:
 
 ---
 
+## Konsist-Style Architectural & Symbol Harvester
+
+`nodesign` incorporates a lightweight **Konsist-Style Architectural Harvester** inspired by structural linting engines like [Konsist](https://docs.konsist.lemonappdev.com/) and [ArchUnit](https://www.archunit.org/).
+
+### How It Works
+
+Instead of relying on hardcoded folder names (`domain/`, `data/`, `presentation/`), `nodesign` scans class declarations, function signatures, annotations, and usage patterns across your codebase:
+
+1. **Architectural Signal Detection**:
+   - **Clean Architecture**: Detects `*UseCase`, `*Interactor`, `*Repository`, `*Gateway`, `*Port`, and `*Adapter` declarations.
+   - **Design System Modules**: Detects `:designsystem`, `core:ui`, `ui/theme/`, `Color.kt`, `Theme.kt`, and `@Composable fun *Theme`.
+   - **Feature & Layer Structures**: Detects `feature/*/`, `screens/`, `viewmodels/`, `*ViewModel`, `*State`, `*Intent`.
+2. **Deep Custom Theme Token Discovery**:
+   - Deep-scans custom theme wrappers (`TapatTheme.colors`, `LocalColors.current`, `val PrimaryBlue = Color(...)`).
+   - Automatically harvests package names (`package com.app.ui.theme`) and injects required Kotlin `import` statements into generated `@Composable` code.
+3. **Usage-Based Component Catalog**:
+   - Scans codebase invocation patterns (e.g. `PrimaryButton(...)` used 14x across production screens).
+   - Instructs AI coding agents to reuse existing project Composables instead of generating duplicate code or raw primitives.
+4. **Zero-Setup Portability**:
+   - Runs out-of-the-box via `npx @raquezha/nodesign` without requiring Gradle plugins or external linter dependencies.
+
+---
+
 ## Commands
 
 ### `auth login`
