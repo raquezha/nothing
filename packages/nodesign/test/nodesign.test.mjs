@@ -149,7 +149,9 @@ try {
 
   // 9. Code Snippet Generator (Compose, React, HTML)
   const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen");
+  assert(composeCode.includes("import androidx.compose.runtime.Composable"));
   assert(composeCode.includes("fun CheckoutScreen()"));
+  assert(composeCode.includes("fontWeight = FontWeight.SemiBold"));
   assert(composeCode.includes("Text("));
   assert(composeCode.includes('"Checkout"'));
 
