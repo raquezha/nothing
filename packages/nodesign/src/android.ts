@@ -10,6 +10,8 @@ export interface ColorTokenFact {
   hex: string;
   token: string;
   sourceFile: string;
+  packageName?: string;
+  importStatement?: string;
 }
 
 function walk(rootPath: string): string[] {
@@ -42,7 +44,31 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   const colorFacts: ColorTokenFact[] = [];
   const seen = new Set<string>();
 
+  function addFact(hexRaw: string, token: string, file: string, pkg?: string) {
+    let cleanHex = hexRaw.toUpperCase().trim();
+    if (cleanHex.length === 4 && cleanHex.startsWith("#")) {
+      cleanHex = `#${cleanHex[1]}${cleanHex[1]}${cleanHex[2]}${cleanHex[2]}${cleanHex[3]}${cleanHex[3]}`;
+    }
+    const hexKey = cleanHex.startsWith("#") ? cleanHex : `#${cleanHex}`;
+    if (!seen.has(hexKey)) {
+      seen.add(hexKey);
+      const relFile = path.relative(rootPath, file);
+      const importStatement = pkg && !token.startsWith("colorResource")
+        ? `import ${pkg}.${token.split(".")[0]}`
+        : undefined;
+
+      colorFacts.push({
+        hex: hexKey,
+        token,
+        sourceFile: relFile,
+        packageName: pkg,
+        importStatement,
+      });
+    }
+  }
+
   for (const file of files) {
+    // 1. Scan colors.xml
     if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
       const text = readText(file);
       const matches = text.matchAll(/<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi);
@@ -50,36 +76,38 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
         const name = m[1];
         const rawVal = m[2].trim().toUpperCase();
         if (/^#([0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(rawVal)) {
-          let hex = rawVal;
-          if (hex.length === 4) hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
-          if (!seen.has(hex)) {
-            seen.add(hex);
-            colorFacts.push({
-              hex,
-              token: `colorResource(R.color.${name})`,
-              sourceFile: path.relative(rootPath, file),
-            });
-          }
+          addFact(rawVal, `colorResource(R.color.${name})`, file);
         }
       }
     }
 
-    if (file.endsWith("Color.kt") || file.endsWith("Theme.kt") || file.endsWith("Colors.kt")) {
+    // 2. Deep-scan all Kotlin files under theme / ui / designsystem / commonMain or ending in *Theme.kt, *Color.kt
+    const isThemeFile = file.endsWith(".kt") && (
+      file.includes(`${path.sep}theme${path.sep}`) ||
+      file.includes(`${path.sep}ui${path.sep}`) ||
+      file.includes(`${path.sep}designsystem${path.sep}`) ||
+      file.includes(`${path.sep}commonMain${path.sep}`) ||
+      /Theme|Color|Design/i.test(path.basename(file))
+    );
+
+    if (isThemeFile) {
       const text = readText(file);
-      const matches = text.matchAll(/val\s+([a-zA-Z0-9_]+)\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g);
+      const pkgMatch = text.match(/^package\s+([a-zA-Z0-9_.]+)/m);
+      const packageName = pkgMatch ? pkgMatch[1] : undefined;
+
+      // Check for theme object wrapper (e.g. object TapatTheme or object TapatColors)
+      const objMatch = text.match(/object\s+([a-zA-Z0-9_]+Theme|[a-zA-Z0-9_]+Colors|[a-zA-Z0-9_]+DesignSystem)/);
+      const themeObject = objMatch ? objMatch[1] : undefined;
+
+      // Matches val PrimaryBlue = Color(0xFF2878F0) or val primary: Color = Color(0x2878F0)
+      const matches = text.matchAll(/val\s+([a-zA-Z0-9_]+)(?:\s*:\s*Color)?\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g);
       for (const m of matches) {
-        const name = m[1];
+        const propName = m[1];
         let hexVal = m[2].toUpperCase();
         if (hexVal.length === 8 && hexVal.startsWith("FF")) hexVal = hexVal.slice(2);
         const hex = `#${hexVal}`;
-        if (!seen.has(hex)) {
-          seen.add(hex);
-          colorFacts.push({
-            hex,
-            token: name,
-            sourceFile: path.relative(rootPath, file),
-          });
-        }
+        const token = themeObject ? `${themeObject}.${propName}` : propName;
+        addFact(hex, token, file, packageName);
       }
     }
   }

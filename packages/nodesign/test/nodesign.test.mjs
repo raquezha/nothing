@@ -150,10 +150,11 @@ try {
   // 9. Code Snippet Generator (Compose, React, HTML)
   const codeContext = {
     components: [{ name: "Header", path: "ui/components/Header.kt" }],
-    colorTokens: [{ hex: "#2878F0", token: "PrimaryBlue", sourceFile: "Color.kt" }],
+    colorTokens: [{ hex: "#2878F0", token: "TapatColors.brandPrimary", sourceFile: "Color.kt", packageName: "com.tapat.app.ui.theme", importStatement: "import com.tapat.app.ui.theme.TapatColors" }],
   };
   const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen", codeContext);
   assert(composeCode.includes("import androidx.compose.runtime.Composable"));
+  assert(composeCode.includes("import com.tapat.app.ui.theme.TapatColors"));
   assert(composeCode.includes("fun CheckoutScreen()"));
   assert(composeCode.includes("Reusing discovered component: ui/components/Header.kt"));
   assert(composeCode.includes("Header()"));

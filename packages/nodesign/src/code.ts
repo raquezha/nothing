@@ -162,7 +162,7 @@ export function generateCodeSnippet(
 
   switch (target) {
     case "compose": {
-      const imports = [
+      const baseImports = [
         "import androidx.compose.foundation.background",
         "import androidx.compose.foundation.layout.*",
         "import androidx.compose.material3.Text",
@@ -172,10 +172,20 @@ export function generateCodeSnippet(
         "import androidx.compose.ui.text.font.FontWeight",
         "import androidx.compose.ui.unit.dp",
         "import androidx.compose.ui.unit.sp",
-      ].join("\n");
+      ];
+
+      const customImports = new Set<string>();
+      if (context?.colorTokens) {
+        for (const ct of context.colorTokens) {
+          if (ct.importStatement) customImports.add(ct.importStatement);
+        }
+      }
+
+      const allImports = [...baseImports, ...Array.from(customImports)].sort().join("\n");
       const body = nodes.map((n) => nodeToCompose(n, 1, context)).join("\n\n");
-      return `${imports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
+      return `${allImports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
+
 
 
     case "react": {
