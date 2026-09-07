@@ -6,6 +6,12 @@ const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".grad
 const COMPONENT_EXTENSIONS = /\.(kt|kts|xml|tsx|ts|jsx|js)$/i;
 const TEXT_EXTENSIONS = /\.(kt|kts|java|xml|properties|txt|md)$/i;
 
+export interface ColorTokenFact {
+  hex: string;
+  token: string;
+  sourceFile: string;
+}
+
 function walk(rootPath: string): string[] {
   const out: string[] = [];
 
@@ -29,6 +35,56 @@ function readText(filePath: string): string {
   } catch {
     return "";
   }
+}
+
+export function scanColorTokens(rootPath: string): ColorTokenFact[] {
+  const files = walk(rootPath);
+  const colorFacts: ColorTokenFact[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
+      const text = readText(file);
+      const matches = text.matchAll(/<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi);
+      for (const m of matches) {
+        const name = m[1];
+        const rawVal = m[2].trim().toUpperCase();
+        if (/^#([0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(rawVal)) {
+          let hex = rawVal;
+          if (hex.length === 4) hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+          if (!seen.has(hex)) {
+            seen.add(hex);
+            colorFacts.push({
+              hex,
+              token: `colorResource(R.color.${name})`,
+              sourceFile: path.relative(rootPath, file),
+            });
+          }
+        }
+      }
+    }
+
+    if (file.endsWith("Color.kt") || file.endsWith("Theme.kt") || file.endsWith("Colors.kt")) {
+      const text = readText(file);
+      const matches = text.matchAll(/val\s+([a-zA-Z0-9_]+)\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g);
+      for (const m of matches) {
+        const name = m[1];
+        let hexVal = m[2].toUpperCase();
+        if (hexVal.length === 8 && hexVal.startsWith("FF")) hexVal = hexVal.slice(2);
+        const hex = `#${hexVal}`;
+        if (!seen.has(hex)) {
+          seen.add(hex);
+          colorFacts.push({
+            hex,
+            token: name,
+            sourceFile: path.relative(rootPath, file),
+          });
+        }
+      }
+    }
+  }
+
+  return colorFacts;
 }
 
 function inspectFiles(rootPath: string): AndroidInspection {
@@ -71,7 +127,11 @@ function inspectFiles(rootPath: string): AndroidInspection {
   );
 
   const components = files
-    .filter((file) => file.includes(`${path.sep}ui${path.sep}components${path.sep}`))
+    .filter((file) =>
+      file.includes(`${path.sep}ui${path.sep}components${path.sep}`) ||
+      file.includes(`${path.sep}components${path.sep}`) ||
+      file.includes(`${path.sep}ui${path.sep}`),
+    )
     .filter((file) => COMPONENT_EXTENSIONS.test(file))
     .map((file) => ({
       name: path.basename(file).replace(/\.[^.]+$/, ""),

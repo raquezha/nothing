@@ -1,11 +1,25 @@
+import type { ComponentFact } from "./types.js";
+import type { ColorTokenFact } from "./android.js";
 import type { FigmaNodeSpec } from "./figma.js";
 import type { ZeplinNodeSpec } from "./zeplin.js";
 
 type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
 
-function toComposeColor(hex?: string): string {
+export interface ProjectCodeContext {
+  components?: ComponentFact[];
+  colorTokens?: ColorTokenFact[];
+}
+
+function toComposeColor(hex?: string, colorTokens?: ColorTokenFact[]): string {
   if (!hex) return "Color.Unspecified";
-  let clean = hex.replace("#", "").toUpperCase();
+  const cleanHex = hex.trim().toUpperCase();
+
+  if (colorTokens && colorTokens.length > 0) {
+    const matchedToken = colorTokens.find((ct) => ct.hex.toUpperCase() === cleanHex);
+    if (matchedToken) return matchedToken.token;
+  }
+
+  let clean = cleanHex.replace("#", "");
   if (clean.length === 3) {
     clean = `${clean[0]}${clean[0]}${clean[1]}${clean[1]}${clean[2]}${clean[2]}`;
   }
@@ -17,6 +31,7 @@ function toComposeColor(hex?: string): string {
   }
   return `Color(0x${clean})`;
 }
+
 
 
 function escapeString(val: string): string {
@@ -47,22 +62,31 @@ function formatComposePadding(padStr: string, padding?: { top?: number; right?: 
   return `\n${padStr}        .padding(start = ${left}.dp, top = ${top}.dp, end = ${right}.dp, bottom = ${bottom}.dp)`;
 }
 
-function nodeToCompose(node: UnifiedNode, indent = 1): string {
+function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeContext): string {
   const pad = "    ".repeat(indent);
   const name = node.name.replace(/[^a-zA-Z0-9]/g, "") || "Element";
   const children: UnifiedNode[] = Array.isArray(node.children) ? node.children : [];
 
+  if (context?.components && context.components.length > 0) {
+    const matchedComp = context.components.find(
+      (c) => c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === node.name.toLowerCase(),
+    );
+    if (matchedComp) {
+      return `${pad}// Reusing discovered component: ${matchedComp.path}\n${pad}${matchedComp.name}()`;
+    }
+  }
+
   if (node.text) {
     const fontSize = node.font?.fontSize ? `${node.font.fontSize}.sp` : "TextUnit.Unspecified";
     const fontWeight = toFontWeight(node.font?.fontWeight);
-    const color = toComposeColor(node.color);
+    const color = toComposeColor(node.color, context?.colorTokens);
     const weightLine = fontWeight ? `,\n${pad}    fontWeight = ${fontWeight}` : "";
     return `${pad}// ${name}\n${pad}Text(\n${pad}    text = "${escapeString(node.text)}",\n${pad}    fontSize = ${fontSize}${weightLine},\n${pad}    color = ${color}\n${pad})`;
   }
 
   const isRow = node.layout?.direction === "ROW" || node.layout?.direction === "HORIZONTAL";
   const container = isRow ? "Row" : "Column";
-  const bg = node.color ? `\n${pad}        .background(${toComposeColor(node.color)})` : "";
+  const bg = node.color ? `\n${pad}        .background(${toComposeColor(node.color, context?.colorTokens)})` : "";
   const size = node.layout?.width && node.layout?.height
     ? `\n${pad}        .size(${node.layout.width}.dp, ${node.layout.height}.dp)`
     : "";
@@ -71,9 +95,10 @@ function nodeToCompose(node: UnifiedNode, indent = 1): string {
     ? (isRow ? `,\n${pad}    horizontalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)` : `,\n${pad}    verticalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)`)
     : "";
 
-  const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1)).join("\n");
+  const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1, context)).join("\n");
   return `${pad}// ${name}\n${pad}${container}(\n${pad}    modifier = Modifier${size}${bg}${paddingMod}${gapArrangement}\n${pad}) {\n${inner ? `${inner}\n` : ""}${pad}}`;
 }
+
 
 
 
@@ -126,6 +151,7 @@ export function generateCodeSnippet(
   nodes: UnifiedNode[],
   target: "compose" | "react" | "html",
   screenName = "GeneratedScreen",
+  context?: ProjectCodeContext,
 ): string {
   if (!nodes || nodes.length === 0) return "// No hierarchy nodes available for code generation";
 
@@ -147,9 +173,10 @@ export function generateCodeSnippet(
         "import androidx.compose.ui.unit.dp",
         "import androidx.compose.ui.unit.sp",
       ].join("\n");
-      const body = nodes.map((n) => nodeToCompose(n, 1)).join("\n\n");
+      const body = nodes.map((n) => nodeToCompose(n, 1, context)).join("\n\n");
       return `${imports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
+
 
     case "react": {
       const body = nodes.map((n) => nodeToReact(n, 2)).join("\n\n");

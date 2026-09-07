@@ -148,12 +148,15 @@ try {
   assert(blueprintLines[1].includes("Inter"));
 
   // 9. Code Snippet Generator (Compose, React, HTML)
-  const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen");
+  const codeContext = {
+    components: [{ name: "Header", path: "ui/components/Header.kt" }],
+    colorTokens: [{ hex: "#2878F0", token: "PrimaryBlue", sourceFile: "Color.kt" }],
+  };
+  const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen", codeContext);
   assert(composeCode.includes("import androidx.compose.runtime.Composable"));
   assert(composeCode.includes("fun CheckoutScreen()"));
-  assert(composeCode.includes("fontWeight = FontWeight.SemiBold"));
-  assert(composeCode.includes("Text("));
-  assert(composeCode.includes('"Checkout"'));
+  assert(composeCode.includes("Reusing discovered component: ui/components/Header.kt"));
+  assert(composeCode.includes("Header()"));
 
   const reactCode = generateCodeSnippet(treeNodes, "react", "CheckoutScreen");
   assert(reactCode.includes("export function CheckoutScreen()"));

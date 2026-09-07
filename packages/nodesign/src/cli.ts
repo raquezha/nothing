@@ -5,7 +5,7 @@ import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
 import { formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
-import { inspectAndroidProject } from "./android.js";
+import { inspectAndroidProject, scanColorTokens } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
@@ -313,13 +313,16 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
 
           const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
           const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
+          const inspection = inspectAndroidProject(args.path || process.cwd());
+          const colorTokens = scanColorTokens(args.path || process.cwd());
+          const codeContext = { components: inspection.components, colorTokens };
 
           if (args.json) {
             console.log(JSON.stringify({
               ...parsed,
               ...(zeplin ? { zeplin } : {}),
               ...(figma ? { figma } : {}),
-              ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName) } : {}),
+              ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
             }, null, 2));
           } else if (args.markdown) {
             console.log(`# Extracted Design: ${screenName}\n`);
@@ -333,7 +336,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             if (args.code) {
               console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName));
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
               console.log("```");
             }
           } else {
@@ -392,7 +395,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             if (args.code && hierarchy.length) {
               console.log(`\nGenerated Code (${args.code}):`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName));
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
             }
           }
           return;
