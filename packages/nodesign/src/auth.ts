@@ -78,7 +78,7 @@ function getFromKeychain(provider: CredentialProvider): string | undefined {
     try {
       const pWord = ["pass", "word"].join("");
       const secCmd = ["security", `find-generic-${pWord}`, "-s", "nodesign", "-a", provider, "-w"].join(" ");
-      const out = execSync(secCmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      const out = execSync(secCmd, { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -89,7 +89,7 @@ function getFromKeychain(provider: CredentialProvider): string | undefined {
     try {
       const stTool = ["secret", "tool"].join("-");
       const stCmd = [stTool, "lookup", "service", "nodesign", "key", provider].join(" ");
-      const out = execSync(stCmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      const out = execSync(stCmd, { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -98,6 +98,7 @@ function getFromKeychain(provider: CredentialProvider): string | undefined {
 
   return undefined;
 }
+
 
 function configFilePath(): string {
   return path.join(homedir(), ".config", "nodesign", "config.json");
@@ -179,7 +180,7 @@ export function storeCredential(
       const escaped = token.replace(/"/g, '\\"');
       const pWord = ["pass", "word"].join("");
       const secCmd = ["security", `add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", `"${escaped}"`].join(" ");
-      execSync(secCmd, { stdio: "ignore" });
+      execSync(secCmd, { timeout: 5000, stdio: "ignore" });
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -188,7 +189,7 @@ export function storeCredential(
     try {
       const stTool = ["secret", "tool"].join("-");
       const stCmd = [stTool, "store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider].join(" ");
-      execSync(stCmd, { input: token, stdio: ["pipe", "ignore", "ignore"] });
+      execSync(stCmd, { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -206,7 +207,7 @@ export function deleteCredential(provider: CredentialProvider): boolean {
     try {
       const pWord = ["pass", "word"].join("");
       const secCmd = ["security", `delete-generic-${pWord}`, "-s", "nodesign", "-a", provider].join(" ");
-      execSync(secCmd, { stdio: "ignore" });
+      execSync(secCmd, { timeout: 5000, stdio: "ignore" });
       cleared = true;
     } catch {}
   }
@@ -215,10 +216,11 @@ export function deleteCredential(provider: CredentialProvider): boolean {
     try {
       const stTool = ["secret", "tool"].join("-");
       const stCmd = [stTool, "clear", "service", "nodesign", "key", provider].join(" ");
-      execSync(stCmd, { stdio: "ignore" });
+      execSync(stCmd, { timeout: 5000, stdio: "ignore" });
       cleared = true;
     } catch {}
   }
+
 
   const file = configFilePath();
   if (existsSync(file)) {
