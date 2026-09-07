@@ -105,7 +105,19 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   }
 
   for (const file of files) {
+    if (file.endsWith(".figma.kt") || file.endsWith(".figma.ts")) {
+      const text = readText(file);
+      const pkgMatch = text.match(/^package\s+([a-zA-Z0-9_.]+)/m);
+      const packageName = pkgMatch ? pkgMatch[1] : undefined;
+      const figmaConnectMatches = text.matchAll(/figma\.connect\(\s*([a-zA-Z0-9_]+)/g);
+      for (const m of figmaConnectMatches) {
+        const compName = m[1];
+        addFact("#000000", compName, file, packageName);
+      }
+    }
+
     if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
+
       const text = readText(file);
       const matches = text.matchAll(/<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi);
       for (const m of matches) {
