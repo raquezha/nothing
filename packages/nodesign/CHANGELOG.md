@@ -1,5 +1,15 @@
 # @raquezha/nodesign
 
+## 0.1.3
+
+### Patch Changes
+
+- 80f148b: Synchronize `.env` and `~/.pi-secrets/.env` credential entries on `nodesign auth login` and `logout` to prevent stale `.env` files from shadowing new stored tokens.
+- 0f5a72c: Support positional provider and token arguments for `nodesign auth login` (e.g. `nodesign auth login zeplin <token>`).
+- 6e5f8be: Disambiguate Zeplin 404 screen responses by validating token identity against /v1/users/me, returning AUTH_REJECTED (TOKEN_INVALID) when credentials are invalid.
+- 67d1c22: Support Zeplin project dashboard URLs (app.zeplin.io/project/<projectId>/dashboard) and fallback project screens extraction in nodesign.
+- 0cbc30f: Resolve Zeplin shortlinks (zpl.io/<code) to canonical screenId via HTTP redirect resolution, preventing false 404 DESIGN_NOT_FOUND errors.
+
 ## 0.1.2
 
 ### Patch Changes
