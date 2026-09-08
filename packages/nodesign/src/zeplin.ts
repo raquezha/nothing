@@ -119,6 +119,30 @@ export function parseZeplinScreenId(urlOrId: string): string {
 }
 
 
+export async function resolveZeplinShortlink(
+  url: string,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<string | undefined> {
+  const cleanUrl = url.trim().replace(/[.,;)\]>]+$/, "");
+  if (!cleanUrl.startsWith("http")) return undefined;
+
+  try {
+    const res = await fetchFn(cleanUrl, { method: "HEAD", redirect: "manual" });
+    const location = res.headers?.get?.("location") || res.headers?.get?.("Location");
+    if (location) {
+      const expanded = parseZeplinScreenId(location);
+      if (expanded && expanded !== cleanUrl && expanded.length > 5) return expanded;
+    }
+
+    const getRes = await fetchFn(cleanUrl, { redirect: "follow" });
+    if (getRes.url && getRes.url !== cleanUrl) {
+      const expanded = parseZeplinScreenId(getRes.url);
+      if (expanded && expanded !== cleanUrl && expanded.length > 5) return expanded;
+    }
+  } catch {}
+  return undefined;
+}
+
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
@@ -261,7 +285,16 @@ export async function resolveZeplinScreen(
   outputDir?: string,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<ZeplinResolutionResult> {
-  const screenId = parseZeplinScreenId(screenUrlOrId);
+  let screenId = parseZeplinScreenId(screenUrlOrId);
+
+  if (!/^[0-9a-fA-F]{24}$/.test(screenId) && (screenUrlOrId.includes("zpl.io") || screenUrlOrId.startsWith("http"))) {
+    const targetUrl = screenUrlOrId.startsWith("http") ? screenUrlOrId : `https://zpl.io/${screenId}`;
+    const expandedId = await resolveZeplinShortlink(targetUrl, fetchFn);
+    if (expandedId) {
+      screenId = expandedId;
+    }
+  }
+
   const authToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
 
   if (!authToken) {

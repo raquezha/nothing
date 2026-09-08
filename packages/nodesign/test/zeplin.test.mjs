@@ -131,6 +131,30 @@ try {
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');
 
+  // 6. Shortlink Resolution
+  const mockShortlinkFetch = async (url, options) => {
+    if (url === "https://zpl.io/bo6k54G") {
+      return {
+        status: 302,
+        ok: false,
+        headers: new Map([["location", "https://app.zeplin.io/project/5cdb/screen/5da6855838d13af07b398623"]]),
+      };
+    }
+    if (url.includes("/screens/5da6855838d13af07b398623")) {
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({ id: "5da6855838d13af07b398623", name: "Expanded Shortlink Screen" }),
+      };
+    }
+    return { status: 404, ok: false };
+  };
+
+  const resShortlink = await resolveZeplinScreen("https://zpl.io/bo6k54G", "dummy-token", undefined, mockShortlinkFetch);
+  assert.equal(resShortlink.status, "SUCCESS");
+  assert.equal(resShortlink.screenId, "5da6855838d13af07b398623");
+  assert.equal(resShortlink.name, "Expanded Shortlink Screen");
+
   console.log("nodesign zeplin test ok");
 } finally {
   for (const d of tempDirs) rmSync(d, { recursive: true, force: true });

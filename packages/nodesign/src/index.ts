@@ -31,7 +31,7 @@ export type {
 export { inspectAndroidProject, detectAndroidUIStack, scanUiComponents } from "./android.js";
 export { formatDesignBrief, formatTreeBlueprint, formatAgentDirective, parseDesignLink, determineEvidenceStatus } from "./brief.js";
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
-export { resolveZeplinScreen, parseZeplinScreenId, rgbToHex } from "./zeplin.js";
+export { resolveZeplinScreen, parseZeplinScreenId, resolveZeplinShortlink, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
 export { resolveCredential, resolveCredentials, storeCredential, validateCredential, deleteCredential } from "./auth.js";
 export { checkUpdateNotice } from "./update.js";
