@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { resolveCredentials, fetchWithRateLimitRetry } from "./auth.js";
+import { resolveCredentials, validateCredential, fetchWithRateLimitRetry } from "./auth.js";
 import type { ProviderStatus, VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";
 
@@ -328,6 +328,10 @@ export async function resolveZeplinScreen(
       return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), screenId, note: "Zeplin access denied (403 forbidden)" };
     }
     if (res.status === 404) {
+      const validity = await validateCredential("zeplin", authToken, fetchFn);
+      if (validity === "invalid") {
+        return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
+      }
       return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), screenId, note: `Zeplin screen or component ${screenId} not found (404)` };
     }
     if (res.status === 429) {
