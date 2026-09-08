@@ -8,17 +8,34 @@ It also powers deterministic design preflight for `norpiv` workflows (`nodesign 
 
 ---
 
-## Installation
+## Installation & Setup
 
-### Instant Execution (No install required)
+### 1. Authentication for Private Files
+Most company Figma files and Zeplin screens are private and require a Personal Access Token (PAT). Run authentication once to save your credentials securely:
+
 ```bash
+# Interactive setup (stores token securely in OS Keychain / Secret Service / User config)
+npx @raquezha/nodesign auth login
+
+# Or pass tokens directly via environment variables:
+export FIGMA_TOKEN="figd_xxx"
+export ZEPLIN_TOKEN="zpl_xxx"
+```
+
+### 2. Execution
+
+#### Instant Execution (No global install required)
+```bash
+# Uses credentials saved during `auth login` or env variables automatically:
 npx @raquezha/nodesign extract "<design-url>"
 ```
 
-### Global Install (Recommended for CLI & AI Agents)
+#### Global CLI Install (Recommended for AI Agents & Terminal Devs)
 ```bash
 npm install -g @raquezha/nodesign
 ```
+
+> **Note on Private Files:** `nodesign` automatically resolves credentials from `process.env`, local `.env`, `~/.pi-secrets/.env`, OS Keychain (macOS / Linux), or `~/.config/nodesign/config.json`. If no token is found for a private file, `nodesign` returns a clear `AUTH_REQUIRED` status.
 
 ---
 
