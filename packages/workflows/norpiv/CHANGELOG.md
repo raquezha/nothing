@@ -1,5 +1,16 @@
 # @raquezha/norpiv
 
+## 0.3.8
+
+### Patch Changes
+
+- 4b81a23: Add standalone auth login and status flows for nodesign, with credential source resolution from cwd .env, pi-secrets, OS keychain, and config-file fallback.
+
+  Connect norpiv planning preflight to nodesign as a package dependency, with documented npx fallback.
+
+- Updated dependencies [4b81a23]
+  - @raquezha/nodesign@0.1.1
+
 ## 0.3.7
 
 ### Patch Changes
