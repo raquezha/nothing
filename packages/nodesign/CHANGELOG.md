@@ -1,5 +1,13 @@
 # @raquezha/nodesign
 
+## 0.1.4
+
+### Patch Changes
+
+- 80f808e: Redesign `nodesign auth login` TUI with `@clack/prompts`-inspired layout, clean step indicators, and interactive radio selector.
+- 16a9405: Clean raw quotes and Bearer prefixes from PAT tokens and pass dual Zeplin-Access-Token and Authorization headers.
+- 8768ed8: Add zero-dependency interactive TUI arrow selection menu and boxed guidance cards for `nodesign auth login`.
+
 ## 0.1.3
 
 ### Patch Changes
