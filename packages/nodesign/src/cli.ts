@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { createInterface } from "node:readline/promises";
+import readline, { createInterface } from "node:readline";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
@@ -225,31 +225,121 @@ async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetc
   return results;
 }
 
+async function selectMenu(
+  title: string,
+  options: Array<{ label: string; value: "figma" | "zeplin"; hint?: string }>,
+): Promise<"figma" | "zeplin"> {
+  if (!process.stdin.isTTY) {
+    console.log(`${title}:`);
+    options.forEach((opt, idx) => console.log(`  ${idx + 1}) ${opt.label}${opt.hint ? ` (${opt.hint})` : ""}`));
+    const rl = createInterface({ input, output });
+    try {
+      const ans = await new Promise<string>((res) => rl.question("Choice (1-2): ", res));
+      const num = parseInt(ans.trim(), 10);
+      if (num >= 1 && num <= options.length) return options[num - 1].value;
+      return options[0].value;
+    } finally {
+      rl.close();
+    }
+  }
+
+  let selectedIndex = 0;
+  readline.emitKeypressEvents(input);
+  if (process.stdin.setRawMode) process.stdin.setRawMode(true);
+
+  const render = () => {
+    output.write("\x1b[?25l");
+    output.write(`\x1b[1m\x1b[36m? ${title}\x1b[0m \x1b[90m(Use arrow keys or 1-${options.length}, Enter to confirm)\x1b[0m\n`);
+    options.forEach((opt, idx) => {
+      const isSelected = idx === selectedIndex;
+      const pointer = isSelected ? "\x1b[36m❯\x1b[0m" : " ";
+      const labelStr = isSelected ? `\x1b[1m\x1b[36m${opt.label}\x1b[0m` : opt.label;
+      const hintStr = opt.hint ? ` \x1b[90m— ${opt.hint}\x1b[0m` : "";
+      output.write(`  ${pointer} ${labelStr}${hintStr}\n`);
+    });
+  };
+
+  const clear = () => {
+    const totalLines = options.length + 1;
+    output.write(`\x1b[${totalLines}A\x1b[J`);
+  };
+
+  render();
+
+  return new Promise((resolve) => {
+    const onKeypress = (str: string, key: readline.Key) => {
+      if (key && key.ctrl && key.name === "c") {
+        output.write("\x1b[?25h\n");
+        process.exit(1);
+      }
+
+      if (key && (key.name === "up" || key.name === "k")) {
+        selectedIndex = (selectedIndex - 1 + options.length) % options.length;
+        clear();
+        render();
+      } else if (key && (key.name === "down" || key.name === "j")) {
+        selectedIndex = (selectedIndex + 1) % options.length;
+        clear();
+        render();
+      } else if (key && (key.name === "return" || key.name === "enter" || key.name === "space")) {
+        cleanup();
+        clear();
+        output.write(`\x1b[1m\x1b[36m? ${title}\x1b[0m \x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
+        resolve(options[selectedIndex].value);
+      } else if (str && /^[1-9]$/.test(str)) {
+        const num = parseInt(str, 10) - 1;
+        if (num >= 0 && num < options.length) {
+          selectedIndex = num;
+          cleanup();
+          clear();
+          output.write(`\x1b[1m\x1b[36m? ${title}\x1b[0m \x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
+          resolve(options[selectedIndex].value);
+        }
+      }
+    };
+
+    const cleanup = () => {
+      output.write("\x1b[?25h");
+      if (process.stdin.setRawMode) process.stdin.setRawMode(false);
+      input.removeListener("keypress", onKeypress);
+    };
+
+    input.on("keypress", onKeypress);
+  });
+}
+
 async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zeplin"; token: string }> {
-  if (args.provider && args.token) return { provider: args.provider, token: args.token };
+  let provider = args.provider;
+  if (!provider) {
+    provider = await selectMenu("Select auth provider", [
+      { label: "Figma", value: "figma", hint: "Personal Access Token (files:read)" },
+      { label: "Zeplin", value: "zeplin", hint: "Personal Access Token (Developer Settings)" },
+    ]);
+  }
+
+  if (provider === "figma") {
+    console.log("\n┌─────────────────────────────────────────────────────────────┐");
+    console.log("│ \x1b[1m\x1b[36m📌 How to get a Figma PAT:\x1b[0m                                   │");
+    console.log("│ 1. Log in to Figma -> Profile Avatar -> \x1b[1mSettings\x1b[0m            │");
+    console.log("│ 2. Scroll to \x1b[1mPersonal access tokens\x1b[0m -> \x1b[1mGenerate new token\x1b[0m │");
+    console.log("│ 3. Select Scope: \x1b[32mfiles:read\x1b[0m                                │");
+    console.log("└─────────────────────────────────────────────────────────────┘\n");
+  } else {
+    console.log("\n┌─────────────────────────────────────────────────────────────┐");
+    console.log("│ \x1b[1m\x1b[36m📌 How to get a Zeplin Personal Token:\x1b[0m                      │");
+    console.log("│ 1. Log in to Zeplin -> Avatar -> \x1b[1mDeveloper Settings\x1b[0m         │");
+    console.log("│ 2. Click \x1b[1mCreate Personal Access Token\x1b[0m                       │");
+    console.log("└─────────────────────────────────────────────────────────────┘\n");
+  }
+
+  if (args.token) return { provider, token: args.token };
 
   const rl = createInterface({ input, output });
   try {
-    let provider = args.provider;
-    if (!provider) {
-      const answer = (await rl.question("Provider (figma/zeplin): ")).trim().toLowerCase();
-      provider = parseProvider(answer);
-    }
-
-    if (provider === "figma") {
-      console.log("How to get a Figma PAT:");
-      console.log("1. Log in to Figma -> Settings");
-      console.log("2. Personal access tokens -> Generate new token");
-      console.log("3. Scope: files:read");
-    } else {
-      console.log("How to get a Zeplin Personal Token:");
-      console.log("1. Log in to Zeplin -> Developer Settings");
-      console.log("2. Create Personal Access Token");
-    }
-
-    const token = (args.token || await rl.question("Paste token: ")).trim();
-    if (!token) fail("Token cannot be empty");
-    return { provider, token };
+    const token = await new Promise<string>((res) => rl.question("\x1b[1m\x1b[36m? Enter Personal Access Token (PAT):\x1b[0m ", res));
+    const trimmed = token.trim();
+    if (!trimmed) fail("Token cannot be empty");
+    return { provider, token: trimmed };
   } finally {
     rl.close();
   }
