@@ -477,6 +477,9 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               }
               if (zeplin.renderedImage) console.log(`Rendered Image: ${zeplin.renderedImage}`);
               if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
+              if (zeplin.suggestedScreens?.length) {
+                console.log(`Suggested Screens: ${zeplin.suggestedScreens.join(", ")}`);
+              }
               if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
             }
             if (figma) {

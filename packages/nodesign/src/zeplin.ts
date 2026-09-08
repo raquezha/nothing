@@ -85,6 +85,7 @@ export interface ZeplinResolutionResult {
   renderedImage?: string;
   rendering?: RenderResult;
   visualAnalysis?: VisualAnalysis;
+  suggestedScreens?: string[];
   note?: string;
 }
 
@@ -130,6 +131,32 @@ export function parseZeplinScreenId(urlOrId: string): string {
   return clean;
 }
 
+
+async function fetchSuggestedZeplinScreens(
+  authToken: string,
+  fetchFn: typeof fetch,
+): Promise<string[]> {
+  try {
+    const zHeaders = { "Zeplin-Access-Token": authToken, Authorization: `Bearer ${authToken}` };
+    const projRes = await fetchFn("https://api.zeplin.dev/v1/projects", { headers: zHeaders });
+    if (!projRes.ok) return [];
+    const projects = (await projRes.json()) as any[];
+    const candidates: string[] = [];
+
+    for (const proj of (projects || []).slice(0, 3)) {
+      const screensRes = await fetchFn(`https://api.zeplin.dev/v1/projects/${proj.id}/screens?limit=5`, { headers: zHeaders });
+      if (screensRes.ok) {
+        const screens = (await screensRes.json()) as any[];
+        for (const s of screens || []) {
+          candidates.push(`${s.name} (${s.id})`);
+        }
+      }
+    }
+    return candidates.slice(0, 10);
+  } catch {
+    return [];
+  }
+}
 
 export async function resolveZeplinShortlink(
   url: string,
@@ -383,7 +410,16 @@ export async function resolveZeplinScreen(
       if (validity === "invalid") {
         return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
       }
-      return { status: "DESIGN_NOT_FOUND", normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"), screenId, note: `Zeplin screen or component ${screenId} not found (404)` };
+      const suggestedScreens = await fetchSuggestedZeplinScreens(authToken, fetchFn);
+      return {
+        status: "DESIGN_NOT_FOUND",
+        normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
+        screenId,
+        suggestedScreens: suggestedScreens.length ? suggestedScreens : undefined,
+        note: suggestedScreens.length
+          ? `Zeplin screen or component ${screenId} not found (404). Active screens in your Zeplin projects: ${suggestedScreens.join(", ")}`
+          : `Zeplin screen or component ${screenId} not found (404)`,
+      };
     }
     if (res.status === 429) {
       return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), screenId, note: "Zeplin API rate limit exceeded (429)" };
