@@ -8,6 +8,20 @@ It also powers deterministic design preflight for `norpiv` workflows (`nodesign 
 
 ---
 
+## Installation
+
+### Instant Execution (No install required)
+```bash
+npx @raquezha/nodesign extract "<design-url>"
+```
+
+### Global Install (Recommended for CLI & AI Agents)
+```bash
+npm install -g @raquezha/nodesign
+```
+
+---
+
 ## Quick Start
 
 ### 1. Authenticate
