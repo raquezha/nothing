@@ -10,7 +10,7 @@ import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } f
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
 import { checkUpdateNotice } from "./update.js";
-import { deleteCredential, resolveCredential, resolveCredentials, storeCredential, validateCredential } from "./auth.js";
+import { deleteCredential, resolveCredential, storeCredential, validateCredential } from "./auth.js";
 
 import { generateCodeSnippet } from "./code.js";
 
@@ -25,8 +25,8 @@ const VERSION = getVersion();
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
-  nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>]
-  nodesign extract   [--json] [--markdown] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
+  nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
+  nodesign extract   [--json] [--markdown] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
   nodesign auth login [--provider figma|zeplin] [--token <pat>]
   nodesign auth logout [--provider figma|zeplin]
   nodesign auth status
@@ -45,6 +45,8 @@ Options:
   --markdown    Output clean markdown context
   --code        Generate starter code (compose, react, html)
   --find        Find canvas frame/node by name in Figma file
+  --render      Download rendered design image(s)
+  --out         Output directory for rendered assets
   --path        Project root to inspect (default: cwd)
   --task        Task identifier for the brief
   --url         Design URL (Figma, Zeplin)
@@ -162,6 +164,8 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (arg === "--out") {
       result.out = requireValue(args, i, "--out");
       i += 1;
+    } else if (result.command === "extract" && !result.url && !arg.startsWith("-")) {
+      result.url = arg;
     } else {
       fail(`Unknown argument: ${arg}`);
     }
@@ -191,9 +195,7 @@ function findWorkflowTaskPath(startDir: string): string | undefined {
   }
 }
 
-async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
-  const taskPath = findWorkflowTaskPath(process.cwd());
-  const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
+async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
   const results = [];
 
   for (const link of designLinks) {
@@ -204,9 +206,7 @@ async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fet
   return results;
 }
 
-async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
-  const taskPath = findWorkflowTaskPath(process.cwd());
-  const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
+async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
   const results = [];
 
   for (const link of designLinks) {
@@ -300,7 +300,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           const parsed = parseDesignLink(args.url);
           const taskPath = findWorkflowTaskPath(process.cwd());
           const defaultDir = taskPath ? path.join(taskPath, "evidence") : path.resolve(process.cwd(), "design-renders");
-          const outputDir = args.out ? path.resolve(args.out) : (args.render || taskPath) ? defaultDir : undefined;
+          const outputDir = args.out ? path.resolve(args.out) : args.render ? defaultDir : undefined;
           const zeplin = parsed.link.provider === "zeplin"
             ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
             : undefined;
@@ -467,12 +467,14 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
           }
 
-          const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn);
+          const renderDir = args.out ? path.resolve(args.out) : args.render && taskPath ? path.join(taskPath, "evidence") : undefined;
+
+          const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn, renderDir);
           for (const screen of resolvedScreens) {
             if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
           }
 
-          const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn);
+          const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn, renderDir);
           for (const fig of resolvedFigma) {
             if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
           }

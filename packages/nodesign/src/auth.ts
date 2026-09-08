@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -77,8 +77,7 @@ function getFromKeychain(provider: CredentialProvider): string | undefined {
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
-      const secCmd = ["security", `find-generic-${pWord}`, "-s", "nodesign", "-a", provider, "-w"].join(" ");
-      const out = execSync(secCmd, { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
+      const out = execFileSync("security", [`find-generic-${pWord}`, "-s", "nodesign", "-a", provider, "-w"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -88,8 +87,7 @@ function getFromKeychain(provider: CredentialProvider): string | undefined {
   if (process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      const stCmd = [stTool, "lookup", "service", "nodesign", "key", provider].join(" ");
-      const out = execSync(stCmd, { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
+      const out = execFileSync(stTool, ["lookup", "service", "nodesign", "key", provider], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -177,10 +175,8 @@ export function storeCredential(
 ): StoreCredentialResult {
   if (!options.preferFile && process.platform === "darwin") {
     try {
-      const escaped = token.replace(/"/g, '\\"');
       const pWord = ["pass", "word"].join("");
-      const secCmd = ["security", `add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", `"${escaped}"`].join(" ");
-      execSync(secCmd, { timeout: 5000, stdio: "ignore" });
+      execFileSync("security", [`add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", token], { timeout: 5000, stdio: "ignore" });
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -188,8 +184,7 @@ export function storeCredential(
   if (!options.preferFile && process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      const stCmd = [stTool, "store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider].join(" ");
-      execSync(stCmd, { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
+      execFileSync(stTool, ["store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider], { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -206,8 +201,7 @@ export function deleteCredential(provider: CredentialProvider): boolean {
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
-      const secCmd = ["security", `delete-generic-${pWord}`, "-s", "nodesign", "-a", provider].join(" ");
-      execSync(secCmd, { timeout: 5000, stdio: "ignore" });
+      execFileSync("security", [`delete-generic-${pWord}`, "-s", "nodesign", "-a", provider], { timeout: 5000, stdio: "ignore" });
       cleared = true;
     } catch {}
   }
@@ -215,8 +209,7 @@ export function deleteCredential(provider: CredentialProvider): boolean {
   if (process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      const stCmd = [stTool, "clear", "service", "nodesign", "key", provider].join(" ");
-      execSync(stCmd, { timeout: 5000, stdio: "ignore" });
+      execFileSync(stTool, ["clear", "service", "nodesign", "key", provider], { timeout: 5000, stdio: "ignore" });
       cleared = true;
     } catch {}
   }

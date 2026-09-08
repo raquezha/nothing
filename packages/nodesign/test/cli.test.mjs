@@ -122,6 +122,60 @@ try {
   assert.match(logs.join("\n"), /"resolvedScreens":/);
   assert.match(logs.join("\n"), /"name": "Reports Screen"/);
 
+  const figmaRepo = mkdtempSync(path.join(tmpdir(), "nodesign-figma-repo-"));
+  mkdirSync(path.join(figmaRepo, ".workflow", "tasks", "github-100", "evidence"), { recursive: true });
+  writeFileSync(
+    path.join(figmaRepo, ".workflow", "active.json"),
+    JSON.stringify({ taskPath: ".workflow/tasks/github-100" }),
+  );
+  mkdirSync(path.join(figmaRepo, "app"), { recursive: true });
+
+  const figmaCalls = [];
+  const mockFigmaFetch = async (url) => {
+    figmaCalls.push(String(url));
+    return {
+      status: 200,
+      ok: true,
+      statusText: "OK",
+      json: async () => ({
+        name: "File Title",
+        nodes: {
+          "1:2": {
+            document: {
+              id: "1:2",
+              name: "Checkout Frame",
+              absoluteBoundingBox: { width: 360, height: 640 },
+              children: [{ name: "Header", type: "TEXT", characters: "Checkout" }],
+            },
+          },
+        },
+      }),
+      text: async () => "ok",
+      arrayBuffer: async () => Buffer.from("png"),
+    };
+  };
+
+  const oldFigmaToken = process.env.FIGMA_TOKEN;
+  const oldFigmaCwd = process.cwd();
+  const oldFigmaLog = console.log;
+  const figmaLogs = [];
+  process.env.FIGMA_TOKEN = "dummy-token";
+  console.log = (...args) => figmaLogs.push(args.join(" "));
+  process.chdir(figmaRepo);
+  runCli(
+    ["node", "nodesign", "extract", "https://www.figma.com/design/KEY/Title?node-id=1-2", "--json"],
+    { fetchFn: mockFigmaFetch },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  console.log = oldFigmaLog;
+  process.chdir(oldFigmaCwd);
+  if (oldFigmaToken === undefined) delete process.env.FIGMA_TOKEN;
+  else process.env.FIGMA_TOKEN = oldFigmaToken;
+  rmSync(figmaRepo, { recursive: true, force: true });
+
+  assert.match(figmaLogs.join("\n"), /"name": "Checkout Frame"/);
+  assert(!figmaCalls.some((url) => url.includes("/v1/images/")), "extract without --render should not fetch rendered images");
+
   console.log("nodesign cli test ok");
 } finally {
   rmSync(root, { recursive: true, force: true });

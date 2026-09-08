@@ -109,9 +109,17 @@ export function verifyUiFidelity(
   const reusedTokens: string[] = [];
 
   // 1. Check Component Reuse
-  const expectedComponents = extractedHierarchy
-    .map((node) => typeof node.name === "string" ? node.name.replace(/[^a-zA-Z0-9]/g, "") : "")
-    .filter((n) => n.length > 2 && !["Row", "Column", "Box", "Container", "Frame"].includes(n));
+  const expectedComponents: string[] = [];
+  const collectComponents = (nodes: any[]): void => {
+    for (const node of nodes || []) {
+      const name = typeof node.name === "string" ? node.name.replace(/[^a-zA-Z0-9]/g, "") : "";
+      if (name.length > 2 && !["Row", "Column", "Box", "Container", "Frame"].includes(name)) {
+        expectedComponents.push(name);
+      }
+      if (Array.isArray(node.children)) collectComponents(node.children);
+    }
+  };
+  collectComponents(extractedHierarchy);
 
   for (const comp of expectedComponents) {
     const reg = new RegExp(`\\b${comp}\\b`, "i");
@@ -129,8 +137,9 @@ export function verifyUiFidelity(
   }
 
   // 3. Compute Fidelity Score
-  const totalCompCheck = expectedComponents.length || 1;
-  const compScore = (reusedComponents.length / totalCompCheck) * 100;
+  const compScore = expectedComponents.length === 0
+    ? 100
+    : (reusedComponents.length / expectedComponents.length) * 100;
   const hexPenalty = Math.min(40, rawHexLeaks.length * 10);
   const fidelityScore = Math.max(0, Math.round(compScore - hexPenalty));
   const passed = fidelityScore >= 80 && missingComponents.length === 0;

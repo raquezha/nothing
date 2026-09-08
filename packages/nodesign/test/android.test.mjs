@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { detectAndroidUIStack, inspectAndroidProject } from "../dist/android.js";
+import { detectAndroidUIStack, inspectAndroidProject, scanColorTokens } from "../dist/android.js";
 
 function makeProject(name, files) {
   const root = mkdtempSync(path.join(tmpdir(), `nodesign-${name}-`));
@@ -98,6 +98,15 @@ try {
   roots.push(withConfig);
   const cfgInspected = inspectAndroidProject(withConfig);
   assert(cfgInspected.components.some((c) => c.name === "CustomHeader"));
+
+  const codeConnect = makeProject("code-connect", {
+    "ui/components/PrimaryButton.kt": "@Composable fun PrimaryButton() {}",
+    "ui/components/PrimaryButton.figma.kt": "package com.app.ui.components\nfigma.connect(PrimaryButton)",
+  });
+  roots.push(codeConnect);
+  const codeConnectInspected = inspectAndroidProject(codeConnect);
+  assert(codeConnectInspected.components.some((c) => c.name === "PrimaryButton"));
+  assert(!scanColorTokens(codeConnect).some((c) => c.token === "PrimaryButton"));
 
   const customCleanArch = makeProject("custom-clean-arch", {
     "app/src/main/kotlin/com/app/checkout/GetCheckoutUseCase.kt": "class GetCheckoutUseCase",

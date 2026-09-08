@@ -169,6 +169,11 @@ try {
   assert(htmlCode.includes("<div class=\"checkoutscreen\">"));
   assert(htmlCode.includes("Checkout</span>"));
 
+  const escapedHtml = generateCodeSnippet([{ name: "Title", text: "<Checkout & Pay>" }], "html", "EscapedScreen");
+  assert(escapedHtml.includes("&lt;Checkout &amp; Pay&gt;"));
+  const composeWithoutFont = generateCodeSnippet([{ name: "Title", text: "Checkout" }], "compose", "PlainScreen");
+  assert(!composeWithoutFont.includes("TextUnit.Unspecified"));
+
   // 10. Agent Directive Contract
   const directive = formatAgentDirective("CheckoutScreen");
   assert(directive.includes("STRICT AI AGENT DIRECTIVE"));

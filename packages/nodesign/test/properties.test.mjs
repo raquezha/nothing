@@ -134,4 +134,12 @@ assert.equal(fidelityReport.passed, true);
 assert.equal(fidelityReport.fidelityScore, 100);
 assert.equal(fidelityReport.componentReuseCompliance.reusedComponents.length, 2);
 
+const nestedFidelityReport = verifyUiFidelity([{ name: "Frame", children: [{ name: "NestedButton" }] }], [], "NestedButton()");
+assert.equal(nestedFidelityReport.passed, true);
+assert.equal(nestedFidelityReport.componentReuseCompliance.reusedComponents.length, 1);
+
+const emptyFidelityReport = verifyUiFidelity([], [], "@Composable fun Empty() {}");
+assert.equal(emptyFidelityReport.passed, true);
+assert.equal(emptyFidelityReport.fidelityScore, 100);
+
 console.log("properties verification suite test ok");

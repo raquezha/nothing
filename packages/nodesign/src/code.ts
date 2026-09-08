@@ -40,6 +40,13 @@ function escapeString(val: string): string {
   return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 }
 
+function escapeHtml(val: string): string {
+  return val
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function toFontWeight(weight?: number | string): string | undefined {
   if (!weight) return undefined;
   if (weight === 700 || weight === "700" || weight === "bold" || weight === "BOLD") return "FontWeight.Bold";
@@ -79,11 +86,11 @@ function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeConte
   }
 
   if (node.text) {
-    const fontSize = node.font?.fontSize ? `${node.font.fontSize}.sp` : "TextUnit.Unspecified";
+    const fontSizeLine = node.font?.fontSize ? `,\n${pad}    fontSize = ${node.font.fontSize}.sp` : "";
     const fontWeight = toFontWeight(node.font?.fontWeight);
     const color = toComposeColor(node.color, context?.colorTokens);
     const weightLine = fontWeight ? `,\n${pad}    fontWeight = ${fontWeight}` : "";
-    return `${pad}// ${name}\n${pad}Text(\n${pad}    text = "${escapeString(node.text)}",\n${pad}    fontSize = ${fontSize}${weightLine},\n${pad}    color = ${color}\n${pad})`;
+    return `${pad}// ${name}\n${pad}Text(\n${pad}    text = "${escapeString(node.text)}"${fontSizeLine}${weightLine},\n${pad}    color = ${color}\n${pad})`;
   }
 
   const isRow = node.layout?.direction === "ROW" || node.layout?.direction === "HORIZONTAL";
@@ -119,7 +126,7 @@ function nodeToReact(node: UnifiedNode, indent = 1): string {
   if (node.text) {
     const fontStyle = node.font?.fontSize ? ` text-[${node.font.fontSize}px]` : "";
     const colorStyle = node.color ? ` style={{ color: '${node.color}' }}` : "";
-    return `${pad}<span className="${fontStyle.trim()}"${colorStyle}>${node.text}</span>`;
+    return `${pad}<span className="${fontStyle.trim()}"${colorStyle}>${escapeHtml(node.text)}</span>`;
   }
 
   const inner = children.map((c: UnifiedNode) => nodeToReact(c, indent + 1)).join("\n");
@@ -143,7 +150,7 @@ function nodeToHtml(node: UnifiedNode, indent = 1): string {
     if (node.font?.fontSize) fontStyles.push(`font-size: ${node.font.fontSize}px`);
     if (node.font?.fontWeight) fontStyles.push(`font-weight: ${node.font.fontWeight}`);
     if (node.color) fontStyles.push(`color: ${node.color}`);
-    return `${pad}<span style="${fontStyles.join("; ")}">${node.text}</span>`;
+    return `${pad}<span style="${fontStyles.join("; ")}">${escapeHtml(node.text)}</span>`;
   }
 
   const inner = children.map((c: UnifiedNode) => nodeToHtml(c, indent + 1)).join("\n");

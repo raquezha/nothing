@@ -1,5 +1,3 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { resolveCredentials, fetchWithRateLimitRetry } from "./auth.js";
 import type { ProviderStatus, VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";

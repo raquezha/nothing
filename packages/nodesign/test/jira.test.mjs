@@ -63,6 +63,10 @@ try {
   assert.equal(markdownLinks.length, 1);
   assert.equal(markdownLinks[0].url, "https://www.figma.com/design/KEY/Title?node-id=1-2#fragment");
 
+  const uriLinks = extractDesignLinksFromText("Open zpl://screen/AOGOKp6 for specs");
+  assert.equal(uriLinks.length, 1);
+  assert.equal(uriLinks[0].provider, "zeplin");
+
   console.log("nodesign jira test ok");
 } catch (err) {
   console.error("nodesign jira test failed:", err);

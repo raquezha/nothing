@@ -105,17 +105,6 @@ export function scanColorTokens(rootPath: string): ColorTokenFact[] {
   }
 
   for (const file of files) {
-    if (file.endsWith(".figma.kt") || file.endsWith(".figma.ts")) {
-      const text = readText(file);
-      const pkgMatch = text.match(/^package\s+([a-zA-Z0-9_.]+)/m);
-      const packageName = pkgMatch ? pkgMatch[1] : undefined;
-      const figmaConnectMatches = text.matchAll(/figma\.connect\(\s*([a-zA-Z0-9_]+)/g);
-      for (const m of figmaConnectMatches) {
-        const compName = m[1];
-        addFact("#000000", compName, file, packageName);
-      }
-    }
-
     if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
 
       const text = readText(file);
@@ -186,6 +175,23 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
   for (const file of files) {
     if (!COMPONENT_EXTENSIONS.test(file)) continue;
     const normPath = file.toLowerCase();
+    const relPath = path.relative(rootPath, file);
+    const text = readText(file);
+
+    if (file.endsWith(".figma.kt") || file.endsWith(".figma.ts")) {
+      const figmaConnectMatches = text.matchAll(/figma\.connect\(\s*([a-zA-Z0-9_]+)/g);
+      for (const m of figmaConnectMatches) {
+        const compName = m[1];
+        if (!usageMap.has(compName)) {
+          usageMap.set(compName, {
+            name: compName,
+            count: 998,
+            sampleFile: relPath,
+            sampleUsage: `figma.connect(${compName})`,
+          });
+        }
+      }
+    }
 
     // Skip non-UI files
     if (normPath.includes(`${path.sep}data${path.sep}`) ||
@@ -195,9 +201,6 @@ export function scanUsagePatternFacts(rootPath: string): ComponentFact[] {
         normPath.includes(`${path.sep}di${path.sep}`)) {
       continue;
     }
-
-    const text = readText(file);
-    const relPath = path.relative(rootPath, file);
 
     // Only scan files that contain Composable functions or UI elements
     const isUiFile = text.includes("@Composable") ||
