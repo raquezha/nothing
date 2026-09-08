@@ -27,7 +27,7 @@ const HELP = `nodesign ${VERSION} - deterministic design preflight
 Usage:
   nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
   nodesign extract   [--json] [--markdown] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
-  nodesign auth login [--provider figma|zeplin] [--token <pat>]
+  nodesign auth login [[--provider] figma|zeplin] [[--token] <pat>]
   nodesign auth logout [--provider figma|zeplin]
   nodesign auth status
   nodesign --help
@@ -159,6 +159,14 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (arg === "--token") {
       result.token = requireValue(args, i, "--token");
       i += 1;
+    } else if (result.command === "auth" && !arg.startsWith("-")) {
+      if (!result.provider && (arg.toLowerCase() === "figma" || arg.toLowerCase() === "zeplin")) {
+        result.provider = parseProvider(arg.toLowerCase());
+      } else if (!result.token) {
+        result.token = arg;
+      } else {
+        fail(`Unknown argument: ${arg}`);
+      }
     } else if (arg === "--render") {
       result.render = true;
     } else if (arg === "--out") {

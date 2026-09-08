@@ -45,6 +45,10 @@ try {
   assert.equal(result.status, 0);
   assert.match(result.stdout, /Cleared stored/);
 
+  result = run(["auth", "login", "zeplin", "zpl_test_token"]);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Saved zeplin token/);
+
   result = run(["preflight", "--path"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --path/);
