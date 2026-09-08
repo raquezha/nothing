@@ -49,5 +49,8 @@
       "post-merge-prune",
       "distill"
     ]
+  },
+  "dependencies": {
+    "@raquezha/nodesign": "^0.1.0"
   }
 }

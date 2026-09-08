@@ -315,6 +315,9 @@ function verifyPackageManifests() {
     assert(actual === wanted, actual === wanted ? `${file} declares expected pi resources` : `${file} declares expected pi resources (expected ${wanted}, got ${actual})`);
   }
 
+  const norpivPkg = JSON.parse(readFileSync(path.join(root, "packages/workflows/norpiv/package.json"), "utf8"));
+  assert(norpivPkg.dependencies?.["@raquezha/nodesign"], "norpiv declares nodesign dependency for automatic preflight");
+
   const nosearchSource = readFileSync(path.join(root, "packages/nosearch/extensions/nosearch.ts"), "utf8");
   assert(nosearchSource.includes('path.basename(moduleDir) === "dist"'), "nosearch resolves package root when loaded from dist");
 }
