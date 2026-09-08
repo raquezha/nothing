@@ -97,6 +97,11 @@ function normalizeProviderStatus(status: ZeplinErrorStatus): ProviderStatus {
   }
 }
 
+export function parseZeplinProjectId(url: string): string | undefined {
+  const match = url.match(/app\.zeplin\.io\/project\/([a-fA-F0-9]{24})/i) || url.match(/[?&]pid=([a-fA-F0-9]{24})/i);
+  return match ? match[1] : undefined;
+}
+
 export function parseZeplinScreenId(urlOrId: string): string {
   const clean = urlOrId.trim().replace(/[.,;)\]>]+$/, "");
   const sidMatch = clean.match(/[?&](?:sid|screenId|screen_id|coid|coId)=([^&?#]+)/i);
@@ -330,28 +335,38 @@ export async function resolveZeplinScreen(
       if (compRes.ok) {
         res = compRes;
       } else {
-        const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}`, {
-          headers: zHeaders,
-        }, fetchFn);
-        if (projRes.ok) {
-          const projData = (await projRes.json()) as any;
-          const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}/screens?limit=10`, {
+        const projectId = parseZeplinProjectId(screenUrlOrId) || (screenId.length === 24 ? screenId : undefined);
+        if (projectId) {
+          const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${projectId}`, {
             headers: zHeaders,
           }, fetchFn);
-          const projScreens = screensRes.ok ? ((await screensRes.json()) as any[]) : [];
-          const firstScreen = projScreens[0];
-
-          if (firstScreen) {
-            const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${firstScreen.id}`, {
+          if (projRes.ok) {
+            const projData = (await projRes.json()) as any;
+            const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${projectId}/screens?limit=20`, {
               headers: zHeaders,
             }, fetchFn);
-            if (firstScreenRes.ok) {
-              res = firstScreenRes;
-            } else {
-              res = projRes;
+            const projScreens = screensRes.ok ? ((await screensRes.json()) as any[]) : [];
+            const candidateNames = projScreens.map((s: any) => `${s.name} (screenId=${s.id})`);
+
+            if (projScreens.length > 0) {
+              const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${projScreens[0].id}`, {
+                headers: zHeaders,
+              }, fetchFn);
+              if (firstScreenRes.ok) {
+                const screenData = (await firstScreenRes.json()) as any;
+                const screen = extractScreen(screenData, projScreens[0].id);
+                const extract = extractDetails(screenData, screen);
+                return {
+                  status: "SUCCESS",
+                  normalizedStatus: "SUCCESS",
+                  screenId: projScreens[0].id,
+                  name: screen.name || projData.name,
+                  screen,
+                  extract,
+                  note: `Target screen ${screenId} not found in project ${projectId} ('${projData.name}'). Loaded project dashboard screen context. Candidate screens: ${candidateNames.slice(0, 5).join(", ")}`,
+                };
+              }
             }
-          } else {
-            res = projRes;
           }
         }
       }
