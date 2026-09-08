@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { cleanTokenValue } from "./auth.js";
 
 export interface RenderOptions {
   provider: "figma" | "zeplin";
@@ -72,8 +73,13 @@ export async function renderDesignNode(
 
   if (provider === "zeplin") {
     try {
+      const cleanToken = cleanTokenValue(authToken) || authToken;
+      const zHeaders = {
+        "Zeplin-Access-Token": cleanToken,
+        Authorization: `Bearer ${cleanToken}`,
+      };
       const res = await fetchFn(`https://api.zeplin.dev/v1/screens/${fileKeyOrScreenId}`, {
-        headers: { "Zeplin-Access-Token": authToken },
+        headers: zHeaders,
       });
       if (!res.ok) return undefined;
       const data = (await res.json()) as any;
@@ -82,7 +88,7 @@ export async function renderDesignNode(
 
       let imgRes = await fetchFn(imageUrl);
       if (!imgRes.ok) {
-        imgRes = await fetchFn(imageUrl, { headers: { "Zeplin-Access-Token": authToken } });
+        imgRes = await fetchFn(imageUrl, { headers: zHeaders });
       }
       if (!imgRes.ok) return undefined;
 

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { resolveCredentials, validateCredential, fetchWithRateLimitRetry } from "./auth.js";
+import { resolveCredentials, validateCredential, cleanTokenValue, fetchWithRateLimitRetry } from "./auth.js";
 import type { ProviderStatus, VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";
 
@@ -302,7 +302,8 @@ export async function resolveZeplinScreen(
     }
   }
 
-  const authToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
+  const rawToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
+  const authToken = cleanTokenValue(rawToken);
 
   if (!authToken) {
     return {
@@ -312,34 +313,37 @@ export async function resolveZeplinScreen(
     };
   }
 
+  const zHeaders = {
+    "Zeplin-Access-Token": authToken,
+    Authorization: `Bearer ${authToken}`,
+  };
+
   try {
     let res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, {
-      headers: {
-        "Zeplin-Access-Token": authToken,
-      },
+      headers: zHeaders,
     }, fetchFn);
 
     if (res.status === 404) {
       const compRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/components/${screenId}`, {
-        headers: { "Zeplin-Access-Token": authToken },
+        headers: zHeaders,
       }, fetchFn);
       if (compRes.ok) {
         res = compRes;
       } else {
         const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}`, {
-          headers: { "Zeplin-Access-Token": authToken },
+          headers: zHeaders,
         }, fetchFn);
         if (projRes.ok) {
           const projData = (await projRes.json()) as any;
           const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}/screens?limit=10`, {
-            headers: { "Zeplin-Access-Token": authToken },
+            headers: zHeaders,
           }, fetchFn);
           const projScreens = screensRes.ok ? ((await screensRes.json()) as any[]) : [];
           const firstScreen = projScreens[0];
 
           if (firstScreen) {
             const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${firstScreen.id}`, {
-              headers: { "Zeplin-Access-Token": authToken },
+              headers: zHeaders,
             }, fetchFn);
             if (firstScreenRes.ok) {
               res = firstScreenRes;
@@ -411,7 +415,7 @@ export async function resolveZeplinScreen(
 
     try {
       const assetRes = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}/assets`, {
-        headers: { "Zeplin-Access-Token": authToken },
+        headers: zHeaders,
       });
 
       if (assetRes.ok) {

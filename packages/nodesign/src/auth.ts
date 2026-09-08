@@ -155,20 +155,26 @@ function getFromConfig(provider: CredentialProvider): string | undefined {
   return provider === "figma" ? config.figmaToken : config.zeplinToken;
 }
 
+export function cleanTokenValue(token?: string): string | undefined {
+  if (!token) return undefined;
+  const cleaned = token.trim().replace(/^['"]|['"]$/g, "").replace(/^Bearer\s+/i, "").trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
 export function resolveCredential(provider: CredentialProvider): CredentialResolution {
-  const fromEnv = getFromEnv(provider);
+  const fromEnv = cleanTokenValue(getFromEnv(provider));
   if (fromEnv) return { token: fromEnv, source: "env" };
 
-  const fromCwdEnv = getFromCwdEnv(provider);
+  const fromCwdEnv = cleanTokenValue(getFromCwdEnv(provider));
   if (fromCwdEnv) return { token: fromCwdEnv, source: "cwd .env", location: path.join(process.cwd(), ".env") };
 
-  const fromPiSecrets = getFromPiSecrets(provider);
+  const fromPiSecrets = cleanTokenValue(getFromPiSecrets(provider));
   if (fromPiSecrets) return { token: fromPiSecrets, source: "~/.pi-secrets/.env", location: path.join(homedir(), ".pi-secrets", ".env") };
 
-  const fromKeychain = getFromKeychain(provider);
+  const fromKeychain = cleanTokenValue(getFromKeychain(provider));
   if (fromKeychain) return { token: fromKeychain, source: "OS keychain" };
 
-  const fromConfig = getFromConfig(provider);
+  const fromConfig = cleanTokenValue(getFromConfig(provider));
   if (fromConfig) return { token: fromConfig, source: "config file", location: configFilePath() };
 
   return { source: "missing" };
@@ -204,9 +210,10 @@ function writeConfigCredential(provider: CredentialProvider, token: string): Sto
 
 export function storeCredential(
   provider: CredentialProvider,
-  token: string,
+  rawToken: string,
   options: { preferFile?: boolean } = {},
 ): StoreCredentialResult {
+  const token = cleanTokenValue(rawToken) || rawToken;
   const key = envKey(provider);
   updateEnvFileKey(path.join(process.cwd(), ".env"), key, token);
   updateEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key, token);
@@ -292,13 +299,14 @@ export async function fetchWithRateLimitRetry(
 
 export async function validateCredential(
   provider: CredentialProvider,
-  token: string,
+  rawToken: string,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<"valid" | "invalid" | "unreachable"> {
+  const token = cleanTokenValue(rawToken) || rawToken;
   const url = provider === "figma" ? "https://api.figma.com/v1/me" : "https://api.zeplin.dev/v1/users/me";
   const headers: Record<string, string> = provider === "figma"
     ? { "X-Figma-Token": token }
-    : { "Zeplin-Access-Token": token };
+    : { "Zeplin-Access-Token": token, Authorization: `Bearer ${token}` };
 
   try {
     const res = await fetchFn(url, { headers });
