@@ -45,12 +45,15 @@ jobs:
         if: ${{ inputs.dry_run != 'true' }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${NPM_TOKEN:-}" ]; then
             echo "NPM_TOKEN is required for real package publishing." >&2
             exit 1
           fi
+          echo "Validating npm token identity..."
+          npm whoami
 
       - name: Create Version PR or publish
         id: changesets
