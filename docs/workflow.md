@@ -116,7 +116,8 @@ RPIV classifies task evidence requirements during `/frame` and validates them du
 5. **Backend-safe Exemption**:
    - Backend-safe tasks use evidence status `n/a` and proceed without extra ceremony.
 6. **Execution Gating**:
-   - `/plan` automatically consumes NoDesign preflight (`nodesign preflight`) for `UI-sensitive` work, mapping NoDesign `ready` -> `present` and `missing`/`ambiguous` -> `missing`, while keeping credentials out of model context.
+   - `/plan` automatically consumes NoDesign preflight (`nodesign preflight`) for `UI-sensitive` work, mapping NoDesign `ready` -> `present` and `missing`/`ambiguous` -> `missing`, while keeping credentials out of model context. For standalone context extraction or interactive Personal Access Token (PAT) management, agents and developers can run `nodesign extract <url>` and `nodesign auth login`.
+   - `nodesign` includes a Konsist-style architectural symbol harvester that scans `*UseCase`, `*Repository`, `*Interactor`, and `@Composable` code patterns to classify architecture types (`CLEAN_ARCHITECTURE`, `DESIGN_SYSTEM_MODULE`, `FEATURE_BY_PACKAGE`, `LAYER_BY_PACKAGE`, `AD_HOC`) and harvest reusable design system tokens.
    - `/plan` preserves blocked state on incomplete slices (`[BLOCKED: missing UI/formula evidence]`) instead of marking them ready for implementation unless an explicit human waiver (`waived: <reason>`) is recorded.
    - `/implement` rejects code execution on blocked slices and prompts for missing direct links/specs or explicit human override.
 artifact: merge request / tracker update

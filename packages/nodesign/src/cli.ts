@@ -1,13 +1,18 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import type { DesignLink, PreflightResult } from "./types.js";
-import { formatDesignBrief, parseDesignLink, determineEvidenceStatus } from "./brief.js";
-import { inspectAndroidProject } from "./android.js";
+import { formatAgentDirective, formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
+import { inspectAndroidProject, scanColorTokens } from "./android.js";
 import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
-import { resolveCredentials, storeCredential } from "./auth.js";
+import { checkUpdateNotice } from "./update.js";
+import { deleteCredential, resolveCredential, storeCredential, validateCredential } from "./auth.js";
+
+import { generateCodeSnippet } from "./code.js";
 
 function getVersion(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -20,28 +25,47 @@ const VERSION = getVersion();
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
-  nodesign preflight [--json] [--path <dir>] [--task <id>] [--url <design-url>]
-  nodesign extract   [--json] [--url <design-url>]
-  nodesign auth login
+  nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
+  nodesign extract   [--json] [--markdown] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
+  nodesign auth login [--provider figma|zeplin] [--token <pat>]
+  nodesign auth logout [--provider figma|zeplin]
+  nodesign auth status
   nodesign --help
   nodesign --version
 
 Commands:
-  preflight   Run design preflight checks (default)
-  extract     Extract design details from a URL
-  auth login  Store credentials in OS keychain
+  preflight     Run design preflight checks (default)
+  extract       Extract design details from a URL
+  auth login    Store credentials in OS keychain or config file
+  auth logout   Clear stored credentials
+  auth status   Show credential source and validation status
 
 Options:
-  --json      Output machine-readable JSON
-  --path      Project root to inspect (default: cwd)
-  --task      Task identifier for the brief
-  --url       Design URL (Figma, Zeplin)
-  --help      Show this help
-  --version   Show version
+  --json        Output machine-readable JSON
+  --markdown    Output clean markdown context
+  --code        Generate starter code (compose, react, html)
+  --find        Find canvas frame/node by name in Figma file
+  --render      Download rendered design image(s)
+  --out         Output directory for rendered assets
+  --path        Project root to inspect (default: cwd)
+  --task        Task identifier for the brief
+  --url         Design URL (Figma, Zeplin)
+  --provider    Auth provider (figma, zeplin)
+  --token       Personal access token for non-interactive auth
+  --help        Show this help
+  --version     Show version
 `;
 
 interface ParsedArgs {
   command: "preflight" | "extract" | "auth" | "help" | "version";
+  authAction?: "login" | "logout" | "status";
+  provider?: "figma" | "zeplin";
+  token?: string;
+  render?: boolean;
+  out?: string;
+  find?: string;
+  code?: "compose" | "react" | "html";
+  markdown?: boolean;
   json: boolean;
   path: string;
   task: string;
@@ -69,6 +93,11 @@ function validatePath(rootPath: string): string {
   return resolved;
 }
 
+function parseProvider(value: string): "figma" | "zeplin" {
+  if (value === "figma" || value === "zeplin") return value;
+  fail(`Unknown provider: ${value}`);
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const result: ParsedArgs = {
@@ -86,8 +115,11 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.command = cmd;
       i = 1;
     } else if (cmd === "auth") {
-      if (args[1] !== "login") fail("Only `nodesign auth login` is supported");
+      if (args[1] !== "login" && args[1] !== "status" && args[1] !== "logout") {
+        fail("Supported auth commands: `nodesign auth login`, `nodesign auth logout`, or `nodesign auth status`");
+      }
       result.command = "auth";
+      result.authAction = args[1] as any;
       i = 2;
     } else {
       fail(`Unknown command: ${cmd}`);
@@ -102,6 +134,16 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.command = "version";
     } else if (arg === "--json") {
       result.json = true;
+    } else if (arg === "--markdown") {
+      result.markdown = true;
+    } else if (arg === "--find") {
+      result.find = requireValue(args, i, "--find");
+      i += 1;
+    } else if (arg === "--code") {
+      const val = requireValue(args, i, "--code").toLowerCase();
+      if (val !== "compose" && val !== "react" && val !== "html") fail("Supported --code targets: compose, react, html");
+      result.code = val as any;
+      i += 1;
     } else if (arg === "--path") {
       result.path = requireValue(args, i, "--path");
       i += 1;
@@ -111,6 +153,19 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (arg === "--url" || arg === "--design") {
       result.url = requireValue(args, i, arg);
       i += 1;
+    } else if (arg === "--provider") {
+      result.provider = parseProvider(requireValue(args, i, "--provider"));
+      i += 1;
+    } else if (arg === "--token") {
+      result.token = requireValue(args, i, "--token");
+      i += 1;
+    } else if (arg === "--render") {
+      result.render = true;
+    } else if (arg === "--out") {
+      result.out = requireValue(args, i, "--out");
+      i += 1;
+    } else if (result.command === "extract" && !result.url && !arg.startsWith("-")) {
+      result.url = arg;
     } else {
       fail(`Unknown argument: ${arg}`);
     }
@@ -140,9 +195,7 @@ function findWorkflowTaskPath(startDir: string): string | undefined {
   }
 }
 
-async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
-  const taskPath = findWorkflowTaskPath(process.cwd());
-  const outputDir = taskPath ? path.join(taskPath, "evidence") : undefined;
+async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
   const results = [];
 
   for (const link of designLinks) {
@@ -153,15 +206,57 @@ async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fet
   return results;
 }
 
-async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch) {
+async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
   const results = [];
 
   for (const link of designLinks) {
     if (link.provider !== "figma") continue;
-    results.push(await resolveFigmaLink(link.url, undefined, fetchFn));
+    results.push(await resolveFigmaLink(link.url, undefined, outputDir, fetchFn));
   }
 
   return results;
+}
+
+async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zeplin"; token: string }> {
+  if (args.provider && args.token) return { provider: args.provider, token: args.token };
+
+  const rl = createInterface({ input, output });
+  try {
+    let provider = args.provider;
+    if (!provider) {
+      const answer = (await rl.question("Provider (figma/zeplin): ")).trim().toLowerCase();
+      provider = parseProvider(answer);
+    }
+
+    if (provider === "figma") {
+      console.log("How to get a Figma PAT:");
+      console.log("1. Log in to Figma -> Settings");
+      console.log("2. Personal access tokens -> Generate new token");
+      console.log("3. Scope: files:read");
+    } else {
+      console.log("How to get a Zeplin Personal Token:");
+      console.log("1. Log in to Zeplin -> Developer Settings");
+      console.log("2. Create Personal Access Token");
+    }
+
+    const token = (args.token || await rl.question("Paste token: ")).trim();
+    if (!token) fail("Token cannot be empty");
+    return { provider, token };
+  } finally {
+    rl.close();
+  }
+}
+
+async function printAuthStatus(fetchFn: typeof fetch): Promise<void> {
+  for (const provider of ["figma", "zeplin"] as const) {
+    const resolved = resolveCredential(provider);
+    if (!resolved.token) {
+      console.log(`${provider}: missing`);
+      continue;
+    }
+    const validity = await validateCredential(provider, resolved.token, fetchFn);
+    console.log(`${provider}: configured via ${resolved.source}${resolved.location ? ` (${resolved.location})` : ""} - ${validity}`);
+  }
 }
 
 export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
@@ -170,144 +265,246 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
       const args = parseArgs(argv);
       const fetchFn = deps.fetchFn || globalThis.fetch;
 
-    switch (args.command) {
-      case "help":
-        process.stdout.write(HELP);
-        return;
+      switch (args.command) {
+        case "help":
+          process.stdout.write(HELP);
+          return;
 
-      case "version":
-        console.log(VERSION);
-        return;
+        case "version":
+          console.log(VERSION);
+          return;
 
-      case "auth": {
-        const creds = resolveCredentials();
-        const f = creds.figmaToken ? "configured" : "missing";
-        const z = creds.zeplinToken ? "configured" : "missing";
-        console.log(`nodesign auth: figmaToken=${f}, zeplinToken=${z}`);
-        return;
-      }
+        case "auth": {
+          if (args.authAction === "status") {
+            await printAuthStatus(fetchFn);
+            return;
+          }
 
-      case "extract": {
-        const parsed = parseDesignLink(args.url);
-        const zeplin = parsed.link.provider === "zeplin"
-          ? await resolveZeplinScreen(parsed.link.url, undefined, findWorkflowTaskPath(process.cwd()) ? path.join(findWorkflowTaskPath(process.cwd()) as string, "evidence") : undefined, fetchFn)
-          : undefined;
-        const figma = parsed.link.provider === "figma"
-          ? await resolveFigmaLink(parsed.link.url, undefined, fetchFn)
-          : undefined;
-
-        if (args.json) {
-          console.log(JSON.stringify({ ...parsed, ...(zeplin ? { zeplin } : {}), ...(figma ? { figma } : {}) }, null, 2));
-        } else {
-          console.log(`Extracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
-          console.log(`Status: ${parsed.status}`);
-          if (parsed.note) console.log(`Note: ${parsed.note}`);
-          if (zeplin) {
-            console.log(`Zeplin Resolution: ${zeplin.status}`);
-            if (zeplin.screen) {
-              console.log(`Screen: ${zeplin.screen.name} (${zeplin.screen.width}x${zeplin.screen.height})`);
-              if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
+          if (args.authAction === "logout") {
+            const providers = args.provider ? [args.provider] : (["figma", "zeplin"] as const);
+            for (const p of providers) {
+              deleteCredential(p);
+              console.log(`Cleared stored ${p} token`);
             }
-            if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
-            if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
+            return;
           }
-          if (figma) {
-            console.log(`Figma Resolution: ${figma.status}`);
-            if (figma.fileKey) console.log(`File Key: ${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}`);
-            if (figma.name) console.log(`Name: ${figma.name}`);
-            if (figma.note) console.log(`Figma Note: ${figma.note}`);
-          }
+
+          const creds = await promptAuth(args);
+          const stored = storeCredential(creds.provider, creds.token);
+          if (!stored.ok) fail(`Could not store ${creds.provider} token`);
+          console.log(`Saved ${creds.provider} token to ${stored.source}${stored.location ? ` (${stored.location})` : ""}`);
+          return;
         }
-        return;
-      }
 
-      case "preflight": {
-        const inspection = inspectAndroidProject(args.path);
-        const designLinks: DesignLink[] = [];
-        const notes = [...inspection.notes];
-
-        if (args.url) {
+        case "extract": {
           const parsed = parseDesignLink(args.url);
-          designLinks.push(parsed.link);
-          if (parsed.note) notes.push(parsed.note);
-        }
-
-        if (args.task && args.task !== "unknown") {
-          const jiraKey = args.task.startsWith("jira:")
-            ? args.task.slice(5)
-            : /^[A-Z0-9]+-[0-9]+$/i.test(args.task)
-            ? args.task
+          const taskPath = findWorkflowTaskPath(process.cwd());
+          const defaultDir = taskPath ? path.join(taskPath, "evidence") : path.resolve(process.cwd(), "design-renders");
+          const outputDir = args.out ? path.resolve(args.out) : args.render ? defaultDir : undefined;
+          const zeplin = parsed.link.provider === "zeplin"
+            ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
+            : undefined;
+          const figma = parsed.link.provider === "figma"
+            ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn, args.find)
             : undefined;
 
-          if (jiraKey) {
-            const jiraResult = inspectJiraContext(jiraKey);
-            for (const link of jiraResult.designLinks) {
+          const providerResult = zeplin || figma;
+          if (providerResult && providerResult.status !== "SUCCESS") {
+            process.exitCode = 1;
+          }
+
+          const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
+          const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
+          const inspection = inspectAndroidProject(args.path || process.cwd());
+          const colorTokens = scanColorTokens(args.path || process.cwd());
+          const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType };
+          const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
+
+          if (args.json) {
+            console.log(JSON.stringify({
+              ...parsed,
+              directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote),
+              ...(zeplin ? { zeplin } : {}),
+              ...(figma ? { figma } : {}),
+              ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
+            }, null, 2));
+          } else if (args.markdown) {
+            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote));
+            console.log(`\n# Extracted Design: ${screenName}\n`);
+            console.log(`- **Provider**: ${parsed.link.provider}`);
+            console.log(`- **URL**: ${parsed.link.url}`);
+            console.log(`- **Status**: ${providerResult?.status || parsed.status}`);
+            if (hierarchy.length) {
+              console.log("\n## UI Blueprint\n```text");
+              for (const line of formatTreeBlueprint(hierarchy, 0)) console.log(line);
+              console.log("```");
+            }
+            if (args.code) {
+              console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              console.log("```");
+            }
+          } else {
+            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote));
+            console.log(`\nExtracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
+            console.log(`Status: ${parsed.status}`);
+            if (parsed.note) console.log(`Note: ${parsed.note}`);
+
+
+            if (zeplin) {
+              console.log(`Zeplin Resolution: ${zeplin.status}`);
+              if (zeplin.screenId) console.log(`Screen ID: ${zeplin.screenId}`);
+              if (zeplin.name) console.log(`Name: ${zeplin.name}`);
+              if (zeplin.screen) {
+                if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
+              }
+              if (zeplin.extract) {
+                if (zeplin.extract.typography.length) {
+                  console.log(`Typography: ${zeplin.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
+                }
+                if (zeplin.extract.layout.width || zeplin.extract.layout.height) {
+                  console.log(`Layout: ${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
+                }
+                if (zeplin.extract.hierarchy.length) {
+                  console.log("UI Blueprint:");
+                  for (const line of formatTreeBlueprint(zeplin.extract.hierarchy, 1)) {
+                    console.log(`  ${line}`);
+                  }
+                }
+              }
+              if (zeplin.renderedImage) console.log(`Rendered Image: ${zeplin.renderedImage}`);
+              if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
+              if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
+            }
+            if (figma) {
+              console.log(`Figma Resolution: ${figma.status}`);
+              if (figma.fileKey) console.log(`File Key: ${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}`);
+              if (figma.name) console.log(`Name: ${figma.name}`);
+              if (figma.extract) {
+                if (figma.extract.colors.length) console.log(`Colors: ${figma.extract.colors.map((c) => c.hex).join(", ")}`);
+                if (figma.extract.typography.length) {
+                  console.log(`Typography: ${figma.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
+                }
+                if (figma.extract.layout.width || figma.extract.layout.height) {
+                  console.log(`Layout: ${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
+                }
+                if (figma.extract.hierarchy.length) {
+                  console.log("UI Blueprint:");
+                  for (const line of formatTreeBlueprint(figma.extract.hierarchy, 1)) {
+                    console.log(`  ${line}`);
+                  }
+                }
+              }
+              if (figma.renderedImage) console.log(`Rendered Image: ${figma.renderedImage}`);
+              if (figma.suggestedFrames?.length) {
+                console.log(`Suggested Frames: ${figma.suggestedFrames.join(", ")}`);
+              }
+              if (figma.note) console.log(`Figma Note: ${figma.note}`);
+            }
+            if (args.code && hierarchy.length) {
+              console.log(`\nGenerated Code (${args.code}):`);
+              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+            }
+          }
+          return;
+        }
+
+        case "preflight": {
+          const inspection = inspectAndroidProject(args.path);
+          const designLinks: DesignLink[] = [];
+          const notes = [...inspection.notes];
+
+          if (args.url) {
+            const parsed = parseDesignLink(args.url);
+            designLinks.push(parsed.link);
+            if (parsed.note) notes.push(parsed.note);
+          }
+
+          if (args.task && args.task !== "unknown") {
+            const jiraKey = args.task.startsWith("jira:")
+              ? args.task.slice(5)
+              : /^[A-Z0-9]+-[0-9]+$/i.test(args.task)
+              ? args.task
+              : undefined;
+
+            if (jiraKey) {
+              const jiraResult = inspectJiraContext(jiraKey);
+              for (const link of jiraResult.designLinks) {
+                if (!designLinks.some((l) => l.url === link.url)) {
+                  designLinks.push(link);
+                }
+              }
+              notes.push(...jiraResult.notes);
+            }
+          }
+
+          const taskPath = findWorkflowTaskPath(args.path);
+          if (taskPath && existsSync(taskPath)) {
+            const taskLinks: DesignLink[] = [];
+            const metaFile = path.join(taskPath, "metadata.json");
+            if (existsSync(metaFile)) {
+              try {
+                const metaText = readFileSync(metaFile, "utf8");
+                taskLinks.push(...inspectJiraTaskText(metaText).designLinks);
+              } catch {}
+            }
+            const workFile = path.join(taskPath, "WORK.md");
+            if (existsSync(workFile)) {
+              try {
+                const workText = readFileSync(workFile, "utf8");
+                taskLinks.push(...extractDesignLinksFromText(workText));
+              } catch {}
+            }
+            let addedCount = 0;
+            for (const link of taskLinks) {
               if (!designLinks.some((l) => l.url === link.url)) {
                 designLinks.push(link);
+                addedCount++;
               }
             }
-            notes.push(...jiraResult.notes);
-          }
-        }
-
-        const taskPath = findWorkflowTaskPath(args.path);
-        if (taskPath && existsSync(taskPath)) {
-          const taskLinks: DesignLink[] = [];
-          const metaFile = path.join(taskPath, "metadata.json");
-          if (existsSync(metaFile)) {
-            try {
-              const metaText = readFileSync(metaFile, "utf8");
-              taskLinks.push(...inspectJiraTaskText(metaText).designLinks);
-            } catch {}
-          }
-          const workFile = path.join(taskPath, "WORK.md");
-          if (existsSync(workFile)) {
-            try {
-              const workText = readFileSync(workFile, "utf8");
-              taskLinks.push(...extractDesignLinksFromText(workText));
-            } catch {}
-          }
-          let addedCount = 0;
-          for (const link of taskLinks) {
-            if (!designLinks.some((l) => l.url === link.url)) {
-              designLinks.push(link);
-              addedCount++;
+            if (addedCount > 0) {
+              notes.push(`Discovered ${addedCount} design link(s) in active task workspace`);
             }
           }
-          if (addedCount > 0) {
-            notes.push(`Discovered ${addedCount} design link(s) in active task workspace`);
+
+          const renderDir = args.out ? path.resolve(args.out) : args.render && taskPath ? path.join(taskPath, "evidence") : undefined;
+
+          const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn, renderDir);
+          for (const screen of resolvedScreens) {
+            if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
           }
+
+          const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn, renderDir);
+          for (const fig of resolvedFigma) {
+            if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
+          }
+
+          const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
+          const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
+
+          const preflight: PreflightResult = {
+            uiSensitive,
+            androidUIStack: inspection.androidUIStack,
+            architectureType: inspection.architectureType,
+            evidenceStatus,
+            designLinks,
+            resolvedScreens,
+            resolvedFigma,
+            components: inspection.components,
+            notes,
+          };
+
+
+          const format = args.json ? "json" : "human";
+          console.log(formatDesignBrief(args.task, preflight, format));
+
+          const updateCheck = await checkUpdateNotice(VERSION, fetchFn);
+          if (updateCheck.hasUpdate && updateCheck.notice && !args.json) {
+            console.error(`\n${updateCheck.notice}`);
+          }
+          return;
         }
-
-        const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn);
-        for (const screen of resolvedScreens) {
-          if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
-        }
-
-        const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn);
-        for (const fig of resolvedFigma) {
-          if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
-        }
-
-        const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
-        const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
-
-        const preflight: PreflightResult = {
-          uiSensitive,
-          androidUIStack: inspection.androidUIStack,
-          evidenceStatus,
-          designLinks,
-          resolvedScreens,
-          resolvedFigma,
-          components: inspection.components,
-          notes,
-        };
-
-        const format = args.json ? "json" : "human";
-        console.log(formatDesignBrief(args.task, preflight, format));
-        return;
       }
-    }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`nodesign: ${message}`);

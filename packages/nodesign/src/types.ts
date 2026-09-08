@@ -3,6 +3,21 @@ import type { FigmaResolutionResult } from "./figma.js";
 
 /** Evidence status for design assets. */
 export type EvidenceStatus = "missing" | "ambiguous" | "ready";
+export type ProviderStatus = "SUCCESS" | "AUTH_REQUIRED" | "TOKEN_INVALID" | "FILE_FORBIDDEN" | "NODE_NOT_FOUND" | "RATE_LIMITED" | "API_UNAVAILABLE" | "AMBIGUOUS_URL";
+
+export interface VisualAnalysis {
+  screenshotPath: string;
+  detectedComponents: string[];
+  layoutType: "MOBILE_VIEW" | "DESKTOP_VIEW" | "COMPONENT_CANVAS";
+  visibleLabels: string[];
+}
+
+export type ArchitectureType =
+  | "CLEAN_ARCHITECTURE"
+  | "DESIGN_SYSTEM_MODULE"
+  | "FEATURE_BY_PACKAGE"
+  | "LAYER_BY_PACKAGE"
+  | "AD_HOC";
 
 /** Detected Android/KMP UI stack. */
 export type AndroidUIStack =
@@ -24,11 +39,17 @@ export interface DesignLink {
 export interface ComponentFact {
   name: string;
   path: string;
+  count?: number;
+  confidence?: "HIGH" | "MEDIUM" | "LOW";
+  sampleUsage?: string;
 }
+
+
 
 /** Android/KMP inspection result. */
 export interface AndroidInspection {
   androidUIStack: AndroidUIStack;
+  architectureType: ArchitectureType;
   components: ComponentFact[];
   notes: string[];
 }
@@ -39,6 +60,9 @@ export interface PreflightResult {
   uiSensitive: boolean;
   /** Detected Android UI stack (or n/a for non-Android). */
   androidUIStack: AndroidUIStack;
+  /** Detected project architecture maturity & structure. */
+  architectureType?: ArchitectureType;
+
   /** Design evidence status. */
   evidenceStatus: EvidenceStatus;
   /** Direct links to design screens/frames. */

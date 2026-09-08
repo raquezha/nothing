@@ -1,8 +1,8 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import type { DesignLink } from "./types.js";
 import { parseDesignLink } from "./brief.js";
 
-const ZEPLIN_URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/[^\s"'>]+/gi;
+const ZEPLIN_URL_REGEX = /(?:https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/|zpl:\/\/)[^\s"'>]+/gi;
 const FIGMA_URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?figma\.com\/[^\s"'>]+/gi;
 
 export interface JiraInspectionResult {
@@ -19,11 +19,12 @@ export function extractDesignLinksFromText(text: string): DesignLink[] {
 
   const seen = new Set<string>();
   for (const rawUrl of matches) {
-    const cleanUrl = rawUrl.replace(/[.,;)]+$/, "");
+    const cleanUrl = rawUrl.replace(/[.,;)\]>]+$/, "");
     if (seen.has(cleanUrl)) continue;
     seen.add(cleanUrl);
     links.push(parseDesignLink(cleanUrl).link);
   }
+
 
   return links;
 }
@@ -96,16 +97,18 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
 
   // 1. Attempt `jira issue view <id> --raw`
   try {
-    const rawText = execSync(`jira issue view "${issueId.replace(/"/g, "")}" --raw`, {
+    const rawText = execFileSync("jira", ["issue", "view", issueId, "--raw"], {
       encoding: "utf8",
+      timeout: 5000,
       stdio: ["ignore", "pipe", "ignore"],
     });
     return inspectJiraTaskText(rawText);
   } catch {
     // Fallback: try `acli`
     try {
-      const acliText = execSync(`acli jira workitem view "${issueId.replace(/"/g, "")}" --json`, {
+      const acliText = execFileSync("acli", ["jira", "workitem", "view", issueId, "--json"], {
         encoding: "utf8",
+        timeout: 5000,
         stdio: ["ignore", "pipe", "ignore"],
       });
       return inspectJiraTaskText(acliText);
@@ -117,3 +120,4 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
     }
   }
 }
+

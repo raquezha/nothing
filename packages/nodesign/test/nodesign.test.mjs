@@ -6,6 +6,9 @@ import {
   parseDesignLink,
   determineEvidenceStatus,
   formatDesignBrief,
+  formatTreeBlueprint,
+  formatAgentDirective,
+  generateCodeSnippet,
   resolveCredentials,
   inspectAndroidProject,
 } from "../dist/index.js";
@@ -52,6 +55,10 @@ try {
   const parsedZeplin = parseDesignLink(zeplinUrl);
   assert.equal(parsedZeplin.status, "ready");
   assert.equal(parsedZeplin.link.provider, "zeplin");
+
+  const parsedZeplinUri = parseDesignLink("zpl://screen/AOGOKp6");
+  assert.equal(parsedZeplinUri.status, "ready");
+  assert.equal(parsedZeplinUri.link.provider, "zeplin");
 
   // 5. Tindahang Tapat 3 experiment screens fixtures
   const screens = [
@@ -121,6 +128,56 @@ try {
   // 7. Auth Credentials Resolver
   const creds = resolveCredentials();
   assert(typeof creds === "object");
+
+  // 8. Tree Blueprint Formatter
+  const treeNodes = [
+    {
+      name: "Header",
+      type: "FRAME",
+      layout: { width: 360, height: 56, direction: "ROW" },
+      color: "#2878F0",
+      children: [
+        { name: "TitleText", text: "Checkout", font: { fontFamily: "Inter", fontSize: 18, fontWeight: 600 }, color: "#FFFFFF" },
+      ],
+    },
+  ];
+  const blueprintLines = formatTreeBlueprint(treeNodes);
+  assert.equal(blueprintLines.length, 2);
+  assert(blueprintLines[0].includes("[FRAME] Header"));
+  assert(blueprintLines[0].includes("360x56"));
+  assert(blueprintLines[1].includes("text=\"Checkout\""));
+  assert(blueprintLines[1].includes("Inter"));
+
+  // 9. Code Snippet Generator (Compose, React, HTML)
+  const codeContext = {
+    components: [{ name: "Header", path: "ui/components/Header.kt" }],
+    colorTokens: [{ hex: "#2878F0", token: "TapatColors.brandPrimary", sourceFile: "Color.kt", packageName: "com.tapat.app.ui.theme", importStatement: "import com.tapat.app.ui.theme.TapatColors" }],
+  };
+  const composeCode = generateCodeSnippet(treeNodes, "compose", "CheckoutScreen", codeContext);
+  assert(composeCode.includes("import androidx.compose.runtime.Composable"));
+  assert(composeCode.includes("import com.tapat.app.ui.theme.TapatColors"));
+  assert(composeCode.includes("fun CheckoutScreen()"));
+  assert(composeCode.includes("Reusing discovered component: ui/components/Header.kt"));
+  assert(composeCode.includes("Header()"));
+
+  const reactCode = generateCodeSnippet(treeNodes, "react", "CheckoutScreen");
+  assert(reactCode.includes("export function CheckoutScreen()"));
+  assert(reactCode.includes("<span"));
+  assert(reactCode.includes("Checkout</span>"));
+
+  const htmlCode = generateCodeSnippet(treeNodes, "html", "CheckoutScreen");
+  assert(htmlCode.includes("<div class=\"checkoutscreen\">"));
+  assert(htmlCode.includes("Checkout</span>"));
+
+  const escapedHtml = generateCodeSnippet([{ name: "Title", text: "<Checkout & Pay>" }], "html", "EscapedScreen");
+  assert(escapedHtml.includes("&lt;Checkout &amp; Pay&gt;"));
+  const composeWithoutFont = generateCodeSnippet([{ name: "Title", text: "Checkout" }], "compose", "PlainScreen");
+  assert(!composeWithoutFont.includes("TextUnit.Unspecified"));
+
+  // 10. Agent Directive Contract
+  const directive = formatAgentDirective("CheckoutScreen");
+  assert(directive.includes("STRICT AI AGENT DIRECTIVE"));
+  assert(directive.includes("MANDATORY BLUEPRINT ADHERENCE"));
 
   console.log("nodesign suite test ok");
 } finally {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { detectAndroidUIStack, inspectAndroidProject } from "../dist/android.js";
+import { detectAndroidUIStack, inspectAndroidProject, scanColorTokens } from "../dist/android.js";
 
 function makeProject(name, files) {
   const root = mkdtempSync(path.join(tmpdir(), `nodesign-${name}-`));
@@ -24,13 +24,15 @@ try {
   const compose = makeProject("compose", {
     "app/build.gradle.kts": 'dependencies { implementation("androidx.compose.ui:ui:1.0.0") }',
     "ui/components/PrimaryButton.kt": "@Composable fun PrimaryButton() {}",
+    "ui/screens/HomeScreen.kt": '@Composable fun HomeScreen() { AppToolbar(title = "Home"); PrimaryButton(text = "Submit") }',
     "ui/components/notes.txt": "ignore me",
   });
   roots.push(compose);
   assert.equal(detectAndroidUIStack(compose), "compose");
   const composeInspection = inspectAndroidProject(compose);
-  assert.equal(composeInspection.components[0].name, "PrimaryButton");
-  assert.equal(composeInspection.components.length, 1);
+  assert(composeInspection.components.some((c) => c.name === "PrimaryButton"));
+  assert(composeInspection.components.some((c) => c.name === "AppToolbar"));
+
 
   const views = makeProject("views", {
     "app/src/main/res/layout-land/activity_main.xml": "<LinearLayout />",
@@ -85,6 +87,35 @@ try {
   const inspected = inspectAndroidProject(nonUi);
   assert.equal(inspected.androidUIStack, "n/a");
   assert.equal(inspected.components.length, 0);
+
+  const withConfig = makeProject("config-project", {
+    "app/build.gradle.kts": 'dependencies { implementation("androidx.compose.ui:ui:1.0.0") }',
+    ".nodesign.json": JSON.stringify({
+      components: [{ name: "CustomHeader", path: "ui/CustomHeader.kt", sampleUsage: 'CustomHeader(title = "Test")' }],
+      colorTokens: [{ hex: "#2878F0", token: "CustomTheme.colors.primary" }],
+    }),
+  });
+  roots.push(withConfig);
+  const cfgInspected = inspectAndroidProject(withConfig);
+  assert(cfgInspected.components.some((c) => c.name === "CustomHeader"));
+
+  const codeConnect = makeProject("code-connect", {
+    "ui/components/PrimaryButton.kt": "@Composable fun PrimaryButton() {}",
+    "ui/components/PrimaryButton.figma.kt": "package com.app.ui.components\nfigma.connect(PrimaryButton)",
+  });
+  roots.push(codeConnect);
+  const codeConnectInspected = inspectAndroidProject(codeConnect);
+  assert(codeConnectInspected.components.some((c) => c.name === "PrimaryButton"));
+  assert(!scanColorTokens(codeConnect).some((c) => c.token === "PrimaryButton"));
+
+  const customCleanArch = makeProject("custom-clean-arch", {
+    "app/src/main/kotlin/com/app/checkout/GetCheckoutUseCase.kt": "class GetCheckoutUseCase",
+    "app/src/main/kotlin/com/app/checkout/CheckoutRepository.kt": "interface CheckoutRepository",
+    "app/src/main/kotlin/com/app/checkout/CheckoutViewModel.kt": "class CheckoutViewModel",
+  });
+  roots.push(customCleanArch);
+  const cleanInspected = inspectAndroidProject(customCleanArch);
+  assert.equal(cleanInspected.architectureType, "CLEAN_ARCHITECTURE");
 
   console.log("nodesign android test ok");
 } finally {

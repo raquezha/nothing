@@ -1,266 +1,146 @@
 # nodesign
 
-Deterministic design preflight CLI for Android UI work.
+Standalone design context extractor and preflight CLI for AI agents (Pi, Claude Code, Cursor, Aider) and UI developers.
 
-Use `nodesign` before design or UI implementation.
+`nodesign` allows any developer or AI agent framework to authenticate, inspect design sources (Figma, Zeplin), and extract typography, colors, layout specs, and frame renders into structured context or `--json` payloads.
 
-Flow:
-1. give the agent the task context
-2. run `nodesign` on the repo
-3. paste the output back into the agent
-4. plan from the task plus the repo scan
+It also powers deterministic design preflight for `norpiv` workflows (`nodesign preflight`).
 
-It answers:
-- is this Compose, Views, mixed, KMP Compose, ambiguous, or non-UI?
-- are there reusable files under `ui/components/`?
-- can we emit stable text or JSON output without guessing?
+---
 
-It is intentionally small and deterministic.
+## Quick Start
 
-## Install
+### 1. Authenticate
 
-Use without installing:
+Interactive terminal prompt with Personal Access Token (PAT) creation guidance:
 
 ```bash
-npx @raquezha/nodesign --help
+nodesign auth login
 ```
 
-Install globally:
+Non-interactive / CI flag mode:
 
 ```bash
-npm install -g @raquezha/nodesign
-nodesign --help
+nodesign auth login --provider figma --token "figd_xxx"
+nodesign auth login --provider zeplin --token "zpl_xxx"
 ```
 
-## Quick start
-
-Inspect the current repo:
+Check credential status and API validity:
 
 ```bash
-nodesign preflight --path .
+nodesign auth status
 ```
 
-Get JSON for automation:
+### 2. Extract Design Context
+
+Extract colors, typography, layout specs, and component hierarchy:
 
 ```bash
-nodesign preflight --json --path . --task github:101
+nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2"
+nodesign extract "https://zpl.io/AOGOKp6" --json
 ```
 
-Inspect another repo:
+Download frame screenshot / render asset to disk:
 
 ```bash
-nodesign preflight --json --path ~/src/android-app --task local:smoke
+nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2" --render --out ./renders
 ```
 
-## Task IDs
+---
 
-`--task` is an opaque identifier echoed back in the output.
-Use it to connect the repo scan to the work item the agent is already reading.
+## Agent Integration Cheatsheet
 
-Common examples:
+Include these snippets in your system instructions or project rules for AI agents:
 
+### General System Prompt Instruction
+> "When given a Figma or Zeplin link for UI work, run `nodesign extract <url> --json` to inspect colors, typography, layout specs, and frame structure before planning UI changes."
+
+### Pi Agent / Custom Scripts
 ```bash
-# GitHub issue or PR
-nodesign preflight --json --path . --task github:101
-
-# Jira issue
-nodesign preflight --json --path . --task jira:ANDROID-123
-
-# GitLab issue or MR
-nodesign preflight --json --path . --task gitlab:group/project#456
-
-# Local ad-hoc work
-nodesign preflight --json --path . --task local:checkout-redesign
+nodesign extract "https://www.figma.com/design/KEY/Title?node-id=1-2" --json
 ```
 
-`nodesign` does not fetch tracker data from GitHub, Jira, or GitLab from the task ID alone.
-The value is carried through so the task context and repo scan stay linked in the brief Claude sees.
-
-Show version:
-
+### Claude Code / Cursor / Aider CLI
 ```bash
-nodesign --version
+nodesign auth status
+nodesign extract "<design-url>" --render --out .workflow/tasks/active/evidence
 ```
+
+---
+
+## Multi-OS Credential Storage
+
+`nodesign` checks credentials in the following hierarchy:
+1. `FIGMA_TOKEN` / `ZEPLIN_TOKEN` environment variables
+2. `.env` file in current working directory
+3. `~/.pi-secrets/.env`
+4. OS Keychain (macOS Keychain via `security` / Linux Secret Service via `secret-tool`)
+5. User config file (`~/.config/nodesign/config.json` with restricted `0600` permissions)
+
+Output reports the exact source:
+- macOS: `Saved figma token to OS keychain`
+- Linux: `Saved figma token to OS keychain`
+- Fallback / Headless: `Saved figma token to config file (~/.config/nodesign/config.json)`
+
+---
+
+## Konsist-Style Architectural & Symbol Harvester
+
+`nodesign` incorporates a lightweight **Konsist-Style Architectural Harvester** inspired by structural linting engines like [Konsist](https://docs.konsist.lemonappdev.com/) and [ArchUnit](https://www.archunit.org/).
+
+### How It Works
+
+Instead of relying on hardcoded folder names (`domain/`, `data/`, `presentation/`), `nodesign` scans class declarations, function signatures, annotations, and usage patterns across your codebase:
+
+1. **Architectural Signal Detection**:
+   - **Clean Architecture**: Detects `*UseCase`, `*Interactor`, `*Repository`, `*Gateway`, `*Port`, and `*Adapter` declarations.
+   - **Design System Modules**: Detects `:designsystem`, `core:ui`, `ui/theme/`, `Color.kt`, `Theme.kt`, and `@Composable fun *Theme`.
+   - **Feature & Layer Structures**: Detects `feature/*/`, `screens/`, `viewmodels/`, `*ViewModel`, `*State`, `*Intent`.
+2. **Deep Custom Theme Token Discovery**:
+   - Deep-scans custom theme wrappers (`TapatTheme.colors`, `LocalColors.current`, `val PrimaryBlue = Color(...)`).
+   - Automatically harvests package names (`package com.app.ui.theme`) and injects required Kotlin `import` statements into generated `@Composable` code.
+3. **Usage-Based Component Catalog**:
+   - Scans codebase invocation patterns (e.g. `PrimaryButton(...)` used 14x across production screens).
+   - Instructs AI coding agents to reuse existing project Composables instead of generating duplicate code or raw primitives.
+4. **Zero-Setup Portability**:
+   - Runs out-of-the-box via `npx @raquezha/nodesign` without requiring Gradle plugins or external linter dependencies.
+
+---
 
 ## Commands
 
-### `preflight`
+### `auth login`
+Prompt or save Personal Access Token (PAT) credentials for Figma and Zeplin.
 
-Inspect a target directory and emit a design preflight result.
+Flags:
+- `--provider <figma|zeplin>`
+- `--token <pat>`
 
-Options:
-- `--json` output JSON instead of text
-- `--path <dir>` directory to inspect
-- `--task <id>` task identifier included in output
-
-Examples:
-
-```bash
-nodesign preflight --path .
-nodesign preflight --json --path . --task github:101
-```
+### `auth status`
+Show active credential sources and validate reachability (`valid`, `invalid`, `unreachable`).
 
 ### `extract`
+Extract design specs from a Figma or Zeplin URL or URI (`zpl://`).
 
-Reserved for later design-source extraction.
+Flags:
+- `--json` machine-readable JSON output
+- `--render` download frame screenshot
+- `--out <dir>` target output directory for renders/assets
 
-Current behavior:
-- stub command
-- requires `--url <design-url>`
-- exits non-zero on malformed usage
-
-### `auth login`
-
-Reserved for later credential storage.
-
-Current behavior:
-- stub command
-- only `auth login` is accepted
-- exits non-zero for other auth subcommands
-
-## Output
-
-### Human-readable
-
-```text
-Design Brief: github:101
-Timestamp: 2026-08-12T00:00:00.000Z
-
-UI Sensitive: yes
-Android UI Stack: compose
-Evidence Status: missing
-
-UI Components:
-  - PrimaryButton (ui/components/PrimaryButton.kt)
-
-Notes:
-  - Found 1 reusable ui/components file(s)
-```
-
-### JSON
-
-```json
-{
-  "taskId": "github:101",
-  "timestamp": "2026-08-12T00:00:00.000Z",
-  "preflight": {
-    "uiSensitive": true,
-    "androidUIStack": "compose",
-    "evidenceStatus": "missing",
-    "designLinks": [],
-    "components": [
-      {
-        "name": "PrimaryButton",
-        "path": "ui/components/PrimaryButton.kt"
-      }
-    ],
-    "notes": [
-      "Found 1 reusable ui/components file(s)"
-    ]
-  }
-}
-```
-
-## Detection model
-
-`androidUIStack` is one of:
-- `compose`
-- `views`
-- `mixed`
-- `kmp`
-- `ambiguous`
-- `n/a`
-
-Current rules:
-- `compose`: Android Compose signals in Gradle
-- `views`: `res/layout` or qualified `layout-*` XML dirs
-- `mixed`: both Compose and Views signals present
-- `kmp`: Compose Multiplatform signals, not just any `commonMain`
-- `ambiguous`: Android project signals exist, but stack is unclear
-- `n/a`: no Android/KMP UI signals found
-
-Guardrails:
-- ignores generated dirs like `build/` and `.gradle/`
-- invalid commands fail non-zero
-- invalid `--path` fails non-zero
-- missing option values fail non-zero
-- plain JVM Gradle repos should stay `n/a`
-- plain KMP shared-logic repos should stay `n/a`
-
-## Reusable component scanning
-
-`nodesign` currently scans files under:
-
-```text
-ui/components/
-```
-
-Recognized file types:
-- `.kt`
-- `.kts`
-- `.xml`
-- `.tsx`
-- `.ts`
-- `.jsx`
-- `.js`
-
-It reports file paths only. It does not yet parse component APIs or rank reuse quality.
-
-## Team workflow
+### `preflight` (RPIV Integration)
+Inspect project directory and design evidence for RPIV workflow gates.
 
 ```bash
+nodesign preflight --path . --task github:101
 nodesign preflight --json --path . --task jira:ANDROID-123
 ```
 
-Paste the output into your agent alongside the task context. That keeps the plan grounded in the repo instead of guesses.
+---
 
-## Automation behavior
-
-`nodesign` is meant to be safe for scripts:
-- unknown commands fail
-- malformed auth invocations fail
-- invalid paths fail
-- missing option values fail
-- JSON mode is stable and machine-readable
-
-## Limitations
-
-Deliberate limits for now:
-- minimal Figma reachability resolution only (no full document analysis or asset export)
-- minimal Zeplin screen resolution (no project-wide sync)
-- no asset export for Figma
-- no code generation
-- detection is heuristic, not a full Gradle model parser
-- component discovery is path-based, not semantic
-
-## Development
+## Development & Test
 
 ```bash
 cd packages/nodesign
 npm install
 npm test
 ```
-
-Current tests cover:
-- Compose detection
-- Views detection
-- mixed detection
-- KMP Compose detection
-- ambiguous Android detection
-- plain KMP non-UI regression
-- plain JVM Gradle regression
-- generated-dir ignore regression
-- component extension filtering
-- CLI failure modes for invalid commands and paths
-
-## Monorepo note
-
-If you are working inside the `nothing` monorepo, the source lives at `packages/nodesign/`.
-
-Local repo usage before publish:
-
-```bash
-node packages/nodesign/bin/nodesign.js preflight --json --path .
-```
-
-The repo bootstrap can also install published `@raquezha/nodesign` globally when run in published-package install mode.

@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
+import { rmSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseFigmaUrl, resolveFigmaLink } from "../dist/index.js";
+
+const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function makeMockFetch(responses) {
   return async function mockFetch(url) {
@@ -11,6 +16,7 @@ function makeMockFetch(responses) {
       statusText: res.statusText || "OK",
       json: async () => res.json || {},
       text: async () => res.text || JSON.stringify(res.json || {}),
+      arrayBuffer: async () => Buffer.from(res.text || "data"),
     };
   };
 }
@@ -31,44 +37,93 @@ try {
 
   // 3. Status mappings
   const mock401 = makeMockFetch({ "/v1/files/": { status: 401 } });
-  const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock401);
+  const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
+  assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
 
   const mock403 = makeMockFetch({ "/v1/files/": { status: 403 } });
-  const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock403);
+  const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
 
-  const mock404 = makeMockFetch({ "/v1/files/": { status: 404 } });
-  const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock404);
+  const mock404 = makeMockFetch({
+    "/v1/files/KEY?depth=2": {
+      status: 200,
+      json: {
+        document: {
+          children: [{ name: "Checkout Redesign", type: "FRAME", id: "10:20" }],
+        },
+      },
+    },
+    "/v1/files/KEY/nodes": { status: 404 },
+  });
+  const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
+  assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
+  assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
+
 
   const mock429 = makeMockFetch({ "/v1/files/": { status: 429 } });
-  const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock429);
+  const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock429);
   assert.equal(res429.status, "RATE_LIMITED");
+
 
   // 4. Success case
   const mock200 = makeMockFetch({
+    "/v1/images/KEY": {
+      status: 200,
+      json: { images: { "1:2": "https://mock.cdn/render.png" } },
+    },
+    "render.png": {
+      status: 200,
+      text: "png-data",
+    },
     "/v1/files/KEY/nodes": {
       status: 200,
       json: {
         name: "File Title",
         nodes: {
           "1:2": {
-            document: { name: "Checkout Frame" },
+            document: {
+              name: "Checkout Frame",
+              absoluteBoundingBox: { width: 360, height: 640 },
+              fills: [{ color: { r: 0.2, g: 0.4, b: 0.8 } }],
+              children: [
+                {
+                  name: "Header",
+                  style: { fontFamily: "Inter", fontSize: 16 },
+                },
+                {
+                  name: "HiddenJunk",
+                  visible: false,
+                },
+              ],
+
+            },
           },
         },
       },
     },
   });
 
-  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", mock200);
+  const renderDir = path.join(path.dirname(packageDir), "..", "tmp-figma-render");
+  const res200 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", renderDir, mock200);
   assert.equal(res200.status, "SUCCESS");
+  assert.equal(res200.normalizedStatus, "SUCCESS");
   assert.equal(res200.name, "Checkout Frame");
   assert.equal(res200.fileKey, "KEY");
   assert.equal(res200.nodeId, "1:2");
+  assert.equal(res200.extract.hierarchy.length, 1);
+  assert.equal(res200.extract.hierarchy[0].name, "Header");
+  assert(res200.renderedImage);
+  assert(res200.renderedImage.endsWith("figma-KEY_1-2.png"));
+  assert(res200.visualAnalysis);
+  assert.equal(res200.visualAnalysis.layoutType, "MOBILE_VIEW");
+
+
 
   console.log("nodesign figma test ok");
-} catch (err) {
-  console.error("nodesign figma test failed:", err);
-  process.exit(1);
+} finally {
+  const renderDir = path.join(path.dirname(packageDir), "..", "tmp-figma-render");
+  rmSync(renderDir, { recursive: true, force: true });
 }
+
