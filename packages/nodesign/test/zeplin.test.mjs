@@ -35,6 +35,7 @@ try {
   // 1. URL Parsing
   assert.equal(parseZeplinScreenId("https://zpl.io/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("https://app.zeplin.io/project/123/screen/456"), "456");
+  assert.equal(parseZeplinScreenId("https://app.zeplin.io/project/5cdb84af8438557f58b504f7/dashboard"), "5cdb84af8438557f58b504f7");
   assert.equal(parseZeplinScreenId("zpl://screen/AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("zpl://screen?sid=AOGOKp6"), "AOGOKp6");
   assert.equal(parseZeplinScreenId("direct-id-789"), "direct-id-789");
@@ -130,6 +131,26 @@ try {
 
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');
+
+  const mockProj = makeMockFetch({
+    "/screens/5cdb84af8438557f58b504f7": { status: 404 },
+    "/components/5cdb84af8438557f58b504f7": { status: 404 },
+    "/projects/5cdb84af8438557f58b504f7/screens": {
+      status: 200,
+      json: [{ id: "screen_in_proj", name: "Dashboard First Screen" }],
+    },
+    "/projects/5cdb84af8438557f58b504f7": {
+      status: 200,
+      json: { id: "5cdb84af8438557f58b504f7", name: "Tindahang Tapat Project" },
+    },
+    "/screens/screen_in_proj": {
+      status: 200,
+      json: { id: "screen_in_proj", name: "Dashboard First Screen", width: 360, height: 640 },
+    },
+  });
+  const resProj = await resolveZeplinScreen("https://app.zeplin.io/project/5cdb84af8438557f58b504f7/dashboard", "dummy-token", undefined, mockProj);
+  assert.equal(resProj.status, "SUCCESS");
+  assert.equal(resProj.name, "Dashboard First Screen");
 
   // 6. Shortlink Resolution
   const mockShortlinkFetch = async (url, options) => {

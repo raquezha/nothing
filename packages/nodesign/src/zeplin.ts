@@ -102,17 +102,24 @@ export function parseZeplinScreenId(urlOrId: string): string {
   const sidMatch = clean.match(/[?&](?:sid|screenId|screen_id|coid|coId)=([^&?#]+)/i);
   if (sidMatch) return sidMatch[1];
 
+  const pidMatch = clean.match(/[?&]pid=([^&?#]+)/i);
+  if (pidMatch) return pidMatch[1];
+
+  if (clean.includes("/screen/")) {
+    const parts = clean.split("/screen/");
+    return parts[1].split(/[?#]/)[0].replace(/\/$/, "");
+  }
+
+  const projMatch = clean.match(/app\.zeplin\.io\/project\/([a-fA-F0-9]{24})/i);
+  if (projMatch) return projMatch[1];
+
   if (clean.startsWith("zpl://")) {
-    const match = clean.match(/(?:screen\/|screen:|components\/|component:)([^/?#]+)/i);
+    const match = clean.match(/(?:screen\/|screen:|components\/|component:|project\/|project:)([^/?#]+)/i);
     if (match) return match[1];
     return clean.replace(/^zpl:\/\/[^/]*\/?/, "").split(/[?#]/)[0];
   }
   if (clean.includes("zpl.io/")) {
     const parts = clean.split("zpl.io/");
-    return parts[1].split(/[?#]/)[0].replace(/\/$/, "");
-  }
-  if (clean.includes("/screen/")) {
-    const parts = clean.split("/screen/");
     return parts[1].split(/[?#]/)[0].replace(/\/$/, "");
   }
   return clean;
@@ -318,6 +325,31 @@ export async function resolveZeplinScreen(
       }, fetchFn);
       if (compRes.ok) {
         res = compRes;
+      } else {
+        const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}`, {
+          headers: { "Zeplin-Access-Token": authToken },
+        }, fetchFn);
+        if (projRes.ok) {
+          const projData = (await projRes.json()) as any;
+          const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}/screens?limit=10`, {
+            headers: { "Zeplin-Access-Token": authToken },
+          }, fetchFn);
+          const projScreens = screensRes.ok ? ((await screensRes.json()) as any[]) : [];
+          const firstScreen = projScreens[0];
+
+          if (firstScreen) {
+            const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${firstScreen.id}`, {
+              headers: { "Zeplin-Access-Token": authToken },
+            }, fetchFn);
+            if (firstScreenRes.ok) {
+              res = firstScreenRes;
+            } else {
+              res = projRes;
+            }
+          } else {
+            res = projRes;
+          }
+        }
       }
     }
 
