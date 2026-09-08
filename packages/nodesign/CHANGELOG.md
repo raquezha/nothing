@@ -1,5 +1,12 @@
 # @raquezha/nodesign
 
+## 0.1.2
+
+### Patch Changes
+
+- 3789998: Document private file authentication flow and credential resolution for npx execution in nodesign README.
+- d6269d1: Add explicit Installation section to nodesign README with npx and global npm options.
+
 ## 0.1.1
 
 ### Patch Changes
