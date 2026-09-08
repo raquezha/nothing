@@ -51,6 +51,40 @@ function parseEnvText(text: string): Record<string, string> {
   return out;
 }
 
+function updateEnvFileKey(filePath: string, key: string, value: string): void {
+  if (!existsSync(filePath)) return;
+  try {
+    const text = readFileSync(filePath, "utf8");
+    const lines = text.split("\n");
+    let replaced = false;
+    const newLines = lines.map((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith(`${key}=`) || trimmed.startsWith(`export ${key}=`)) {
+        replaced = true;
+        const prefix = trimmed.startsWith("export ") ? "export " : "";
+        return `${prefix}${key}="${value.replace(/"/g, '\\"')}"`;
+      }
+      return line;
+    });
+    if (replaced) {
+      writeFileSync(filePath, newLines.join("\n"), "utf8");
+    }
+  } catch {}
+}
+
+function deleteEnvFileKey(filePath: string, key: string): void {
+  if (!existsSync(filePath)) return;
+  try {
+    const text = readFileSync(filePath, "utf8");
+    const lines = text.split("\n");
+    const newLines = lines.filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith(`${key}=`) && !trimmed.startsWith(`export ${key}=`);
+    });
+    writeFileSync(filePath, newLines.join("\n"), "utf8");
+  } catch {}
+}
+
 
 function readEnvFile(file: string): Record<string, string> {
   if (!existsSync(file)) return {};
@@ -173,6 +207,10 @@ export function storeCredential(
   token: string,
   options: { preferFile?: boolean } = {},
 ): StoreCredentialResult {
+  const key = envKey(provider);
+  updateEnvFileKey(path.join(process.cwd(), ".env"), key, token);
+  updateEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key, token);
+
   if (!options.preferFile && process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
@@ -198,6 +236,9 @@ export function storeCredential(
 
 export function deleteCredential(provider: CredentialProvider): boolean {
   let cleared = false;
+  const key = envKey(provider);
+  deleteEnvFileKey(path.join(process.cwd(), ".env"), key);
+  deleteEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key);
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
