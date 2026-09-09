@@ -38,28 +38,9 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 		},
 		defaultRequestId: "gemini-3.1-pro-low",
 	},
-	"gemini-3.8-flash": {
-		off: "gemini-3.8-flash-low",
-		routing: {
-			minimal: "gemini-3.8-flash-low",
-			low: "gemini-3.8-flash-low",
-			medium: "gemini-3.8-flash-medium",
-			high: "gemini-3.8-flash-high",
-			xhigh: "gemini-3.8-flash-high",
-		},
-		defaultRequestId: "gemini-3.8-flash-low",
-	},
-	"gemini-3.7-flash": {
-		off: "gemini-3.7-flash-low",
-		routing: {
-			minimal: "gemini-3.7-flash-low",
-			low: "gemini-3.7-flash-low",
-			medium: "gemini-3.7-flash-medium",
-			high: "gemini-3.7-flash-high",
-			xhigh: "gemini-3.7-flash-high",
-		},
-		defaultRequestId: "gemini-3.7-flash-low",
-	},
+	// These account-catalog routes manage thinking server-side; no low/medium/high IDs exist.
+	"gemini-3.8-flash": { defaultRequestId: "gemini-3.8-flash-tiered" },
+	"gemini-3.7-flash": { defaultRequestId: "gemini-3.7-flash-tiered" },
 	"gemini-3.6-flash": {
 		off: "gemini-3.6-flash-low",
 		routing: {
@@ -129,7 +110,7 @@ export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 		id: "gemini-3.8-flash",
 		name: "Gemini 3.8 Flash (Antigravity)",
 		reasoning: true,
-		thinkingLevelMap: { off: null, low: "LOW", medium: "MEDIUM", high: "HIGH", xhigh: "HIGH" } as any,
+		thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: "AUTO", xhigh: null } as any,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 1048576,
@@ -139,7 +120,7 @@ export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 		id: "gemini-3.7-flash",
 		name: "Gemini 3.7 Flash (Antigravity)",
 		reasoning: true,
-		thinkingLevelMap: { off: null, low: "LOW", medium: "MEDIUM", high: "HIGH", xhigh: "HIGH" } as any,
+		thinkingLevelMap: { off: null, minimal: null, low: null, medium: null, high: "AUTO", xhigh: null } as any,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 1048576,

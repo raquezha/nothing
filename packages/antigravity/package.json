@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node test/provider.mjs",
     "prepare": "npm run build"
   },
   "peerDependencies": {

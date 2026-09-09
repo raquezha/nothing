@@ -106,7 +106,8 @@ function convertMessages(model: any, context: any, runtimeModel: string): any[] 
 }
 
 function stripMetaSchema(schema: unknown): unknown {
-	if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
+	if (!schema || typeof schema !== "object") return schema;
+	if (Array.isArray(schema)) return schema.map(stripMetaSchema);
 	const omit = new Set(["$schema", "$id", "$anchor", "$dynamicAnchor", "$vocabulary", "$comment", "$defs", "definitions"]);
 	const out: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(schema)) {
@@ -120,7 +121,10 @@ function normalizeGoogleSchema(schema: unknown): unknown {
 	if (Array.isArray(schema)) return schema.map(normalizeGoogleSchema);
 	const out: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(schema)) {
-		if (key === "type" && typeof value === "string") out[key] = value.toUpperCase();
+		if (key === "properties" && value && typeof value === "object") {
+			out[key] = Object.fromEntries(Object.entries(value).map(([name, property]) => [name, normalizeGoogleSchema(property)]));
+		} else if (key === "const") out.enum = [value];
+		else if (key === "type" && typeof value === "string") out[key] = value.toUpperCase();
 		else out[key] = normalizeGoogleSchema(value);
 	}
 	return out;
@@ -205,7 +209,7 @@ function friendlyAntigravityError(status: number | undefined, text: string): str
 	const msg = jsonOrTextError(text);
 	if (status === 400) {
 		if (/API key not valid|API_KEY_INVALID/i.test(msg)) return "Antigravity login expired or credentials are invalid. Next: run /login antigravity, then retry.";
-		if (/Invalid JSON payload|Unknown name/i.test(msg)) return "Antigravity request format was rejected by the backend. Next: switch to a simpler model or retry after updating the extension.";
+		if (/Invalid JSON payload|Unknown name/i.test(msg)) return `Antigravity request format was rejected by the backend. Backend said: ${msg}`;
 		if (/Request contains an invalid argument/i.test(msg)) return "Antigravity rejected this request. Next: retry once; if it keeps failing, switch models or re-login.";
 		return `Bad request from Antigravity. Next: retry once, then run /login antigravity if it keeps failing. Backend said: ${msg}`;
 	}
@@ -379,8 +383,8 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 			const effort = options?.reasoning ?? "off";
 			const baseRuntimeModel = antigravityEnv("RUNTIME_MODEL")?.trim() || getAntigravityRequestModelId(model.id, effort);
 			
-			await fetchAvailableRuntimeModel(creds.token, projectId, baseRuntimeModel);
-			const runtimeModel = baseRuntimeModel;
+			const discovered = await fetchAvailableRuntimeModel(creds.token, projectId, baseRuntimeModel);
+			const runtimeModel = discovered?.id ?? baseRuntimeModel;
 			
 			setLastResolvedRuntimeModel(runtimeModel);
 

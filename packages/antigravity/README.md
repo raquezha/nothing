@@ -43,8 +43,9 @@ npm install -g @raquezha/antigravity
   - `claude-opus-4-6`
   - `gpt-oss-120b`
 - Runtime routing examples:
-  - `gemini-3.8-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.8-flash-low`, `gemini-3.8-flash-medium`, or `gemini-3.8-flash-high`
-  - `gemini-3.7-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.7-flash-low`, `gemini-3.7-flash-medium`, or `gemini-3.7-flash-high`
+  - `gemini-3.8-flash` -> `gemini-3.8-flash-tiered`
+  - `gemini-3.7-flash` -> `gemini-3.7-flash-tiered`
+  - Flash 3.7/3.8 thinking is server-managed (the single `high` selector maps to automatic thinking), not separate low/medium/high runtime IDs.
   - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-low`, `gemini-3.5-flash-medium`, or `gemini-3.5-flash-high`
   - `gemini-3.1-pro` -> routes internally to `gemini-3.1-pro-low` or `gemini-pro-agent`
   - `claude-sonnet-4-6` -> routes to `claude-sonnet-4-6` (always-on thinking)
@@ -54,9 +55,17 @@ npm install -g @raquezha/antigravity
   - old public ids like `gemini-3.5-flash-high`, `gemini-3.5-flash-low`, `gemini-3.1-pro-low`, `gemini-3.1-pro-high`, `claude-sonnet-4-6-thinking`, and `gpt-oss-120b-medium` were replaced by cleaner public ids plus internal routing.
 - Default endpoint: `https://cloudcode-pa.googleapis.com` (fallback: `https://daily-cloudcode-pa.sandbox.googleapis.com`)
 
+Catalog map keys are runtime IDs; nested `MODEL_PLACEHOLDER_*` values are not. Discovery uses exact keys first, then matching display names for renamed routes. Catalog presence does not guarantee quota or entitlement: a 429 requires waiting for the reported reset or checking your subscription, not another model alias.
+
+After updating this checkout, run `/reload` in Pi to load the extension changes.
+
 ## Diagnostics
 
-`/antigravity.doctor` prints sanitized routing information only. It must not print OAuth tokens, refresh tokens, authorization headers, prompts, or credential files.
+`/antigravity.doctor` prints sanitized routing information, including unlabeled catalog IDs, with no stale match from a previous request. It must not print OAuth tokens, refresh tokens, authorization headers, prompts, or credential files.
+
+Claude uses the backend's legacy tool-schema field; literal `const` constraints are converted to single-value enums. Request-format errors retain the backend's rejected-field message for diagnosis.
+
+Run offline regression checks with `npm test -w @raquezha/antigravity`.
 
 ## Optional overrides
 

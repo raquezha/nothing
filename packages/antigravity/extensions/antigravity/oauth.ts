@@ -190,25 +190,6 @@ async function listCloudAICompanionProjects(token: string): Promise<string | und
 	return undefined;
 }
 
-function collectModelLabels(value: any, out: string[] = []): string[] {
-	if (!value || out.length > 50) return out;
-	if (typeof value === "string") {
-		if (/gemini|claude|gpt-oss/i.test(value)) out.push(value);
-		return out;
-	}
-	if (Array.isArray(value)) {
-		for (const item of value) collectModelLabels(item, out);
-		return out;
-	}
-	if (typeof value === "object") {
-		for (const key of ["id", "name", "label", "displayName", "model", "modelId"]) collectModelLabels(value[key], out);
-		for (const nested of Object.values(value)) {
-			if (nested && typeof nested === "object") collectModelLabels(nested, out);
-		}
-	}
-	return out;
-}
-
 function summarizeModelCandidate(value: any): string {
 	if (!value || typeof value !== "object") return String(value ?? "none");
 	const out: Record<string, unknown> = {};
@@ -221,65 +202,27 @@ function summarizeModelCandidate(value: any): string {
 	return JSON.stringify(out).slice(0, 1200);
 }
 
-export type DynamicModelInfo = { id: string; experiments?: string[]; apiProvider?: string; modelProvider?: string };
+export type DynamicModelInfo = { id: string };
 
-function findDynamicModel(value: any, requestedId: string): DynamicModelInfo | undefined {
-	if (!value) return undefined;
-	
-	let targetRegex: RegExp;
-	const req = requestedId.toLowerCase();
-	if (req === "gemini-3.8-flash-low") targetRegex = /gemini[- ]3\.8[- ]flash \(low\)/i;
-	else if (req === "gemini-3.8-flash-medium") targetRegex = /gemini[- ]3\.8[- ]flash \(medium\)/i;
-	else if (req === "gemini-3.8-flash-high") targetRegex = /gemini[- ]3\.8[- ]flash \(high\)/i;
-	else if (req === "gemini-3.7-flash-low") targetRegex = /gemini[- ]3\.7[- ]flash \(low\)/i;
-	else if (req === "gemini-3.7-flash-medium") targetRegex = /gemini[- ]3\.7[- ]flash \(medium\)/i;
-	else if (req === "gemini-3.7-flash-high") targetRegex = /gemini[- ]3\.7[- ]flash \(high\)/i;
-	else if (req === "gemini-3.6-flash-low") targetRegex = /gemini[- ]3\.6[- ]flash \(low\)/i;
-	else if (req === "gemini-3.6-flash-medium") targetRegex = /gemini[- ]3\.6[- ]flash \(medium\)/i;
-	else if (req === "gemini-3.6-flash-high") targetRegex = /gemini[- ]3\.6[- ]flash \(high\)/i;
-	else if (req === "gemini-3.5-flash-low") targetRegex = /gemini[- ]3\.5[- ]flash \(low\)/i;
-	else if (req === "gemini-3.5-flash-medium") targetRegex = /gemini[- ]3\.5[- ]flash \(medium\)/i;
-	else if (req === "gemini-3.5-flash-high") targetRegex = /gemini[- ]3\.5[- ]flash \(high\)/i;
-	else if (req.includes("claude-opus-4-6")) targetRegex = /claude.*opus.*4\.6/i;
-	else if (req.includes("claude-sonnet-4-6")) targetRegex = /claude.*sonnet.*4\.6/i;
-	else if (req.includes("gpt-oss-120b")) targetRegex = /gpt.*oss.*120b/i;
-	else if (req === "gemini-3.1-pro-low") targetRegex = /gemini[- ]3\.1[- ]pro \(low\)/i;
-	else if (req === "gemini-3.1-pro-high") targetRegex = /gemini[- ]3\.1[- ]pro \(high\)/i;
-	else if (req.includes("gemini-2.5-pro")) targetRegex = /gemini[- ]2\.5[- ]pro/i;
-	else if (req.includes("gemini-2.5-flash")) targetRegex = /gemini[- ]2\.5[- ]flash/i;
-	else targetRegex = new RegExp(req.replace(/-/g, ".*"), "i");
-
-	if (typeof value === "string") return targetRegex.test(value) ? { id: value } : undefined;
-	if (Array.isArray(value)) {
-		for (const item of value) {
-			const found = findDynamicModel(item, requestedId);
-			if (found) return found;
-		}
-		return undefined;
-	}
-	if (typeof value === "object") {
-		const label = value.label ?? value.displayName ?? value.name ?? value.modelId ?? value.id ?? value.model;
-		if (typeof label === "string" && targetRegex.test(label)) {
-			lastMatchedModelDebug = summarizeModelCandidate(value);
-			return { 
-				id: String(value.modelId ?? value.id ?? value.model ?? label),
-				experiments: value.modelExperiments,
-				apiProvider: value.apiProvider,
-				modelProvider: value.modelProvider
-			};
-		}
-		for (const nested of Object.values(value)) {
-			if (nested && typeof nested === "object") {
-				const found = findDynamicModel(nested, requestedId);
-				if (found) return found;
-			}
-		}
-	}
-	return undefined;
+export function findDynamicModel(value: any, requestedId: string): DynamicModelInfo | undefined {
+	lastMatchedModelDebug = undefined;
+	const models = value?.models;
+	if (!models || typeof models !== "object" || Array.isArray(models)) return undefined;
+	lastAvailableModels = Object.keys(models).sort().join(",");
+	// The map key is the request ID. The nested MODEL_PLACEHOLDER_* value is not.
+	const normalize = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, "");
+	const id = Object.hasOwn(models, requestedId) ? requestedId : Object.keys(models).find(
+		(key) => typeof models[key]?.displayName === "string" && normalize(models[key].displayName) === normalize(requestedId),
+	);
+	if (!id) return undefined;
+	lastMatchedModelDebug = summarizeModelCandidate(models[id]);
+	return { id };
 }
 
 export async function fetchAvailableRuntimeModel(token: string, projectId: string, requestedRuntimeModel: string): Promise<DynamicModelInfo | undefined> {
-	const bodies = [{}, { cloudaicompanionProject: projectId }, { project: projectId }];
+	lastMatchedModelDebug = undefined;
+	lastAvailableModels = undefined;
+	const bodies = [{ project: projectId }, {}, { cloudaicompanionProject: projectId }];
 	for (const endpoint of endpointCandidates()) {
 		for (const candidateBody of bodies) {
 			try {
@@ -292,8 +235,6 @@ export async function fetchAvailableRuntimeModel(token: string, projectId: strin
 				lastEndpoint = endpoint;
 				if (!res.ok) continue;
 				const data = await res.json();
-				const labels = [...new Set(collectModelLabels(data))].slice(0, 12);
-				lastAvailableModels = labels.join(",");
 				return findDynamicModel(data, requestedRuntimeModel);
 			} catch (error) {
 				lastError = safeError(error);
