@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.8
+
+### Patch Changes
+
+- 523e979: Explain Zeplin DESIGN_NOT_FOUND results with a clear human-readable error description.
+
 ## 0.1.7
 
 ### Patch Changes
