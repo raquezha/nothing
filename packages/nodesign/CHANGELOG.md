@@ -1,5 +1,12 @@
 # @raquezha/nodesign
 
+## 0.1.5
+
+### Patch Changes
+
+- 74c7f06: Add automatic project fallback and project screen resolution for Zeplin URLs with stale/deleted screen IDs.
+- 87fd2d7: Suggest active candidate screens from accessible Zeplin projects when a Zeplin screen ID returns 404.
+
 ## 0.1.4
 
 ### Patch Changes
