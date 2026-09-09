@@ -86,6 +86,7 @@ export interface ZeplinResolutionResult {
   rendering?: RenderResult;
   visualAnalysis?: VisualAnalysis;
   suggestedScreens?: string[];
+  errorDescription?: string;
   note?: string;
 }
 
@@ -411,14 +412,16 @@ export async function resolveZeplinScreen(
         return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
       }
       const suggestedScreens = await fetchSuggestedZeplinScreens(authToken, fetchFn);
+      const errorDescription = `Zeplin accepted your token, but the requested screen/component ID (${screenId}) does not exist in any project your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.`;
       return {
         status: "DESIGN_NOT_FOUND",
         normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
         screenId,
         suggestedScreens: suggestedScreens.length ? suggestedScreens : undefined,
+        errorDescription,
         note: suggestedScreens.length
-          ? `Zeplin screen or component ${screenId} not found (404). Active screens in your Zeplin projects: ${suggestedScreens.join(", ")}`
-          : `Zeplin screen or component ${screenId} not found (404)`,
+          ? `${errorDescription} Active screens you can access: ${suggestedScreens.join(", ")}`
+          : errorDescription,
       };
     }
     if (res.status === 429) {

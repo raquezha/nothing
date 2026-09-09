@@ -75,7 +75,8 @@ try {
   const mock404 = makeMockFetch({ "/screens/AOGOKp6": { status: 404 }, "/components/AOGOKp6": { status: 404 } });
   const res404 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
-
+  assert(res404.errorDescription.includes("Zeplin accepted your token"));
+  assert(res404.errorDescription.includes("stale, deleted, moved"));
 
   const mock429 = makeMockFetch({ "/screens/AOGOKp6": { status: 429 } });
   const res429 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock429);
