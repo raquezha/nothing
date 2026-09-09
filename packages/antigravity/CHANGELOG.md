@@ -1,5 +1,17 @@
 # @raquezha/antigravity
 
+## 0.1.2
+
+### Patch Changes
+
+- de14803: Add Gemini 3.8 Flash model routing for Antigravity.
+
+## 0.1.1
+
+### Patch Changes
+
+- de14803: Add Gemini 3.8 Flash model routing for Antigravity.
+
 ## 0.1.0
 
 ### Minor Changes
