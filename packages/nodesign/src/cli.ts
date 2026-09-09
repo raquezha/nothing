@@ -22,6 +22,11 @@ function getVersion(): string {
 
 const VERSION = getVersion();
 
+const TOKEN_URLS = {
+  figma: "https://www.figma.com/settings",
+  zeplin: "https://app.zeplin.io/profile/developer",
+};
+
 const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
@@ -361,14 +366,14 @@ async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zepl
 
   console.log("\x1b[36m│\x1b[0m");
   if (provider === "figma") {
-    console.log("\x1b[36m◇\x1b[0m  \x1b[1mHow to get a Figma PAT:\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  1. Log in to Figma \x1b[90m→\x1b[0m Profile Avatar \x1b[90m→\x1b[0m \x1b[1mSettings\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  2. Scroll to \x1b[1mPersonal access tokens\x1b[0m \x1b[90m→\x1b[0m \x1b[1mGenerate new token\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  3. Scope: \x1b[32mfiles:read\x1b[0m");
+    console.log("\x1b[36m◇\x1b[0m  \x1b[1mCreate a Figma PAT:\x1b[0m");
+    console.log(`\x1b[36m│\x1b[0m  Open: \x1b[4m\x1b[36m${TOKEN_URLS.figma}\x1b[0m`);
+    console.log("\x1b[36m│\x1b[0m  Then: \x1b[1mPersonal access tokens\x1b[0m \x1b[90m→\x1b[0m \x1b[1mGenerate new token\x1b[0m");
+    console.log("\x1b[36m│\x1b[0m  Scope: \x1b[32mfiles:read\x1b[0m");
   } else {
-    console.log("\x1b[36m◇\x1b[0m  \x1b[1mHow to get a Zeplin Personal Token:\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  1. Log in to Zeplin \x1b[90m→\x1b[0m Avatar \x1b[90m→\x1b[0m \x1b[1mDeveloper Settings\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  2. Click \x1b[1mCreate Personal Access Token\x1b[0m");
+    console.log("\x1b[36m◇\x1b[0m  \x1b[1mCreate a Zeplin Personal Token:\x1b[0m");
+    console.log(`\x1b[36m│\x1b[0m  Open: \x1b[4m\x1b[36m${TOKEN_URLS.zeplin}\x1b[0m`);
+    console.log("\x1b[36m│\x1b[0m  Then click \x1b[1mCreate Personal Access Token\x1b[0m");
   }
   console.log("\x1b[36m│\x1b[0m");
 
