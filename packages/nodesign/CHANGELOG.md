@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.9
+
+### Patch Changes
+
+- defa764: Add human-readable error descriptions for vague Figma and Zeplin auth, access, not found, rate limit, and API failures.
+
 ## 0.1.8
 
 ### Patch Changes
