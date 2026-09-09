@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.6
+
+### Patch Changes
+
+- 87fd2d7: Suggest active candidate screens from accessible Zeplin projects when a Zeplin screen ID returns 404.
+
 ## 0.1.5
 
 ### Patch Changes
