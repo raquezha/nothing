@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.10
+
+### Patch Changes
+
+- e07a3a2: Show direct Figma and Zeplin token creation URLs during `nodesign auth login`.
+
 ## 0.1.9
 
 ### Patch Changes
