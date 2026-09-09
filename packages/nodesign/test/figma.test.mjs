@@ -34,12 +34,14 @@ try {
   // 2. Auth missing
   const noAuthRes = await resolveFigmaLink("https://www.figma.com/design/tVN4mWwBlUlzWNUZGfaavK/Tindahang-Tapat?node-id=16219-5858", "");
   assert.equal(noAuthRes.status, "AUTH_REQUIRED");
+  assert(noAuthRes.errorDescription.includes("No Figma token"));
 
   // 3. Status mappings
   const mock401 = makeMockFetch({ "/v1/files/": { status: 401 } });
   const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
   assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
+  assert(res401.errorDescription.includes("Figma rejected"));
 
   const mock403 = makeMockFetch({ "/v1/files/": { status: 403 } });
   const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock403);
@@ -58,6 +60,7 @@ try {
   });
   const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
+  assert(res404.errorDescription.includes("stale, deleted, moved"));
   assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
   assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
 

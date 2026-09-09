@@ -66,6 +66,7 @@ export interface FigmaResolutionResult {
   rendering?: RenderResult;
   visualAnalysis?: VisualAnalysis;
   suggestedFrames?: string[];
+  errorDescription?: string;
   note?: string;
 }
 
@@ -76,6 +77,22 @@ function normalizeProviderStatus(status: FigmaErrorStatus): ProviderStatus {
     case "DESIGN_NOT_FOUND": return "NODE_NOT_FOUND";
     default: return status;
   }
+}
+
+const FIGMA_ERROR_DESCRIPTION: Record<Exclude<FigmaErrorStatus, "SUCCESS">, string> = {
+  AMBIGUOUS_URL: "nodesign could not recognize this as a usable Figma file URL. Use a /file/, /design/, /proto/, or valid node link copied from Figma.",
+  AUTH_REQUIRED: "No Figma token was found. Run `nodesign auth login` or set FIGMA_TOKEN before extracting private Figma files.",
+  AUTH_REJECTED: "Figma rejected the configured token. The token is expired, revoked, malformed, or belongs to a different Figma account.",
+  ACCESS_DENIED: "Figma accepted your token, but this token does not have permission to read the requested file or node.",
+  DESIGN_NOT_FOUND: "Figma accepted your token, but the requested file or node does not exist in a file your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.",
+  RATE_LIMITED: "Figma is throttling requests. Wait a minute and retry; nodesign already retries short 429 bursts automatically.",
+  API_UNAVAILABLE: "Figma returned an unexpected API response or the network request failed. Retry once; if it persists, check Figma status or the raw HTTP code in the note.",
+};
+
+function figmaErrorDescription(status: Exclude<FigmaErrorStatus, "SUCCESS">, id?: string): string {
+  return id && status === "DESIGN_NOT_FOUND"
+    ? FIGMA_ERROR_DESCRIPTION.DESIGN_NOT_FOUND.replace("file or node", `file or node (${id})`)
+    : FIGMA_ERROR_DESCRIPTION[status];
 }
 
 function toByte(value: number | undefined): number {
@@ -263,6 +280,7 @@ export async function resolveFigmaLink(
       status: "AMBIGUOUS_URL",
       normalizedStatus: "AMBIGUOUS_URL",
       url: cleanUrl,
+      errorDescription: figmaErrorDescription("AMBIGUOUS_URL"),
       note: "Could not extract Figma file key from URL",
     };
   }
@@ -275,6 +293,7 @@ export async function resolveFigmaLink(
       url: cleanUrl,
       fileKey,
       nodeId,
+      errorDescription: figmaErrorDescription("AUTH_REQUIRED"),
       note: "Figma access token is missing. Configure FIGMA_TOKEN environment variable or store in OS keychain/pi-secrets.",
     };
   }
@@ -325,13 +344,15 @@ export async function resolveFigmaLink(
 
 
     if (res.status === 401) {
-      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), url: cleanUrl, fileKey, nodeId, note: "Figma authentication rejected (401 invalid token)" };
+      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), url: cleanUrl, fileKey, nodeId, errorDescription: figmaErrorDescription("AUTH_REJECTED"), note: "Figma authentication rejected (401 invalid token)" };
     }
     if (res.status === 403) {
-      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), url: cleanUrl, fileKey, nodeId, note: "Figma access denied (403 forbidden)" };
+      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), url: cleanUrl, fileKey, nodeId, errorDescription: figmaErrorDescription("ACCESS_DENIED"), note: "Figma access denied (403 forbidden)" };
     }
     if (res.status === 404) {
       const suggestedFrames = nodeId && fileKey && authToken ? await fetchSuggestedFrames(fileKey, authToken, fetchFn) : [];
+      const missingId = nodeId || fileKey;
+      const errorDescription = figmaErrorDescription("DESIGN_NOT_FOUND", missingId);
       return {
         status: "DESIGN_NOT_FOUND",
         normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
@@ -339,16 +360,17 @@ export async function resolveFigmaLink(
         fileKey,
         nodeId,
         suggestedFrames: suggestedFrames.length ? suggestedFrames : undefined,
+        errorDescription,
         note: suggestedFrames.length
-          ? `Figma node ${nodeId} not found. Suggested frames in file ${fileKey}: ${suggestedFrames.join(", ")}`
-          : `Figma resource ${fileKey} not found (404)`,
+          ? `${errorDescription} Suggested frames in file ${fileKey}: ${suggestedFrames.join(", ")}`
+          : errorDescription,
       };
     }
     if (res.status === 429) {
-      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), url: cleanUrl, fileKey, nodeId, note: "Figma API rate limit exceeded (429)" };
+      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), url: cleanUrl, fileKey, nodeId, errorDescription: figmaErrorDescription("RATE_LIMITED"), note: "Figma API rate limit exceeded (429)" };
     }
     if (!res.ok) {
-      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), url: cleanUrl, fileKey, nodeId, note: `Figma API error (${res.status} ${res.statusText})` };
+      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), url: cleanUrl, fileKey, nodeId, errorDescription: figmaErrorDescription("API_UNAVAILABLE"), note: `Figma API error (${res.status} ${res.statusText})` };
     }
 
     const data = (await res.json()) as any;
@@ -415,6 +437,7 @@ export async function resolveFigmaLink(
       url: cleanUrl,
       fileKey,
       nodeId,
+      errorDescription: figmaErrorDescription("API_UNAVAILABLE"),
       note: `Network or fetch failure querying Figma API: ${msg}`,
     };
   }

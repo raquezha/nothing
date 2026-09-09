@@ -512,8 +512,9 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               if (figma.extract?.layout.width || figma.extract?.layout.height) printStep("Layout", `${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
               if (figma.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(figma.extract.hierarchy, 1));
               printStep("Rendered Image", figma.renderedImage);
+              printNote("What happened", figma.errorDescription);
               printList("Suggested Frames", figma.suggestedFrames);
-              printNote("Figma", figma.note);
+              printNote("Figma", figma.note && figma.note !== figma.errorDescription ? figma.note : undefined);
             }
             console.log(`${color.cyan}│${color.reset}`);
             console.log(`${color.cyan}└${color.reset} ${color.dim}zero-drift contract active; use --markdown or --json for full agent payload${color.reset}`);
