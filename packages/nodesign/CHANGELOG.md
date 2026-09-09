@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.7
+
+### Patch Changes
+
+- 6a4de04: Beautify plain `nodesign extract` terminal output with a compact Clack-inspired status card.
+
 ## 0.1.6
 
 ### Patch Changes
