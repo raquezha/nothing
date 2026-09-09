@@ -33,7 +33,7 @@ export { formatDesignBrief, formatTreeBlueprint, formatAgentDirective, parseDesi
 export { extractDesignLinksFromText, inspectJiraTaskText, inspectJiraContext } from "./jira.js";
 export { resolveZeplinScreen, parseZeplinScreenId, resolveZeplinShortlink, rgbToHex } from "./zeplin.js";
 export { resolveFigmaLink, parseFigmaUrl } from "./figma.js";
-export { resolveCredential, resolveCredentials, storeCredential, validateCredential, deleteCredential } from "./auth.js";
+export { resolveCredential, resolveCredentials, storeCredential, validateCredential, validateCredentialWithInfo, deleteCredential } from "./auth.js";
 export { checkUpdateNotice } from "./update.js";
 export { renderDesignNode, type RenderOptions, type RenderResult } from "./render.js";
 

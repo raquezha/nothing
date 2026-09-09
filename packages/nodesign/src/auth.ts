@@ -302,6 +302,21 @@ export async function validateCredential(
   rawToken: string,
   fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<"valid" | "invalid" | "unreachable"> {
+  const info = await validateCredentialWithInfo(provider, rawToken, fetchFn);
+  return info.status;
+}
+
+export interface CredentialInfo {
+  status: "valid" | "invalid" | "unreachable";
+  user?: string;
+  email?: string;
+}
+
+export async function validateCredentialWithInfo(
+  provider: CredentialProvider,
+  rawToken: string,
+  fetchFn: typeof fetch = globalThis.fetch,
+): Promise<CredentialInfo> {
   const token = cleanTokenValue(rawToken) || rawToken;
   const url = provider === "figma" ? "https://api.figma.com/v1/me" : "https://api.zeplin.dev/v1/users/me";
   const headers: Record<string, string> = provider === "figma"
@@ -310,10 +325,17 @@ export async function validateCredential(
 
   try {
     const res = await fetchFn(url, { headers });
-    if (res.status === 401 || res.status === 403) return "invalid";
-    if (!res.ok) return "unreachable";
-    return "valid";
+    if (res.status === 401 || res.status === 403) return { status: "invalid" };
+    if (!res.ok) return { status: "unreachable" };
+    try {
+      const data = await res.json() as any;
+      const user = data.handle || data.username || data.name || undefined;
+      const email = data.email || undefined;
+      return { status: "valid", user, email };
+    } catch {
+      return { status: "valid" };
+    }
   } catch {
-    return "unreachable";
+    return { status: "unreachable" };
   }
 }

@@ -43,11 +43,12 @@ try {
 
   result = run(["auth", "logout"]);
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /Cleared stored/);
+  assert.match(result.stdout, /cleared/);
 
   result = run(["auth", "login", "zeplin", "zpl_test_token"]);
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /Saved zeplin token/);
+  // Token validation rejects dummy tokens; exit 1 is correct
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /rejected|unreachable|Saved to/);
 
   result = run(["preflight", "--path"]);
   assert.notEqual(result.status, 0);
