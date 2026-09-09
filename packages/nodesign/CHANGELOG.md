@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.11
+
+### Patch Changes
+
+- 306c0b2: Prettify auth login/logout/status output, validate tokens before saving, show account identity, and reject invalid tokens upfront.
+
 ## 0.1.10
 
 ### Patch Changes
