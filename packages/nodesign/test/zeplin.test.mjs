@@ -49,6 +49,7 @@ try {
   delete process.env.ZEPLIN_TOKEN;
   const authReq = await resolveZeplinScreen("AOGOKp6", "");
   assert.equal(authReq.status, "AUTH_REQUIRED");
+  assert(authReq.errorDescription.includes("No Zeplin token"));
   if (origToken) process.env.ZEPLIN_TOKEN = origToken;
 
   // 4. Mock HTTP Error Statuses
@@ -56,10 +57,12 @@ try {
   const res401 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
   assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
+  assert(res401.errorDescription.includes("Zeplin rejected"));
 
   const mock403 = makeMockFetch({ "/screens/AOGOKp6": { status: 403 } });
   const res403 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
+  assert(res403.errorDescription.includes("does not have permission"));
 
   const mockComp = makeMockFetch({
     "/screens/comp_1": { status: 404 },
@@ -81,6 +84,7 @@ try {
   const mock429 = makeMockFetch({ "/screens/AOGOKp6": { status: 429 } });
   const res429 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock429);
   assert.equal(res429.status, "RATE_LIMITED");
+  assert(res429.errorDescription.includes("throttling"));
 
   // 5. Successful Screen Spec & Asset Export
   const outputDir = mkdtempSync(path.join(tmpdir(), "zeplin-test-assets-"));

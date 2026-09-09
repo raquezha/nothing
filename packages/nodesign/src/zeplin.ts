@@ -99,6 +99,21 @@ function normalizeProviderStatus(status: ZeplinErrorStatus): ProviderStatus {
   }
 }
 
+const ZEPLIN_ERROR_DESCRIPTION: Record<Exclude<ZeplinErrorStatus, "SUCCESS">, string> = {
+  AUTH_REQUIRED: "No Zeplin token was found. Run `nodesign auth login` or set ZEPLIN_TOKEN before extracting private Zeplin designs.",
+  AUTH_REJECTED: "Zeplin rejected the configured token. The token is expired, revoked, malformed, or belongs to a different Zeplin account.",
+  ACCESS_DENIED: "Zeplin accepted your token, but this token does not have permission to read the requested project, screen, or component.",
+  DESIGN_NOT_FOUND: "Zeplin accepted your token, but the requested screen/component ID does not exist in any project your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.",
+  RATE_LIMITED: "Zeplin is throttling requests. Wait a minute and retry; nodesign already retries short 429 bursts automatically.",
+  API_UNAVAILABLE: "Zeplin returned an unexpected API response or the network request failed. Retry once; if it persists, check Zeplin status or the raw HTTP code in the note.",
+};
+
+function zeplinErrorDescription(status: Exclude<ZeplinErrorStatus, "SUCCESS">, id?: string): string {
+  return id && status === "DESIGN_NOT_FOUND"
+    ? ZEPLIN_ERROR_DESCRIPTION.DESIGN_NOT_FOUND.replace("screen/component ID", `screen/component ID (${id})`)
+    : ZEPLIN_ERROR_DESCRIPTION[status];
+}
+
 export function parseZeplinProjectId(url: string): string | undefined {
   const match = url.match(/app\.zeplin\.io\/project\/([a-fA-F0-9]{24})/i) || url.match(/[?&]pid=([a-fA-F0-9]{24})/i);
   return match ? match[1] : undefined;
@@ -342,6 +357,7 @@ export async function resolveZeplinScreen(
     return {
       status: "AUTH_REQUIRED",
       normalizedStatus: "AUTH_REQUIRED",
+      errorDescription: zeplinErrorDescription("AUTH_REQUIRED"),
       note: "Zeplin access token is missing. Configure ZEPLIN_TOKEN environment variable or run `nodesign auth login`.",
     };
   }
@@ -401,18 +417,18 @@ export async function resolveZeplinScreen(
     }
 
     if (res.status === 401) {
-      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
+      return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, errorDescription: zeplinErrorDescription("AUTH_REJECTED"), note: "Zeplin authentication rejected (401 invalid token)" };
     }
     if (res.status === 403) {
-      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), screenId, note: "Zeplin access denied (403 forbidden)" };
+      return { status: "ACCESS_DENIED", normalizedStatus: normalizeProviderStatus("ACCESS_DENIED"), screenId, errorDescription: zeplinErrorDescription("ACCESS_DENIED"), note: "Zeplin access denied (403 forbidden)" };
     }
     if (res.status === 404) {
       const validity = await validateCredential("zeplin", authToken, fetchFn);
       if (validity === "invalid") {
-        return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, note: "Zeplin authentication rejected (401 invalid token)" };
+        return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), screenId, errorDescription: zeplinErrorDescription("AUTH_REJECTED"), note: "Zeplin authentication rejected (401 invalid token)" };
       }
       const suggestedScreens = await fetchSuggestedZeplinScreens(authToken, fetchFn);
-      const errorDescription = `Zeplin accepted your token, but the requested screen/component ID (${screenId}) does not exist in any project your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.`;
+      const errorDescription = zeplinErrorDescription("DESIGN_NOT_FOUND", screenId);
       return {
         status: "DESIGN_NOT_FOUND",
         normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
@@ -425,10 +441,10 @@ export async function resolveZeplinScreen(
       };
     }
     if (res.status === 429) {
-      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), screenId, note: "Zeplin API rate limit exceeded (429)" };
+      return { status: "RATE_LIMITED", normalizedStatus: normalizeProviderStatus("RATE_LIMITED"), screenId, errorDescription: zeplinErrorDescription("RATE_LIMITED"), note: "Zeplin API rate limit exceeded (429)" };
     }
     if (!res.ok) {
-      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), screenId, note: `Zeplin API error (${res.status} ${res.statusText})` };
+      return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), screenId, errorDescription: zeplinErrorDescription("API_UNAVAILABLE"), note: `Zeplin API error (${res.status} ${res.statusText})` };
     }
 
 
@@ -519,6 +535,7 @@ export async function resolveZeplinScreen(
       status: "API_UNAVAILABLE",
       normalizedStatus: "API_UNAVAILABLE",
       screenId,
+      errorDescription: zeplinErrorDescription("API_UNAVAILABLE"),
       note: `Network or fetch failure querying Zeplin API: ${msg}`,
     };
   }
