@@ -80,6 +80,42 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+const color = {
+  dim: "\x1b[90m",
+  cyan: "\x1b[36m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  red: "\x1b[31m",
+  bold: "\x1b[1m",
+  reset: "\x1b[0m",
+};
+
+function statusColor(status: string): string {
+  if (status === "SUCCESS") return color.green;
+  if (status.includes("NOT_FOUND") || status.includes("REQUIRED")) return color.yellow;
+  if (status.includes("REJECTED") || status.includes("DENIED")) return color.red;
+  return color.cyan;
+}
+
+function printStep(label: string, value?: string): void {
+  if (!value) return;
+  console.log(`${color.cyan}◇${color.reset} ${color.bold}${label}${color.reset} ${color.dim}›${color.reset} ${value}`);
+}
+
+function printList(title: string, items: string[] = []): void {
+  if (!items.length) return;
+  console.log(`${color.cyan}│${color.reset}`);
+  console.log(`${color.cyan}◇${color.reset} ${color.bold}${title}${color.reset}`);
+  for (const item of items) console.log(`${color.cyan}│${color.reset}  ${color.dim}•${color.reset} ${item}`);
+}
+
+function printNote(provider: string, note?: string): void {
+  if (!note) return;
+  console.log(`${color.cyan}│${color.reset}`);
+  console.log(`${color.yellow}◆${color.reset} ${color.bold}${provider} note${color.reset}`);
+  console.log(`${color.cyan}│${color.reset}  ${note}`);
+}
+
 function requireValue(args: string[], index: number, flag: string): string {
   const value = args[index + 1];
   if (!value || value.startsWith("-")) fail(`Missing value for ${flag}`);
@@ -448,67 +484,40 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               console.log("```");
             }
           } else {
-            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote));
-            console.log(`\nExtracted Design Link: [${parsed.link.provider}] ${parsed.link.url}`);
-            console.log(`Status: ${parsed.status}`);
-            if (parsed.note) console.log(`Note: ${parsed.note}`);
-
+            console.log(`\n${color.cyan}┌${color.reset} ${color.bold}${color.cyan}nodesign extract${color.reset}`);
+            printStep("Link", `[${parsed.link.provider}] ${parsed.link.url}`);
+            printStep("Project", inspection.architectureType);
+            console.log(`${color.cyan}│${color.reset}`);
+            console.log(`${statusColor(providerResult?.status || parsed.status)}◆${color.reset} ${color.bold}Status${color.reset} ${color.dim}›${color.reset} ${providerResult?.status || parsed.status}`);
+            if (parsed.note) printNote("Parse", parsed.note);
 
             if (zeplin) {
-              console.log(`Zeplin Resolution: ${zeplin.status}`);
-              if (zeplin.screenId) console.log(`Screen ID: ${zeplin.screenId}`);
-              if (zeplin.name) console.log(`Name: ${zeplin.name}`);
-              if (zeplin.screen) {
-                if (zeplin.screen.colors.length) console.log(`Colors: ${zeplin.screen.colors.map((color) => color.hex).join(", ")}`);
-              }
-              if (zeplin.extract) {
-                if (zeplin.extract.typography.length) {
-                  console.log(`Typography: ${zeplin.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
-                }
-                if (zeplin.extract.layout.width || zeplin.extract.layout.height) {
-                  console.log(`Layout: ${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
-                }
-                if (zeplin.extract.hierarchy.length) {
-                  console.log("UI Blueprint:");
-                  for (const line of formatTreeBlueprint(zeplin.extract.hierarchy, 1)) {
-                    console.log(`  ${line}`);
-                  }
-                }
-              }
-              if (zeplin.renderedImage) console.log(`Rendered Image: ${zeplin.renderedImage}`);
-              if (zeplin.savedAssets?.length) console.log(`Saved Assets: ${zeplin.savedAssets.join(", ")}`);
-              if (zeplin.suggestedScreens?.length) {
-                console.log(`Suggested Screens: ${zeplin.suggestedScreens.join(", ")}`);
-              }
-              if (zeplin.note) console.log(`Zeplin Note: ${zeplin.note}`);
+              printStep("Screen ID", zeplin.screenId);
+              printStep("Name", zeplin.name);
+              if (zeplin.screen?.colors.length) printList("Colors", zeplin.screen.colors.map((c) => c.hex));
+              if (zeplin.extract?.typography.length) printList("Typography", zeplin.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`));
+              if (zeplin.extract?.layout.width || zeplin.extract?.layout.height) printStep("Layout", `${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
+              if (zeplin.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(zeplin.extract.hierarchy, 1));
+              printStep("Rendered Image", zeplin.renderedImage);
+              printList("Saved Assets", zeplin.savedAssets);
+              printList("Suggested Screens", zeplin.suggestedScreens);
+              printNote("Zeplin", zeplin.note);
             }
             if (figma) {
-              console.log(`Figma Resolution: ${figma.status}`);
-              if (figma.fileKey) console.log(`File Key: ${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}`);
-              if (figma.name) console.log(`Name: ${figma.name}`);
-              if (figma.extract) {
-                if (figma.extract.colors.length) console.log(`Colors: ${figma.extract.colors.map((c) => c.hex).join(", ")}`);
-                if (figma.extract.typography.length) {
-                  console.log(`Typography: ${figma.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`).join(", ")}`);
-                }
-                if (figma.extract.layout.width || figma.extract.layout.height) {
-                  console.log(`Layout: ${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
-                }
-                if (figma.extract.hierarchy.length) {
-                  console.log("UI Blueprint:");
-                  for (const line of formatTreeBlueprint(figma.extract.hierarchy, 1)) {
-                    console.log(`  ${line}`);
-                  }
-                }
-              }
-              if (figma.renderedImage) console.log(`Rendered Image: ${figma.renderedImage}`);
-              if (figma.suggestedFrames?.length) {
-                console.log(`Suggested Frames: ${figma.suggestedFrames.join(", ")}`);
-              }
-              if (figma.note) console.log(`Figma Note: ${figma.note}`);
+              printStep("File", figma.fileKey ? `${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}` : undefined);
+              printStep("Name", figma.name);
+              if (figma.extract?.colors.length) printList("Colors", figma.extract.colors.map((c) => c.hex));
+              if (figma.extract?.typography.length) printList("Typography", figma.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`));
+              if (figma.extract?.layout.width || figma.extract?.layout.height) printStep("Layout", `${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
+              if (figma.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(figma.extract.hierarchy, 1));
+              printStep("Rendered Image", figma.renderedImage);
+              printList("Suggested Frames", figma.suggestedFrames);
+              printNote("Figma", figma.note);
             }
+            console.log(`${color.cyan}│${color.reset}`);
+            console.log(`${color.cyan}└${color.reset} ${color.dim}zero-drift contract active; use --markdown or --json for full agent payload${color.reset}`);
             if (args.code && hierarchy.length) {
-              console.log(`\nGenerated Code (${args.code}):`);
+              console.log(`\n${color.bold}Generated Code (${args.code})${color.reset}`);
               console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
             }
           }
