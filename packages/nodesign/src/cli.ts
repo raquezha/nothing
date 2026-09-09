@@ -500,8 +500,9 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
               if (zeplin.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(zeplin.extract.hierarchy, 1));
               printStep("Rendered Image", zeplin.renderedImage);
               printList("Saved Assets", zeplin.savedAssets);
+              printNote("What happened", zeplin.errorDescription);
               printList("Suggested Screens", zeplin.suggestedScreens);
-              printNote("Zeplin", zeplin.note);
+              printNote("Zeplin", zeplin.note && zeplin.note !== zeplin.errorDescription ? zeplin.note : undefined);
             }
             if (figma) {
               printStep("File", figma.fileKey ? `${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}` : undefined);
