@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { resolveCredential, storeCredential, validateCredential } from "../dist/index.js";
+import { resolveCredential, storeCredential, validateCredential, validateCredentialWithInfo } from "../dist/index.js";
 
 function makeMockFetch(responses) {
   return async function mockFetch(url) {
@@ -48,11 +48,20 @@ try {
   const config = JSON.parse(readFileSync(stored.location, "utf8"));
   assert.equal(config.zeplinToken, "zpl_config");
 
-  const validFigma = await validateCredential("figma", "figd_cwd", makeMockFetch({ "/v1/me": { status: 200 } }));
+  const validFigma = await validateCredential("figma", "figd_cwd", makeMockFetch({ "/v1/me": { status: 200, json: { handle: "testuser", email: "test@example.com" } } }));
   assert.equal(validFigma, "valid");
+
+  const validFigmaInfo = await validateCredentialWithInfo("figma", "figd_cwd", makeMockFetch({ "/v1/me": { status: 200, json: { handle: "testuser", email: "test@example.com" } } }));
+  assert.equal(validFigmaInfo.status, "valid");
+  assert.equal(validFigmaInfo.user, "testuser");
+  assert.equal(validFigmaInfo.email, "test@example.com");
 
   const invalidZeplin = await validateCredential("zeplin", "bad", makeMockFetch({ "/v1/users/me": { status: 401 } }));
   assert.equal(invalidZeplin, "invalid");
+
+  const invalidZeplinInfo = await validateCredentialWithInfo("zeplin", "bad", makeMockFetch({ "/v1/users/me": { status: 401 } }));
+  assert.equal(invalidZeplinInfo.status, "invalid");
+  assert.equal(invalidZeplinInfo.user, undefined);
 
   console.log("nodesign auth test ok");
 } finally {

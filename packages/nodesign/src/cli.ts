@@ -10,7 +10,7 @@ import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } f
 import { resolveZeplinScreen } from "./zeplin.js";
 import { resolveFigmaLink } from "./figma.js";
 import { checkUpdateNotice } from "./update.js";
-import { deleteCredential, resolveCredential, storeCredential, validateCredential } from "./auth.js";
+import { deleteCredential, resolveCredential, storeCredential, validateCredential, validateCredentialWithInfo } from "./auth.js";
 
 import { generateCodeSnippet } from "./code.js";
 
@@ -392,15 +392,30 @@ async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zepl
 }
 
 async function printAuthStatus(fetchFn: typeof fetch): Promise<void> {
+  console.log(`\n${color.cyan}\u250c${color.reset} ${color.bold}${color.cyan}nodesign auth status${color.reset}`);
+  console.log(`${color.cyan}\u2502${color.reset}`);
   for (const provider of ["figma", "zeplin"] as const) {
     const resolved = resolveCredential(provider);
     if (!resolved.token) {
-      console.log(`${provider}: missing`);
+      console.log(`${color.yellow}\u25c6${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}\u203a${color.reset} ${color.yellow}missing${color.reset}`);
+      console.log(`${color.cyan}\u2502${color.reset}  Run ${color.bold}nodesign auth login${color.reset} to configure`);
       continue;
     }
-    const validity = await validateCredential(provider, resolved.token, fetchFn);
-    console.log(`${provider}: configured via ${resolved.source}${resolved.location ? ` (${resolved.location})` : ""} - ${validity}`);
+    const info = await validateCredentialWithInfo(provider, resolved.token, fetchFn);
+    const statusIcon = info.status === "valid" ? `${color.green}\u25c6` : info.status === "invalid" ? `${color.red}\u25c6` : `${color.yellow}\u25c6`;
+    const statusLabel = info.status === "valid" ? `${color.green}valid${color.reset}` : info.status === "invalid" ? `${color.red}invalid${color.reset}` : `${color.yellow}unreachable${color.reset}`;
+    console.log(`${statusIcon}${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}\u203a${color.reset} ${statusLabel}`);
+    console.log(`${color.cyan}\u2502${color.reset}  Source: ${resolved.source}${resolved.location ? ` (${resolved.location})` : ""}`);
+    if (info.user || info.email) {
+      const identity = [info.user, info.email].filter(Boolean).join(" ");
+      console.log(`${color.cyan}\u2502${color.reset}  Account: ${color.bold}${identity}${color.reset}`);
+    }
+    if (info.status === "invalid") {
+      console.log(`${color.cyan}\u2502${color.reset}  ${color.red}Token is expired, revoked, or malformed. Run ${color.bold}nodesign auth login${color.reset}${color.red} to replace.${color.reset}`);
+    }
   }
+  console.log(`${color.cyan}\u2502${color.reset}`);
+  console.log(`${color.cyan}\u2514${color.reset}`);
 }
 
 export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
@@ -426,17 +441,35 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
 
           if (args.authAction === "logout") {
             const providers = args.provider ? [args.provider] : (["figma", "zeplin"] as const);
+            console.log(`\n${color.cyan}\u250c${color.reset} ${color.bold}${color.cyan}nodesign auth logout${color.reset}`);
             for (const p of providers) {
               deleteCredential(p);
-              console.log(`Cleared stored ${p} token`);
+              console.log(`${color.green}\u25c6${color.reset} ${color.bold}${p}${color.reset} ${color.dim}\u203a${color.reset} cleared`);
             }
+            console.log(`${color.cyan}\u2514${color.reset}`);
             return;
           }
 
           const creds = await promptAuth(args);
+          console.log(`${color.cyan}\u2502${color.reset}`);
+          console.log(`${color.cyan}\u25c7${color.reset} ${color.bold}Validating token...${color.reset}`);
+          const info = await validateCredentialWithInfo(creds.provider, creds.token, fetchFn);
+          if (info.status === "invalid") {
+            console.log(`${color.red}\u25c6${color.reset} ${color.bold}Token rejected${color.reset} ${color.dim}\u203a${color.reset} ${color.red}${creds.provider} API returned 401/403. Check the token and try again.${color.reset}`);
+            console.log(`${color.cyan}\u2514${color.reset}`);
+            process.exitCode = 1;
+            return;
+          }
           const stored = storeCredential(creds.provider, creds.token);
           if (!stored.ok) fail(`Could not store ${creds.provider} token`);
-          console.log(`Saved ${creds.provider} token to ${stored.source}${stored.location ? ` (${stored.location})` : ""}`);
+          if (info.status === "valid") {
+            const identity = [info.user, info.email].filter(Boolean).join(" ");
+            console.log(`${color.green}\u25c6${color.reset} ${color.bold}Token valid${color.reset}${identity ? ` ${color.dim}\u203a${color.reset} ${identity}` : ""}`);
+          } else {
+            console.log(`${color.yellow}\u25c6${color.reset} ${color.bold}Could not verify token${color.reset} ${color.dim}(API unreachable, saved anyway)${color.reset}`);
+          }
+          console.log(`${color.green}\u25c6${color.reset} Saved to ${color.bold}${stored.source}${color.reset}${stored.location ? ` (${stored.location})` : ""}`);
+          console.log(`${color.cyan}\u2514${color.reset}`);
           return;
         }
 
