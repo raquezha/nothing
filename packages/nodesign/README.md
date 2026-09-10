@@ -6,6 +6,19 @@ Standalone design context extractor and preflight CLI for AI agents (Pi, Claude 
 
 It also powers deterministic design preflight for `norpiv` workflows (`nodesign preflight`).
 
+> **Experiment disclaimer:** you probably do not need `nodesign` if your agent already has a good Figma MCP or Zeplin MCP in the same runtime. `nodesign` exists as a portable CLI contract: one command agents can run anywhere, with normalized Figma/Zeplin output and preflight checks.
+
+| Need | nodesign | Zeplin MCP | Figma MCP |
+| --- | ---: | ---: | ---: |
+| Figma + Zeplin in one command | Yes | No | No |
+| Works outside MCP runtimes (shell, CI, Cursor, Claude Code, Aider) | Yes | No | No |
+| Normalized JSON shape across providers | Yes | Zeplin only | Figma only |
+| Auth helper/token lookup from env, keychain, config | Yes | MCP-managed | MCP-managed |
+| Preflight for missing or ambiguous design links | Yes | No | Depends |
+| Design extract plus render from a CLI | Yes | Partial | Depends |
+
+Use the native MCP first when it is enough. Use `nodesign` only when portability, normalization, or preflight is the actual problem.
+
 ---
 
 ## Installation & Setup
