@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.1.12
+
+### Patch Changes
+
+- 6d926fa: Clarify when to use nodesign versus native Figma or Zeplin MCP integrations.
+
 ## 0.1.11
 
 ### Patch Changes
