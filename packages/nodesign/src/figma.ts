@@ -375,10 +375,11 @@ export async function resolveFigmaLink(
 
     const data = (await res.json()) as any;
     let documentNode: any = undefined;
-    if (nodeId && data.nodes) {
-      documentNode = data.nodes[nodeId]?.document
-        || data.nodes[nodeId.replace(":", "-")]?.document
-        || data.nodes[encodeURIComponent(nodeId)]?.document
+    if (primaryNodeId && data.nodes) {
+      documentNode = data.nodes[primaryNodeId]?.document
+        || data.nodes[primaryNodeId.replace(":", "-")]?.document
+        || data.nodes[encodeURIComponent(primaryNodeId)]?.document
+        || (nodeId ? data.nodes[nodeId]?.document : undefined)
         || (Object.values(data.nodes)[0] as any)?.document;
     } else {
       documentNode = data.document;

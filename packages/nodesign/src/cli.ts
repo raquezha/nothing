@@ -496,14 +496,29 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           }
 
           const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
+          const extractedColors = (zeplin?.extract?.colors || figma?.extract?.colors || zeplin?.screen?.colors || []);
           const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
           const inspection = inspectAndroidProject(args.path || process.cwd());
           const colorTokens = scanColorTokens(args.path || process.cwd());
           const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType };
           const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
-          const manifest = generateGroundingManifest(hierarchy, screenName, codeContext);
+          const manifest = generateGroundingManifest(hierarchy, screenName, codeContext, extractedColors);
 
           if (args.manifest) {
+            if (providerResult && providerResult.status !== "SUCCESS") {
+              const errNote = providerResult.errorDescription || providerResult.note || `Provider status: ${providerResult.status}`;
+              if (args.json) {
+                console.log(JSON.stringify({
+                  status: providerResult.status,
+                  error: errNote,
+                  manifest: null,
+                }, null, 2));
+              } else {
+                console.error(`\x1b[31mError (${providerResult.status}):\x1b[0m ${errNote}`);
+              }
+              return;
+            }
+
             if (args.json) {
               console.log(JSON.stringify(manifest, null, 2));
             } else {

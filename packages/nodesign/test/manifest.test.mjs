@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { generateGroundingManifest, formatGroundingManifestMarkdown } from "../dist/manifest.js";
+import { generateGroundingManifest, formatGroundingManifestMarkdown, normalizeHex } from "../dist/manifest.js";
+
+// 1. Hex normalization
+assert.equal(normalizeHex("#fff"), "#FFFFFF");
+assert.equal(normalizeHex("#FFFFFF"), "#FFFFFF");
+assert.equal(normalizeHex("#FFFFFFFF"), "#FFFFFF"); // 8-digit ARGB/RGBA with FF alpha
+assert.equal(normalizeHex("#1E88E5"), "#1E88E5");
 
 const mockNodes = [
   {
@@ -23,6 +29,12 @@ const mockNodes = [
   },
 ];
 
+// Direct colors extracted from fills/strokes/screen
+const directColors = [
+  { hex: "#FFFFFF" },
+  "#000000",
+];
+
 const mockContext = {
   colorTokens: [
     {
@@ -34,6 +46,16 @@ const mockContext = {
     {
       hex: "#2878F0",
       token: "AppColors.submitBlue",
+      sourceFile: "core/ui/theme/Color.kt",
+    },
+    {
+      hex: "#FFF", // 3-digit shorthand in local codebase
+      token: "AppColors.white",
+      sourceFile: "core/ui/theme/Color.kt",
+    },
+    {
+      hex: "#FF000000", // 8-digit full opacity black in local codebase
+      token: "AppColors.black",
       sourceFile: "core/ui/theme/Color.kt",
     },
   ],
@@ -50,24 +72,26 @@ const mockContext = {
   ],
 };
 
-// 1. Generate Manifest
-const manifest = generateGroundingManifest(mockNodes, "CheckoutScreen", mockContext);
+// 2. Generate Manifest with direct colors and hex normalization
+const manifest = generateGroundingManifest(mockNodes, "CheckoutScreen", mockContext, directColors);
 
 assert.equal(manifest.screenName, "CheckoutScreen");
-assert.equal(manifest.matchedTokens.length, 2);
-assert.equal(manifest.matchedTokens[0].token, "AppColors.brandPrimary");
-assert.equal(manifest.matchedTokens[1].token, "AppColors.submitBlue");
+assert.equal(manifest.matchedTokens.length, 4);
+assert(manifest.matchedTokens.some((t) => t.token === "AppColors.brandPrimary"));
+assert(manifest.matchedTokens.some((t) => t.token === "AppColors.submitBlue"));
+assert(manifest.matchedTokens.some((t) => t.token === "AppColors.white"));
+assert(manifest.matchedTokens.some((t) => t.token === "AppColors.black"));
 
-// 2. Component filtering: Should include SubmitButton but filter out the root CheckoutScreen itself
+// 3. Component filtering: Should include SubmitButton but filter out the root CheckoutScreen itself
 assert.equal(manifest.reusableComponents.length, 1);
 assert.equal(manifest.reusableComponents[0].name, "SubmitButton");
 
-// 3. Blueprint check
+// 4. Blueprint check
 assert(manifest.blueprint.length > 0);
 assert(manifest.blueprint.some((line) => line.includes("HeaderRow")));
 assert(manifest.blueprint.some((line) => line.includes("AppTitle")));
 
-// 4. Markdown formatting
+// 5. Markdown formatting
 const md = formatGroundingManifestMarkdown(manifest);
 assert(md.includes("Design Grounding Manifest: CheckoutScreen"));
 assert(md.includes("`#1E88E5` → `AppColors.brandPrimary`"));

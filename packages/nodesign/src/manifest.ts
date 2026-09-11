@@ -1,10 +1,11 @@
 import type { ArchitectureType, ComponentFact } from "./types.js";
 import type { ColorTokenFact } from "./android.js";
-import type { FigmaNodeSpec } from "./figma.js";
-import type { ZeplinNodeSpec } from "./zeplin.js";
+import type { FigmaNodeSpec, FigmaColorSpec } from "./figma.js";
+import type { ZeplinNodeSpec, ZeplinColorSpec } from "./zeplin.js";
 import { formatTreeBlueprint } from "./brief.js";
 
 type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
+type UnifiedColorSpec = FigmaColorSpec | ZeplinColorSpec | string;
 
 export interface ProjectGroundingContext {
   components?: ComponentFact[];
@@ -26,13 +27,38 @@ export interface GroundingManifest {
   blueprint: string[];
 }
 
-function collectColors(nodes: UnifiedNode[], seen = new Set<string>()): string[] {
-  for (const n of nodes) {
-    if (n.color) seen.add(n.color.toUpperCase().trim());
-    if (n.children && Array.isArray(n.children)) {
-      collectColors(n.children, seen);
+export function normalizeHex(val: string): string {
+  let hex = val.trim().toUpperCase().replace(/^#/, "");
+  // Expand 3-char hex: FFF -> FFFFFF
+  if (hex.length === 3) {
+    hex = `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+  } else if (hex.length === 8 && (hex.startsWith("FF") || hex.endsWith("FF"))) {
+    // Drop full opacity alpha prefix (ARGB) or suffix (RGBA) if all Fs
+    if (hex.startsWith("FF")) hex = hex.slice(2);
+    else if (hex.endsWith("FF")) hex = hex.slice(0, 6);
+  }
+  return `#${hex}`;
+}
+
+function collectColors(nodes: UnifiedNode[], directColors: UnifiedColorSpec[] = [], seen = new Set<string>()): string[] {
+  for (const c of directColors) {
+    if (typeof c === "string") {
+      seen.add(normalizeHex(c));
+    } else if (c && typeof c === "object" && "hex" in c && c.hex) {
+      seen.add(normalizeHex(c.hex));
     }
   }
+
+  function walk(nodeList: UnifiedNode[]) {
+    for (const n of nodeList) {
+      if (n.color) seen.add(normalizeHex(n.color));
+      if (n.children && Array.isArray(n.children)) {
+        walk(n.children);
+      }
+    }
+  }
+
+  walk(nodes);
   return Array.from(seen);
 }
 
@@ -43,14 +69,18 @@ export function generateGroundingManifest(
   nodes: UnifiedNode[],
   screenName = "ExtractedScreen",
   context?: ProjectGroundingContext,
+  directColors: UnifiedColorSpec[] = [],
 ): GroundingManifest {
-  const designColors = collectColors(nodes);
+  const designColors = collectColors(nodes, directColors);
   const matchedTokens: MatchedDesignToken[] = [];
+  const matchedHexes = new Set<string>();
 
   if (context?.colorTokens && context.colorTokens.length > 0) {
     for (const hex of designColors) {
-      const match = context.colorTokens.find((ct) => ct.hex.toUpperCase() === hex.toUpperCase());
-      if (match) {
+      const normDesignHex = normalizeHex(hex);
+      const match = context.colorTokens.find((ct) => normalizeHex(ct.hex) === normDesignHex);
+      if (match && !matchedHexes.has(normDesignHex)) {
+        matchedHexes.add(normDesignHex);
         matchedTokens.push({
           hex: match.hex,
           token: match.token,
