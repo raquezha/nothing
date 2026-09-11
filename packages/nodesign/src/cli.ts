@@ -13,6 +13,7 @@ import { checkUpdateNotice } from "./update.js";
 import { deleteCredential, resolveCredential, storeCredential, validateCredential, validateCredentialWithInfo } from "./auth.js";
 
 import { generateCodeSnippet } from "./code.js";
+import { generateGroundingManifest, formatGroundingManifestMarkdown } from "./manifest.js";
 
 function getVersion(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +32,7 @@ const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
   nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
-  nodesign extract   [--json] [--markdown] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
+  nodesign extract   [--json] [--markdown] [--manifest] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
   nodesign auth login [[--provider] figma|zeplin] [[--token] <pat>]
   nodesign auth logout [--provider figma|zeplin]
   nodesign auth status
@@ -48,7 +49,8 @@ Commands:
 Options:
   --json        Output machine-readable JSON
   --markdown    Output clean markdown context
-  --code        Generate starter code (compose, react, html)
+  --manifest    Output grounding manifest (mapped local tokens + blueprint)
+  --code        Generate starter code (legacy; compose, react, html)
   --find        Find canvas frame/node by name in Figma file
   --render      Download rendered design image(s)
   --out         Output directory for rendered assets
@@ -70,6 +72,7 @@ interface ParsedArgs {
   out?: string;
   find?: string;
   code?: "compose" | "react" | "html";
+  manifest?: boolean;
   markdown?: boolean;
   json: boolean;
   path: string;
@@ -177,6 +180,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.json = true;
     } else if (arg === "--markdown") {
       result.markdown = true;
+    } else if (arg === "--manifest") {
+      result.manifest = true;
     } else if (arg === "--find") {
       result.find = requireValue(args, i, "--find");
       i += 1;
@@ -491,16 +496,42 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           }
 
           const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
+          const extractedColors = (zeplin?.extract?.colors || figma?.extract?.colors || zeplin?.screen?.colors || []);
           const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
           const inspection = inspectAndroidProject(args.path || process.cwd());
           const colorTokens = scanColorTokens(args.path || process.cwd());
           const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType };
           const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
+          const manifest = generateGroundingManifest(hierarchy, screenName, codeContext, extractedColors);
+
+          if (args.manifest) {
+            if (providerResult && providerResult.status !== "SUCCESS") {
+              const errNote = providerResult.errorDescription || providerResult.note || `Provider status: ${providerResult.status}`;
+              if (args.json) {
+                console.log(JSON.stringify({
+                  status: providerResult.status,
+                  error: errNote,
+                  manifest: null,
+                }, null, 2));
+              } else {
+                console.error(`\x1b[31mError (${providerResult.status}):\x1b[0m ${errNote}`);
+              }
+              return;
+            }
+
+            if (args.json) {
+              console.log(JSON.stringify(manifest, null, 2));
+            } else {
+              console.log(formatGroundingManifestMarkdown(manifest));
+            }
+            return;
+          }
 
           if (args.json) {
             console.log(JSON.stringify({
               ...parsed,
               directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote),
+              manifest,
               ...(zeplin ? { zeplin } : {}),
               ...(figma ? { figma } : {}),
               ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
@@ -518,7 +549,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             if (args.code) {
               console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              if (hierarchy.length === 0) {
+                console.log(`// No child layers or UI elements found in frame '${screenName}'. Select a frame containing UI elements to generate code.`);
+              } else {
+                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              }
               console.log("```");
             }
           } else {
@@ -556,9 +591,13 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             console.log(`${color.cyan}│${color.reset}`);
             console.log(`${color.cyan}└${color.reset} ${color.dim}zero-drift contract active; use --markdown or --json for full agent payload${color.reset}`);
-            if (args.code && hierarchy.length) {
+            if (args.code) {
               console.log(`\n${color.bold}Generated Code (${args.code})${color.reset}`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              if (hierarchy.length === 0) {
+                console.log(`${color.yellow}◆${color.reset} ${color.dim}No child layers found in frame '${screenName}'. Select a frame with UI content to generate code.${color.reset}`);
+              } else {
+                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              }
             }
           }
           return;

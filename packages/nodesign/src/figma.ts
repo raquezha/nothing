@@ -80,18 +80,18 @@ function normalizeProviderStatus(status: FigmaErrorStatus): ProviderStatus {
 }
 
 const FIGMA_ERROR_DESCRIPTION: Record<Exclude<FigmaErrorStatus, "SUCCESS">, string> = {
-  AMBIGUOUS_URL: "nodesign could not recognize this as a usable Figma file URL. Use a /file/, /design/, /proto/, or valid node link copied from Figma.",
-  AUTH_REQUIRED: "No Figma token was found. Run `nodesign auth login` or set FIGMA_TOKEN before extracting private Figma files.",
-  AUTH_REJECTED: "Figma rejected the configured token. The token is expired, revoked, malformed, or belongs to a different Figma account.",
-  ACCESS_DENIED: "Figma accepted your token, but this token does not have permission to read the requested file or node.",
-  DESIGN_NOT_FOUND: "Figma accepted your token, but the requested file or node does not exist in a file your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.",
-  RATE_LIMITED: "Figma is throttling requests. Wait a minute and retry; nodesign already retries short 429 bursts automatically.",
-  API_UNAVAILABLE: "Figma returned an unexpected API response or the network request failed. Retry once; if it persists, check Figma status or the raw HTTP code in the note.",
+  AMBIGUOUS_URL: "Unrecognized Figma URL. Make sure the URL includes /design/, /file/, or a valid node-id query parameter.",
+  AUTH_REQUIRED: "No Figma token found. Run `nodesign auth login --provider figma` or set FIGMA_TOKEN.",
+  AUTH_REJECTED: "Figma token was rejected (401). Your token may be expired or revoked. Run `nodesign auth login --provider figma` to update it.",
+  ACCESS_DENIED: "Access denied (403). Your Figma account does not have permission to view this file.",
+  DESIGN_NOT_FOUND: "Figma file or node not found (404). Check if the node ID exists in this file or if the file was deleted.",
+  RATE_LIMITED: "Figma rate limit reached (429). Please wait a moment before trying again.",
+  API_UNAVAILABLE: "Figma API is currently unreachable. Check your internet connection or Figma service status.",
 };
 
 function figmaErrorDescription(status: Exclude<FigmaErrorStatus, "SUCCESS">, id?: string): string {
   return id && status === "DESIGN_NOT_FOUND"
-    ? FIGMA_ERROR_DESCRIPTION.DESIGN_NOT_FOUND.replace("file or node", `file or node (${id})`)
+    ? `Figma file or node (${id}) not found (404). Check if the node ID exists in this file or if the file was deleted.`
     : FIGMA_ERROR_DESCRIPTION[status];
 }
 
@@ -375,10 +375,11 @@ export async function resolveFigmaLink(
 
     const data = (await res.json()) as any;
     let documentNode: any = undefined;
-    if (nodeId && data.nodes) {
-      documentNode = data.nodes[nodeId]?.document
-        || data.nodes[nodeId.replace(":", "-")]?.document
-        || data.nodes[encodeURIComponent(nodeId)]?.document
+    if (primaryNodeId && data.nodes) {
+      documentNode = data.nodes[primaryNodeId]?.document
+        || data.nodes[primaryNodeId.replace(":", "-")]?.document
+        || data.nodes[encodeURIComponent(primaryNodeId)]?.document
+        || (nodeId ? data.nodes[nodeId]?.document : undefined)
         || (Object.values(data.nodes)[0] as any)?.document;
     } else {
       documentNode = data.document;

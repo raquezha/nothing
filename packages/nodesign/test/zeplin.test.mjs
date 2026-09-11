@@ -57,12 +57,12 @@ try {
   const res401 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
   assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
-  assert(res401.errorDescription.includes("Zeplin rejected"));
+  assert(res401.errorDescription.includes("Zeplin token was rejected"));
 
   const mock403 = makeMockFetch({ "/screens/AOGOKp6": { status: 403 } });
   const res403 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock403);
   assert.equal(res403.status, "ACCESS_DENIED");
-  assert(res403.errorDescription.includes("does not have permission"));
+  assert(res403.errorDescription.includes("Access denied (403)"));
 
   const mockComp = makeMockFetch({
     "/screens/comp_1": { status: 404 },
@@ -78,13 +78,12 @@ try {
   const mock404 = makeMockFetch({ "/screens/AOGOKp6": { status: 404 }, "/components/AOGOKp6": { status: 404 } });
   const res404 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
-  assert(res404.errorDescription.includes("Zeplin accepted your token"));
-  assert(res404.errorDescription.includes("stale, deleted, moved"));
+  assert(res404.errorDescription.includes("Screen or component not found"));
 
   const mock429 = makeMockFetch({ "/screens/AOGOKp6": { status: 429 } });
   const res429 = await resolveZeplinScreen("AOGOKp6", "dummy-token", undefined, mock429);
   assert.equal(res429.status, "RATE_LIMITED");
-  assert(res429.errorDescription.includes("throttling"));
+  assert(res429.errorDescription.includes("rate limit"));
 
   // 5. Successful Screen Spec & Asset Export
   const outputDir = mkdtempSync(path.join(tmpdir(), "zeplin-test-assets-"));

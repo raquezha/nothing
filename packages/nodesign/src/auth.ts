@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 export type CredentialProvider = "figma" | "zeplin";
-export type CredentialSource = "env" | "cwd .env" | "~/.pi-secrets/.env" | "OS keychain" | "config file" | "missing";
+export type CredentialSource = "env" | "cwd .env" | "~/.pi-secrets/.env" | "~/.config/nodesign/.env" | "OS keychain" | "config file" | "missing";
 
 export interface CredentialResolution {
   token?: string;
@@ -52,23 +52,39 @@ function parseEnvText(text: string): Record<string, string> {
 }
 
 function updateEnvFileKey(filePath: string, key: string, value: string): void {
-  if (!existsSync(filePath)) return;
-  try {
-    const text = readFileSync(filePath, "utf8");
-    const lines = text.split("\n");
-    let replaced = false;
-    const newLines = lines.map((line) => {
-      const trimmed = line.trim();
-      if (trimmed.startsWith(`${key}=`) || trimmed.startsWith(`export ${key}=`)) {
-        replaced = true;
-        const prefix = trimmed.startsWith("export ") ? "export " : "";
-        return `${prefix}${key}="${value.replace(/"/g, '\\"')}"`;
-      }
-      return line;
-    });
-    if (replaced) {
-      writeFileSync(filePath, newLines.join("\n"), "utf8");
+  const dir = path.dirname(filePath);
+  if (!existsSync(dir)) {
+    try { mkdirSync(dir, { recursive: true }); } catch {}
+  }
+
+  let text = "";
+  if (existsSync(filePath)) {
+    try { text = readFileSync(filePath, "utf8"); } catch {}
+  }
+
+  const lines = text.length ? text.split("\n") : [];
+  let replaced = false;
+  const newLines = lines.map((line) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith(`${key}=`) || trimmed.startsWith(`export ${key}=`)) {
+      replaced = true;
+      const prefix = trimmed.startsWith("export ") ? "export " : "";
+      return `${prefix}${key}="${value.replace(/"/g, '\\"')}"`;
     }
+    return line;
+  });
+
+  if (!replaced) {
+    if (newLines.length && newLines[newLines.length - 1] === "") {
+      newLines.splice(newLines.length - 1, 0, `${key}="${value.replace(/"/g, '\\"')}"`);
+    } else {
+      newLines.push(`${key}="${value.replace(/"/g, '\\"')}"`);
+    }
+  }
+
+  try {
+    writeFileSync(filePath, newLines.join("\n") + (newLines[newLines.length - 1] === "" ? "" : "\n"), "utf8");
+    chmodSync(filePath, 0o600);
   } catch {}
 }
 
@@ -105,6 +121,10 @@ function getFromCwdEnv(provider: CredentialProvider): string | undefined {
 
 function getFromPiSecrets(provider: CredentialProvider): string | undefined {
   return readEnvFile(path.join(homedir(), ".pi-secrets", ".env"))[envKey(provider)]?.trim() || undefined;
+}
+
+function getFromNodesignEnv(provider: CredentialProvider): string | undefined {
+  return readEnvFile(path.join(homedir(), ".config", "nodesign", ".env"))[envKey(provider)]?.trim() || undefined;
 }
 
 function getFromKeychain(provider: CredentialProvider): string | undefined {
@@ -171,6 +191,9 @@ export function resolveCredential(provider: CredentialProvider): CredentialResol
   const fromPiSecrets = cleanTokenValue(getFromPiSecrets(provider));
   if (fromPiSecrets) return { token: fromPiSecrets, source: "~/.pi-secrets/.env", location: path.join(homedir(), ".pi-secrets", ".env") };
 
+  const fromNodesignEnv = cleanTokenValue(getFromNodesignEnv(provider));
+  if (fromNodesignEnv) return { token: fromNodesignEnv, source: "~/.config/nodesign/.env", location: path.join(homedir(), ".config", "nodesign", ".env") };
+
   const fromKeychain = cleanTokenValue(getFromKeychain(provider));
   if (fromKeychain) return { token: fromKeychain, source: "OS keychain" };
 
@@ -217,11 +240,15 @@ export function storeCredential(
   const key = envKey(provider);
   updateEnvFileKey(path.join(process.cwd(), ".env"), key, token);
   updateEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key, token);
+  const nodesignEnvDir = path.join(homedir(), ".config", "nodesign");
+  mkdirSync(nodesignEnvDir, { recursive: true });
+  updateEnvFileKey(path.join(nodesignEnvDir, ".env"), key, token);
 
   if (!options.preferFile && process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
       execFileSync("security", [`add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", token], { timeout: 5000, stdio: "ignore" });
+      writeConfigCredential(provider, token);
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -230,6 +257,7 @@ export function storeCredential(
     try {
       const stTool = ["secret", "tool"].join("-");
       execFileSync(stTool, ["store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider], { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
+      writeConfigCredential(provider, token);
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -246,6 +274,7 @@ export function deleteCredential(provider: CredentialProvider): boolean {
   const key = envKey(provider);
   deleteEnvFileKey(path.join(process.cwd(), ".env"), key);
   deleteEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key);
+  deleteEnvFileKey(path.join(homedir(), ".config", "nodesign", ".env"), key);
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");

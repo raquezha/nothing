@@ -41,7 +41,7 @@ try {
   const res401 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock401);
   assert.equal(res401.status, "AUTH_REJECTED");
   assert.equal(res401.normalizedStatus, "TOKEN_INVALID");
-  assert(res401.errorDescription.includes("Figma rejected"));
+  assert(res401.errorDescription.includes("Figma token was rejected (401)"));
 
   const mock403 = makeMockFetch({ "/v1/files/": { status: 403 } });
   const res403 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock403);
@@ -60,7 +60,7 @@ try {
   });
   const res404 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock404);
   assert.equal(res404.status, "DESIGN_NOT_FOUND");
-  assert(res404.errorDescription.includes("stale, deleted, moved"));
+  assert(res404.errorDescription.includes("Figma file or node"));
   assert.equal(res404.normalizedStatus, "NODE_NOT_FOUND");
   assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
 

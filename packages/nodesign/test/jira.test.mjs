@@ -67,6 +67,12 @@ try {
   assert.equal(uriLinks.length, 1);
   assert.equal(uriLinks[0].provider, "zeplin");
 
+  // Escaped JSON string should not capture backslashes
+  const escapedJsonText = '{"link":"https:\\/\\/www.figma.com\\/design\\/ABC\\/Test?node-id=1-2\\"}';
+  const escapedLinks = extractDesignLinksFromText(escapedJsonText);
+  assert.equal(escapedLinks.length, 1);
+  assert(!escapedLinks[0].url.includes("\\"));
+
   console.log("nodesign jira test ok");
 } catch (err) {
   console.error("nodesign jira test failed:", err);
