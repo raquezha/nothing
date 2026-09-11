@@ -222,6 +222,7 @@ export function storeCredential(
     try {
       const pWord = ["pass", "word"].join("");
       execFileSync("security", [`add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", token], { timeout: 5000, stdio: "ignore" });
+      writeConfigCredential(provider, token);
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
@@ -230,6 +231,7 @@ export function storeCredential(
     try {
       const stTool = ["secret", "tool"].join("-");
       execFileSync(stTool, ["store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider], { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
+      writeConfigCredential(provider, token);
       return { ok: true, source: "OS keychain" };
     } catch {}
   }
