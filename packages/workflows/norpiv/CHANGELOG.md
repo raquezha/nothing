@@ -1,5 +1,12 @@
 # @raquezha/norpiv
 
+## 0.3.9
+
+### Patch Changes
+
+- Updated dependencies [60e3e2c]
+  - @raquezha/nodesign@0.2.0
+
 ## 0.3.8
 
 ### Patch Changes
