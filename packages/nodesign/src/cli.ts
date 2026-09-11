@@ -549,7 +549,11 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             if (args.code) {
               console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              if (hierarchy.length === 0) {
+                console.log(`// No child layers or UI elements found in frame '${screenName}'. Select a frame containing UI elements to generate code.`);
+              } else {
+                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              }
               console.log("```");
             }
           } else {
@@ -587,9 +591,13 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             }
             console.log(`${color.cyan}│${color.reset}`);
             console.log(`${color.cyan}└${color.reset} ${color.dim}zero-drift contract active; use --markdown or --json for full agent payload${color.reset}`);
-            if (args.code && hierarchy.length) {
+            if (args.code) {
               console.log(`\n${color.bold}Generated Code (${args.code})${color.reset}`);
-              console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              if (hierarchy.length === 0) {
+                console.log(`${color.yellow}◆${color.reset} ${color.dim}No child layers found in frame '${screenName}'. Select a frame with UI content to generate code.${color.reset}`);
+              } else {
+                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
+              }
             }
           }
           return;
