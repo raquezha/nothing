@@ -91,18 +91,38 @@ Download frame screenshot / render asset to disk:
 nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2" --render --out ./renders
 ```
 
-### 3. Generate Design Grounding Manifest
+### 3. Generate Design Grounding Manifest (Recommended for AI Agents)
 
 Generate a compact manifest that maps external design colors and hierarchy directly to existing local design tokens and reusable components:
 
 ```bash
-nodesign extract "https://zpl.io/AOGOKp6" --manifest
+nodesign extract "<design-url>" --manifest
 ```
 
-This outputs:
-- **Mapped Local Design Tokens**: Maps raw design hex values to codebase theme variables (e.g. `#1E88E5` -> `AppColors.brandPrimary`).
-- **Reusable Local Components**: Lists existing project UI components matching the design.
-- **UI Structure Blueprint**: Compact ASCII tree structure for LLMs without token bloat.
+Output format (Markdown):
+- **Mapped Local Design Tokens**: Direct map from design hex codes to project theme tokens (e.g. `#1E88E5` → `TapatColors.brandPrimary` from `core/ui/theme/Color.kt`).
+- **Reusable Local Components**: Available components in your codebase matching elements in the design (e.g. `PrimaryButton`, `TopAppBar`).
+- **UI Structure Blueprint**: Token-efficient ASCII component tree showing exact container directions, paddings, gaps, and sizes without wasting LLM context.
+
+### 4. Generate Starter UI Code (`--code`)
+
+Generate initial layout code for Jetpack Compose, React (Tailwind), or semantic HTML:
+
+```bash
+# Jetpack Compose with mapped theme tokens and discovered project components
+nodesign extract "<design-url>" --code compose
+
+# React + Tailwind flex layouts
+nodesign extract "<design-url>" --code react
+
+# Semantic HTML + CSS flexbox
+nodesign extract "<design-url>" --code html
+```
+
+When using `--code compose`:
+- Automatically swaps raw hex colors (`#1E88E5`) for discovered project tokens (`TapatColors.brandPrimary`).
+- Injects necessary Kotlin package imports (`import com.app.core.ui.theme.TapatColors`).
+- Replaces generic boxes with discovered existing components (`Header()`, `PrimaryButton()`).
 
 ---
 
@@ -181,7 +201,10 @@ Show active credential sources and validate reachability (`valid`, `invalid`, `u
 Extract design specs from a Figma or Zeplin URL or URI (`zpl://`).
 
 Flags:
+- `--manifest` output compact grounding manifest (mapped local tokens + blueprint)
+- `--code <compose|react|html>` generate starter UI code with mapped theme tokens
 - `--json` machine-readable JSON output
+- `--markdown` human-readable markdown format
 - `--render` download frame screenshot
 - `--out <dir>` target output directory for renders/assets
 
