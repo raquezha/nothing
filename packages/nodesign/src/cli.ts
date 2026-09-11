@@ -13,6 +13,7 @@ import { checkUpdateNotice } from "./update.js";
 import { deleteCredential, resolveCredential, storeCredential, validateCredential, validateCredentialWithInfo } from "./auth.js";
 
 import { generateCodeSnippet } from "./code.js";
+import { generateGroundingManifest, formatGroundingManifestMarkdown } from "./manifest.js";
 
 function getVersion(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +32,7 @@ const HELP = `nodesign ${VERSION} - deterministic design preflight
 
 Usage:
   nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
-  nodesign extract   [--json] [--markdown] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
+  nodesign extract   [--json] [--markdown] [--manifest] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
   nodesign auth login [[--provider] figma|zeplin] [[--token] <pat>]
   nodesign auth logout [--provider figma|zeplin]
   nodesign auth status
@@ -48,7 +49,8 @@ Commands:
 Options:
   --json        Output machine-readable JSON
   --markdown    Output clean markdown context
-  --code        Generate starter code (compose, react, html)
+  --manifest    Output grounding manifest (mapped local tokens + blueprint)
+  --code        Generate starter code (legacy; compose, react, html)
   --find        Find canvas frame/node by name in Figma file
   --render      Download rendered design image(s)
   --out         Output directory for rendered assets
@@ -70,6 +72,7 @@ interface ParsedArgs {
   out?: string;
   find?: string;
   code?: "compose" | "react" | "html";
+  manifest?: boolean;
   markdown?: boolean;
   json: boolean;
   path: string;
@@ -177,6 +180,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       result.json = true;
     } else if (arg === "--markdown") {
       result.markdown = true;
+    } else if (arg === "--manifest") {
+      result.manifest = true;
     } else if (arg === "--find") {
       result.find = requireValue(args, i, "--find");
       i += 1;
@@ -496,11 +501,22 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           const colorTokens = scanColorTokens(args.path || process.cwd());
           const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType };
           const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
+          const manifest = generateGroundingManifest(hierarchy, screenName, codeContext);
+
+          if (args.manifest) {
+            if (args.json) {
+              console.log(JSON.stringify(manifest, null, 2));
+            } else {
+              console.log(formatGroundingManifestMarkdown(manifest));
+            }
+            return;
+          }
 
           if (args.json) {
             console.log(JSON.stringify({
               ...parsed,
               directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote),
+              manifest,
               ...(zeplin ? { zeplin } : {}),
               ...(figma ? { figma } : {}),
               ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),

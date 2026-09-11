@@ -38,6 +38,7 @@ export { checkUpdateNotice } from "./update.js";
 export { renderDesignNode, type RenderOptions, type RenderResult } from "./render.js";
 
 export { generateCodeSnippet } from "./code.js";
+export { generateGroundingManifest, formatGroundingManifestMarkdown, type GroundingManifest, type MatchedDesignToken, type ProjectGroundingContext } from "./manifest.js";
 export {
   compareUiProperty,
   verifyUiProperties,

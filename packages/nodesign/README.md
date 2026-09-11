@@ -81,6 +81,7 @@ Extract colors, typography, layout specs, and component hierarchy:
 
 ```bash
 nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2"
+nodesign extract "https://zpl.io/AOGOKp6" --manifest
 nodesign extract "https://zpl.io/AOGOKp6" --json
 ```
 
@@ -89,6 +90,19 @@ Download frame screenshot / render asset to disk:
 ```bash
 nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2" --render --out ./renders
 ```
+
+### 3. Generate Design Grounding Manifest
+
+Generate a compact manifest that maps external design colors and hierarchy directly to existing local design tokens and reusable components:
+
+```bash
+nodesign extract "https://zpl.io/AOGOKp6" --manifest
+```
+
+This outputs:
+- **Mapped Local Design Tokens**: Maps raw design hex values to codebase theme variables (e.g. `#1E88E5` -> `AppColors.brandPrimary`).
+- **Reusable Local Components**: Lists existing project UI components matching the design.
+- **UI Structure Blueprint**: Compact ASCII tree structure for LLMs without token bloat.
 
 ---
 
