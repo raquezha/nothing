@@ -2,8 +2,8 @@ import { execFileSync } from "node:child_process";
 import type { DesignLink } from "./types.js";
 import { parseDesignLink } from "./brief.js";
 
-const ZEPLIN_URL_REGEX = /(?:https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/|zpl:\/\/)[^\s"'>]+/gi;
-const FIGMA_URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?figma\.com\/[^\s"'>]+/gi;
+const ZEPLIN_URL_REGEX = /(?:https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/|zpl:\/\/)[^\s"'<>\\`]+/gi;
+const FIGMA_URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?figma\.com\/[^\s"'<>\\`]+/gi;
 
 export interface JiraInspectionResult {
   designLinks: DesignLink[];
@@ -11,20 +11,22 @@ export interface JiraInspectionResult {
 }
 
 export function extractDesignLinksFromText(text: string): DesignLink[] {
+  // Normalize unescaped slashes from JSON dumps (e.g. https:\/\/figma.com -> https://figma.com)
+  const normalizedText = text.replace(/\\\//g, "/");
+
   const links: DesignLink[] = [];
   const matches = [
-    ...(text.match(ZEPLIN_URL_REGEX) || []),
-    ...(text.match(FIGMA_URL_REGEX) || []),
+    ...(normalizedText.match(ZEPLIN_URL_REGEX) || []),
+    ...(normalizedText.match(FIGMA_URL_REGEX) || []),
   ];
 
   const seen = new Set<string>();
   for (const rawUrl of matches) {
-    const cleanUrl = rawUrl.replace(/[.,;)\]>]+$/, "");
+    const cleanUrl = rawUrl.replace(/[.,;)\]>\\"]+$/, "");
     if (seen.has(cleanUrl)) continue;
     seen.add(cleanUrl);
     links.push(parseDesignLink(cleanUrl).link);
   }
-
 
   return links;
 }
@@ -53,9 +55,12 @@ export function inspectJiraTaskText(text: string): JiraInspectionResult {
       }
 
       // Scan nested string values in JSON for any direct Figma or Zeplin URLs that regex on raw text might miss
+      const seenJsonStrings = new Set<string>();
       const scanObject = (obj: unknown, depth = 0): void => {
         if (depth > 6 || !obj) return;
         if (typeof obj === "string") {
+          if (seenJsonStrings.has(obj)) return;
+          seenJsonStrings.add(obj);
           const nestedLinks = extractDesignLinksFromText(obj);
           for (const nl of nestedLinks) {
             if (!designLinks.some((l) => l.url === nl.url)) {
