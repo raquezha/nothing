@@ -100,12 +100,12 @@ function normalizeProviderStatus(status: ZeplinErrorStatus): ProviderStatus {
 }
 
 const ZEPLIN_ERROR_DESCRIPTION: Record<Exclude<ZeplinErrorStatus, "SUCCESS">, string> = {
-  AUTH_REQUIRED: "No Zeplin token was found. Run `nodesign auth login` or set ZEPLIN_TOKEN before extracting private Zeplin designs.",
-  AUTH_REJECTED: "Zeplin rejected the configured token. The token is expired, revoked, malformed, or belongs to a different Zeplin account.",
-  ACCESS_DENIED: "Zeplin accepted your token, but this token does not have permission to read the requested project, screen, or component.",
-  DESIGN_NOT_FOUND: "Zeplin accepted your token, but the requested screen/component ID does not exist in any project your token can access. The link may be stale, deleted, moved, or copied from another workspace/account.",
-  RATE_LIMITED: "Zeplin is throttling requests. Wait a minute and retry; nodesign already retries short 429 bursts automatically.",
-  API_UNAVAILABLE: "Zeplin returned an unexpected API response or the network request failed. Retry once; if it persists, check Zeplin status or the raw HTTP code in the note.",
+  AUTH_REQUIRED: "No Zeplin token found. Run `nodesign auth login --provider zeplin` or set ZEPLIN_TOKEN.",
+  AUTH_REJECTED: "Zeplin token was rejected (401). Your token may be expired or revoked. Run `nodesign auth login --provider zeplin` to update it.",
+  ACCESS_DENIED: "Access denied (403). Your Zeplin token is valid, but does not have permission to view this project or organization.",
+  DESIGN_NOT_FOUND: "Screen or component not found (404). Check if the link points to a project dashboard instead of a screen, or if the screen was moved/deleted.",
+  RATE_LIMITED: "Zeplin rate limit reached (429). Please wait a moment before trying again.",
+  API_UNAVAILABLE: "Zeplin API is currently unreachable. Check your internet connection or Zeplin service status.",
 };
 
 function zeplinErrorDescription(status: Exclude<ZeplinErrorStatus, "SUCCESS">, id?: string): string {
