@@ -1,363 +1,28 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import path from "node:path";
-import readline, { createInterface } from "node:readline";
-import { stdin as input, stdout as output } from "node:process";
-import { fileURLToPath } from "node:url";
-import type { DesignLink, PreflightResult } from "./types.js";
-import { formatAgentDirective, formatDesignBrief, formatTreeBlueprint, parseDesignLink, determineEvidenceStatus } from "./brief.js";
-import { inspectAndroidProject, scanColorTokens } from "./android.js";
-import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "./jira.js";
-import { resolveZeplinScreen } from "./zeplin.js";
-import { resolveFigmaLink } from "./figma.js";
 import { checkUpdateNotice } from "./update.js";
-import { deleteCredential, resolveCredential, storeCredential, validateCredential, validateCredentialWithInfo } from "./auth.js";
+import { VERSION, HELP, parseArgs, type ParsedArgs } from "./cli/index.js";
+import { handleExtractCommand } from "./cli/extractCmd.js";
+import { handlePreflightCommand } from "./cli/preflightCmd.js";
+import { selectMenu } from "./cli/interactive.js";
+import { resolveCredential, validateCredentialWithInfo, deleteCredential, storeCredential } from "./auth.js";
+import { color } from "./cli/output.js";
+import { fail } from "./cli/args.js";
+import { createInterface } from "node:readline";
+import { stdin as input, stdout as output } from "node:process";
 
-import { generateCodeSnippet } from "./code.js";
-import { generateGroundingManifest, formatGroundingManifestMarkdown } from "./manifest.js";
-
-function getVersion(): string {
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const pkgPath = path.resolve(moduleDir, "..", "package.json");
-  return JSON.parse(readFileSync(pkgPath, "utf8")).version ?? "0.0.0";
-}
-
-const VERSION = getVersion();
+export { parseArgs };
 
 const TOKEN_URLS = {
   figma: "https://www.figma.com/settings",
   zeplin: "https://app.zeplin.io/profile/developer",
 };
 
-const HELP = `nodesign ${VERSION} - deterministic design preflight
-
-Usage:
-  nodesign preflight [--json] [--markdown] [--path <dir>] [--task <id>] [--url <design-url>] [--render] [--out <dir>]
-  nodesign extract   [--json] [--markdown] [--manifest] [<design-url>] [--url <design-url>] [--find <name>] [--code compose|react|html] [--render] [--out <dir>]
-  nodesign auth login [[--provider] figma|zeplin] [[--token] <pat>]
-  nodesign auth logout [--provider figma|zeplin]
-  nodesign auth status
-  nodesign --help
-  nodesign --version
-
-Commands:
-  preflight     Run design preflight checks (default)
-  extract       Extract design details from a URL
-  auth login    Store credentials in OS keychain or config file
-  auth logout   Clear stored credentials
-  auth status   Show credential source and validation status
-
-Options:
-  --json        Output machine-readable JSON
-  --markdown    Output clean markdown context
-  --manifest    Output grounding manifest (mapped local tokens + blueprint)
-  --code        Generate starter code (legacy; compose, react, html)
-  --find        Find canvas frame/node by name in Figma file
-  --render      Download rendered design image(s)
-  --out         Output directory for rendered assets
-  --path        Project root to inspect (default: cwd)
-  --task        Task identifier for the brief
-  --url         Design URL (Figma, Zeplin)
-  --provider    Auth provider (figma, zeplin)
-  --token       Personal access token for non-interactive auth
-  --help        Show this help
-  --version     Show version
-`;
-
-interface ParsedArgs {
-  command: "preflight" | "extract" | "auth" | "help" | "version";
-  authAction?: "login" | "logout" | "status";
-  provider?: "figma" | "zeplin";
-  token?: string;
-  render?: boolean;
-  out?: string;
-  find?: string;
-  code?: "compose" | "react" | "html";
-  manifest?: boolean;
-  markdown?: boolean;
-  json: boolean;
-  path: string;
-  task: string;
-  url: string;
-}
-
 interface RunDeps {
   fetchFn?: typeof fetch;
 }
 
-function fail(message: string): never {
-  throw new Error(message);
-}
-
-const color = {
-  dim: "\x1b[90m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  red: "\x1b[31m",
-  bold: "\x1b[1m",
-  reset: "\x1b[0m",
-};
-
-function statusColor(status: string): string {
-  if (status === "SUCCESS") return color.green;
-  if (status.includes("NOT_FOUND") || status.includes("REQUIRED")) return color.yellow;
-  if (status.includes("REJECTED") || status.includes("DENIED")) return color.red;
-  return color.cyan;
-}
-
-function printStep(label: string, value?: string): void {
-  if (!value) return;
-  console.log(`${color.cyan}◇${color.reset} ${color.bold}${label}${color.reset} ${color.dim}›${color.reset} ${value}`);
-}
-
-function printList(title: string, items: string[] = []): void {
-  if (!items.length) return;
-  console.log(`${color.cyan}│${color.reset}`);
-  console.log(`${color.cyan}◇${color.reset} ${color.bold}${title}${color.reset}`);
-  for (const item of items) console.log(`${color.cyan}│${color.reset}  ${color.dim}•${color.reset} ${item}`);
-}
-
-function printNote(provider: string, note?: string): void {
-  if (!note) return;
-  console.log(`${color.cyan}│${color.reset}`);
-  console.log(`${color.yellow}◆${color.reset} ${color.bold}${provider} note${color.reset}`);
-  console.log(`${color.cyan}│${color.reset}  ${note}`);
-}
-
-function requireValue(args: string[], index: number, flag: string): string {
-  const value = args[index + 1];
-  if (!value || value.startsWith("-")) fail(`Missing value for ${flag}`);
-  return value;
-}
-
-function validatePath(rootPath: string): string {
-  const resolved = path.resolve(rootPath);
-  if (!existsSync(resolved)) fail(`Path does not exist: ${rootPath}`);
-  if (!statSync(resolved).isDirectory()) fail(`Path is not a directory: ${rootPath}`);
-  return resolved;
-}
-
-function parseProvider(value: string): "figma" | "zeplin" {
-  if (value === "figma" || value === "zeplin") return value;
-  fail(`Unknown provider: ${value}`);
-}
-
-function parseArgs(argv: string[]): ParsedArgs {
-  const args = argv.slice(2);
-  const result: ParsedArgs = {
-    command: "preflight",
-    json: false,
-    path: process.cwd(),
-    task: "unknown",
-    url: "",
-  };
-
-  let i = 0;
-  if (args[0] && !args[0].startsWith("-")) {
-    const cmd = args[0];
-    if (cmd === "preflight" || cmd === "extract") {
-      result.command = cmd;
-      i = 1;
-    } else if (cmd === "auth") {
-      if (args[1] !== "login" && args[1] !== "status" && args[1] !== "logout") {
-        fail("Supported auth commands: `nodesign auth login`, `nodesign auth logout`, or `nodesign auth status`");
-      }
-      result.command = "auth";
-      result.authAction = args[1] as any;
-      i = 2;
-    } else {
-      fail(`Unknown command: ${cmd}`);
-    }
-  }
-
-  for (; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === "--help" || arg === "-h") {
-      result.command = "help";
-    } else if (arg === "--version" || arg === "-v") {
-      result.command = "version";
-    } else if (arg === "--json") {
-      result.json = true;
-    } else if (arg === "--markdown") {
-      result.markdown = true;
-    } else if (arg === "--manifest") {
-      result.manifest = true;
-    } else if (arg === "--find") {
-      result.find = requireValue(args, i, "--find");
-      i += 1;
-    } else if (arg === "--code") {
-      const val = requireValue(args, i, "--code").toLowerCase();
-      if (val !== "compose" && val !== "react" && val !== "html") fail("Supported --code targets: compose, react, html");
-      result.code = val as any;
-      i += 1;
-    } else if (arg === "--path") {
-      result.path = requireValue(args, i, "--path");
-      i += 1;
-    } else if (arg === "--task") {
-      result.task = requireValue(args, i, "--task");
-      i += 1;
-    } else if (arg === "--url" || arg === "--design") {
-      result.url = requireValue(args, i, arg);
-      i += 1;
-    } else if (arg === "--provider") {
-      result.provider = parseProvider(requireValue(args, i, "--provider"));
-      i += 1;
-    } else if (arg === "--token") {
-      result.token = requireValue(args, i, "--token");
-      i += 1;
-    } else if (result.command === "auth" && !arg.startsWith("-")) {
-      if (!result.provider && (arg.toLowerCase() === "figma" || arg.toLowerCase() === "zeplin")) {
-        result.provider = parseProvider(arg.toLowerCase());
-      } else if (!result.token) {
-        result.token = arg;
-      } else {
-        fail(`Unknown argument: ${arg}`);
-      }
-    } else if (arg === "--render") {
-      result.render = true;
-    } else if (arg === "--out") {
-      result.out = requireValue(args, i, "--out");
-      i += 1;
-    } else if (result.command === "extract" && !result.url && !arg.startsWith("-")) {
-      result.url = arg;
-    } else {
-      fail(`Unknown argument: ${arg}`);
-    }
-  }
-
-  if (result.command === "preflight") result.path = validatePath(result.path);
-  if (result.command === "extract" && !result.url) fail("Missing value for --url");
-
-  return result;
-}
-
-function findWorkflowTaskPath(startDir: string): string | undefined {
-  let current = path.resolve(startDir);
-  while (true) {
-    const activePath = path.join(current, ".workflow", "active.json");
-    if (existsSync(activePath)) {
-      try {
-        const active = JSON.parse(readFileSync(activePath, "utf8"));
-        if (active?.taskPath) return path.resolve(current, active.taskPath);
-      } catch {
-        return undefined;
-      }
-    }
-    const parent = path.dirname(current);
-    if (parent === current) return undefined;
-    current = parent;
-  }
-}
-
-async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
-  const results = [];
-
-  for (const link of designLinks) {
-    if (link.provider !== "zeplin") continue;
-    results.push(await resolveZeplinScreen(link.url, undefined, outputDir, fetchFn));
-  }
-
-  return results;
-}
-
-async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
-  const results = [];
-
-  for (const link of designLinks) {
-    if (link.provider !== "figma") continue;
-    results.push(await resolveFigmaLink(link.url, undefined, outputDir, fetchFn));
-  }
-
-  return results;
-}
-
-async function selectMenu(
-  title: string,
-  options: Array<{ label: string; value: "figma" | "zeplin"; hint?: string }>,
-): Promise<"figma" | "zeplin"> {
-  if (!process.stdin.isTTY) {
-    console.log(`\x1b[36m◇\x1b[0m  \x1b[1m${title}\x1b[0m`);
-    options.forEach((opt, idx) => console.log(`  ${idx + 1}) ${opt.label}${opt.hint ? ` (${opt.hint})` : ""}`));
-    const rl = createInterface({ input, output });
-    try {
-      const ans = await new Promise<string>((res) => rl.question("\x1b[36m│\x1b[0m  Choice (1-2): ", res));
-      const num = parseInt(ans.trim(), 10);
-      if (num >= 1 && num <= options.length) return options[num - 1].value;
-      return options[0].value;
-    } finally {
-      rl.close();
-    }
-  }
-
-  let selectedIndex = 0;
-  readline.emitKeypressEvents(input);
-  if (process.stdin.setRawMode) process.stdin.setRawMode(true);
-
-  const render = () => {
-    output.write("\x1b[?25l");
-    output.write(`\x1b[36m◇\x1b[0m  \x1b[1m${title}\x1b[0m \x1b[90m(↑/↓ to navigate, Enter to select)\x1b[0m\n`);
-    options.forEach((opt, idx) => {
-      const isSelected = idx === selectedIndex;
-      const radio = isSelected ? "\x1b[36m●\x1b[0m" : "\x1b[90m○\x1b[0m";
-      const labelStr = isSelected ? `\x1b[1m\x1b[36m${opt.label}\x1b[0m` : `\x1b[37m${opt.label}\x1b[0m`;
-      const hintStr = opt.hint ? ` \x1b[90m— ${opt.hint}\x1b[0m` : "";
-      output.write(`\x1b[36m│\x1b[0m  ${radio} ${labelStr}${hintStr}\n`);
-    });
-    output.write("\x1b[36m│\x1b[0m\n");
-  };
-
-  const clear = () => {
-    const totalLines = options.length + 2;
-    output.write(`\x1b[${totalLines}A\x1b[J`);
-  };
-
-  render();
-
-  return new Promise((resolve) => {
-    const onKeypress = (str: string, key: readline.Key) => {
-      if (key && key.ctrl && key.name === "c") {
-        output.write("\x1b[?25h\x1b[36m└\x1b[0m  \x1b[31mCancelled\x1b[0m\n");
-        process.exit(1);
-      }
-
-      if (key && (key.name === "up" || key.name === "k")) {
-        selectedIndex = (selectedIndex - 1 + options.length) % options.length;
-        clear();
-        render();
-      } else if (key && (key.name === "down" || key.name === "j")) {
-        selectedIndex = (selectedIndex + 1) % options.length;
-        clear();
-        render();
-      } else if (key && (key.name === "return" || key.name === "enter" || key.name === "space")) {
-        cleanup();
-        clear();
-        output.write(`\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
-        resolve(options[selectedIndex].value);
-      } else if (str && /^[1-9]$/.test(str)) {
-        const num = parseInt(str, 10) - 1;
-        if (num >= 0 && num < options.length) {
-          selectedIndex = num;
-          cleanup();
-          clear();
-          output.write(`\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
-          resolve(options[selectedIndex].value);
-        }
-      }
-    };
-
-    const cleanup = () => {
-      output.write("\x1b[?25h");
-      if (process.stdin.setRawMode) process.stdin.setRawMode(false);
-      input.removeListener("keypress", onKeypress);
-    };
-
-    input.on("keypress", onKeypress);
-  });
-}
-
 async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zeplin"; token: string }> {
-  console.log("\n\x1b[36m┌\x1b[0m  \x1b[1m\x1b[36mnodesign auth login\x1b[0m");
-  console.log("\x1b[36m│\x1b[0m");
+  console.log(`\n${color.cyan}┌${color.reset} ${color.bold}${color.cyan}nodesign auth login${color.reset}`);
+  console.log(`${color.cyan}│${color.reset}`);
 
   let provider = args.provider;
   if (!provider) {
@@ -366,30 +31,30 @@ async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zepl
       { label: "Zeplin", value: "zeplin", hint: "Personal Access Token (Developer Settings)" },
     ]);
   } else {
-    console.log(`\x1b[32m◆\x1b[0m  Provider \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${provider}\x1b[0m`);
+    console.log(`${color.green}◆${color.reset}  Provider ${color.dim}›${color.reset} ${color.bold}${color.green}${provider}${color.reset}`);
   }
 
-  console.log("\x1b[36m│\x1b[0m");
+  console.log(`${color.cyan}│${color.reset}`);
   if (provider === "figma") {
-    console.log("\x1b[36m◇\x1b[0m  \x1b[1mCreate a Figma PAT:\x1b[0m");
-    console.log(`\x1b[36m│\x1b[0m  Open: \x1b[4m\x1b[36m${TOKEN_URLS.figma}\x1b[0m`);
-    console.log("\x1b[36m│\x1b[0m  Then: \x1b[1mPersonal access tokens\x1b[0m \x1b[90m→\x1b[0m \x1b[1mGenerate new token\x1b[0m");
-    console.log("\x1b[36m│\x1b[0m  Scope: \x1b[32mfiles:read\x1b[0m");
+    console.log(`${color.cyan}◇${color.reset}  ${color.bold}Create a Figma PAT:${color.reset}`);
+    console.log(`${color.cyan}│${color.reset}  Open: \x1b[4m${color.cyan}${TOKEN_URLS.figma}${color.reset}`);
+    console.log(`${color.cyan}│${color.reset}  Then: ${color.bold}Personal access tokens${color.reset} ${color.dim}→${color.reset} ${color.bold}Generate new token${color.reset}`);
+    console.log(`${color.cyan}│${color.reset}  Scope: ${color.green}files:read${color.reset}`);
   } else {
-    console.log("\x1b[36m◇\x1b[0m  \x1b[1mCreate a Zeplin Personal Token:\x1b[0m");
-    console.log(`\x1b[36m│\x1b[0m  Open: \x1b[4m\x1b[36m${TOKEN_URLS.zeplin}\x1b[0m`);
-    console.log("\x1b[36m│\x1b[0m  Then click \x1b[1mCreate Personal Access Token\x1b[0m");
+    console.log(`${color.cyan}◇${color.reset}  ${color.bold}Create a Zeplin Personal Token:${color.reset}`);
+    console.log(`${color.cyan}│${color.reset}  Open: \x1b[4m${color.cyan}${TOKEN_URLS.zeplin}${color.reset}`);
+    console.log(`${color.cyan}│${color.reset}  Then click ${color.bold}Create Personal Access Token${color.reset}`);
   }
-  console.log("\x1b[36m│\x1b[0m");
+  console.log(`${color.cyan}│${color.reset}`);
 
   if (args.token) return { provider, token: args.token };
 
   const rl = createInterface({ input, output });
   try {
-    const token = await new Promise<string>((res) => rl.question("\x1b[36m◇\x1b[0m  \x1b[1mPaste Token (PAT):\x1b[0m ", res));
+    const token = await new Promise<string>((res) => rl.question(`${color.cyan}◇${color.reset}  ${color.bold}Paste Token (PAT):${color.reset} `, res));
     const trimmed = token.trim();
     if (!trimmed) fail("Token cannot be empty");
-    console.log("\x1b[36m└\x1b[0m  \x1b[32mCredentials submitted\x1b[0m\n");
+    console.log(`${color.cyan}└${color.reset}  ${color.green}Credentials submitted${color.reset}\n`);
     return { provider, token: trimmed };
   } finally {
     rl.close();
@@ -397,30 +62,30 @@ async function promptAuth(args: ParsedArgs): Promise<{ provider: "figma" | "zepl
 }
 
 async function printAuthStatus(fetchFn: typeof fetch): Promise<void> {
-  console.log(`\n${color.cyan}\u250c${color.reset} ${color.bold}${color.cyan}nodesign auth status${color.reset}`);
-  console.log(`${color.cyan}\u2502${color.reset}`);
+  console.log(`\n${color.cyan}┌${color.reset} ${color.bold}${color.cyan}nodesign auth status${color.reset}`);
+  console.log(`${color.cyan}│${color.reset}`);
   for (const provider of ["figma", "zeplin"] as const) {
     const resolved = resolveCredential(provider);
     if (!resolved.token) {
-      console.log(`${color.yellow}\u25c6${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}\u203a${color.reset} ${color.yellow}missing${color.reset}`);
-      console.log(`${color.cyan}\u2502${color.reset}  Run ${color.bold}nodesign auth login${color.reset} to configure`);
+      console.log(`${color.yellow}◆${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}›${color.reset} ${color.yellow}missing${color.reset}`);
+      console.log(`${color.cyan}│${color.reset}  Run ${color.bold}nodesign auth login${color.reset} to configure`);
       continue;
     }
     const info = await validateCredentialWithInfo(provider, resolved.token, fetchFn);
-    const statusIcon = info.status === "valid" ? `${color.green}\u25c6` : info.status === "invalid" ? `${color.red}\u25c6` : `${color.yellow}\u25c6`;
+    const statusIcon = info.status === "valid" ? `${color.green}◆` : info.status === "invalid" ? `${color.red}◆` : `${color.yellow}◆`;
     const statusLabel = info.status === "valid" ? `${color.green}valid${color.reset}` : info.status === "invalid" ? `${color.red}invalid${color.reset}` : `${color.yellow}unreachable${color.reset}`;
-    console.log(`${statusIcon}${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}\u203a${color.reset} ${statusLabel}`);
-    console.log(`${color.cyan}\u2502${color.reset}  Source: ${resolved.source}${resolved.location ? ` (${resolved.location})` : ""}`);
+    console.log(`${statusIcon}${color.reset} ${color.bold}${provider}${color.reset} ${color.dim}›${color.reset} ${statusLabel}`);
+    console.log(`${color.cyan}│${color.reset}  Source: ${resolved.source}${resolved.location ? ` (${resolved.location})` : ""}`);
     if (info.user || info.email) {
       const identity = [info.user, info.email].filter(Boolean).join(" ");
-      console.log(`${color.cyan}\u2502${color.reset}  Account: ${color.bold}${identity}${color.reset}`);
+      console.log(`${color.cyan}│${color.reset}  Account: ${color.bold}${identity}${color.reset}`);
     }
     if (info.status === "invalid") {
-      console.log(`${color.cyan}\u2502${color.reset}  ${color.red}Token is expired, revoked, or malformed. Run ${color.bold}nodesign auth login${color.reset}${color.red} to replace.${color.reset}`);
+      console.log(`${color.cyan}│${color.reset}  ${color.red}Token is expired, revoked, or malformed. Run ${color.bold}nodesign auth login${color.reset}${color.red} to replace.${color.reset}`);
     }
   }
-  console.log(`${color.cyan}\u2502${color.reset}`);
-  console.log(`${color.cyan}\u2514${color.reset}`);
+  console.log(`${color.cyan}│${color.reset}`);
+  console.log(`${color.cyan}└${color.reset}`);
 }
 
 export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
@@ -446,22 +111,22 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
 
           if (args.authAction === "logout") {
             const providers = args.provider ? [args.provider] : (["figma", "zeplin"] as const);
-            console.log(`\n${color.cyan}\u250c${color.reset} ${color.bold}${color.cyan}nodesign auth logout${color.reset}`);
+            console.log(`\n${color.cyan}┌${color.reset} ${color.bold}${color.cyan}nodesign auth logout${color.reset}`);
             for (const p of providers) {
               deleteCredential(p);
-              console.log(`${color.green}\u25c6${color.reset} ${color.bold}${p}${color.reset} ${color.dim}\u203a${color.reset} cleared`);
+              console.log(`${color.green}◆${color.reset} ${color.bold}${p}${color.reset} ${color.dim}›${color.reset} cleared`);
             }
-            console.log(`${color.cyan}\u2514${color.reset}`);
+            console.log(`${color.cyan}└${color.reset}`);
             return;
           }
 
           const creds = await promptAuth(args);
-          console.log(`${color.cyan}\u2502${color.reset}`);
-          console.log(`${color.cyan}\u25c7${color.reset} ${color.bold}Validating token...${color.reset}`);
+          console.log(`${color.cyan}│${color.reset}`);
+          console.log(`${color.cyan}◇${color.reset} ${color.bold}Validating token...${color.reset}`);
           const info = await validateCredentialWithInfo(creds.provider, creds.token, fetchFn);
           if (info.status === "invalid") {
-            console.log(`${color.red}\u25c6${color.reset} ${color.bold}Token rejected${color.reset} ${color.dim}\u203a${color.reset} ${color.red}${creds.provider} API returned 401/403. Check the token and try again.${color.reset}`);
-            console.log(`${color.cyan}\u2514${color.reset}`);
+            console.log(`${color.red}◆${color.reset} ${color.bold}Token rejected${color.reset} ${color.dim}›${color.reset} ${color.red}${creds.provider} API returned 401/403. Check the token and try again.${color.reset}`);
+            console.log(`${color.cyan}└${color.reset}`);
             process.exitCode = 1;
             return;
           }
@@ -469,233 +134,22 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           if (!stored.ok) fail(`Could not store ${creds.provider} token`);
           if (info.status === "valid") {
             const identity = [info.user, info.email].filter(Boolean).join(" ");
-            console.log(`${color.green}\u25c6${color.reset} ${color.bold}Token valid${color.reset}${identity ? ` ${color.dim}\u203a${color.reset} ${identity}` : ""}`);
+            console.log(`${color.green}◆${color.reset} ${color.bold}Token valid${color.reset}${identity ? ` ${color.dim}›${color.reset} ${identity}` : ""}`);
           } else {
-            console.log(`${color.yellow}\u25c6${color.reset} ${color.bold}Could not verify token${color.reset} ${color.dim}(API unreachable, saved anyway)${color.reset}`);
+            console.log(`${color.yellow}◆${color.reset} ${color.bold}Could not verify token${color.reset} ${color.dim}(API unreachable, saved anyway)${color.reset}`);
           }
-          console.log(`${color.green}\u25c6${color.reset} Saved to ${color.bold}${stored.source}${color.reset}${stored.location ? ` (${stored.location})` : ""}`);
-          console.log(`${color.cyan}\u2514${color.reset}`);
+          console.log(`${color.green}◆${color.reset} Saved to ${color.bold}${stored.source}${color.reset}${stored.location ? ` (${stored.location})` : ""}`);
+          console.log(`${color.cyan}└${color.reset}`);
           return;
         }
 
         case "extract": {
-          const parsed = parseDesignLink(args.url);
-          const taskPath = findWorkflowTaskPath(process.cwd());
-          const defaultDir = taskPath ? path.join(taskPath, "evidence") : path.resolve(process.cwd(), "design-renders");
-          const outputDir = args.out ? path.resolve(args.out) : args.render ? defaultDir : undefined;
-          const zeplin = parsed.link.provider === "zeplin"
-            ? await resolveZeplinScreen(parsed.link.url, undefined, outputDir, fetchFn)
-            : undefined;
-          const figma = parsed.link.provider === "figma"
-            ? await resolveFigmaLink(parsed.link.url, undefined, outputDir, fetchFn, args.find)
-            : undefined;
-
-          const providerResult = zeplin || figma;
-          if (providerResult && providerResult.status !== "SUCCESS") {
-            process.exitCode = 1;
-          }
-
-          const hierarchy = zeplin?.extract?.hierarchy || figma?.extract?.hierarchy || [];
-          const extractedColors = (zeplin?.extract?.colors || figma?.extract?.colors || zeplin?.screen?.colors || []);
-          const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
-          const inspection = inspectAndroidProject(args.path || process.cwd());
-          const colorTokens = scanColorTokens(args.path || process.cwd());
-          const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType, androidUIStack: inspection.androidUIStack };
-          const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
-          const manifest = generateGroundingManifest(hierarchy, screenName, codeContext, extractedColors);
-
-          if (args.manifest) {
-            if (providerResult && providerResult.status !== "SUCCESS") {
-              const errNote = providerResult.errorDescription || providerResult.note || `Provider status: ${providerResult.status}`;
-              if (args.json) {
-                console.log(JSON.stringify({
-                  status: providerResult.status,
-                  error: errNote,
-                  manifest: null,
-                }, null, 2));
-              } else {
-                console.error(`\x1b[31mError (${providerResult.status}):\x1b[0m ${errNote}`);
-              }
-              return;
-            }
-
-            if (args.json) {
-              console.log(JSON.stringify(manifest, null, 2));
-            } else {
-              console.log(formatGroundingManifestMarkdown(manifest));
-            }
-            return;
-          }
-
-          if (args.json) {
-            console.log(JSON.stringify({
-              ...parsed,
-              directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote, inspection.androidUIStack),
-              manifest,
-              ...(zeplin ? { zeplin } : {}),
-              ...(figma ? { figma } : {}),
-              ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
-            }, null, 2));
-          } else if (args.markdown) {
-            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote, inspection.androidUIStack));
-            console.log(`\n# Extracted Design: ${screenName}\n`);
-            console.log(`- **Provider**: ${parsed.link.provider}`);
-            console.log(`- **URL**: ${parsed.link.url}`);
-            console.log(`- **Status**: ${providerResult?.status || parsed.status}`);
-            if (hierarchy.length) {
-              console.log("\n## UI Blueprint\n```text");
-              for (const line of formatTreeBlueprint(hierarchy, 0)) console.log(line);
-              console.log("```");
-            }
-            if (args.code) {
-              console.log(`\n## Generated Code (${args.code})\n\`\`\`${args.code === "compose" ? "kotlin" : args.code === "react" ? "tsx" : "html"}`);
-              if (hierarchy.length === 0) {
-                console.log(`// No child layers or UI elements found in frame '${screenName}'. Select a frame containing UI elements to generate code.`);
-              } else {
-                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
-              }
-              console.log("```");
-            }
-          } else {
-            console.log(`\n${color.cyan}┌${color.reset} ${color.bold}${color.cyan}nodesign extract${color.reset}`);
-            printStep("Link", `[${parsed.link.provider}] ${parsed.link.url}`);
-            printStep("Project", inspection.architectureType);
-            console.log(`${color.cyan}│${color.reset}`);
-            console.log(`${statusColor(providerResult?.status || parsed.status)}◆${color.reset} ${color.bold}Status${color.reset} ${color.dim}›${color.reset} ${providerResult?.status || parsed.status}`);
-            if (parsed.note) printNote("Parse", parsed.note);
-
-            if (zeplin) {
-              printStep("Screen ID", zeplin.screenId);
-              printStep("Name", zeplin.name);
-              if (zeplin.screen?.colors.length) printList("Colors", zeplin.screen.colors.map((c) => c.hex));
-              if (zeplin.extract?.typography.length) printList("Typography", zeplin.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`));
-              if (zeplin.extract?.layout.width || zeplin.extract?.layout.height) printStep("Layout", `${zeplin.extract.layout.width || 0}x${zeplin.extract.layout.height || 0}`);
-              if (zeplin.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(zeplin.extract.hierarchy, 1));
-              printStep("Rendered Image", zeplin.renderedImage);
-              printList("Saved Assets", zeplin.savedAssets);
-              printNote("What happened", zeplin.errorDescription);
-              printList("Suggested Screens", zeplin.suggestedScreens);
-              printNote("Zeplin", zeplin.note && zeplin.note !== zeplin.errorDescription ? zeplin.note : undefined);
-            }
-            if (figma) {
-              printStep("File", figma.fileKey ? `${figma.fileKey}${figma.nodeId ? ` (Node ID: ${figma.nodeId})` : ""}` : undefined);
-              printStep("Name", figma.name);
-              if (figma.extract?.colors.length) printList("Colors", figma.extract.colors.map((c) => c.hex));
-              if (figma.extract?.typography.length) printList("Typography", figma.extract.typography.map((t) => `${t.fontFamily || "font"} ${t.fontSize || ""}px`));
-              if (figma.extract?.layout.width || figma.extract?.layout.height) printStep("Layout", `${figma.extract.layout.width || 0}x${figma.extract.layout.height || 0}`);
-              if (figma.extract?.hierarchy.length) printList("UI Blueprint", formatTreeBlueprint(figma.extract.hierarchy, 1));
-              printStep("Rendered Image", figma.renderedImage);
-              printNote("What happened", figma.errorDescription);
-              printList("Suggested Frames", figma.suggestedFrames);
-              printNote("Figma", figma.note && figma.note !== figma.errorDescription ? figma.note : undefined);
-            }
-            console.log(`${color.cyan}│${color.reset}`);
-            console.log(`${color.cyan}└${color.reset} ${color.dim}zero-drift contract active; use --markdown or --json for full agent payload${color.reset}`);
-            if (args.code) {
-              console.log(`\n${color.bold}Generated Code (${args.code})${color.reset}`);
-              if (hierarchy.length === 0) {
-                console.log(`${color.yellow}◆${color.reset} ${color.dim}No child layers found in frame '${screenName}'. Select a frame with UI content to generate code.${color.reset}`);
-              } else {
-                console.log(generateCodeSnippet(hierarchy, args.code, screenName, codeContext));
-              }
-            }
-          }
+          await handleExtractCommand(args, fetchFn);
           return;
         }
 
         case "preflight": {
-          const inspection = inspectAndroidProject(args.path);
-          const designLinks: DesignLink[] = [];
-          const notes = [...inspection.notes];
-
-          if (args.url) {
-            const parsed = parseDesignLink(args.url);
-            designLinks.push(parsed.link);
-            if (parsed.note) notes.push(parsed.note);
-          }
-
-          if (args.task && args.task !== "unknown") {
-            const jiraKey = args.task.startsWith("jira:")
-              ? args.task.slice(5)
-              : /^[A-Z0-9]+-[0-9]+$/i.test(args.task)
-              ? args.task
-              : undefined;
-
-            if (jiraKey) {
-              const jiraResult = inspectJiraContext(jiraKey);
-              for (const link of jiraResult.designLinks) {
-                if (!designLinks.some((l) => l.url === link.url)) {
-                  designLinks.push(link);
-                }
-              }
-              notes.push(...jiraResult.notes);
-            }
-          }
-
-          const taskPath = findWorkflowTaskPath(args.path);
-          if (taskPath && existsSync(taskPath)) {
-            const taskLinks: DesignLink[] = [];
-            const metaFile = path.join(taskPath, "metadata.json");
-            if (existsSync(metaFile)) {
-              try {
-                const metaText = readFileSync(metaFile, "utf8");
-                taskLinks.push(...inspectJiraTaskText(metaText).designLinks);
-              } catch {}
-            }
-            const workFile = path.join(taskPath, "WORK.md");
-            if (existsSync(workFile)) {
-              try {
-                const workText = readFileSync(workFile, "utf8");
-                taskLinks.push(...extractDesignLinksFromText(workText));
-              } catch {}
-            }
-            let addedCount = 0;
-            for (const link of taskLinks) {
-              if (!designLinks.some((l) => l.url === link.url)) {
-                designLinks.push(link);
-                addedCount++;
-              }
-            }
-            if (addedCount > 0) {
-              notes.push(`Discovered ${addedCount} design link(s) in active task workspace`);
-            }
-          }
-
-          const renderDir = args.out ? path.resolve(args.out) : args.render && taskPath ? path.join(taskPath, "evidence") : undefined;
-
-          const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn, renderDir);
-          for (const screen of resolvedScreens) {
-            if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
-          }
-
-          const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn, renderDir);
-          for (const fig of resolvedFigma) {
-            if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
-          }
-
-          const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
-          const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
-
-          const preflight: PreflightResult = {
-            uiSensitive,
-            androidUIStack: inspection.androidUIStack,
-            architectureType: inspection.architectureType,
-            evidenceStatus,
-            designLinks,
-            resolvedScreens,
-            resolvedFigma,
-            components: inspection.components,
-            notes,
-          };
-
-
-          const format = args.json ? "json" : "human";
-          console.log(formatDesignBrief(args.task, preflight, format));
-
-          const updateCheck = await checkUpdateNotice(VERSION, fetchFn);
-          if (updateCheck.hasUpdate && updateCheck.notice && !args.json) {
-            console.error(`\n${updateCheck.notice}`);
-          }
+          await handlePreflightCommand(args, fetchFn);
           return;
         }
       }

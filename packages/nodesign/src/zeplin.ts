@@ -1,355 +1,16 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { resolveCredentials, validateCredential, cleanTokenValue, fetchWithRateLimitRetry } from "./auth.js";
-import type { ProviderStatus, VisualAnalysis } from "./types.js";
-import { renderDesignNode, type RenderResult } from "./render.js";
+import {
+  type ZeplinResolutionResult,
+  normalizeProviderStatus,
+  zeplinErrorDescription,
+} from "./zeplin/types.js";
+import { extractScreen, extractDetails } from "./zeplin/parser.js";
+import { parseZeplinLink, parseZeplinProjectId, resolveZeplinShortlink, fetchSuggestedZeplinScreens } from "./zeplin/url.js";
+import { renderZeplinScreen, downloadZeplinAssets } from "./zeplin/assets.js";
 
-export type ZeplinErrorStatus =
-  | "SUCCESS"
-  | "AUTH_REQUIRED"
-  | "AUTH_REJECTED"
-  | "ACCESS_DENIED"
-  | "DESIGN_NOT_FOUND"
-  | "RATE_LIMITED"
-  | "API_UNAVAILABLE";
-
-export interface ZeplinColorSpec {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-  hex: string;
-}
-
-export interface ZeplinTypographySpec {
-  text?: string;
-  fontFamily?: string;
-  fontWeight?: number | string;
-  fontSize?: number;
-  lineHeight?: number;
-  color?: string;
-}
-
-export interface ZeplinLayoutSpec {
-  width?: number;
-  height?: number;
-  x?: number;
-  y?: number;
-  direction?: string;
-  gap?: number;
-  padding?: { top?: number; right?: number; bottom?: number; left?: number };
-}
-
-export interface ZeplinNodeSpec {
-  name: string;
-  type?: string;
-  text?: string;
-  color?: string;
-  font?: { fontFamily?: string; fontSize?: number; fontWeight?: number | string };
-  layout?: ZeplinLayoutSpec;
-  children?: ZeplinNodeSpec[];
-}
-
-export interface ZeplinExtractSpec {
-  colors: ZeplinColorSpec[];
-  typography: ZeplinTypographySpec[];
-  layout: ZeplinLayoutSpec;
-  hierarchy: ZeplinNodeSpec[];
-}
-
-export interface ZeplinScreenSpec {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  colors: ZeplinColorSpec[];
-  layerNames: string[];
-}
-
-export interface ZeplinAssetSpec {
-  id: string;
-  name: string;
-  format: string;
-  url: string;
-}
-
-export interface ZeplinResolutionResult {
-  status: ZeplinErrorStatus;
-  normalizedStatus: ProviderStatus;
-  screenId?: string;
-  name?: string;
-  screen?: ZeplinScreenSpec;
-  extract?: ZeplinExtractSpec;
-  assets?: ZeplinAssetSpec[];
-  savedAssets?: string[];
-  renderedImage?: string;
-  rendering?: RenderResult;
-  visualAnalysis?: VisualAnalysis;
-  suggestedScreens?: string[];
-  errorDescription?: string;
-  note?: string;
-}
-
-function normalizeProviderStatus(status: ZeplinErrorStatus): ProviderStatus {
-  switch (status) {
-    case "AUTH_REJECTED": return "TOKEN_INVALID";
-    case "ACCESS_DENIED": return "FILE_FORBIDDEN";
-    case "DESIGN_NOT_FOUND": return "NODE_NOT_FOUND";
-    default: return status;
-  }
-}
-
-const ZEPLIN_ERROR_DESCRIPTION: Record<Exclude<ZeplinErrorStatus, "SUCCESS">, string> = {
-  AUTH_REQUIRED: "No Zeplin token found. Run `nodesign auth login --provider zeplin` or set ZEPLIN_TOKEN.",
-  AUTH_REJECTED: "Zeplin token was rejected (401). Your token may be expired or revoked. Run `nodesign auth login --provider zeplin` to update it.",
-  ACCESS_DENIED: "Access denied (403). Your Zeplin token is valid, but does not have permission to view this project or organization.",
-  DESIGN_NOT_FOUND: "Screen or component not found (404). Check if the link points to a project dashboard instead of a screen, or if the screen was moved/deleted.",
-  RATE_LIMITED: "Zeplin rate limit reached (429). Please wait a moment before trying again.",
-  API_UNAVAILABLE: "Zeplin API is currently unreachable. Check your internet connection or Zeplin service status.",
-};
-
-function zeplinErrorDescription(status: Exclude<ZeplinErrorStatus, "SUCCESS">, id?: string): string {
-  return id && status === "DESIGN_NOT_FOUND"
-    ? ZEPLIN_ERROR_DESCRIPTION.DESIGN_NOT_FOUND.replace("screen/component ID", `screen/component ID (${id})`)
-    : ZEPLIN_ERROR_DESCRIPTION[status];
-}
-
-export function parseZeplinProjectId(url: string): string | undefined {
-  const match = url.match(/app\.zeplin\.io\/project\/([a-fA-F0-9]{24})/i) || url.match(/[?&]pid=([a-fA-F0-9]{24})/i);
-  return match ? match[1] : undefined;
-}
-
-export function parseZeplinLink(rawUrl: string): { type: "screen" | "project" | "unknown"; id: string; projectId?: string } {
-  const clean = rawUrl.trim().replace(/[.,;)\]>]+$/, "");
-  const projectId = parseZeplinProjectId(clean);
-
-  if (clean.includes("/screen/") || /[?&](?:sid|screenId|screen_id|coid|coId)=/i.test(clean) || clean.includes("zpl.io/") || clean.startsWith("zpl://screen")) {
-    return { type: "screen", id: parseZeplinScreenId(clean), projectId };
-  }
-
-  if (projectId || clean.includes("app.zeplin.io/project/") || clean.startsWith("zpl://project")) {
-    const id = projectId || parseZeplinScreenId(clean);
-    return { type: "project", id, projectId: id };
-  }
-
-  return { type: "unknown", id: clean, projectId };
-}
-
-export function parseZeplinScreenId(urlOrId: string): string {
-  const clean = urlOrId.trim().replace(/[.,;)\]>]+$/, "");
-  const sidMatch = clean.match(/[?&](?:sid|screenId|screen_id|coid|coId)=([^&?#]+)/i);
-  if (sidMatch) return sidMatch[1];
-
-  if (clean.includes("/screen/")) {
-    const parts = clean.split("/screen/");
-    return parts[1].split(/[?#]/)[0].replace(/\/$/, "");
-  }
-
-  if (clean.startsWith("zpl://")) {
-    const match = clean.match(/(?:screen\/|screen:|components\/|component:)([^/?#]+)/i);
-    if (match) return match[1];
-  }
-
-  if (clean.includes("zpl.io/")) {
-    const parts = clean.split("zpl.io/");
-    return parts[1].split(/[?#]/)[0].replace(/\/$/, "");
-  }
-
-  const pidMatch = clean.match(/[?&]pid=([^&?#]+)/i);
-  if (pidMatch) return pidMatch[1];
-
-  const projMatch = clean.match(/app\.zeplin\.io\/project\/([a-fA-F0-9]{24})/i);
-  if (projMatch) return projMatch[1];
-
-  return clean;
-}
-
-
-async function fetchSuggestedZeplinScreens(
-  authToken: string,
-  fetchFn: typeof fetch,
-): Promise<string[]> {
-  try {
-    const zHeaders = { "Zeplin-Access-Token": authToken, Authorization: `Bearer ${authToken}` };
-    const projRes = await fetchFn("https://api.zeplin.dev/v1/projects", { headers: zHeaders });
-    if (!projRes.ok) return [];
-    const projects = (await projRes.json()) as any[];
-    const candidates: string[] = [];
-
-    for (const proj of (projects || []).slice(0, 3)) {
-      const screensRes = await fetchFn(`https://api.zeplin.dev/v1/projects/${proj.id}/screens?limit=5`, { headers: zHeaders });
-      if (screensRes.ok) {
-        const screens = (await screensRes.json()) as any[];
-        for (const s of screens || []) {
-          candidates.push(`${s.name} (${s.id})`);
-        }
-      }
-    }
-    return candidates.slice(0, 10);
-  } catch {
-    return [];
-  }
-}
-
-export async function resolveZeplinShortlink(
-  url: string,
-  fetchFn: typeof fetch = globalThis.fetch,
-): Promise<string | undefined> {
-  const cleanUrl = url.trim().replace(/[.,;)\]>]+$/, "");
-  if (!cleanUrl.startsWith("http")) return undefined;
-
-  try {
-    const res = await fetchFn(cleanUrl, { method: "HEAD", redirect: "manual" });
-    const location = res.headers?.get?.("location") || res.headers?.get?.("Location");
-    if (location) {
-      const expanded = parseZeplinScreenId(location);
-      if (expanded && expanded !== cleanUrl && expanded.length > 5) return expanded;
-    }
-
-    const getRes = await fetchFn(cleanUrl, { redirect: "follow" });
-    if (getRes.url && getRes.url !== cleanUrl) {
-      const expanded = parseZeplinScreenId(getRes.url);
-      if (expanded && expanded !== cleanUrl && expanded.length > 5) return expanded;
-    }
-  } catch {}
-  return undefined;
-}
-
-export function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-}
-
-function toColorSpec(color: any): ZeplinColorSpec | undefined {
-  if (!color || typeof color !== "object") return undefined;
-  const r = color.r ?? color.red ?? 0;
-  const g = color.g ?? color.green ?? 0;
-  const b = color.b ?? color.blue ?? 0;
-  const a = color.a ?? color.alpha ?? 1;
-  return {
-    r,
-    g,
-    b,
-    a,
-    hex: color.hex || rgbToHex(r, g, b),
-  };
-}
-
-function collectColors(node: any, out: ZeplinColorSpec[], seen: Set<string>): void {
-  if (!node || typeof node !== "object") return;
-  const colorCandidates = [node.color, node.fill, node.backgroundColor, node.textColor];
-  for (const candidate of colorCandidates) {
-    const spec = toColorSpec(candidate);
-    if (!spec) continue;
-    const key = `${spec.hex}:${spec.a}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(spec);
-  }
-  if (Array.isArray(node.colors)) {
-    for (const color of node.colors) {
-      const spec = toColorSpec(color);
-      if (!spec) continue;
-      const key = `${spec.hex}:${spec.a}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(spec);
-    }
-  }
-  if (Array.isArray(node.layers)) {
-    for (const layer of node.layers) collectColors(layer, out, seen);
-  }
-}
-
-function collectTypography(node: any, out: ZeplinTypographySpec[]): void {
-  if (!node || typeof node !== "object") return;
-  const style = node.textStyles || node.style || node;
-  if (node.type === "text" || style.fontFamily || style.fontSize || style.lineHeight) {
-    const color = toColorSpec(style.color || node.color);
-    out.push({
-      text: typeof node.content === "string" ? node.content : typeof node.name === "string" ? node.name : undefined,
-      fontFamily: style.fontFamily,
-      fontWeight: style.fontWeight,
-      fontSize: style.fontSize,
-      lineHeight: style.lineHeight,
-      color: color?.hex,
-    });
-  }
-  if (Array.isArray(node.layers)) {
-    for (const layer of node.layers) collectTypography(layer, out);
-  }
-}
-
-function toHierarchy(node: any): ZeplinNodeSpec | undefined {
-  if (!node || typeof node !== "object") return undefined;
-  if (node.visible === false || node.hidden === true || node.opacity === 0) return undefined;
-
-  const children = Array.isArray(node.layers)
-    ? node.layers.map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[]
-    : undefined;
-
-  const name = typeof node.name === "string" && node.name ? node.name : typeof node.id === "string" ? node.id : undefined;
-  if (!name) return undefined;
-
-  const style = node.textStyles || node.style || {};
-  const colorSpec = toColorSpec(node.color || node.fill || style.color);
-  const font = (style.fontFamily || style.fontSize) ? {
-    fontFamily: style.fontFamily,
-    fontSize: style.fontSize,
-    fontWeight: style.fontWeight,
-  } : undefined;
-  const layout = extractLayout(node);
-  const text = typeof node.content === "string" ? node.content : undefined;
-
-  return {
-    name,
-    type: typeof node.type === "string" ? node.type : undefined,
-    ...(text ? { text } : {}),
-    ...(colorSpec?.hex ? { color: colorSpec.hex } : {}),
-    ...(font ? { font } : {}),
-    ...(layout.width || layout.height || layout.direction ? { layout } : {}),
-    ...(children && children.length ? { children } : {}),
-  };
-}
-
-function extractLayout(data: any): ZeplinLayoutSpec {
-  const rect = data?.rect || data?.bounds || {};
-  return {
-    width: data?.width ?? rect.width,
-    height: data?.height ?? rect.height,
-    x: rect.x,
-    y: rect.y,
-    direction: data?.layout?.direction || data?.flexDirection,
-    gap: data?.layout?.gap ?? data?.itemSpacing,
-    padding: data?.layout?.padding || data?.padding,
-  };
-}
-
-function extractScreen(data: any, fallbackId: string): ZeplinScreenSpec {
-  const colors = (data.colors || []).map(toColorSpec).filter(Boolean) as ZeplinColorSpec[];
-  return {
-    id: data.id || fallbackId,
-    name: data.name || "Untitled Screen",
-    width: data.width || 0,
-    height: data.height || 0,
-    colors,
-    layerNames: (data.layers || []).map((l: any) => l.name).filter(Boolean),
-  };
-}
-
-function extractDetails(data: any, screen: ZeplinScreenSpec): ZeplinExtractSpec {
-  const colors = [...screen.colors];
-  const seen = new Set(colors.map((c) => `${c.hex}:${c.a}`));
-  collectColors(data, colors, seen);
-  const typography: ZeplinTypographySpec[] = [];
-  collectTypography(data, typography);
-  return {
-    colors,
-    typography,
-    layout: extractLayout(data),
-    hierarchy: (data.layers || []).map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[],
-  };
-}
+export * from "./zeplin/types.js";
+export * from "./zeplin/parser.js";
+export * from "./zeplin/url.js";
 
 export async function resolveZeplinScreen(
   screenUrlOrId: string,
@@ -360,37 +21,34 @@ export async function resolveZeplinScreen(
   const parsedLink = parseZeplinLink(screenUrlOrId);
   let screenId = parsedLink.id;
 
-  if (parsedLink.type === "project") {
-    const rawToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
-    const authToken = cleanTokenValue(rawToken);
-    if (!authToken) {
-      return {
-        status: "AUTH_REQUIRED",
-        normalizedStatus: "AUTH_REQUIRED",
-        errorDescription: zeplinErrorDescription("AUTH_REQUIRED"),
-        note: "Zeplin access token is missing. Configure ZEPLIN_TOKEN environment variable or run `nodesign auth login`.",
-      };
-    }
-    const zHeaders = {
-      "Zeplin-Access-Token": authToken,
-      Authorization: `Bearer ${authToken}`,
+  const rawToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
+  const authToken = cleanTokenValue(rawToken);
+
+  if (!authToken) {
+    return {
+      status: "AUTH_REQUIRED",
+      normalizedStatus: "AUTH_REQUIRED",
+      errorDescription: zeplinErrorDescription("AUTH_REQUIRED"),
+      note: "Zeplin access token is missing. Configure ZEPLIN_TOKEN environment variable or run `nodesign auth login`.",
     };
+  }
+
+  const zHeaders = {
+    "Zeplin-Access-Token": authToken,
+    Authorization: `Bearer ${authToken}`,
+  };
+
+  if (parsedLink.type === "project") {
     try {
-      const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}`, {
-        headers: zHeaders,
-      }, fetchFn);
+      const projRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}`, { headers: zHeaders }, fetchFn);
       if (projRes.ok) {
         const projData = (await projRes.json()) as any;
-        const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}/screens?limit=20`, {
-          headers: zHeaders,
-        }, fetchFn);
+        const screensRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${screenId}/screens?limit=20`, { headers: zHeaders }, fetchFn);
         const projScreens = screensRes.ok ? ((await screensRes.json()) as any[]) : [];
         const candidateNames = projScreens.map((s: any) => `${s.name} (${s.id})`);
 
         if (projScreens.length > 0) {
-          const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${projScreens[0].id}`, {
-            headers: zHeaders,
-          }, fetchFn);
+          const firstScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${projScreens[0].id}`, { headers: zHeaders }, fetchFn);
           if (firstScreenRes.ok) {
             const screenData = (await firstScreenRes.json()) as any;
             const screen = extractScreen(screenData, projScreens[0].id);
@@ -424,52 +82,23 @@ export async function resolveZeplinScreen(
   if (!/^[0-9a-fA-F]{24}$/.test(screenId) && (screenUrlOrId.includes("zpl.io") || screenUrlOrId.startsWith("http"))) {
     const targetUrl = screenUrlOrId.startsWith("http") ? screenUrlOrId : `https://zpl.io/${screenId}`;
     const expandedId = await resolveZeplinShortlink(targetUrl, fetchFn);
-    if (expandedId) {
-      screenId = expandedId;
-    }
+    if (expandedId) screenId = expandedId;
   }
-
-  const rawToken = providedToken === undefined ? resolveCredentials().zeplinToken : providedToken || undefined;
-  const authToken = cleanTokenValue(rawToken);
-
-  if (!authToken) {
-    return {
-      status: "AUTH_REQUIRED",
-      normalizedStatus: "AUTH_REQUIRED",
-      errorDescription: zeplinErrorDescription("AUTH_REQUIRED"),
-      note: "Zeplin access token is missing. Configure ZEPLIN_TOKEN environment variable or run `nodesign auth login`.",
-    };
-  }
-
-  const zHeaders = {
-    "Zeplin-Access-Token": authToken,
-    Authorization: `Bearer ${authToken}`,
-  };
 
   try {
-    let res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, {
-      headers: zHeaders,
-    }, fetchFn);
+    let res = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/screens/${screenId}`, { headers: zHeaders }, fetchFn);
 
     if (res.status === 404) {
       const projectId = parseZeplinProjectId(screenUrlOrId);
       if (projectId) {
-        const projScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${projectId}/screens/${screenId}`, {
-          headers: zHeaders,
-        }, fetchFn);
-        if (projScreenRes.ok) {
-          res = projScreenRes;
-        }
+        const projScreenRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/projects/${projectId}/screens/${screenId}`, { headers: zHeaders }, fetchFn);
+        if (projScreenRes.ok) res = projScreenRes;
       }
     }
 
     if (res.status === 404) {
-      const compRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/components/${screenId}`, {
-        headers: zHeaders,
-      }, fetchFn);
-      if (compRes.ok) {
-        res = compRes;
-      }
+      const compRes = await fetchWithRateLimitRetry(`https://api.zeplin.dev/v1/components/${screenId}`, { headers: zHeaders }, fetchFn);
+      if (compRes.ok) res = compRes;
     }
 
     if (res.status === 401) {
@@ -525,74 +154,14 @@ export async function resolveZeplinScreen(
       return { status: "API_UNAVAILABLE", normalizedStatus: normalizeProviderStatus("API_UNAVAILABLE"), screenId, errorDescription: zeplinErrorDescription("API_UNAVAILABLE"), note: `Zeplin API error (${res.status} ${res.statusText})` };
     }
 
-
     const data = (await res.json()) as any;
     const screen = extractScreen(data, screenId);
     const extract = extractDetails(data, screen);
-    const savedAssets: string[] = [];
-    let assets: ZeplinAssetSpec[] = [];
-    let renderedImage: string | undefined;
-    let rendering: RenderResult | undefined;
-    let visualAnalysis: VisualAnalysis | undefined;
 
-    if (outputDir) {
-      rendering = await renderDesignNode({
-        provider: "zeplin",
-        fileKeyOrScreenId: screenId,
-        authToken,
-        outputDir,
-      }, fetchFn);
-
-      if (rendering) {
-        renderedImage = rendering.savedPath;
-        const width = screen.width || 0;
-        const layoutType = width > 0 && width < 600 ? "MOBILE_VIEW" : width >= 600 ? "DESKTOP_VIEW" : "COMPONENT_CANVAS";
-        const visibleLabels = extract?.typography?.map((t) => t.text).filter(Boolean) as string[] || [];
-        const detectedComponents = screen.layerNames || [];
-
-        visualAnalysis = {
-          screenshotPath: rendering.savedPath,
-          detectedComponents,
-          layoutType,
-          visibleLabels,
-        };
-      }
-    }
-
-
-
-    try {
-      const assetRes = await fetchFn(`https://api.zeplin.dev/v1/screens/${screenId}/assets`, {
-        headers: zHeaders,
-      });
-
-      if (assetRes.ok) {
-        const assetData = (await assetRes.json()) as any[];
-        assets = (assetData || []).map((a: any) => ({
-          id: a.id,
-          name: a.name,
-          format: a.format || "svg",
-          url: a.url || a.file_url || "",
-        }));
-
-        if (outputDir && assets.length > 0) {
-          if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-          for (const asset of assets) {
-            if (!asset.url) continue;
-            const fileName = `${asset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.${asset.format}`;
-            const filePath = path.join(outputDir, fileName);
-            try {
-              const imgRes = await fetchFn(asset.url);
-              if (imgRes.ok) {
-                const content = await imgRes.text();
-                writeFileSync(filePath, content, "utf8");
-                savedAssets.push(filePath);
-              }
-            } catch {}
-          }
-        }
-      }
-    } catch {}
+    const visual = outputDir
+      ? await renderZeplinScreen(screenId, authToken, outputDir, screen, extract, fetchFn)
+      : {};
+    const assetData = await downloadZeplinAssets(screenId, outputDir, zHeaders, fetchFn);
 
     return {
       status: "SUCCESS",
@@ -601,11 +170,9 @@ export async function resolveZeplinScreen(
       name: screen.name,
       screen,
       extract,
-      assets,
-      savedAssets,
-      renderedImage,
-      rendering,
-      visualAnalysis,
+      assets: assetData.assets,
+      savedAssets: assetData.savedAssets,
+      ...visual,
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

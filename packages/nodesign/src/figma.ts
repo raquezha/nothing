@@ -1,268 +1,16 @@
 import { resolveCredentials, fetchWithRateLimitRetry } from "./auth.js";
-import type { ProviderStatus, VisualAnalysis } from "./types.js";
+import type { VisualAnalysis } from "./types.js";
 import { renderDesignNode, type RenderResult } from "./render.js";
+import {
+  type FigmaResolutionResult,
+  normalizeProviderStatus,
+  figmaErrorDescription,
+} from "./figma/types.js";
+import { extractDetails } from "./figma/parser.js";
+import { parseFigmaUrl, fetchSuggestedFrames } from "./figma/url.js";
 
-export type FigmaErrorStatus =
-  | "SUCCESS"
-  | "AUTH_REQUIRED"
-  | "AUTH_REJECTED"
-  | "ACCESS_DENIED"
-  | "DESIGN_NOT_FOUND"
-  | "RATE_LIMITED"
-  | "API_UNAVAILABLE"
-  | "AMBIGUOUS_URL";
-
-export interface FigmaColorSpec {
-  hex: string;
-  opacity?: number;
-}
-
-export interface FigmaTypographySpec {
-  text?: string;
-  fontFamily?: string;
-  fontWeight?: number | string;
-  fontSize?: number;
-  lineHeight?: number;
-  color?: string;
-}
-
-export interface FigmaLayoutSpec {
-  width?: number;
-  height?: number;
-  x?: number;
-  y?: number;
-  direction?: string;
-  gap?: number;
-  padding?: { top?: number; right?: number; bottom?: number; left?: number };
-}
-
-export interface FigmaNodeSpec {
-  name: string;
-  type?: string;
-  text?: string;
-  color?: string;
-  font?: { fontFamily?: string; fontSize?: number; fontWeight?: number | string };
-  layout?: FigmaLayoutSpec;
-  variant?: string;
-  children?: FigmaNodeSpec[];
-}
-
-export interface FigmaExtractSpec {
-  colors: FigmaColorSpec[];
-  typography: FigmaTypographySpec[];
-  layout: FigmaLayoutSpec;
-  hierarchy: FigmaNodeSpec[];
-}
-
-export interface FigmaResolutionResult {
-  status: FigmaErrorStatus;
-  normalizedStatus: ProviderStatus;
-  url: string;
-  fileKey?: string;
-  nodeId?: string;
-  name?: string;
-  extract?: FigmaExtractSpec;
-  renderedImage?: string;
-  rendering?: RenderResult;
-  visualAnalysis?: VisualAnalysis;
-  suggestedFrames?: string[];
-  errorDescription?: string;
-  note?: string;
-}
-
-function normalizeProviderStatus(status: FigmaErrorStatus): ProviderStatus {
-  switch (status) {
-    case "AUTH_REJECTED": return "TOKEN_INVALID";
-    case "ACCESS_DENIED": return "FILE_FORBIDDEN";
-    case "DESIGN_NOT_FOUND": return "NODE_NOT_FOUND";
-    default: return status;
-  }
-}
-
-const FIGMA_ERROR_DESCRIPTION: Record<Exclude<FigmaErrorStatus, "SUCCESS">, string> = {
-  AMBIGUOUS_URL: "Unrecognized Figma URL. Make sure the URL includes /design/, /file/, or a valid node-id query parameter.",
-  AUTH_REQUIRED: "No Figma token found. Run `nodesign auth login --provider figma` or set FIGMA_TOKEN.",
-  AUTH_REJECTED: "Figma token was rejected (401). Your token may be expired or revoked. Run `nodesign auth login --provider figma` to update it.",
-  ACCESS_DENIED: "Access denied (403). Your Figma account does not have permission to view this file.",
-  DESIGN_NOT_FOUND: "Figma file or node not found (404). Check if the node ID exists in this file or if the file was deleted.",
-  RATE_LIMITED: "Figma rate limit reached (429). Please wait a moment before trying again.",
-  API_UNAVAILABLE: "Figma API is currently unreachable. Check your internet connection or Figma service status.",
-};
-
-function figmaErrorDescription(status: Exclude<FigmaErrorStatus, "SUCCESS">, id?: string): string {
-  return id && status === "DESIGN_NOT_FOUND"
-    ? `Figma file or node (${id}) not found (404). Check if the node ID exists in this file or if the file was deleted.`
-    : FIGMA_ERROR_DESCRIPTION[status];
-}
-
-function toByte(value: number | undefined): number {
-  return Math.min(255, Math.max(0, Math.round((value ?? 0) * 255)));
-}
-
-function rgbaToHex(color: any): string {
-  const r = toByte(color?.r);
-  const g = toByte(color?.g);
-  const b = toByte(color?.b);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
-}
-
-function colorFromPaint(paint: any): FigmaColorSpec | undefined {
-  if (!paint || paint.visible === false || !paint.color) return undefined;
-  const alpha = (paint.color.a ?? 1) * (paint.opacity ?? 1);
-  return {
-    hex: rgbaToHex(paint.color),
-    opacity: alpha,
-  };
-}
-
-
-function collectColors(node: any, out: FigmaColorSpec[], seen: Set<string>): void {
-  if (!node || typeof node !== "object") return;
-  for (const paint of [...(node.fills || []), ...(node.strokes || [])]) {
-    const spec = colorFromPaint(paint);
-    if (!spec) continue;
-    const key = `${spec.hex}:${spec.opacity ?? 1}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(spec);
-  }
-  if (Array.isArray(node.children)) {
-    for (const child of node.children) collectColors(child, out, seen);
-  }
-}
-
-function collectTypography(node: any, out: FigmaTypographySpec[]): void {
-  if (!node || typeof node !== "object") return;
-  if (node.style?.fontFamily || node.style?.fontSize || node.style?.fontWeight) {
-    const fill = Array.isArray(node.fills) ? colorFromPaint(node.fills[0]) : undefined;
-    out.push({
-      text: typeof node.characters === "string" ? node.characters : undefined,
-      fontFamily: node.style.fontFamily,
-      fontWeight: node.style.fontWeight,
-      fontSize: node.style.fontSize,
-      lineHeight: node.style.lineHeightPx,
-      color: fill?.hex,
-    });
-  }
-  if (Array.isArray(node.children)) {
-    for (const child of node.children) collectTypography(child, out);
-  }
-}
-
-function toHierarchy(node: any): FigmaNodeSpec | undefined {
-  if (!node?.name) return undefined;
-  if (node.visible === false || node.opacity === 0) return undefined;
-
-  const children = Array.isArray(node.children)
-    ? node.children.map(toHierarchy).filter(Boolean) as FigmaNodeSpec[]
-    : undefined;
-
-  const fill = Array.isArray(node.fills) ? colorFromPaint(node.fills[0]) : undefined;
-  const font = node.style ? {
-    fontFamily: node.style.fontFamily,
-    fontSize: node.style.fontSize,
-    fontWeight: node.style.fontWeight,
-  } : undefined;
-  const layout = extractLayout(node);
-  const text = typeof node.characters === "string" ? node.characters : undefined;
-  const variant = node.variantProperties ? Object.entries(node.variantProperties).map(([k, v]) => `${k}=${v}`).join(", ") : undefined;
-
-  return {
-    name: node.name,
-    type: node.type,
-    ...(text ? { text } : {}),
-    ...(fill?.hex ? { color: fill.hex } : {}),
-    ...(font?.fontFamily || font?.fontSize ? { font } : {}),
-    ...(layout.width || layout.height || layout.direction ? { layout } : {}),
-    ...(variant ? { variant } : {}),
-    ...(children && children.length ? { children } : {}),
-  };
-}
-
-
-function extractLayout(node: any): FigmaLayoutSpec {
-  const box = node?.absoluteBoundingBox || {};
-  return {
-    width: box.width,
-    height: box.height,
-    x: box.x,
-    y: box.y,
-    direction: node?.layoutMode,
-    gap: node?.itemSpacing,
-    padding: {
-      top: node?.paddingTop,
-      right: node?.paddingRight,
-      bottom: node?.paddingBottom,
-      left: node?.paddingLeft,
-    },
-  };
-}
-
-function extractDetails(node: any): FigmaExtractSpec {
-  const colors: FigmaColorSpec[] = [];
-  collectColors(node, colors, new Set());
-  const typography: FigmaTypographySpec[] = [];
-  collectTypography(node, typography);
-  return {
-    colors,
-    typography,
-    layout: extractLayout(node),
-    hierarchy: (node?.children || []).map(toHierarchy).filter(Boolean) as FigmaNodeSpec[],
-  };
-}
-
-async function fetchSuggestedFrames(
-  fileKey: string,
-  authToken: string,
-  fetchFn: typeof fetch,
-): Promise<string[]> {
-  try {
-    const res = await fetchFn(`https://api.figma.com/v1/files/${fileKey}?depth=2`, {
-      headers: { "X-Figma-Token": authToken },
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as any;
-    const frames: string[] = [];
-
-    const scan = (node: any) => {
-      if (!node || typeof node !== "object") return;
-      if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "SECTION") {
-        if (typeof node.name === "string" && node.name) {
-          frames.push(`${node.name}${node.id ? ` (node-id=${node.id.replace(":", "-")})` : ""}`);
-        }
-      }
-      if (Array.isArray(node.children)) {
-        for (const child of node.children) scan(child);
-      }
-    };
-
-    scan(data.document);
-    return frames.slice(0, 10);
-  } catch {
-    return [];
-  }
-}
-
-
-export function parseFigmaUrl(urlOrId: string): { fileKey?: string; nodeId?: string } {
-  const clean = urlOrId.trim().replace(/[.,;)\]>]+$/, "");
-  let fileKey: string | undefined;
-  let nodeId: string | undefined;
-
-  const matchKey = clean.match(/figma\.com\/(?:file|design|proto|board)\/([a-zA-Z0-9_-]+)/i);
-  if (matchKey) {
-    fileKey = matchKey[1];
-  }
-
-  const matchNode = clean.match(/[?&](?:node-id|node_id)=([^&?#]+)/i);
-  if (matchNode) {
-    nodeId = decodeURIComponent(matchNode[1]).replace(/-/g, ":");
-  }
-
-  return { fileKey, nodeId };
-}
-
-
+export * from "./figma/types.js";
+export { parseFigmaUrl } from "./figma/url.js";
 
 export async function resolveFigmaLink(
   figmaUrl: string,
@@ -273,7 +21,6 @@ export async function resolveFigmaLink(
 ): Promise<FigmaResolutionResult> {
   const cleanUrl = figmaUrl.trim().replace(/[.,;)\]>]+$/, "");
   let { fileKey, nodeId } = parseFigmaUrl(cleanUrl);
-
 
   if (!fileKey) {
     return {
@@ -300,7 +47,6 @@ export async function resolveFigmaLink(
 
   const primaryNodeId = nodeId ? nodeId.split(",")[0].trim() : undefined;
   let queryNodeId = primaryNodeId ? encodeURIComponent(primaryNodeId) : undefined;
-
 
   if (!nodeId && findName) {
     try {
@@ -341,7 +87,6 @@ export async function resolveFigmaLink(
         "X-Figma-Token": authToken,
       },
     }, fetchFn);
-
 
     if (res.status === 401) {
       return { status: "AUTH_REJECTED", normalizedStatus: normalizeProviderStatus("AUTH_REJECTED"), url: cleanUrl, fileKey, nodeId, errorDescription: figmaErrorDescription("AUTH_REJECTED"), note: "Figma authentication rejected (401 invalid token)" };
@@ -405,8 +150,8 @@ export async function resolveFigmaLink(
         renderedImage = rendering.savedPath;
         const width = extract?.layout?.width || 0;
         const layoutType = width > 0 && width < 600 ? "MOBILE_VIEW" : width >= 600 ? "DESKTOP_VIEW" : "COMPONENT_CANVAS";
-        const visibleLabels = extract?.typography?.map((t) => t.text).filter(Boolean) as string[] || [];
-        const detectedComponents = extract?.hierarchy?.map((h) => h.name).filter(Boolean) as string[] || [];
+        const visibleLabels = (extract?.typography?.map((t: any) => t.text).filter(Boolean) as string[]) || [];
+        const detectedComponents = (extract?.hierarchy?.map((h: any) => h.name).filter(Boolean) as string[]) || [];
 
         visualAnalysis = {
           screenshotPath: rendering.savedPath,

@@ -4,28 +4,15 @@ import type {
   UiPropertyInput,
   UiPropertyStatus,
 } from "./types.js";
+import { normalizePropertyValue } from "./properties/fidelity.js";
 
-/** Normalize color, length, or string property values for comparison. */
-export function normalizePropertyValue(val: string): string {
-  const trimmed = val.trim();
-  // Normalize hex color strings (#fff -> #ffffff, case-insensitive)
-  if (/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(trimmed)) {
-    let hex = trimmed.toUpperCase();
-    if (hex.length === 4) {
-      hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
-    }
-    return hex;
-  }
-  // Normalize numeric dimensions with whitespace (e.g., "16 dp" -> "16dp")
-  return trimmed.replace(/\s+/g, "").toLowerCase();
-}
+export { normalizePropertyValue, verifyUiFidelity, type UiFidelityReport } from "./properties/fidelity.js";
 
 /** Compare a single UI property spec against resolved actual implementation value. */
 export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison {
   const resolvedExpected = input.resolvedExpected ?? input.expected;
   const resolvedActual = input.resolvedActual ?? input.actual;
 
-  // 1. Explicitly waived
   if (input.waived) {
     const waiverReason = typeof input.waived === "string" ? input.waived : "Explicitly waived";
     return {
@@ -42,7 +29,6 @@ export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison 
     };
   }
 
-  // 2. Unknown actual value
   if (resolvedActual === undefined || resolvedActual === null) {
     return {
       property: input.property,
@@ -57,10 +43,8 @@ export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison 
     };
   }
 
-  // 3. Compare resolved values (not just token names)
   const normExpected = normalizePropertyValue(resolvedExpected);
   const normActual = normalizePropertyValue(resolvedActual);
-
   const isMatch = normExpected === normActual;
   const status: UiPropertyStatus = isMatch ? "MATCH" : "MISMATCH";
 
@@ -77,93 +61,6 @@ export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison 
     status,
     tokenName: input.tokenName,
     actualTokenName: input.actualTokenName,
-    notes,
-  };
-}
-
-export interface UiFidelityReport {
-  fidelityScore: number; // 0 - 100
-  passed: boolean;
-  colorTokenCompliance: {
-    totalColors: number;
-    rawHexLeaks: string[];
-    reusedTokens: string[];
-  };
-  componentReuseCompliance: {
-    expectedComponents: string[];
-    reusedComponents: string[];
-    missingComponents: string[];
-  };
-  notes: string[];
-}
-
-export function verifyUiFidelity(
-  extractedHierarchy: any[],
-  extractedColors: any[],
-  codeText: string,
-): UiFidelityReport {
-  const notes: string[] = [];
-  const reusedComponents: string[] = [];
-  const missingComponents: string[] = [];
-  const rawHexLeaks: string[] = [];
-  const reusedTokens: string[] = [];
-
-  // 1. Check Component Reuse
-  const expectedComponents: string[] = [];
-  const collectComponents = (nodes: any[]): void => {
-    for (const node of nodes || []) {
-      const name = typeof node.name === "string" ? node.name.replace(/[^a-zA-Z0-9]/g, "") : "";
-      if (name.length > 2 && !["Row", "Column", "Box", "Container", "Frame"].includes(name)) {
-        expectedComponents.push(name);
-      }
-      if (Array.isArray(node.children)) collectComponents(node.children);
-    }
-  };
-  collectComponents(extractedHierarchy);
-
-  for (const comp of expectedComponents) {
-    const reg = new RegExp(`\\b${comp}\\b`, "i");
-    if (reg.test(codeText)) {
-      reusedComponents.push(comp);
-    } else {
-      missingComponents.push(comp);
-    }
-  }
-
-  // 2. Check Raw Hex Leaks vs Theme Tokens
-  const rawColorMatches = codeText.matchAll(/Color\(\s*0x[0-9a-fA-F]+\s*\)/gi);
-  for (const m of rawColorMatches) {
-    rawHexLeaks.push(m[0]);
-  }
-
-  // 3. Compute Fidelity Score
-  const compScore = expectedComponents.length === 0
-    ? 100
-    : (reusedComponents.length / expectedComponents.length) * 100;
-  const hexPenalty = Math.min(40, rawHexLeaks.length * 10);
-  const fidelityScore = Math.max(0, Math.round(compScore - hexPenalty));
-  const passed = fidelityScore >= 80 && missingComponents.length === 0;
-
-  if (missingComponents.length > 0) {
-    notes.push(`Missing reused design system components: ${missingComponents.join(", ")}`);
-  }
-  if (rawHexLeaks.length > 0) {
-    notes.push(`Detected ${rawHexLeaks.length} raw hex color leak(s) instead of theme tokens.`);
-  }
-
-  return {
-    fidelityScore,
-    passed,
-    colorTokenCompliance: {
-      totalColors: extractedColors.length,
-      rawHexLeaks,
-      reusedTokens,
-    },
-    componentReuseCompliance: {
-      expectedComponents,
-      reusedComponents,
-      missingComponents,
-    },
     notes,
   };
 }
@@ -237,4 +134,3 @@ export function formatPropertyVerification(
 
   return lines.join("\n");
 }
-
