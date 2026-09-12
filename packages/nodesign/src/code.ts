@@ -10,6 +10,7 @@ export interface ProjectCodeContext {
   components?: ComponentFact[];
   colorTokens?: ColorTokenFact[];
   architectureType?: ArchitectureType;
+  androidUIStack?: import("./types.js").AndroidUIStack;
 }
 
 
@@ -97,16 +98,20 @@ function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeConte
   const isRow = node.layout?.direction === "ROW" || node.layout?.direction === "HORIZONTAL";
   const container = isRow ? "Row" : "Column";
   const bg = node.color ? `\n${pad}        .background(${toComposeColor(node.color, context?.colorTokens)})` : "";
-  const size = node.layout?.width && node.layout?.height
+  const isFullWidth = node.layout?.width && (node.layout.width >= 350 || node.layout.width === 360 || node.layout.width === 390 || node.layout.width === 412);
+  const sizeModifier = isFullWidth
+    ? `\n${pad}        .fillMaxWidth()`
+    : node.layout?.width && node.layout?.height
     ? `\n${pad}        .size(${node.layout.width}.dp, ${node.layout.height}.dp)`
     : "";
+
   const paddingMod = formatComposePadding(pad, node.layout?.padding);
   const gapArrangement = node.layout?.gap
     ? (isRow ? `,\n${pad}    horizontalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)` : `,\n${pad}    verticalArrangement = Arrangement.spacedBy(${node.layout.gap}.dp)`)
     : "";
 
   const inner = children.map((c: UnifiedNode) => nodeToCompose(c, indent + 1, context, rootScreenName)).join("\n");
-  return `${pad}// ${name}\n${pad}${container}(\n${pad}    modifier = Modifier${size}${bg}${paddingMod}${gapArrangement}\n${pad}) {\n${inner ? `${inner}\n` : ""}${pad}}`;
+  return `${pad}// ${name}\n${pad}${container}(\n${pad}    modifier = Modifier${sizeModifier}${bg}${paddingMod}${gapArrangement}\n${pad}) {\n${inner ? `${inner}\n` : ""}${pad}}`;
 }
 
 

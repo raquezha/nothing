@@ -500,7 +500,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           const screenName = zeplin?.name || figma?.name || "ExtractedScreen";
           const inspection = inspectAndroidProject(args.path || process.cwd());
           const colorTokens = scanColorTokens(args.path || process.cwd());
-          const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType };
+          const codeContext = { components: inspection.components, colorTokens, architectureType: inspection.architectureType, androidUIStack: inspection.androidUIStack };
           const archDetailNote = inspection.notes.find((n) => n.startsWith("Project Architecture Structure:")) || inspection.architectureType;
           const manifest = generateGroundingManifest(hierarchy, screenName, codeContext, extractedColors);
 
@@ -530,14 +530,14 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
           if (args.json) {
             console.log(JSON.stringify({
               ...parsed,
-              directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote),
+              directive: formatAgentDirective(screenName, inspection.architectureType, archDetailNote, inspection.androidUIStack),
               manifest,
               ...(zeplin ? { zeplin } : {}),
               ...(figma ? { figma } : {}),
               ...(args.code ? { code: generateCodeSnippet(hierarchy, args.code, screenName, codeContext) } : {}),
             }, null, 2));
           } else if (args.markdown) {
-            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote));
+            console.log(formatAgentDirective(screenName, inspection.architectureType, archDetailNote, inspection.androidUIStack));
             console.log(`\n# Extracted Design: ${screenName}\n`);
             console.log(`- **Provider**: ${parsed.link.provider}`);
             console.log(`- **URL**: ${parsed.link.url}`);

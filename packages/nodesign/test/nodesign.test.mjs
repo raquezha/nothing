@@ -175,8 +175,10 @@ try {
   assert(!composeWithoutFont.includes("TextUnit.Unspecified"));
 
   // 10. Agent Directive Contract
-  const directive = formatAgentDirective("CheckoutScreen");
+  const directive = formatAgentDirective("CheckoutScreen", "CLEAN_ARCHITECTURE", "scanner", "kmp");
   assert(directive.includes("STRICT AI AGENT DIRECTIVE"));
+  assert(directive.includes("STRICT CMP RULE"));
+  assert(directive.includes("commonMain"));
   assert(directive.includes("MANDATORY BLUEPRINT ADHERENCE"));
 
   console.log("nodesign suite test ok");

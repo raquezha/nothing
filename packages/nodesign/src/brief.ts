@@ -1,4 +1,6 @@
-import type { DesignBrief, DesignLink, EvidenceStatus, PreflightResult } from "./types.js";
+import type { DesignBrief, DesignLink, EvidenceStatus, PreflightResult, ArchitectureType, AndroidUIStack } from "./types.js";
+
+import { buildStackAwareDirective } from "./stack/directive.js";
 
 /** Parse a raw design link URL into a structured DesignLink and EvidenceStatus. */
 export function parseDesignLink(rawUrl: string): { link: DesignLink; status: EvidenceStatus; note?: string } {
@@ -28,44 +30,11 @@ export function parseDesignLink(rawUrl: string): { link: DesignLink; status: Evi
 
 export function formatAgentDirective(
   screenName = "Target UI",
-  architectureType = "CLEAN_ARCHITECTURE",
+  architectureType: ArchitectureType = "CLEAN_ARCHITECTURE",
   archDetails = "Konsist-style code pattern scanner",
+  stack: AndroidUIStack = "compose",
 ): string {
-  const placementGuideline = architectureType === "CLEAN_ARCHITECTURE"
-    ? "Place new UI Composables inside presentation package (`presentation/` or `ui/screens/`). Keep business logic in UseCases."
-    : architectureType === "DESIGN_SYSTEM_MODULE"
-    ? "Use design system module components (`core:ui` / `designsystem`). Do not write ad-hoc Composables."
-    : architectureType === "FEATURE_BY_PACKAGE"
-    ? "Keep UI inside the relevant feature package (`feature/*/`)."
-    : "Create reusable Composables under `ui/components/`.";
-
-  return [
-    "================================================================================",
-    "STRICT AI AGENT DIRECTIVE — ZERO-DRIFT UI IMPLEMENTATION CONTRACT",
-    "================================================================================",
-    `Target UI: '${screenName}'`,
-    `Project Architecture: ${architectureType} (${archDetails})`,
-    `Placement Rule: ${placementGuideline}`,
-    "",
-    "Follow these 4 non-negotiable rules:",
-    "",
-    "1. MANDATORY BLUEPRINT ADHERENCE:",
-    "   - Build the exact component tree structure specified in the UI Blueprint below.",
-    "   - Do NOT alter container ordering, layout direction (ROW/COLUMN), or node nesting.",
-    "",
-    "2. REUSE DISCOVERED COMPONENTS & THEME TOKENS:",
-    "   - MUST reuse discovered project components (e.g. `Header()`, `PrimaryButton()`) wherever mapped.",
-    "   - MUST use discovered theme variables (e.g. `TapatColors.brandPrimary` or `PrimaryBlue`) instead of raw hex values.",
-    "   - Do NOT invent duplicate components or hardcode raw Color(0xFF...) when theme tokens exist.",
-    "",
-    "3. ZERO DRIFT GUARANTEE:",
-    "   - Do NOT add unrequested cards, extra wrappers, or random decorative elements.",
-    "   - Match all specified padding, spacing/gap, fonts, and dimensions 1:1.",
-    "",
-    "4. CODE INTEGRITY:",
-    "   - Ensure the generated code compiles cleanly with all required package imports.",
-    "================================================================================",
-  ].join("\n");
+  return buildStackAwareDirective(screenName, stack, architectureType, archDetails);
 }
 
 

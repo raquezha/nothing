@@ -1,4 +1,4 @@
-import type { ArchitectureType, ComponentFact } from "./types.js";
+import type { ArchitectureType, ComponentFact, AndroidUIStack } from "./types.js";
 import type { ColorTokenFact } from "./android.js";
 import type { FigmaNodeSpec, FigmaColorSpec } from "./figma.js";
 import type { ZeplinNodeSpec, ZeplinColorSpec } from "./zeplin.js";
@@ -13,6 +13,7 @@ export interface ProjectGroundingContext {
   components?: ComponentFact[];
   colorTokens?: ColorTokenFact[];
   architectureType?: ArchitectureType;
+  androidUIStack?: AndroidUIStack;
 }
 
 export interface MatchedDesignToken {
@@ -32,6 +33,7 @@ export interface MatchedComponentMapping {
 
 export interface GroundingManifest {
   screenName: string;
+  uiStack?: AndroidUIStack;
   matchedTokens: MatchedDesignToken[];
   matchedComponents: MatchedComponentMapping[];
   reusableComponents: ComponentFact[];
@@ -134,6 +136,7 @@ export function generateGroundingManifest(
 
   return {
     screenName,
+    uiStack: context?.androidUIStack,
     matchedTokens,
     matchedComponents,
     reusableComponents,
@@ -147,6 +150,10 @@ export function generateGroundingManifest(
 export function formatGroundingManifestMarkdown(manifest: GroundingManifest): string {
   const lines: string[] = [
     `# Design Grounding Manifest: ${manifest.screenName}`,
+    "",
+    `| Parameter | Value |`,
+    `| --- | --- |`,
+    `| Target UI Stack | \`${manifest.uiStack || "compose"}\` |`,
     "",
     "## Mapped Local Design Tokens",
   ];
