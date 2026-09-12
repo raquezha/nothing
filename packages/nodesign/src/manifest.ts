@@ -4,6 +4,8 @@ import type { FigmaNodeSpec, FigmaColorSpec } from "./figma.js";
 import type { ZeplinNodeSpec, ZeplinColorSpec } from "./zeplin.js";
 import { formatTreeBlueprint } from "./brief.js";
 
+import { matchComponent } from "./matcher.js";
+
 type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
 type UnifiedColorSpec = FigmaColorSpec | ZeplinColorSpec | string;
 
@@ -20,9 +22,18 @@ export interface MatchedDesignToken {
   importStatement?: string;
 }
 
+export interface MatchedComponentMapping {
+  designNodeName: string;
+  localComponentName: string;
+  path: string;
+  confidence: string;
+  sampleUsage?: string;
+}
+
 export interface GroundingManifest {
   screenName: string;
   matchedTokens: MatchedDesignToken[];
+  matchedComponents: MatchedComponentMapping[];
   reusableComponents: ComponentFact[];
   blueprint: string[];
 }
@@ -95,9 +106,36 @@ export function generateGroundingManifest(
     (c) => c.name.toLowerCase() !== screenName.toLowerCase(),
   );
 
+  const matchedComponents: MatchedComponentMapping[] = [];
+  const seenMappings = new Set<string>();
+
+  function findNodeMappings(nodeList: UnifiedNode[]) {
+    for (const n of nodeList) {
+      if (n.name) {
+        const match = matchComponent(n.name, reusableComponents, screenName);
+        if (match.matched && match.component && !seenMappings.has(match.component.name)) {
+          seenMappings.add(match.component.name);
+          matchedComponents.push({
+            designNodeName: n.name,
+            localComponentName: match.component.name,
+            path: match.component.path,
+            confidence: match.confidence,
+            sampleUsage: match.component.sampleUsage,
+          });
+        }
+      }
+      if (n.children && Array.isArray(n.children)) {
+        findNodeMappings(n.children);
+      }
+    }
+  }
+
+  findNodeMappings(nodes);
+
   return {
     screenName,
     matchedTokens,
+    matchedComponents,
     reusableComponents,
     blueprint: formatTreeBlueprint(nodes, 0),
   };
@@ -122,7 +160,17 @@ export function formatGroundingManifestMarkdown(manifest: GroundingManifest): st
     }
   }
 
-  lines.push("", "## Reusable Local Components");
+  lines.push("", "## Mapped Reusable Components (Direct Blueprint Match)");
+  if (manifest.matchedComponents.length === 0) {
+    lines.push("_No direct matches. Review the discovered local components below for candidates._");
+  } else {
+    for (const mc of manifest.matchedComponents) {
+      const sample = mc.sampleUsage ? ` — e.g. \`${mc.sampleUsage}\`` : "";
+      lines.push(`- Design \`'${mc.designNodeName}'\` → Use **\`${mc.localComponentName}()\`** (\`${mc.path}\`)${sample} [${mc.confidence}]`);
+    }
+  }
+
+  lines.push("", "## All Available Local UI Components");
   if (manifest.reusableComponents.length === 0) {
     lines.push("_No matching local components discovered._");
   } else {

@@ -19,6 +19,9 @@ const COMMON_STDLIB_SYMBOLS = new Set([
   "TopAppBar", "BottomAppBar", "NavigationRail", "ModalBottomSheet", "AlertDialog",
   "OptIn", "StateOf", "Font", "Resource", "Out", "CompositionLocalProvider", "LocalContext",
   "DerivedStateOf", "ProduceState", "SnapshotState", "RememberCoroutineScope", "RememberUpdatedState",
+  "Html", "With", "LowerCase", "UpperCase", "Array", "Number", "Sync", "All", "Files", "FileSync",
+  "JsonBlock", "Tokens", "ToolUseHtml", "CollapsibleSection", "BadgeClass", "Error", "Date", "Math",
+  "Function", "Object", "Promise", "RegExp", "Symbol", "JSON", "Console",
 ]);
 
 

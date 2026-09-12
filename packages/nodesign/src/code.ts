@@ -2,6 +2,7 @@ import type { ArchitectureType, ComponentFact } from "./types.js";
 import type { ColorTokenFact } from "./android.js";
 import type { FigmaNodeSpec } from "./figma.js";
 import type { ZeplinNodeSpec } from "./zeplin.js";
+import { matchComponent } from "./matcher.js";
 
 type UnifiedNode = FigmaNodeSpec | ZeplinNodeSpec;
 
@@ -77,11 +78,11 @@ function nodeToCompose(node: UnifiedNode, indent = 1, context?: ProjectCodeConte
   const children: UnifiedNode[] = Array.isArray(node.children) ? node.children : [];
 
   if (context?.components && context.components.length > 0) {
-    const matchedComp = context.components.find(
-      (c) => (c.name.toLowerCase() === name.toLowerCase() || c.name.toLowerCase() === node.name.toLowerCase()) && c.name.toLowerCase() !== rootScreenName?.toLowerCase(),
-    );
-    if (matchedComp) {
-      return `${pad}// Reusing discovered component: ${matchedComp.path}\n${pad}${matchedComp.name}()`;
+    const match = matchComponent(node.name, context.components, rootScreenName);
+    if (match.matched && match.component) {
+      const comp = match.component;
+      const sample = comp.sampleUsage ? ` // Sample: ${comp.sampleUsage}` : "";
+      return `${pad}// Reusing discovered component: ${comp.path}${sample}\n${pad}${comp.name}()`;
     }
   }
 
