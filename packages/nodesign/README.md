@@ -148,17 +148,34 @@ nodesign extract "<design-url>" --render --out .workflow/tasks/active/evidence
 
 ## Multi-OS Credential Storage
 
-`nodesign` checks credentials in the following hierarchy:
+`nodesign` checks and persists credentials in the following hierarchy:
 1. `FIGMA_TOKEN` / `ZEPLIN_TOKEN` environment variables
 2. `.env` file in current working directory
-3. `~/.pi-secrets/.env`
-4. OS Keychain (macOS Keychain via `security` / Linux Secret Service via `secret-tool`)
-5. User config file (`~/.config/nodesign/config.json` with restricted `0600` permissions)
+3. `~/.pi-secrets/.env` (Central monorepo secrets file)
+4. `~/.config/nodesign/.env` (Package-level `.env` backup with `0600` permissions)
+5. OS Keychain (macOS Keychain via `security` / Linux Secret Service via `secret-tool`)
+6. User config file (`~/.config/nodesign/config.json` with restricted `0600` permissions)
 
-Output reports the exact source:
-- macOS: `Saved figma token to OS keychain`
-- Linux: `Saved figma token to OS keychain`
-- Fallback / Headless: `Saved figma token to config file (~/.config/nodesign/config.json)`
+`nodesign auth login` automatically dual-writes to the OS Keychain, `~/.pi-secrets/.env`, and `~/.config/nodesign/.env` to ensure credentials survive npm global upgrades and environment resets.
+
+---
+
+## UI Stack Detection & Architecture Directives
+
+`nodesign` inspects the host repository's build files and codebase to detect the exact UI stack:
+- **`compose`** (Android Jetpack Compose): Emits M3 guidelines and normalizes full-width layouts to `Modifier.fillMaxWidth()`.
+- **`kmp`** (Compose Multiplatform): Enforces `commonMain` placement rules, forbids `android.*` / `LocalContext`, and routes assets to `Res.drawable.*`.
+- **`views`** (Native Android XML): Directs layout construction to `res/layout/` XML files and `@color/` resources.
+- **`mixed`** (Hybrid Views + Compose): Directs new UI into Compose wrapped in `ComposeView`.
+
+### High-Confidence Component Matcher
+
+Instead of relying on fragile regex heuristics, `nodesign` matches design layer names against codebase symbols using a 3-tier strategy:
+1. **Exact Match**: Direct equality with local `@Composable` declarations.
+2. **Normalized Match**: Matches across casing and spacing variations (e.g., Figma layer `'Primary Button'` → local Composable `PrimaryButton()`).
+3. **Fuzzy Suffix/Prefix Match**: High-confidence prefix/suffix matching (e.g., Figma `'Summary Card'` → local `OrderSummaryCard()`).
+
+Generic layout containers (`Row`, `Column`, `Box`, `Frame`) are automatically protected from false-positive mappings.
 
 ---
 
