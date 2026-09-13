@@ -30,24 +30,46 @@ import {
 export * from "./auth/types.js";
 export * from "./auth/validator.js";
 
-export function resolveCredential(provider: CredentialProvider): CredentialResolution {
+export function resolveCredential(
+  provider: CredentialProvider
+): CredentialResolution {
   const fromEnv = cleanTokenValue(getFromEnv(provider));
   if (fromEnv) return { token: fromEnv, source: "env" };
 
   const fromCwdEnv = cleanTokenValue(getFromCwdEnv(provider));
-  if (fromCwdEnv) return { token: fromCwdEnv, source: "cwd .env", location: path.join(process.cwd(), ".env") };
+  if (fromCwdEnv)
+    return {
+      token: fromCwdEnv,
+      source: "cwd .env",
+      location: path.join(process.cwd(), ".env"),
+    };
 
   const fromPiSecrets = cleanTokenValue(getFromPiSecrets(provider));
-  if (fromPiSecrets) return { token: fromPiSecrets, source: "~/.pi-secrets/.env", location: path.join(homedir(), ".pi-secrets", ".env") };
+  if (fromPiSecrets)
+    return {
+      token: fromPiSecrets,
+      source: "~/.pi-secrets/.env",
+      location: path.join(homedir(), ".pi-secrets", ".env"),
+    };
 
   const fromNodesignEnv = cleanTokenValue(getFromNodesignEnv(provider));
-  if (fromNodesignEnv) return { token: fromNodesignEnv, source: "~/.config/nodesign/.env", location: path.join(homedir(), ".config", "nodesign", ".env") };
+  if (fromNodesignEnv)
+    return {
+      token: fromNodesignEnv,
+      source: "~/.config/nodesign/.env",
+      location: path.join(homedir(), ".config", "nodesign", ".env"),
+    };
 
   const fromKeychain = cleanTokenValue(getFromKeychain(provider));
   if (fromKeychain) return { token: fromKeychain, source: "OS keychain" };
 
   const fromConfig = cleanTokenValue(getFromConfig(provider));
-  if (fromConfig) return { token: fromConfig, source: "config file", location: configFilePath() };
+  if (fromConfig)
+    return {
+      token: fromConfig,
+      source: "config file",
+      location: configFilePath(),
+    };
 
   return { source: "missing" };
 }
@@ -66,14 +88,18 @@ export function resolveCredentials(): ResolvedCredentials {
 export function storeCredential(
   provider: CredentialProvider,
   rawToken: string,
-  options: { preferFile?: boolean } = {},
+  options: { preferFile?: boolean } = {}
 ): StoreCredentialResult {
   const token = cleanTokenValue(rawToken) || rawToken;
   const key = envKey(provider);
 
   updateEnvFileKey(path.join(process.cwd(), ".env"), key, token);
   updateEnvFileKey(path.join(homedir(), ".pi-secrets", ".env"), key, token);
-  updateEnvFileKey(path.join(homedir(), ".config", "nodesign", ".env"), key, token);
+  updateEnvFileKey(
+    path.join(homedir(), ".config", "nodesign", ".env"),
+    key,
+    token
+  );
 
   if (!options.preferFile) {
     const saved = saveToKeychain(provider, token);

@@ -8,7 +8,10 @@ import type {
 } from "./types.js";
 
 export function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0");
+  const toHex = (n: number) =>
+    Math.min(255, Math.max(0, Math.round(n)))
+      .toString(16)
+      .padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
 }
 
@@ -27,9 +30,18 @@ export function toColorSpec(color: any): ZeplinColorSpec | undefined {
   };
 }
 
-export function collectColors(node: any, out: ZeplinColorSpec[], seen: Set<string>): void {
+export function collectColors(
+  node: any,
+  out: ZeplinColorSpec[],
+  seen: Set<string>
+): void {
   if (!node || typeof node !== "object") return;
-  const colorCandidates = [node.color, node.fill, node.backgroundColor, node.textColor];
+  const colorCandidates = [
+    node.color,
+    node.fill,
+    node.backgroundColor,
+    node.textColor,
+  ];
   for (const candidate of colorCandidates) {
     const spec = toColorSpec(candidate);
     if (!spec) continue;
@@ -53,13 +65,27 @@ export function collectColors(node: any, out: ZeplinColorSpec[], seen: Set<strin
   }
 }
 
-export function collectTypography(node: any, out: ZeplinTypographySpec[]): void {
+export function collectTypography(
+  node: any,
+  out: ZeplinTypographySpec[]
+): void {
   if (!node || typeof node !== "object") return;
-  const style = node.textStyles?.[0] || node.defaultTextStyle || node.style || {};
-  if (node.type === "text" || style.fontFamily || style.fontSize || style.lineHeight) {
+  const style =
+    node.textStyles?.[0] || node.defaultTextStyle || node.style || {};
+  if (
+    node.type === "text" ||
+    style.fontFamily ||
+    style.fontSize ||
+    style.lineHeight
+  ) {
     const color = toColorSpec(style.color || node.color);
     out.push({
-      text: typeof node.content === "string" ? node.content : typeof node.name === "string" ? node.name : undefined,
+      text:
+        typeof node.content === "string"
+          ? node.content
+          : typeof node.name === "string"
+          ? node.name
+          : undefined,
       fontFamily: style.fontFamily,
       fontWeight: style.fontWeight,
       fontSize: style.fontSize,
@@ -74,22 +100,31 @@ export function collectTypography(node: any, out: ZeplinTypographySpec[]): void 
 
 export function toHierarchy(node: any): ZeplinNodeSpec | undefined {
   if (!node || typeof node !== "object") return undefined;
-  if (node.visible === false || node.hidden === true || node.opacity === 0) return undefined;
+  if (node.visible === false || node.hidden === true || node.opacity === 0)
+    return undefined;
 
   const children = Array.isArray(node.layers)
-    ? node.layers.map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[]
+    ? (node.layers.map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[])
     : undefined;
 
-  const name = typeof node.name === "string" && node.name ? node.name : typeof node.id === "string" ? node.id : undefined;
+  const name =
+    typeof node.name === "string" && node.name
+      ? node.name
+      : typeof node.id === "string"
+      ? node.id
+      : undefined;
   if (!name) return undefined;
 
   const style = node.textStyles || node.style || {};
   const colorSpec = toColorSpec(node.color || node.fill || style.color);
-  const font = (style.fontFamily || style.fontSize) ? {
-    fontFamily: style.fontFamily,
-    fontSize: style.fontSize,
-    fontWeight: style.fontWeight,
-  } : undefined;
+  const font =
+    style.fontFamily || style.fontSize
+      ? {
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+        }
+      : undefined;
   const layout = extractLayout(node);
   const text = typeof node.content === "string" ? node.content : undefined;
 
@@ -118,7 +153,9 @@ export function extractLayout(data: any): ZeplinLayoutSpec {
 }
 
 export function extractScreen(data: any, fallbackId: string): ZeplinScreenSpec {
-  const colors = (data.colors || []).map(toColorSpec).filter(Boolean) as ZeplinColorSpec[];
+  const colors = (data.colors || [])
+    .map(toColorSpec)
+    .filter(Boolean) as ZeplinColorSpec[];
   return {
     id: data.id || fallbackId,
     name: data.name || "Untitled Screen",
@@ -129,7 +166,10 @@ export function extractScreen(data: any, fallbackId: string): ZeplinScreenSpec {
   };
 }
 
-export function extractDetails(data: any, screen: ZeplinScreenSpec): ZeplinExtractSpec {
+export function extractDetails(
+  data: any,
+  screen: ZeplinScreenSpec
+): ZeplinExtractSpec {
   const colors = [...screen.colors];
   const seen = new Set(colors.map((c) => `${c.hex}:${c.a}`));
   collectColors(data, colors, seen);
@@ -139,6 +179,8 @@ export function extractDetails(data: any, screen: ZeplinScreenSpec): ZeplinExtra
     colors,
     typography,
     layout: extractLayout(data),
-    hierarchy: (data.layers || []).map(toHierarchy).filter(Boolean) as ZeplinNodeSpec[],
+    hierarchy: (data.layers || [])
+      .map(toHierarchy)
+      .filter(Boolean) as ZeplinNodeSpec[],
   };
 }

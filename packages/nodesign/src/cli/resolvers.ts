@@ -22,20 +22,32 @@ export function findWorkflowTaskPath(startDir: string): string | undefined {
   }
 }
 
-export async function resolveZeplinLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
+export async function resolveZeplinLinks(
+  designLinks: DesignLink[],
+  fetchFn: typeof fetch,
+  outputDir?: string
+) {
   const results = [];
   for (const link of designLinks) {
     if (link.provider !== "zeplin") continue;
-    results.push(await resolveZeplinScreen(link.url, undefined, outputDir, fetchFn));
+    results.push(
+      await resolveZeplinScreen(link.url, undefined, outputDir, fetchFn)
+    );
   }
   return results;
 }
 
-export async function resolveFigmaLinks(designLinks: DesignLink[], fetchFn: typeof fetch, outputDir?: string) {
+export async function resolveFigmaLinks(
+  designLinks: DesignLink[],
+  fetchFn: typeof fetch,
+  outputDir?: string
+) {
   const results = [];
   for (const link of designLinks) {
     if (link.provider !== "figma") continue;
-    results.push(await resolveFigmaLink(link.url, undefined, outputDir, fetchFn));
+    results.push(
+      await resolveFigmaLink(link.url, undefined, outputDir, fetchFn)
+    );
   }
   return results;
 }

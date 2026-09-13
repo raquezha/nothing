@@ -5,7 +5,7 @@ export function buildStackAwareDirective(
   screenName = "Target UI",
   stack: AndroidUIStack = "compose",
   architectureType: ArchitectureType = "CLEAN_ARCHITECTURE",
-  archDetails = "Konsist-style code pattern scanner",
+  archDetails = "Konsist-style code pattern scanner"
 ): string {
   const guide = getStackGuideline(stack, architectureType);
 
@@ -14,7 +14,9 @@ export function buildStackAwareDirective(
     "STRICT AI AGENT DIRECTIVE — ZERO-DRIFT UI IMPLEMENTATION CONTRACT",
     "================================================================================",
     `Target UI: '${screenName}'`,
-    `Detected UI Stack: ${stack.toUpperCase()} (Target: ${guide.targetPackageLocation})`,
+    `Detected UI Stack: ${stack.toUpperCase()} (Target: ${
+      guide.targetPackageLocation
+    })`,
     `Project Architecture: ${architectureType} (${archDetails})`,
     `Resource Strategy: ${guide.resourceStrategy}`,
     `Theming Rule: ${guide.themingRule}`,
@@ -36,21 +38,21 @@ export function buildStackAwareDirective(
   if (stack === "kmp") {
     lines.push(
       "   - STRICT CMP RULE: Code must live in `commonMain`. NEVER import `android.*` or `LocalContext`.",
-      "   - Use `Res.drawable.*` and `Res.string.*` for multiplatform assets.",
+      "   - Use `Res.drawable.*` and `Res.string.*` for multiplatform assets."
     );
   } else if (stack === "views") {
     lines.push(
       "   - NATIVE XML RULE: Build UI using XML layouts under `res/layout/`. Do NOT write @Composable.",
-      "   - Reference tokens via `@color/...` and dimension resources via `@dimen/...`.",
+      "   - Reference tokens via `@color/...` and dimension resources via `@dimen/...`."
     );
   } else if (stack === "mixed") {
     lines.push(
-      "   - HYBRID RULE: Build new UI in Compose. Use ComposeView for legacy XML fragment integration.",
+      "   - HYBRID RULE: Build new UI in Compose. Use ComposeView for legacy XML fragment integration."
     );
   } else {
     lines.push(
       "   - COMPOSE RULE: Build standard Jetpack Compose Composables with Material 3 tokens.",
-      "   - Root full-width containers MUST use `Modifier.fillMaxWidth()`, not hardcoded width sizes.",
+      "   - Root full-width containers MUST use `Modifier.fillMaxWidth()`, not hardcoded width sizes."
     );
   }
 
@@ -62,7 +64,7 @@ export function buildStackAwareDirective(
     "",
     "5. CODE INTEGRITY:",
     "   - Ensure the generated code compiles cleanly with all required package imports.",
-    "================================================================================",
+    "================================================================================"
   );
 
   return lines.join("\n");

@@ -2,12 +2,27 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import type { ParsedArgs } from "./args.js";
 import type { DesignLink, PreflightResult } from "../types.js";
-import { parseDesignLink, formatDesignBrief, determineEvidenceStatus } from "../brief.js";
+import {
+  parseDesignLink,
+  formatDesignBrief,
+  determineEvidenceStatus,
+} from "../brief.js";
 import { inspectAndroidProject } from "../android.js";
-import { inspectJiraContext, inspectJiraTaskText, extractDesignLinksFromText } from "../jira.js";
-import { findWorkflowTaskPath, resolveZeplinLinks, resolveFigmaLinks } from "./resolvers.js";
+import {
+  inspectJiraContext,
+  inspectJiraTaskText,
+  extractDesignLinksFromText,
+} from "../jira.js";
+import {
+  findWorkflowTaskPath,
+  resolveZeplinLinks,
+  resolveFigmaLinks,
+} from "./resolvers.js";
 
-export async function handlePreflightCommand(args: ParsedArgs, fetchFn: typeof fetch): Promise<void> {
+export async function handlePreflightCommand(
+  args: ParsedArgs,
+  fetchFn: typeof fetch
+): Promise<void> {
   const inspection = inspectAndroidProject(args.path);
   const designLinks: DesignLink[] = [];
   const notes = [...inspection.notes];
@@ -61,23 +76,40 @@ export async function handlePreflightCommand(args: ParsedArgs, fetchFn: typeof f
       }
     }
     if (addedCount > 0) {
-      notes.push(`Discovered ${addedCount} design link(s) in active task workspace`);
+      notes.push(
+        `Discovered ${addedCount} design link(s) in active task workspace`
+      );
     }
   }
 
-  const renderDir = args.out ? path.resolve(args.out) : args.render && taskPath ? path.join(taskPath, "evidence") : undefined;
+  const renderDir = args.out
+    ? path.resolve(args.out)
+    : args.render && taskPath
+    ? path.join(taskPath, "evidence")
+    : undefined;
 
-  const resolvedScreens = await resolveZeplinLinks(designLinks, fetchFn, renderDir);
+  const resolvedScreens = await resolveZeplinLinks(
+    designLinks,
+    fetchFn,
+    renderDir
+  );
   for (const screen of resolvedScreens) {
-    if (screen.status !== "SUCCESS") notes.push(`Zeplin resolution status: ${screen.status}`);
+    if (screen.status !== "SUCCESS")
+      notes.push(`Zeplin resolution status: ${screen.status}`);
   }
 
-  const resolvedFigma = await resolveFigmaLinks(designLinks, fetchFn, renderDir);
+  const resolvedFigma = await resolveFigmaLinks(
+    designLinks,
+    fetchFn,
+    renderDir
+  );
   for (const fig of resolvedFigma) {
-    if (fig.status !== "SUCCESS") notes.push(`Figma resolution status: ${fig.status}`);
+    if (fig.status !== "SUCCESS")
+      notes.push(`Figma resolution status: ${fig.status}`);
   }
 
-  const uiSensitive = inspection.androidUIStack !== "n/a" || designLinks.length > 0;
+  const uiSensitive =
+    inspection.androidUIStack !== "n/a" || designLinks.length > 0;
   const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
 
   const preflight: PreflightResult = {
@@ -92,6 +124,10 @@ export async function handlePreflightCommand(args: ParsedArgs, fetchFn: typeof f
     notes,
   };
 
-  const outputFormat = args.json ? "json" : args.markdown ? "markdown" : "human";
+  const outputFormat = args.json
+    ? "json"
+    : args.markdown
+    ? "markdown"
+    : "human";
   console.log(formatDesignBrief(args.task, preflight, outputFormat));
 }

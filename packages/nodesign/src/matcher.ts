@@ -9,7 +9,10 @@ export function normalizeComponentName(rawName: string): string {
   let name = rawName.trim();
 
   // Strip prefixes: "Component / Button" -> "Button", "Instance/Card" -> "Card", "Frame 123" -> "123"
-  name = name.replace(/^(?:component|instance|frame|group|variant|view|vector)\s*[/:\-_\s]\s*/i, "");
+  name = name.replace(
+    /^(?:component|instance|frame|group|variant|view|vector)\s*[/:\-_\s]\s*/i,
+    ""
+  );
 
   // Strip trailing/leading variant indicators e.g. "Button, State=Hover" -> "Button"
   name = name.split(/[,=]/)[0].trim();
@@ -21,9 +24,7 @@ export function normalizeComponentName(rawName: string): string {
   const parts = name.split(/[\s_-]+/).filter(Boolean);
   if (parts.length === 0) return "";
 
-  return parts
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join("");
+  return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("");
 }
 
 export interface ComponentMatchResult {
@@ -37,7 +38,22 @@ export interface ComponentMatchResult {
  * Common layout wrapper names that should never be mapped to custom business components.
  */
 const GENERIC_CONTAINERS = new Set([
-  "Row", "Column", "Box", "Container", "Frame", "Group", "Section", "Wrapper", "Layout", "Content", "Element", "Item", "Line", "Divider", "Spacer", "Stack",
+  "Row",
+  "Column",
+  "Box",
+  "Container",
+  "Frame",
+  "Group",
+  "Section",
+  "Wrapper",
+  "Layout",
+  "Content",
+  "Element",
+  "Item",
+  "Line",
+  "Divider",
+  "Spacer",
+  "Stack",
 ]);
 
 /**
@@ -47,7 +63,7 @@ const GENERIC_CONTAINERS = new Set([
 export function matchComponent(
   designNodeName: string,
   localComponents: ComponentFact[] = [],
-  rootScreenName?: string,
+  rootScreenName?: string
 ): ComponentMatchResult {
   const normDesign = normalizeComponentName(designNodeName);
   if (!normDesign || GENERIC_CONTAINERS.has(normDesign)) {
@@ -56,23 +72,36 @@ export function matchComponent(
 
   // Filter out components that are the root screen itself
   const candidates = localComponents.filter(
-    (c) => c.name.toLowerCase() !== rootScreenName?.toLowerCase(),
+    (c) => c.name.toLowerCase() !== rootScreenName?.toLowerCase()
   );
 
   // 1. Exact string match (case-insensitive)
   const exact = candidates.find(
-    (c) => c.name.toLowerCase() === designNodeName.toLowerCase() || c.name === designNodeName,
+    (c) =>
+      c.name.toLowerCase() === designNodeName.toLowerCase() ||
+      c.name === designNodeName
   );
   if (exact) {
-    return { matched: true, confidence: "EXACT", component: exact, reason: `Exact name match: '${exact.name}'` };
+    return {
+      matched: true,
+      confidence: "EXACT",
+      component: exact,
+      reason: `Exact name match: '${exact.name}'`,
+    };
   }
 
   // 2. Normalized PascalCase match ("Primary Button" -> "PrimaryButton")
   const normMatch = candidates.find(
-    (c) => normalizeComponentName(c.name).toLowerCase() === normDesign.toLowerCase(),
+    (c) =>
+      normalizeComponentName(c.name).toLowerCase() === normDesign.toLowerCase()
   );
   if (normMatch) {
-    return { matched: true, confidence: "NORMALIZED", component: normMatch, reason: `Normalized match: '${designNodeName}' -> '${normMatch.name}'` };
+    return {
+      matched: true,
+      confidence: "NORMALIZED",
+      component: normMatch,
+      reason: `Normalized match: '${designNodeName}' -> '${normMatch.name}'`,
+    };
   }
 
   // 3. Substring / Suffix containment match with length threshold
@@ -88,7 +117,12 @@ export function matchComponent(
     });
 
     if (containment) {
-      return { matched: true, confidence: "FUZZY", component: containment, reason: `Suffix/prefix match: '${designNodeName}' ~ '${containment.name}'` };
+      return {
+        matched: true,
+        confidence: "FUZZY",
+        component: containment,
+        reason: `Suffix/prefix match: '${designNodeName}' ~ '${containment.name}'`,
+      };
     }
   }
 

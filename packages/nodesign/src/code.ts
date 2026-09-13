@@ -8,9 +8,10 @@ export function generateCodeSnippet(
   nodes: UnifiedNode[],
   target: "compose" | "react" | "html",
   screenName = "GeneratedScreen",
-  context?: ProjectCodeContext,
+  context?: ProjectCodeContext
 ): string {
-  if (!nodes || nodes.length === 0) return "// No hierarchy nodes available for code generation";
+  if (!nodes || nodes.length === 0)
+    return "// No hierarchy nodes available for code generation";
 
   let cleanName = screenName.replace(/[^a-zA-Z0-9]/g, "");
   if (!cleanName || /^[0-9]/.test(cleanName)) {
@@ -39,11 +40,15 @@ export function generateCodeSnippet(
         }
       }
 
-      const allImports = [...baseImports, ...Array.from(customImports)].sort().join("\n");
+      const allImports = [...baseImports, ...Array.from(customImports)]
+        .sort()
+        .join("\n");
       const archHeader = context?.architectureType
         ? `// Architecture Structure: ${context.architectureType}\n`
         : "";
-      const body = nodes.map((n) => nodeToCompose(n, 1, context, cleanName)).join("\n\n");
+      const body = nodes
+        .map((n) => nodeToCompose(n, 1, context, cleanName))
+        .join("\n\n");
       return `${archHeader}${allImports}\n\n@Composable\nfun ${cleanName}() {\n${body}\n}`;
     }
 

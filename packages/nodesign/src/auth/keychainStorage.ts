@@ -1,11 +1,17 @@
 import { execFileSync } from "node:child_process";
 import type { CredentialProvider } from "./types.js";
 
-export function getFromKeychain(provider: CredentialProvider): string | undefined {
+export function getFromKeychain(
+  provider: CredentialProvider
+): string | undefined {
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
-      const out = execFileSync("security", [`find-generic-${pWord}`, "-s", "nodesign", "-a", provider, "-w"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
+      const out = execFileSync(
+        "security",
+        [`find-generic-${pWord}`, "-s", "nodesign", "-a", provider, "-w"],
+        { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }
+      );
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -15,7 +21,11 @@ export function getFromKeychain(provider: CredentialProvider): string | undefine
   if (process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      const out = execFileSync(stTool, ["lookup", "service", "nodesign", "key", provider], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] });
+      const out = execFileSync(
+        stTool,
+        ["lookup", "service", "nodesign", "key", provider],
+        { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }
+      );
       return out.trim() || undefined;
     } catch {
       return undefined;
@@ -25,11 +35,27 @@ export function getFromKeychain(provider: CredentialProvider): string | undefine
   return undefined;
 }
 
-export function saveToKeychain(provider: CredentialProvider, token: string): boolean {
+export function saveToKeychain(
+  provider: CredentialProvider,
+  token: string
+): boolean {
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
-      execFileSync("security", [`add-generic-${pWord}`, "-U", "-s", "nodesign", "-a", provider, "-w", token], { timeout: 5000, stdio: "ignore" });
+      execFileSync(
+        "security",
+        [
+          `add-generic-${pWord}`,
+          "-U",
+          "-s",
+          "nodesign",
+          "-a",
+          provider,
+          "-w",
+          token,
+        ],
+        { timeout: 5000, stdio: "ignore" }
+      );
       return true;
     } catch {
       return false;
@@ -39,7 +65,18 @@ export function saveToKeychain(provider: CredentialProvider, token: string): boo
   if (process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      execFileSync(stTool, ["store", `--label=nodesign-${provider}`, "service", "nodesign", "key", provider], { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] });
+      execFileSync(
+        stTool,
+        [
+          "store",
+          `--label=nodesign-${provider}`,
+          "service",
+          "nodesign",
+          "key",
+          provider,
+        ],
+        { input: token, timeout: 5000, stdio: ["pipe", "ignore", "ignore"] }
+      );
       return true;
     } catch {
       return false;
@@ -53,7 +90,11 @@ export function deleteFromKeychain(provider: CredentialProvider): boolean {
   if (process.platform === "darwin") {
     try {
       const pWord = ["pass", "word"].join("");
-      execFileSync("security", [`delete-generic-${pWord}`, "-s", "nodesign", "-a", provider], { timeout: 5000, stdio: "ignore" });
+      execFileSync(
+        "security",
+        [`delete-generic-${pWord}`, "-s", "nodesign", "-a", provider],
+        { timeout: 5000, stdio: "ignore" }
+      );
       return true;
     } catch {
       return false;
@@ -63,7 +104,10 @@ export function deleteFromKeychain(provider: CredentialProvider): boolean {
   if (process.platform === "linux") {
     try {
       const stTool = ["secret", "tool"].join("-");
-      execFileSync(stTool, ["clear", "service", "nodesign", "key", provider], { timeout: 5000, stdio: "ignore" });
+      execFileSync(stTool, ["clear", "service", "nodesign", "key", provider], {
+        timeout: 5000,
+        stdio: "ignore",
+      });
       return true;
     } catch {
       return false;

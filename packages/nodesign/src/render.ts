@@ -22,7 +22,7 @@ export interface RenderResult {
 
 export async function renderDesignNode(
   options: RenderOptions,
-  fetchFn: typeof fetch = globalThis.fetch,
+  fetchFn: typeof fetch = globalThis.fetch
 ): Promise<RenderResult | undefined> {
   const { provider, fileKeyOrScreenId, nodeId, authToken, outputDir } = options;
   const format = options.format || "png";
@@ -40,9 +40,10 @@ export async function renderDesignNode(
       });
       if (!res.ok) return undefined;
       const data = (await res.json()) as any;
-      const imageUrl = data?.images?.[targetId]
-        || data?.images?.[targetId.replace(":", "-")]
-        || (data?.images ? (Object.values(data.images)[0] as string) : undefined);
+      const imageUrl =
+        data?.images?.[targetId] ||
+        data?.images?.[targetId.replace(":", "-")] ||
+        (data?.images ? (Object.values(data.images)[0] as string) : undefined);
 
       if (!imageUrl) return undefined;
       const imgRes = await fetchFn(imageUrl);
@@ -78,12 +79,20 @@ export async function renderDesignNode(
         "Zeplin-Access-Token": cleanToken,
         Authorization: `Bearer ${cleanToken}`,
       };
-      const res = await fetchFn(`https://api.zeplin.dev/v1/screens/${fileKeyOrScreenId}`, {
-        headers: zHeaders,
-      });
+      const res = await fetchFn(
+        `https://api.zeplin.dev/v1/screens/${fileKeyOrScreenId}`,
+        {
+          headers: zHeaders,
+        }
+      );
       if (!res.ok) return undefined;
       const data = (await res.json()) as any;
-      const imageUrl = data.image?.original_url || data.image?.png_url || data.image?.url || data.image_url || data.snapshot_url;
+      const imageUrl =
+        data.image?.original_url ||
+        data.image?.png_url ||
+        data.image?.url ||
+        data.image_url ||
+        data.snapshot_url;
       if (!imageUrl) return undefined;
 
       let imgRes = await fetchFn(imageUrl);

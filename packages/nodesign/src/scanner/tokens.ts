@@ -18,7 +18,10 @@ function readText(filePath: string): string {
   }
 }
 
-export function scanColorTokens(rootPath: string, files?: string[]): ColorTokenFact[] {
+export function scanColorTokens(
+  rootPath: string,
+  files?: string[]
+): ColorTokenFact[] {
   const fileList = files || walk(rootPath);
   const colorFacts: ColorTokenFact[] = [];
   const seen = new Set<string>();
@@ -30,7 +33,9 @@ export function scanColorTokens(rootPath: string, files?: string[]): ColorTokenF
       if (Array.isArray(cfg?.colorTokens)) {
         for (const ct of cfg.colorTokens) {
           if (ct.hex && ct.token) {
-            const hexKey = ct.hex.startsWith("#") ? ct.hex.toUpperCase() : `#${ct.hex.toUpperCase()}`;
+            const hexKey = ct.hex.startsWith("#")
+              ? ct.hex.toUpperCase()
+              : `#${ct.hex.toUpperCase()}`;
             seen.add(hexKey);
             colorFacts.push({
               hex: hexKey,
@@ -53,9 +58,10 @@ export function scanColorTokens(rootPath: string, files?: string[]): ColorTokenF
     if (!seen.has(hexKey)) {
       seen.add(hexKey);
       const relFile = path.relative(rootPath, file);
-      const importStatement = pkg && !token.startsWith("colorResource")
-        ? `import ${pkg}.${token.split(".")[0]}`
-        : undefined;
+      const importStatement =
+        pkg && !token.startsWith("colorResource")
+          ? `import ${pkg}.${token.split(".")[0]}`
+          : undefined;
 
       colorFacts.push({
         hex: hexKey,
@@ -70,7 +76,9 @@ export function scanColorTokens(rootPath: string, files?: string[]): ColorTokenF
   for (const file of fileList) {
     if (file.endsWith("colors.xml") || file.endsWith("values/colors.xml")) {
       const text = readText(file);
-      const matches = text.matchAll(/<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi);
+      const matches = text.matchAll(
+        /<color\s+name=["']([^"']+)["']\s*>([^<]+)<\/color>/gi
+      );
       for (const m of matches) {
         const name = m[1];
         const rawVal = m[2].trim().toUpperCase();
@@ -80,27 +88,32 @@ export function scanColorTokens(rootPath: string, files?: string[]): ColorTokenF
       }
     }
 
-    const isThemeFile = file.endsWith(".kt") && (
-      file.includes(`${path.sep}theme${path.sep}`) ||
-      file.includes(`${path.sep}ui${path.sep}`) ||
-      file.includes(`${path.sep}designsystem${path.sep}`) ||
-      file.includes(`${path.sep}commonMain${path.sep}`) ||
-      /Theme|Color|Design/i.test(path.basename(file))
-    );
+    const isThemeFile =
+      file.endsWith(".kt") &&
+      (file.includes(`${path.sep}theme${path.sep}`) ||
+        file.includes(`${path.sep}ui${path.sep}`) ||
+        file.includes(`${path.sep}designsystem${path.sep}`) ||
+        file.includes(`${path.sep}commonMain${path.sep}`) ||
+        /Theme|Color|Design/i.test(path.basename(file)));
 
     if (isThemeFile) {
       const text = readText(file);
       const pkgMatch = text.match(/^package\s+([a-zA-Z0-9_.]+)/m);
       const packageName = pkgMatch ? pkgMatch[1] : undefined;
 
-      const objMatch = text.match(/object\s+([a-zA-Z0-9_]+Theme|[a-zA-Z0-9_]+Colors|[a-zA-Z0-9_]+DesignSystem)/);
+      const objMatch = text.match(
+        /object\s+([a-zA-Z0-9_]+Theme|[a-zA-Z0-9_]+Colors|[a-zA-Z0-9_]+DesignSystem)/
+      );
       const themeObject = objMatch ? objMatch[1] : undefined;
 
-      const matches = text.matchAll(/val\s+([a-zA-Z0-9_]+)(?:\s*:\s*Color)?\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g);
+      const matches = text.matchAll(
+        /val\s+([a-zA-Z0-9_]+)(?:\s*:\s*Color)?\s*=\s*Color\(\s*0x([0-9a-fA-F]+)\s*\)/g
+      );
       for (const m of matches) {
         const propName = m[1];
         let hexVal = m[2].toUpperCase();
-        if (hexVal.length === 8 && hexVal.startsWith("FF")) hexVal = hexVal.slice(2);
+        if (hexVal.length === 8 && hexVal.startsWith("FF"))
+          hexVal = hexVal.slice(2);
         const hex = `#${hexVal}`;
         const token = themeObject ? `${themeObject}.${propName}` : propName;
         addFact(hex, token, file, packageName);

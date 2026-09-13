@@ -10,11 +10,15 @@ function readText(filePath: string): string {
   }
 }
 
-export function scanComposableDeclarations(rootPath: string, files: string[]): ComponentFact[] {
+export function scanComposableDeclarations(
+  rootPath: string,
+  files: string[]
+): ComponentFact[] {
   const componentMap = new Map<string, ComponentFact>();
 
   // 1. Kotlin Composable functions: @Composable fun ComponentName(...)
-  const composableRegex = /@Composable\s+(?:(?:public|internal|private)\s+)?fun\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)/g;
+  const composableRegex =
+    /@Composable\s+(?:(?:public|internal|private)\s+)?fun\s+([A-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)/g;
 
   for (const file of files) {
     if (!file.endsWith(".kt")) continue;
@@ -22,9 +26,11 @@ export function scanComposableDeclarations(rootPath: string, files: string[]): C
     const norm = relPath.toLowerCase();
 
     // Skip build outputs and tests
-    if (norm.includes(`${path.sep}build${path.sep}`) ||
-        norm.includes(`${path.sep}test${path.sep}`) ||
-        norm.includes(`${path.sep}androidtest${path.sep}`)) {
+    if (
+      norm.includes(`${path.sep}build${path.sep}`) ||
+      norm.includes(`${path.sep}test${path.sep}`) ||
+      norm.includes(`${path.sep}androidtest${path.sep}`)
+    ) {
       continue;
     }
 
@@ -49,7 +55,8 @@ export function scanComposableDeclarations(rootPath: string, files: string[]): C
     for (const match of text.matchAll(composableRegex)) {
       const name = match[1];
       const rawParams = match[2].trim().replace(/\s+/g, " ");
-      const sampleArgs = rawParams.length > 50 ? `${rawParams.slice(0, 47)}...` : rawParams;
+      const sampleArgs =
+        rawParams.length > 50 ? `${rawParams.slice(0, 47)}...` : rawParams;
       const sampleUsage = `${name}(${sampleArgs})`;
 
       // Skip preview composables (e.g. @Preview fun ComponentPreview())
@@ -67,15 +74,33 @@ export function scanComposableDeclarations(rootPath: string, files: string[]): C
     }
 
     // Inspect invocations of PascalCase UI components in Composable files (e.g. AppToolbar(title = "Home"))
-    const invocationMatches = text.matchAll(/([A-Z][a-zA-Z0-9_]{2,})\s*\(([^)]*)\)/g);
+    const invocationMatches = text.matchAll(
+      /([A-Z][a-zA-Z0-9_]{2,})\s*\(([^)]*)\)/g
+    );
     for (const m of invocationMatches) {
       const name = m[1];
       if (name.endsWith("Preview")) continue;
       // Skip common Kotlin / Compose built-ins
-      if (["Column", "Row", "Box", "Text", "Spacer", "Modifier", "Color", "String", "Boolean", "Int", "Composable"].includes(name)) continue;
+      if (
+        [
+          "Column",
+          "Row",
+          "Box",
+          "Text",
+          "Spacer",
+          "Modifier",
+          "Color",
+          "String",
+          "Boolean",
+          "Int",
+          "Composable",
+        ].includes(name)
+      )
+        continue;
 
       const rawArgs = m[2].trim().replace(/\s+/g, " ");
-      const sampleArgs = rawArgs.length > 50 ? `${rawArgs.slice(0, 47)}...` : rawArgs;
+      const sampleArgs =
+        rawArgs.length > 50 ? `${rawArgs.slice(0, 47)}...` : rawArgs;
       const sampleUsage = `${name}(${sampleArgs})`;
 
       if (componentMap.has(name)) {

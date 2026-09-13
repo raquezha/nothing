@@ -4,7 +4,7 @@ import { formatTreeBlueprint } from "./brief.js";
 export function formatDesignBrief(
   taskId: string,
   preflight: PreflightResult,
-  format: "json" | "human" | "markdown" = "human",
+  format: "json" | "human" | "markdown" = "human"
 ): string {
   const brief: DesignBrief = {
     taskId,
@@ -32,7 +32,11 @@ export function formatDesignBrief(
     if (preflight.designLinks.length > 0) {
       mdLines.push("## Design Links");
       for (const link of preflight.designLinks) {
-        mdLines.push(`- **[${link.provider}]** [${link.url}](${link.url})${link.label ? ` (*${link.label}*)` : ""}`);
+        mdLines.push(
+          `- **[${link.provider}]** [${link.url}](${link.url})${
+            link.label ? ` (*${link.label}*)` : ""
+          }`
+        );
       }
       mdLines.push("");
     }
@@ -40,7 +44,9 @@ export function formatDesignBrief(
     if (preflight.resolvedScreens?.length) {
       mdLines.push("## Resolved Zeplin Screens");
       for (const s of preflight.resolvedScreens) {
-        mdLines.push(`### ${s.name || s.screenId || "Screen"} (\`${s.status}\`)`);
+        mdLines.push(
+          `### ${s.name || s.screenId || "Screen"} (\`${s.status}\`)`
+        );
         if (s.extract?.hierarchy?.length) {
           mdLines.push("```text");
           mdLines.push(...formatTreeBlueprint(s.extract.hierarchy, 0));
@@ -53,7 +59,9 @@ export function formatDesignBrief(
     if (preflight.resolvedFigma?.length) {
       mdLines.push("## Resolved Figma Links");
       for (const f of preflight.resolvedFigma) {
-        mdLines.push(`### ${f.name || f.fileKey || "Figma Frame"} (\`${f.status}\`)`);
+        mdLines.push(
+          `### ${f.name || f.fileKey || "Figma Frame"} (\`${f.status}\`)`
+        );
         if (f.extract?.hierarchy?.length) {
           mdLines.push("```text");
           mdLines.push(...formatTreeBlueprint(f.extract.hierarchy, 0));
@@ -79,7 +87,11 @@ export function formatDesignBrief(
   if (preflight.designLinks.length > 0) {
     lines.push("", "Design Links:");
     for (const link of preflight.designLinks) {
-      lines.push(`  - [${link.provider}] ${link.url}${link.label ? ` (${link.label})` : ""}`);
+      lines.push(
+        `  - [${link.provider}] ${link.url}${
+          link.label ? ` (${link.label})` : ""
+        }`
+      );
     }
   }
 
@@ -88,9 +100,15 @@ export function formatDesignBrief(
     for (const screen of preflight.resolvedScreens) {
       lines.push(`  - status=${screen.status}`);
       if (screen.screen) {
-        lines.push(`    name=${screen.screen.name} id=${screen.screen.id} ${screen.screen.width}x${screen.screen.height}`);
+        lines.push(
+          `    name=${screen.screen.name} id=${screen.screen.id} ${screen.screen.width}x${screen.screen.height}`
+        );
         if (screen.screen.colors.length) {
-          lines.push(`    colors=${screen.screen.colors.map((color: any) => color.hex).join(", ")}`);
+          lines.push(
+            `    colors=${screen.screen.colors
+              .map((color: any) => color.hex)
+              .join(", ")}`
+          );
         }
         if (screen.screen.layerNames.length) {
           lines.push(`    layers=${screen.screen.layerNames.join(", ")}`);
@@ -115,7 +133,12 @@ export function formatDesignBrief(
     lines.push("", "Resolved Figma Links:");
     for (const fig of preflight.resolvedFigma) {
       lines.push(`  - status=${fig.status} url=${fig.url}`);
-      if (fig.fileKey) lines.push(`    fileKey=${fig.fileKey}${fig.nodeId ? ` nodeId=${fig.nodeId}` : ""}`);
+      if (fig.fileKey)
+        lines.push(
+          `    fileKey=${fig.fileKey}${
+            fig.nodeId ? ` nodeId=${fig.nodeId}` : ""
+          }`
+        );
       if (fig.name) lines.push(`    name=${fig.name}`);
       if (fig.extract?.hierarchy?.length) {
         lines.push("    hierarchy:");
@@ -130,7 +153,9 @@ export function formatDesignBrief(
   if ((preflight.components?.length ?? 0) > 0) {
     lines.push("", "UI Components:");
     for (const component of preflight.components ?? []) {
-      const usageInfo = component.sampleUsage ? ` sample="${component.sampleUsage}"` : "";
+      const usageInfo = component.sampleUsage
+        ? ` sample="${component.sampleUsage}"`
+        : "";
       lines.push(`  - ${component.name} (${component.path})${usageInfo}`);
     }
   }

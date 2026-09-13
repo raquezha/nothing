@@ -2,8 +2,10 @@ import { execFileSync } from "node:child_process";
 import type { DesignLink } from "./types.js";
 import { parseDesignLink } from "./brief.js";
 
-const ZEPLIN_URL_REGEX = /(?:https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/|zpl:\/\/)[^\s"'<>\\`]+/gi;
-const FIGMA_URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)?figma\.com\/[^\s"'<>\\`]+/gi;
+const ZEPLIN_URL_REGEX =
+  /(?:https?:\/\/(?:[a-zA-Z0-9-]+\.)?(?:zpl\.io|zeplin\.io)\/|zpl:\/\/)[^\s"'<>\\`]+/gi;
+const FIGMA_URL_REGEX =
+  /https?:\/\/(?:[a-zA-Z0-9-]+\.)?figma\.com\/[^\s"'<>\\`]+/gi;
 
 export interface JiraInspectionResult {
   designLinks: DesignLink[];
@@ -87,7 +89,9 @@ export function inspectJiraTaskText(text: string): JiraInspectionResult {
   }
 
   if (designLinks.length === 0) {
-    notes.push("No direct Zeplin, Figma, or attachment design links found in Jira text");
+    notes.push(
+      "No direct Zeplin, Figma, or attachment design links found in Jira text"
+    );
   } else {
     notes.push(`Discovered ${designLinks.length} design link(s) in Jira text`);
   }
@@ -111,11 +115,15 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
   } catch {
     // Fallback: try `acli`
     try {
-      const acliText = execFileSync("acli", ["jira", "workitem", "view", issueId, "--json"], {
-        encoding: "utf8",
-        timeout: 5000,
-        stdio: ["ignore", "pipe", "ignore"],
-      });
+      const acliText = execFileSync(
+        "acli",
+        ["jira", "workitem", "view", issueId, "--json"],
+        {
+          encoding: "utf8",
+          timeout: 5000,
+          stdio: ["ignore", "pipe", "ignore"],
+        }
+      );
       return inspectJiraTaskText(acliText);
     } catch {
       return {
@@ -125,4 +133,3 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
     }
   }
 }
-

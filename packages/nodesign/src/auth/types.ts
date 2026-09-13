@@ -1,5 +1,12 @@
 export type CredentialProvider = "figma" | "zeplin";
-export type CredentialSource = "env" | "cwd .env" | "~/.pi-secrets/.env" | "~/.config/nodesign/.env" | "OS keychain" | "config file" | "missing";
+export type CredentialSource =
+  | "env"
+  | "cwd .env"
+  | "~/.pi-secrets/.env"
+  | "~/.config/nodesign/.env"
+  | "OS keychain"
+  | "config file"
+  | "missing";
 
 export interface CredentialResolution {
   token?: string;
@@ -35,6 +42,10 @@ export function envKey(provider: CredentialProvider): string {
 
 export function cleanTokenValue(token?: string): string | undefined {
   if (!token) return undefined;
-  const cleaned = token.trim().replace(/^['"]|['"]$/g, "").replace(/^Bearer\s+/i, "").trim();
+  const cleaned = token
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
   return cleaned.length > 0 ? cleaned : undefined;
 }

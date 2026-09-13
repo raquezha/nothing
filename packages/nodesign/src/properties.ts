@@ -6,15 +6,22 @@ import type {
 } from "./types.js";
 import { normalizePropertyValue } from "./properties/fidelity.js";
 
-export { normalizePropertyValue, verifyUiFidelity, type UiFidelityReport } from "./properties/fidelity.js";
+export {
+  normalizePropertyValue,
+  verifyUiFidelity,
+  type UiFidelityReport,
+} from "./properties/fidelity.js";
 
 /** Compare a single UI property spec against resolved actual implementation value. */
-export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison {
+export function compareUiProperty(
+  input: UiPropertyInput
+): UiPropertyComparison {
   const resolvedExpected = input.resolvedExpected ?? input.expected;
   const resolvedActual = input.resolvedActual ?? input.actual;
 
   if (input.waived) {
-    const waiverReason = typeof input.waived === "string" ? input.waived : "Explicitly waived";
+    const waiverReason =
+      typeof input.waived === "string" ? input.waived : "Explicitly waived";
     return {
       property: input.property,
       expected: input.expected,
@@ -68,7 +75,7 @@ export function compareUiProperty(input: UiPropertyInput): UiPropertyComparison 
 /** Verify a list of UI properties against resolved Android UI implementation evidence. */
 export function verifyUiProperties(
   inputs: UiPropertyInput[],
-  options: { exactFidelityRequired?: boolean } = {},
+  options: { exactFidelityRequired?: boolean } = {}
 ): PropertyVerificationResult {
   const exactFidelityRequired = options.exactFidelityRequired ?? true;
   const comparisons = inputs.map(compareUiProperty);
@@ -112,7 +119,7 @@ export function verifyUiProperties(
 /** Format a PropertyVerificationResult into human-readable text or JSON string. */
 export function formatPropertyVerification(
   result: PropertyVerificationResult,
-  format: "json" | "human" = "human",
+  format: "json" | "human" = "human"
 ): string {
   if (format === "json") {
     return JSON.stringify(result, null, 2);
@@ -127,7 +134,11 @@ export function formatPropertyVerification(
   if (result.comparisons.length > 0) {
     lines.push("", "Comparisons:");
     for (const c of result.comparisons) {
-      lines.push(`  - [${c.status}] ${c.property}: expected='${c.expected}', actual='${c.actual ?? "unspecified"}'`);
+      lines.push(
+        `  - [${c.status}] ${c.property}: expected='${c.expected}', actual='${
+          c.actual ?? "unspecified"
+        }'`
+      );
       if (c.notes) lines.push(`    note=${c.notes}`);
     }
   }

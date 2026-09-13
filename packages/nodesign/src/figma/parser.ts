@@ -14,7 +14,9 @@ export function rgbaToHex(color: any): string {
   const r = toByte(color?.r);
   const g = toByte(color?.g);
   const b = toByte(color?.b);
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
+  return `#${r.toString(16).padStart(2, "0")}${g
+    .toString(16)
+    .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`.toUpperCase();
 }
 
 export function colorFromPaint(paint: any): FigmaColorSpec | undefined {
@@ -26,7 +28,11 @@ export function colorFromPaint(paint: any): FigmaColorSpec | undefined {
   };
 }
 
-export function collectColors(node: any, out: FigmaColorSpec[], seen: Set<string>): void {
+export function collectColors(
+  node: any,
+  out: FigmaColorSpec[],
+  seen: Set<string>
+): void {
   if (!node || typeof node !== "object") return;
   for (const paint of [...(node.fills || []), ...(node.strokes || [])]) {
     const spec = colorFromPaint(paint);
@@ -43,8 +49,14 @@ export function collectColors(node: any, out: FigmaColorSpec[], seen: Set<string
 
 export function collectTypography(node: any, out: FigmaTypographySpec[]): void {
   if (!node || typeof node !== "object") return;
-  if (node.style?.fontFamily || node.style?.fontSize || node.style?.fontWeight) {
-    const fill = Array.isArray(node.fills) ? colorFromPaint(node.fills[0]) : undefined;
+  if (
+    node.style?.fontFamily ||
+    node.style?.fontSize ||
+    node.style?.fontWeight
+  ) {
+    const fill = Array.isArray(node.fills)
+      ? colorFromPaint(node.fills[0])
+      : undefined;
     out.push({
       text: typeof node.characters === "string" ? node.characters : undefined,
       fontFamily: node.style.fontFamily,
@@ -82,18 +94,27 @@ export function toHierarchy(node: any): FigmaNodeSpec | undefined {
   if (node.visible === false || node.opacity === 0) return undefined;
 
   const children = Array.isArray(node.children)
-    ? node.children.map(toHierarchy).filter(Boolean) as FigmaNodeSpec[]
+    ? (node.children.map(toHierarchy).filter(Boolean) as FigmaNodeSpec[])
     : undefined;
 
-  const fill = Array.isArray(node.fills) ? colorFromPaint(node.fills[0]) : undefined;
-  const font = node.style ? {
-    fontFamily: node.style.fontFamily,
-    fontSize: node.style.fontSize,
-    fontWeight: node.style.fontWeight,
-  } : undefined;
+  const fill = Array.isArray(node.fills)
+    ? colorFromPaint(node.fills[0])
+    : undefined;
+  const font = node.style
+    ? {
+        fontFamily: node.style.fontFamily,
+        fontSize: node.style.fontSize,
+        fontWeight: node.style.fontWeight,
+      }
+    : undefined;
   const layout = extractLayout(node);
-  const text = typeof node.characters === "string" ? node.characters : undefined;
-  const variant = node.variantProperties ? Object.entries(node.variantProperties).map(([k, v]) => `${k}=${v}`).join(", ") : undefined;
+  const text =
+    typeof node.characters === "string" ? node.characters : undefined;
+  const variant = node.variantProperties
+    ? Object.entries(node.variantProperties)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")
+    : undefined;
 
   return {
     name: node.name,
@@ -116,6 +137,8 @@ export function extractDetails(node: any): FigmaExtractSpec {
     colors,
     typography,
     layout: extractLayout(node),
-    hierarchy: (node?.children || []).map(toHierarchy).filter(Boolean) as FigmaNodeSpec[],
+    hierarchy: (node?.children || [])
+      .map(toHierarchy)
+      .filter(Boolean) as FigmaNodeSpec[],
   };
 }

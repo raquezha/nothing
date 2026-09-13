@@ -29,7 +29,7 @@ export interface UiFidelityReport {
 export function verifyUiFidelity(
   extractedHierarchy: any[],
   extractedColors: any[],
-  codeText: string,
+  codeText: string
 ): UiFidelityReport {
   const notes: string[] = [];
   const reusedComponents: string[] = [];
@@ -40,8 +40,14 @@ export function verifyUiFidelity(
   const expectedComponents: string[] = [];
   const collectComponents = (nodes: any[]): void => {
     for (const node of nodes || []) {
-      const name = typeof node.name === "string" ? node.name.replace(/[^a-zA-Z0-9]/g, "") : "";
-      if (name.length > 2 && !["Row", "Column", "Box", "Container", "Frame"].includes(name)) {
+      const name =
+        typeof node.name === "string"
+          ? node.name.replace(/[^a-zA-Z0-9]/g, "")
+          : "";
+      if (
+        name.length > 2 &&
+        !["Row", "Column", "Box", "Container", "Frame"].includes(name)
+      ) {
         expectedComponents.push(name);
       }
       if (Array.isArray(node.children)) collectComponents(node.children);
@@ -63,18 +69,23 @@ export function verifyUiFidelity(
     rawHexLeaks.push(m[0]);
   }
 
-  const compScore = expectedComponents.length === 0
-    ? 100
-    : (reusedComponents.length / expectedComponents.length) * 100;
+  const compScore =
+    expectedComponents.length === 0
+      ? 100
+      : (reusedComponents.length / expectedComponents.length) * 100;
   const hexPenalty = Math.min(40, rawHexLeaks.length * 10);
   const fidelityScore = Math.max(0, Math.round(compScore - hexPenalty));
   const passed = fidelityScore >= 80 && missingComponents.length === 0;
 
   if (missingComponents.length > 0) {
-    notes.push(`Missing reused design system components: ${missingComponents.join(", ")}`);
+    notes.push(
+      `Missing reused design system components: ${missingComponents.join(", ")}`
+    );
   }
   if (rawHexLeaks.length > 0) {
-    notes.push(`Detected ${rawHexLeaks.length} raw hex color leak(s) instead of theme tokens.`);
+    notes.push(
+      `Detected ${rawHexLeaks.length} raw hex color leak(s) instead of theme tokens.`
+    );
   }
 
   return {

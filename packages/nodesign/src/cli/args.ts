@@ -66,7 +66,11 @@ export function fail(message: string): never {
   throw new Error(message);
 }
 
-export function requireValue(args: string[], index: number, flag: string): string {
+export function requireValue(
+  args: string[],
+  index: number,
+  flag: string
+): string {
   const value = args[index + 1];
   if (!value || value.startsWith("-")) fail(`Missing value for ${flag}`);
   return value;

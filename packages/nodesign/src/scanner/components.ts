@@ -3,7 +3,14 @@ import path from "node:path";
 import type { ComponentFact } from "../types.js";
 import { scanComposableDeclarations } from "./composableScanner.js";
 
-const IGNORE_DIRS = new Set([".git", "node_modules", "dist", ".workflow", ".gradle", "build"]);
+const IGNORE_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  ".workflow",
+  ".gradle",
+  "build",
+]);
 
 export function walk(rootPath: string): string[] {
   const out: string[] = [];
@@ -20,7 +27,10 @@ export function walk(rootPath: string): string[] {
   return out;
 }
 
-export function scanComponents(rootPath: string, files: string[]): ComponentFact[] {
+export function scanComponents(
+  rootPath: string,
+  files: string[]
+): ComponentFact[] {
   const componentMap = new Map<string, ComponentFact>();
 
   // 1. User-configured components in .nodesign.json

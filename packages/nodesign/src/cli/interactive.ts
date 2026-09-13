@@ -9,14 +9,20 @@ export const TOKEN_URLS = {
 
 export async function selectMenu(
   title: string,
-  options: Array<{ label: string; value: "figma" | "zeplin"; hint?: string }>,
+  options: Array<{ label: string; value: "figma" | "zeplin"; hint?: string }>
 ): Promise<"figma" | "zeplin"> {
   if (!process.stdin.isTTY) {
     console.log(`\x1b[36m◇\x1b[0m  \x1b[1m${title}\x1b[0m`);
-    options.forEach((opt, idx) => console.log(`  ${idx + 1}) ${opt.label}${opt.hint ? ` (${opt.hint})` : ""}`));
+    options.forEach((opt, idx) =>
+      console.log(
+        `  ${idx + 1}) ${opt.label}${opt.hint ? ` (${opt.hint})` : ""}`
+      )
+    );
     const rl = createInterface({ input, output });
     try {
-      const ans = await new Promise<string>((res) => rl.question("\x1b[36m│\x1b[0m  Choice (1-2): ", res));
+      const ans = await new Promise<string>((res) =>
+        rl.question("\x1b[36m│\x1b[0m  Choice (1-2): ", res)
+      );
       const num = parseInt(ans.trim(), 10);
       if (num >= 1 && num <= options.length) return options[num - 1].value;
       return options[0].value;
@@ -31,11 +37,15 @@ export async function selectMenu(
 
   const render = () => {
     output.write("\x1b[?25l");
-    output.write(`\x1b[36m◇\x1b[0m  \x1b[1m${title}\x1b[0m \x1b[90m(↑/↓ to navigate, Enter to select)\x1b[0m\n`);
+    output.write(
+      `\x1b[36m◇\x1b[0m  \x1b[1m${title}\x1b[0m \x1b[90m(↑/↓ to navigate, Enter to select)\x1b[0m\n`
+    );
     options.forEach((opt, idx) => {
       const isSelected = idx === selectedIndex;
       const radio = isSelected ? "\x1b[36m●\x1b[0m" : "\x1b[90m○\x1b[0m";
-      const labelStr = isSelected ? `\x1b[1m\x1b[36m${opt.label}\x1b[0m` : `\x1b[37m${opt.label}\x1b[0m`;
+      const labelStr = isSelected
+        ? `\x1b[1m\x1b[36m${opt.label}\x1b[0m`
+        : `\x1b[37m${opt.label}\x1b[0m`;
       const hintStr = opt.hint ? ` \x1b[90m— ${opt.hint}\x1b[0m` : "";
       output.write(`\x1b[36m│\x1b[0m  ${radio} ${labelStr}${hintStr}\n`);
     });
@@ -64,10 +74,15 @@ export async function selectMenu(
         selectedIndex = (selectedIndex + 1) % options.length;
         clear();
         render();
-      } else if (key && (key.name === "return" || key.name === "enter" || key.name === "space")) {
+      } else if (
+        key &&
+        (key.name === "return" || key.name === "enter" || key.name === "space")
+      ) {
         cleanup();
         clear();
-        output.write(`\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
+        output.write(
+          `\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`
+        );
         resolve(options[selectedIndex].value);
       } else if (str && /^[1-9]$/.test(str)) {
         const num = parseInt(str, 10) - 1;
@@ -75,7 +90,9 @@ export async function selectMenu(
           selectedIndex = num;
           cleanup();
           clear();
-          output.write(`\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`);
+          output.write(
+            `\x1b[32m◆\x1b[0m  ${title} \x1b[90m›\x1b[0m \x1b[1m\x1b[32m${options[selectedIndex].label}\x1b[0m\n`
+          );
           resolve(options[selectedIndex].value);
         }
       }
@@ -93,13 +110,18 @@ export async function selectMenu(
 
 export async function askToken(provider: "figma" | "zeplin"): Promise<string> {
   const tokenUrl = TOKEN_URLS[provider];
-  console.log(`${color.cyan}│${color.reset}  Create a token: ${color.dim}${tokenUrl}${color.reset}`);
+  console.log(
+    `${color.cyan}│${color.reset}  Create a token: ${color.dim}${tokenUrl}${color.reset}`
+  );
   console.log(`${color.cyan}│${color.reset}`);
   return new Promise((resolve) => {
     const rl = createInterface({ input, output });
-    rl.question(`\x1b[36m◇\x1b[0m  \x1b[1mPaste ${provider} token\x1b[0m \x1b[90m(hidden input)\x1b[0m: `, (token) => {
-      rl.close();
-      resolve(token.trim());
-    });
+    rl.question(
+      `\x1b[36m◇\x1b[0m  \x1b[1mPaste ${provider} token\x1b[0m \x1b[90m(hidden input)\x1b[0m: `,
+      (token) => {
+        rl.close();
+        resolve(token.trim());
+      }
+    );
   });
 }

@@ -11,7 +11,7 @@ export interface StackGuideline {
 
 export function getStackGuideline(
   stack: AndroidUIStack,
-  architectureType: ArchitectureType = "CLEAN_ARCHITECTURE",
+  architectureType: ArchitectureType = "CLEAN_ARCHITECTURE"
 ): StackGuideline {
   switch (stack) {
     case "kmp":
@@ -29,57 +29,62 @@ export function getStackGuideline(
           "androidx.compose.ui.platform.LocalContext",
           "android.widget.*",
         ],
-        resourceStrategy: "Use Compose Multiplatform Res.drawable.* and Res.string.*. Do NOT use Android R.*",
-        themingRule: "Use shared MaterialTheme tokens or CMP Theme wrapper in commonMain.",
+        resourceStrategy:
+          "Use Compose Multiplatform Res.drawable.* and Res.string.*. Do NOT use Android R.*",
+        themingRule:
+          "Use shared MaterialTheme tokens or CMP Theme wrapper in commonMain.",
       };
 
     case "compose":
       return {
         stack: "compose",
-        targetPackageLocation: architectureType === "CLEAN_ARCHITECTURE"
-          ? "presentation/ or ui/screens/ package"
-          : "ui/screens/ or feature/*/ui/",
+        targetPackageLocation:
+          architectureType === "CLEAN_ARCHITECTURE"
+            ? "presentation/ or ui/screens/ package"
+            : "ui/screens/ or feature/*/ui/",
         allowedImports: [
           "androidx.compose.runtime.*",
           "androidx.compose.foundation.*",
           "androidx.compose.material3.*",
           "androidx.compose.ui.Modifier",
         ],
-        forbiddenImports: [
-          "android.view.View",
-          "android.widget.*",
-        ],
-        resourceStrategy: "Use painterResource(R.drawable.*) or Icons.Default.*",
-        themingRule: "Use MaterialTheme.colorScheme or project-level design tokens (e.g. TapatColors).",
+        forbiddenImports: ["android.view.View", "android.widget.*"],
+        resourceStrategy:
+          "Use painterResource(R.drawable.*) or Icons.Default.*",
+        themingRule:
+          "Use MaterialTheme.colorScheme or project-level design tokens (e.g. TapatColors).",
       };
 
     case "views":
       return {
         stack: "views",
-        targetPackageLocation: "res/layout/ (XML layouts) and ui/ (Activity/Fragment)",
+        targetPackageLocation:
+          "res/layout/ (XML layouts) and ui/ (Activity/Fragment)",
         allowedImports: [
           "android.view.View",
           "androidx.appcompat.app.*",
           "androidx.constraintlayout.widget.ConstraintLayout",
         ],
-        forbiddenImports: [
-          "androidx.compose.*",
-        ],
-        resourceStrategy: "Use @color/*, @dimen/*, and @drawable/* in XML layouts.",
-        themingRule: "Use styles.xml / themes.xml attributes (?attr/colorPrimary).",
+        forbiddenImports: ["androidx.compose.*"],
+        resourceStrategy:
+          "Use @color/*, @dimen/*, and @drawable/* in XML layouts.",
+        themingRule:
+          "Use styles.xml / themes.xml attributes (?attr/colorPrimary).",
       };
 
     case "mixed":
       return {
         stack: "mixed",
-        targetPackageLocation: "New screens in Compose; embed via ComposeView in XML fragments if needed.",
+        targetPackageLocation:
+          "New screens in Compose; embed via ComposeView in XML fragments if needed.",
         allowedImports: [
           "androidx.compose.runtime.*",
           "androidx.compose.ui.platform.ComposeView",
         ],
         forbiddenImports: [],
         resourceStrategy: "Use R.drawable.* / painterResource(R.drawable.*).",
-        themingRule: "Wrap Compose screens in the project's Compose Theme wrapper.",
+        themingRule:
+          "Wrap Compose screens in the project's Compose Theme wrapper.",
       };
 
     default:

@@ -1,4 +1,8 @@
-import type { ArchitectureType, ComponentFact, AndroidUIStack } from "./types.js";
+import type {
+  ArchitectureType,
+  ComponentFact,
+  AndroidUIStack,
+} from "./types.js";
 import type { ColorTokenFact } from "./android.js";
 import type { FigmaNodeSpec, FigmaColorSpec } from "./figma.js";
 import type { ZeplinNodeSpec, ZeplinColorSpec } from "./zeplin.js";
@@ -53,7 +57,11 @@ export function normalizeHex(val: string): string {
   return `#${hex}`;
 }
 
-function collectColors(nodes: UnifiedNode[], directColors: UnifiedColorSpec[] = [], seen = new Set<string>()): string[] {
+function collectColors(
+  nodes: UnifiedNode[],
+  directColors: UnifiedColorSpec[] = [],
+  seen = new Set<string>()
+): string[] {
   for (const c of directColors) {
     if (typeof c === "string") {
       seen.add(normalizeHex(c));
@@ -82,7 +90,7 @@ export function generateGroundingManifest(
   nodes: UnifiedNode[],
   screenName = "ExtractedScreen",
   context?: ProjectGroundingContext,
-  directColors: UnifiedColorSpec[] = [],
+  directColors: UnifiedColorSpec[] = []
 ): GroundingManifest {
   const designColors = collectColors(nodes, directColors);
   const matchedTokens: MatchedDesignToken[] = [];
@@ -91,7 +99,9 @@ export function generateGroundingManifest(
   if (context?.colorTokens && context.colorTokens.length > 0) {
     for (const hex of designColors) {
       const normDesignHex = normalizeHex(hex);
-      const match = context.colorTokens.find((ct) => normalizeHex(ct.hex) === normDesignHex);
+      const match = context.colorTokens.find(
+        (ct) => normalizeHex(ct.hex) === normDesignHex
+      );
       if (match && !matchedHexes.has(normDesignHex)) {
         matchedHexes.add(normDesignHex);
         matchedTokens.push({
@@ -104,9 +114,9 @@ export function generateGroundingManifest(
     }
   }
 
-  const reusableComponents: ComponentFact[] = (context?.components || []).filter(
-    (c) => c.name.toLowerCase() !== screenName.toLowerCase(),
-  );
+  const reusableComponents: ComponentFact[] = (
+    context?.components || []
+  ).filter((c) => c.name.toLowerCase() !== screenName.toLowerCase());
 
   const matchedComponents: MatchedComponentMapping[] = [];
   const seenMappings = new Set<string>();
@@ -115,7 +125,11 @@ export function generateGroundingManifest(
     for (const n of nodeList) {
       if (n.name) {
         const match = matchComponent(n.name, reusableComponents, screenName);
-        if (match.matched && match.component && !seenMappings.has(match.component.name)) {
+        if (
+          match.matched &&
+          match.component &&
+          !seenMappings.has(match.component.name)
+        ) {
           seenMappings.add(match.component.name);
           matchedComponents.push({
             designNodeName: n.name,
@@ -147,7 +161,9 @@ export function generateGroundingManifest(
 /**
  * Format a Grounding Manifest into concise Markdown for agent consumption.
  */
-export function formatGroundingManifestMarkdown(manifest: GroundingManifest): string {
+export function formatGroundingManifestMarkdown(
+  manifest: GroundingManifest
+): string {
   const lines: string[] = [
     `# Design Grounding Manifest: ${manifest.screenName}`,
     "",
@@ -159,21 +175,29 @@ export function formatGroundingManifestMarkdown(manifest: GroundingManifest): st
   ];
 
   if (manifest.matchedTokens.length === 0) {
-    lines.push("_No direct token matches found. Use project theme colors or declare tokens._");
+    lines.push(
+      "_No direct token matches found. Use project theme colors or declare tokens._"
+    );
   } else {
     for (const t of manifest.matchedTokens) {
       const imp = t.importStatement ? ` (\`${t.importStatement}\`)` : "";
-      lines.push(`- \`${t.hex}\` → \`${t.token}\` (from \`${t.sourceFile}\`)${imp}`);
+      lines.push(
+        `- \`${t.hex}\` → \`${t.token}\` (from \`${t.sourceFile}\`)${imp}`
+      );
     }
   }
 
   lines.push("", "## Mapped Reusable Components (Direct Blueprint Match)");
   if (manifest.matchedComponents.length === 0) {
-    lines.push("_No direct matches. Review the discovered local components below for candidates._");
+    lines.push(
+      "_No direct matches. Review the discovered local components below for candidates._"
+    );
   } else {
     for (const mc of manifest.matchedComponents) {
       const sample = mc.sampleUsage ? ` — e.g. \`${mc.sampleUsage}\`` : "";
-      lines.push(`- Design \`'${mc.designNodeName}'\` → Use **\`${mc.localComponentName}()\`** (\`${mc.path}\`)${sample} [${mc.confidence}]`);
+      lines.push(
+        `- Design \`'${mc.designNodeName}'\` → Use **\`${mc.localComponentName}()\`** (\`${mc.path}\`)${sample} [${mc.confidence}]`
+      );
     }
   }
 
