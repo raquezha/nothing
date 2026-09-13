@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/norpiv",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Bundled RPIV workflow skills for Pi, Claude, and Codex-style coding agents",
   "type": "commonjs",
   "bin": {
@@ -51,6 +51,6 @@
     ]
   },
   "dependencies": {
-    "@raquezha/nodesign": "^0.1.1"
+    "@raquezha/nodesign": "^0.2.0"
   }
 }

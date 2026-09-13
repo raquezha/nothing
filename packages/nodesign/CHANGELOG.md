@@ -1,5 +1,15 @@
 # @raquezha/nodesign
 
+## 0.2.0
+
+### Minor Changes
+
+- 60e3e2c: Add design grounding manifest output (`--manifest`) mapping external design colors and hierarchy directly to local project theme tokens and discovered components.
+
+### Patch Changes
+
+- 47143a3: Implement fuzzy component matching and direct design-to-code blueprint mapping.
+
 ## 0.1.12
 
 ### Patch Changes
