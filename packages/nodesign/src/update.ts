@@ -28,12 +28,22 @@ function writeConfig(data: Record<string, any>): void {
   const dir = path.dirname(file);
   mkdirSync(dir, { recursive: true });
   const current = readConfig();
-  writeFileSync(file, `${JSON.stringify({ ...current, ...data }, null, 2)}\n`, "utf8");
+  writeFileSync(
+    file,
+    `${JSON.stringify({ ...current, ...data }, null, 2)}\n`,
+    "utf8"
+  );
 }
 
 function semverGt(v1: string, v2: string): boolean {
-  const p1 = v1.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
-  const p2 = v2.replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const p1 = v1
+    .replace(/^v/, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
+  const p2 = v2
+    .replace(/^v/, "")
+    .split(".")
+    .map((n) => parseInt(n, 10) || 0);
   for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
     const n1 = p1[i] || 0;
     const n2 = p2[i] || 0;
@@ -46,12 +56,14 @@ function semverGt(v1: string, v2: string): boolean {
 export async function checkUpdateNotice(
   currentVersion: string,
   fetchFn: typeof fetch = globalThis.fetch,
-  options: { forceCheck?: boolean } = {},
+  options: { forceCheck?: boolean } = {}
 ): Promise<UpdateCheckResult> {
   const config = readConfig();
   const now = Date.now();
-  const lastCheck = typeof config.lastUpdateCheck === "number" ? config.lastUpdateCheck : 0;
-  const cachedLatest = typeof config.latestVersion === "string" ? config.latestVersion : undefined;
+  const lastCheck =
+    typeof config.lastUpdateCheck === "number" ? config.lastUpdateCheck : 0;
+  const cachedLatest =
+    typeof config.latestVersion === "string" ? config.latestVersion : undefined;
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   let latestVersion = cachedLatest;
@@ -60,9 +72,12 @@ export async function checkUpdateNotice(
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 1500);
-      const res = await fetchFn("https://registry.npmjs.org/@raquezha/nodesign/latest", {
-        signal: controller.signal,
-      });
+      const res = await fetchFn(
+        "https://registry.npmjs.org/@raquezha/nodesign/latest",
+        {
+          signal: controller.signal,
+        }
+      );
       clearTimeout(timer);
 
       if (res.ok) {
@@ -100,7 +115,6 @@ export async function checkUpdateNotice(
       notice: box,
     };
   }
-
 
   return {
     hasUpdate: false,
