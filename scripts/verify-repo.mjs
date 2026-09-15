@@ -554,7 +554,9 @@ function verifyBootstrapDryRun() {
   assert(result.status === 0, "bootstrap dry-run succeeds with deprecated --no-third-party");
   const settings = JSON.parse(readFileSync(path.join(root, "config", "settings.json"), "utf8"));
   assert(settings.packages?.includes("npm:pi-mcp-adapter@2.11.0"), "nothing config includes the Pi MCP adapter");
+  assert(settings.packages?.includes("npm:@heyhuynhgiabuu/pi-pretty"), "nothing config includes the Pi Pretty extension");
   assert(output.includes("pi install npm:pi-mcp-adapter@2.11.0"), "bootstrap installs the Pi MCP adapter");
+  assert(output.includes("pi install npm:@heyhuynhgiabuu/pi-pretty"), "bootstrap installs the Pi Pretty extension");
   assert(output.includes("Skipping published package install"), "bootstrap skips published package install by default");
   assert(output.includes("Resetting Pi globals so plain 'pi' starts factory-clean"), "bootstrap resets global Pi discovery by default");
   assert(output.includes("~/.agents/skills") || output.includes("/.agents/skills"), "bootstrap warns that generic global skills are reset");
