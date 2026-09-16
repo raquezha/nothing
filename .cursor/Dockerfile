@@ -24,4 +24,10 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a non-root user to match environment.json's `user`
+# Note: ubuntu:24.04 base image does not ship with an `ubuntu` user by default.
+# Using a fixed uid/gid keeps file ownership predictable in mounted worktrees.
+RUN groupadd --gid 1000 ubuntu \
+    && useradd --uid 1000 --gid 1000 --shell /bin/bash --create-home ubuntu
+
 USER ubuntu
