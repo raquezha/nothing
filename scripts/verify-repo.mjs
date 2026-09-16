@@ -37,6 +37,20 @@ async function walk(dir, options = {}) {
   return out;
 }
 
+function verifyNpmLockIntegrity() {
+  // Fast, npm-native integrity check: fails if package-lock.json is out of sync with package.json
+  // Avoid side effects in the repo by using ci --dry-run with ignore-scripts.
+  const result = spawnSync("npm", ["ci", "--dry-run", "--ignore-scripts"], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) {
+    fail(
+      "package-lock.json is out of sync with package.json. " +
+        "Run: npm install (or: npm install --package-lock-only) and commit package-lock.json."
+    );
+  } else {
+    ok("npm lockfile integrity check passed (npm ci --dry-run)");
+  }
+}
+
 async function fileContainsDeprecatedPiNamespace() {
   const files = await walk(root);
   const banned = /@mariozechner\/(pi-coding-agent|pi-ai|pi-agent-core|pi-tui)/;
@@ -627,6 +641,7 @@ verifyRpivWorkflowPointer();
 verifyTaskEvidenceIsolation();
 verifyRpivEvidenceClassificationRules();
 verifyResearchWorkflowHelper();
+verifyNpmLockIntegrity();
 verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();
 verifyShellIntegration();
