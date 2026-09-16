@@ -56,6 +56,7 @@ pi() {
   local COMBO_PRESET=""
   local MOD_CAVEMAN=false
   local MOD_RTK=false
+  local MOD_CURSOR=false
   local MOD_HEADROOM=false
   local MOD_LEANCTX=false
   local MOD_ANTIGRAVITY=false
@@ -256,6 +257,36 @@ EOF
     pkg_dir="$(ensure_rtk_cache)" || return 0
     EXTRA_EXTENSIONS+=("--extension" "$pkg_dir")
     export NOTHING_RTK="1"
+  }
+
+  ensure_cursor_cache() {
+    local pkg_root="$NOTHING_CACHE_DIR/npm/cursor"
+    local pkg_dir="$pkg_root/node_modules/pi-cursor-sdk"
+    if [[ -d "$pkg_dir" ]]; then
+      printf '%s\n' "$pkg_dir"
+      return 0
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+      nothing_warn "--cursor requested but npm is unavailable; cannot install Cursor SDK cache"
+      return 1
+    fi
+    nothing_warn "--cursor requested; installing pi-cursor-sdk into $pkg_root"
+    mkdir -p "$pkg_root"
+    if npm install --prefix "$pkg_root" --omit=peer --no-audit --no-fund pi-cursor-sdk >/dev/null 2>&1; then
+      if [[ -d "$pkg_dir" ]]; then
+        printf '%s\n' "$pkg_dir"
+        return 0
+      fi
+    fi
+    nothing_warn "Failed to install pi-cursor-sdk into $pkg_root"
+    return 1
+  }
+
+  add_cursor_extension() {
+    local pkg_dir
+    pkg_dir="$(ensure_cursor_cache)" || return 0
+    EXTRA_EXTENSIONS+=("--extension" "$pkg_dir")
+    export NOTHING_CURSOR="1"
   }
 
   ensure_ponytail_cache() {
@@ -475,6 +506,7 @@ EOF
       --tkmx)
         COMBO_PRESET="tkmx"
         MOD_ANTIGRAVITY=true
+        MOD_CURSOR=true
         MOD_NOTRACE=true
         MOD_PONYTAIL=true
         MOD_CAVEMAN=true
@@ -493,6 +525,10 @@ EOF
         ;;
       --rtk|--rkt)
         MOD_RTK=true
+        shift
+        ;;
+      --cursor)
+        MOD_CURSOR=true
         shift
         ;;
       --headroom)
@@ -533,7 +569,7 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -543,6 +579,10 @@ EOF
 
     if [[ "$MOD_RTK" == true ]]; then
       add_rtk_extension
+    fi
+
+    if [[ "$MOD_CURSOR" == true ]]; then
+      add_cursor_extension
     fi
 
     if [[ "$MOD_HEADROOM" == true && "$MOD_LEANCTX" == true ]]; then
@@ -579,11 +619,12 @@ EOF
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
+    [[ "$MOD_CURSOR" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("cursor")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
     [[ "$MOD_LEANCTX" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("leanctx")
     [[ "$MOD_ANTIGRAVITY" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("antigravity")

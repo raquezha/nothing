@@ -85,9 +85,10 @@ Additive modifiers for power users:
 pi --headroom    # enable local context compression
 pi --caveman     # terse, token-efficient communication
 pi --rtk         # local terminal output optimization
+pi --cursor      # local pi-cursor-sdk provider extension
 pi --notrace     # write session retrospective artifacts
 pi --ponytail    # load Ponytail's minimal-diff rules and commands
-pi --tkmx        # THE COMBO: --antigravity + --headroom + --caveman + --rtk + --notrace + --ponytail
+pi --tkmx        # THE COMBO: --antigravity + --headroom + --caveman + --rtk + --cursor + --notrace + --ponytail
 ```
 
 ## 🔄 Multi-machine Git sync

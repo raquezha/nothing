@@ -355,9 +355,12 @@ while [[ $# -gt 0 ]]; do
     *) shift ;;
   esac
 done
-mkdir -p "$prefix/node_modules/pi-rtk-optimizer"
+mkdir -p "$prefix/node_modules/pi-rtk-optimizer" "$prefix/node_modules/pi-cursor-sdk"
 printf '{"name":"pi-rtk-optimizer","pi":{"extensions":["./index.ts"]}}\\n' > "$prefix/node_modules/pi-rtk-optimizer/package.json"
 printf 'export default function(){}\\n' > "$prefix/node_modules/pi-rtk-optimizer/index.ts"
+printf '{"name":"pi-cursor-sdk","pi":{"extensions":["./dist/index.js"]}}\\n' > "$prefix/node_modules/pi-cursor-sdk/package.json"
+mkdir -p "$prefix/node_modules/pi-cursor-sdk/dist"
+printf 'export default function(){}\\n' > "$prefix/node_modules/pi-cursor-sdk/dist/index.js"
 `);
 writeFileSync(fakeAndroid, `#!/usr/bin/env bash
 set -euo pipefail
@@ -430,8 +433,8 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(updateLog.includes("docker compose") && updateLog.includes("pull"), "pi update refreshes Headroom image");
 
     writeFileSync(argsFile, "");
-    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk hello`], root, { env });
-    assert(result.status === 0, "caveman and rtk modifiers lazy-install local caches");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --caveman --rtk --cursor hello`], root, { env });
+    assert(result.status === 0, "caveman, rtk, and cursor modifiers lazy-install local caches");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.filter((arg) => arg === "--skill").length === 2, "--caveman explicitly loads two cached skills");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--caveman loads cached caveman skill path");
@@ -442,6 +445,7 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(cavemanStatsSource.includes("usage.tokens"), "caveman-stats reads Pi ContextUsage.tokens");
     assert(!cavemanStatsSource.includes("inputTokens") && !cavemanStatsSource.includes("outputTokens"), "caveman-stats does not read nonexistent token fields");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--rtk explicitly loads cached RTK optimizer extension");
+    assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/npm/cursor/node_modules/pi-cursor-sdk")), "--cursor explicitly loads cached Cursor SDK extension");
     const installs = existsSync(installLog) ? readFileSync(installLog, "utf8") : "";
     assert(installs.includes("git clone") && installs.includes("npm install"), "modifiers install into local cache on first use");
 
@@ -472,6 +476,7 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
     assert(args.some((arg) => arg.endsWith("/packages/noheadroom")), "--tkmx loads noheadroom extension");
     assert(args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--tkmx loads RTK extension");
+    assert(args.some((arg) => arg.endsWith("/npm/cursor/node_modules/pi-cursor-sdk")), "--tkmx loads Cursor SDK extension");
     assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--tkmx loads caveman skill");
     assert(args.some((arg) => arg.endsWith("/packages/antigravity")), "--tkmx loads antigravity extension");
 
