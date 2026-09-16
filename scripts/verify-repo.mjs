@@ -570,8 +570,8 @@ function verifyBootstrapDryRun() {
   assert(!output.includes("nosearch-install.cjs --target pi"), "bootstrap does not globally install nosearch skills by default");
   assert(output.includes("lazy-install local caches"), "bootstrap documents lazy third-party modifier installs");
   assert(output.includes("Provision machine-wide Graphify"), "bootstrap provisions machine-wide Graphify");
-  assert(output.includes(`rm -rf ${homedir()}/.graphify/venv`), "bootstrap wipes stale Graphify venv before reinstall");
-  assert(output.includes(`${homedir()}/.graphify/venv/bin/python -m pip install --upgrade graphifyy`), "bootstrap installs Graphify into the home environment");
+  assert(output.includes("Skipping Graphify install"), "bootstrap skips Graphify install by default");
+  assert(output.includes("--graphify"), "bootstrap documents opt-in flag for Graphify installation");
   assert(output.includes("--notes"), "bootstrap documents notes hat");
   assert(output.includes("--research"), "bootstrap documents research hat");
   assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");
