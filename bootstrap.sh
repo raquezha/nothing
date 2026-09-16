@@ -12,10 +12,12 @@ RESET_PI_GLOBALS=true
 ASSUME_YES=false
 SKIP_TOOLS=false
 INSTALL_HEADROOM=false
+INSTALL_GRAPHIFY=false
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=true ;;
     --headroom) INSTALL_HEADROOM=true ;;
+    --graphify) INSTALL_GRAPHIFY=true ;;
     --install-global-skills) INSTALL_GLOBAL_SKILLS=true ;;
     --install-published-packages) INSTALL_PUBLISHED_PACKAGES=true ;;
     --no-reset-pi) RESET_PI_GLOBALS=false ;;
@@ -67,6 +69,7 @@ Options:
   --dry-run, -n             Print commands without executing mutating steps.
   --skip-tools              Do not install baseline system packages with sudo.
   --headroom                Configure local Headroom Docker backend and install proof-phase Pi extension.
+  --graphify               Opt-in to install/refresh Graphify venv under ~/.graphify (off by default).
   --no-reset-pi             Do not archive/reset global Pi discovery directories.
   --yes, -y                 Skip the destructive reset confirmation prompt.
   --install-global-skills      Also link bundled skills into ~/.pi/agent/skills.
@@ -111,6 +114,7 @@ print_plan() {
   printf '   global skill links    %s\n' "$([[ "$INSTALL_GLOBAL_SKILLS" == true ]] && printf yes || printf no)"
   printf '   third-party modifiers lazy cache\n'
   printf '   headroom backend     %s\n' "$([[ "$INSTALL_HEADROOM" == true ]] && printf yes || printf no)"
+  printf '   graphify install     %s\n' "$([[ "$INSTALL_GRAPHIFY" == true ]] && printf yes || printf no)"
   printf '   package source        checkout\n'
   printf '   repo git hooks       pre-push verify-repo\n'
   printf '   rqz-sync helper      installed to ~/.local/bin\n'
@@ -461,6 +465,14 @@ install_tools() {
 }
 
 configure_graphify() {
+  if [[ "$INSTALL_GRAPHIFY" != true ]]; then
+    if [[ "$DRY_RUN" == true ]]; then
+      printf '[dry-run] Skipping Graphify install (use --graphify to enable). Grilling will fall back to source reading.\n'
+    else
+      info "Skipping Graphify install (use --graphify to enable). Grilling will fall back to source reading."
+    fi
+    return
+  fi
   local venv="$HOME/.graphify/venv"
   if ! command -v python3 >/dev/null 2>&1; then
     warn "Python 3 not found; Graphify will remain unavailable."
