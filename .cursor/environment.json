@@ -4,5 +4,5 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "install": "npm install\nnpm run build --workspaces --if-present"
+  "install": "npm ci\nnpm run build --workspaces --if-present"
 }
