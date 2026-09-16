@@ -678,7 +678,7 @@ if [[ "$INSTALL_PUBLISHED_PACKAGES" == true ]]; then
 else
   info "Skipping published package install; hats use this checkout's built packages."
 fi
-info "Skipping third-party global installs; --caveman and --rtk lazy-install local caches when used."
+info "Skipping third-party global installs; --caveman, --rtk, and --cursor lazy-install local caches when used."
 
 step "Prepare Pi agent filesystem"
 run mkdir -p "$AGENT_DIR" "$HOME/.pi-secrets"
@@ -754,10 +754,10 @@ printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "updates" "pi update refreshes Pi plus nothing-managed lazy caches"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --nochestra | --nochestra-worker"
-printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --headroom | --leanctx | --notrace | --ponytail"
-printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + headroom + notrace + ponytail)"
+printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --cursor | --headroom | --leanctx | --notrace"
+printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + cursor + headroom + notrace + ponytail)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/workflows/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
-printf '\n   note: --caveman, --rtk, and --ponytail lazy-install local caches on first use.\n'
+printf '\n   note: --caveman, --rtk, --cursor, and --ponytail lazy-install local caches on first use.\n'
 printf '   note: --headroom starts the local Headroom Docker backend on demand.\n'
 printf '%s\n\n' "   note: plain \`pi\` keeps the noleaks guard on by default, regardless of mindset."
