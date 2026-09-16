@@ -1,0 +1,8 @@
+{
+  "name": "nothing monorepo",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "npm install\nnpm run build --workspaces --if-present"
+}
