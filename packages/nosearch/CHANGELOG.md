@@ -1,5 +1,11 @@
 # @raquezha/nosearch
 
+## Unreleased
+
+### Patch Changes
+
+- Capture the worker temporary directory when registering the exit trap so successful searches clean up without an unbound-variable error.
+
 ## 0.0.11
 
 ### Patch Changes

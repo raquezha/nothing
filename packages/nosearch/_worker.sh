@@ -94,7 +94,9 @@ search_worker_run() {
   stderr_file="$temp_dir/stderr"
   code_file="$temp_dir/exit-code"
 
-  trap 'rm -rf "$temp_dir"' EXIT
+  # Capture the path now: temp_dir is local and unavailable at shell exit.
+  # shellcheck disable=SC2064
+  trap "rm -rf $(printf '%q' "$temp_dir")" EXIT
 
   if [[ "$mode" == "inline" ]]; then
     set +e

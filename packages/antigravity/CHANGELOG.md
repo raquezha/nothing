@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## Unreleased
+
+### Patch Changes
+
+- Restore tool calling on current Pi by reading system prompts, prompt sections, and tool additions/removals from transcript system messages while preserving legacy context support. Surface backend finish-reason errors and add transcript regression coverage.
+
 ## 0.1.3
 
 ### Patch Changes

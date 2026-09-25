@@ -29,18 +29,21 @@ const parameters = { type: "object", properties: {
   ] } },
 }, required: ["const"] };
 const original = structuredClone(parameters);
-const context = { messages: [{ role: "user", content: "OK" }], tools: [{ name: "check", parameters }] };
+const context = { messages: [{ role: "system", content: "Call check for OK", sections: { tools: "Use available tools" }, toolsAdded: [{ name: "check", parameters }] }, { role: "user", content: "OK" }] };
 const options = { apiKey: JSON.stringify({ token: "test", projectId: "test" }) };
 const originalFetch = globalThis.fetch;
 let sent;
 let rejectRequest = false;
+let finishReason = "STOP";
 globalThis.fetch = async (url, init) => {
   if (url.includes("loadCodeAssist")) return Response.json({ project: "test" });
   if (url.includes("fetchAvailableModels")) return Response.json(catalog);
   assert.ok(url.includes("streamGenerateContent"));
   sent = JSON.parse(init.body);
+  assert.match(sent.request.systemInstruction.parts.at(-1).text, /Call check for OK/);
+  assert.equal(sent.request.tools[0].functionDeclarations[0].name, sent.request.systemInstruction.parts.at(-1).text.includes("Now call next") ? "next" : "check");
   if (rejectRequest) return Response.json({ error: { message: 'Invalid JSON payload. Unknown name "unsupported"' } }, { status: 400 });
-  return new Response('data: {"response":{"candidates":[{"content":{"parts":[{"text":"OK"}]},"finishReason":"STOP"}]}}\n\n');
+  return new Response(`data: {"response":{"candidates":[{"content":{"parts":[{"text":"OK"}]},"finishReason":"${finishReason}"}]}}\n\n`);
 };
 try {
   for (const id of ["claude-sonnet-4-6", "claude-opus-4-6"]) {
@@ -57,10 +60,19 @@ try {
     assert.equal(sent.model, id === "gemini-3.5-flash" ? "gemini-3.5-flash-extra-low" : `${id}-tiered`);
     assert.equal(sent.request.tools[0].functionDeclarations[0].parametersJsonSchema.properties.const.const, "ok");
   }
+  const updatedContext = { messages: [...context.messages, { role: "system", content: "Now call next", toolsRemoved: [{ name: "check" }], toolsAdded: [{ name: "next", parameters }] }] };
+  await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), updatedContext, options).result();
+  assert.match(sent.request.systemInstruction.parts.at(-1).text, /Now call next/);
+  assert.deepEqual(sent.request.tools[0].functionDeclarations.map(tool => tool.name), ["next"]);
   rejectRequest = true;
   const result = await streamAntigravity(ANTIGRAVITY_MODELS[0], context, options).result();
   assert.equal(result.stopReason, "error");
   assert.match(result.errorMessage, /Unknown name "unsupported"/);
+  rejectRequest = false;
+  finishReason = "MALFORMED_FUNCTION_CALL";
+  const malformed = await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), context, options).result();
+  assert.equal(malformed.stopReason, "error");
+  assert.match(malformed.errorMessage, /MALFORMED_FUNCTION_CALL/);
   assert.deepEqual(parameters, original, "conversion does not mutate caller schemas");
 } finally {
   globalThis.fetch = originalFetch;
