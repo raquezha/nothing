@@ -5,6 +5,8 @@ import type {
   AndroidUIStack,
 } from "./types.js";
 import { buildStackAwareDirective } from "./stack/directive.js";
+import type { ZeplinResolutionResult } from "./zeplin.js";
+import type { FigmaResolutionResult } from "./figma.js";
 
 export { formatDesignBrief } from "./briefFormatter.js";
 
@@ -97,12 +99,22 @@ export function formatTreeBlueprint(nodes: any[], indent = 0): string[] {
 /** Determine overall evidence status from a list of links and UI sensitivity. */
 export function determineEvidenceStatus(
   links: DesignLink[],
-  uiSensitive: boolean
+  uiSensitive: boolean,
+  screens: ZeplinResolutionResult[] = [],
+  frames: FigmaResolutionResult[] = []
 ): EvidenceStatus {
   if (!uiSensitive) return "ready";
   if (links.length === 0) return "missing";
-  const statuses = links.map((link) => parseDesignLink(link.url).status);
-  if (statuses.includes("ready")) return "ready";
-  if (statuses.includes("ambiguous")) return "ambiguous";
-  return "missing";
+
+  let zeplinIndex = 0;
+  let figmaIndex = 0;
+  for (const link of links) {
+    const screen = link.provider === "zeplin" ? screens[zeplinIndex++] : undefined;
+    const frame = link.provider === "figma" ? frames[figmaIndex++] : undefined;
+    if (
+      parseDesignLink(link.url).status === "ready" &&
+      (screen?.status === "SUCCESS" || frame?.status === "SUCCESS")
+    ) return "ready";
+  }
+  return "ambiguous";
 }

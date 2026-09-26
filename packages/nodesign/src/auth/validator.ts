@@ -47,7 +47,9 @@ export async function validateCredentialWithInfo(
 
   try {
     const res = await fetchFn(url, { headers });
-    if (res.status === 401 || res.status === 403) return { status: "invalid" };
+    if (res.status === 401 || (res.status === 403 && provider !== "figma")) return { status: "invalid" };
+    // Figma /v1/me requires current_user:read; a file_content:read-only token can still extract designs.
+    if (res.status === 403) return { status: "unreachable" };
     if (!res.ok) return { status: "unreachable" };
     try {
       const data = (await res.json()) as any;

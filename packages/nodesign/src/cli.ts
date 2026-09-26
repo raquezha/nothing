@@ -39,7 +39,7 @@ async function promptAuth(
       {
         label: "Figma",
         value: "figma",
-        hint: "Personal Access Token (files:read)",
+        hint: "Personal Access Token (file_content:read)",
       },
       {
         label: "Zeplin",
@@ -65,7 +65,7 @@ async function promptAuth(
       `${color.cyan}│${color.reset}  Then: ${color.bold}Personal access tokens${color.reset} ${color.dim}→${color.reset} ${color.bold}Generate new token${color.reset}`
     );
     console.log(
-      `${color.cyan}│${color.reset}  Scope: ${color.green}files:read${color.reset}`
+      `${color.cyan}│${color.reset}  Scope: ${color.green}file_content:read${color.reset}`
     );
   } else {
     console.log(
@@ -225,7 +225,7 @@ export function run(argv: string[] = process.argv, deps: RunDeps = {}): void {
             );
           } else {
             console.log(
-              `${color.yellow}◆${color.reset} ${color.bold}Could not verify token${color.reset} ${color.dim}(API unreachable, saved anyway)${color.reset}`
+              `${color.yellow}◆${color.reset} ${color.bold}Could not verify token${color.reset} ${color.dim}(API unreachable or user scope missing; saved anyway)${color.reset}`
             );
           }
           console.log(

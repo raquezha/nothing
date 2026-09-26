@@ -115,6 +115,15 @@ try {
     },
   );
   await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(JSON.parse(logs.at(-1)).preflight.evidenceStatus, "ready");
+
+  runCli(
+    ["node", "nodesign", "preflight", "--json", "--path", path.join(repoRoot, "app")],
+    { fetchFn: makeMockFetch({ "/screens/AOGOKp6": { status: 403 } }) },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(JSON.parse(logs.at(-1)).preflight.evidenceStatus, "ambiguous");
+  assert.equal(JSON.parse(logs.at(-1)).preflight.resolvedScreens[0].status, "ACCESS_DENIED");
 
   console.log = oldLog;
   console.error = oldError;

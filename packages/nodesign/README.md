@@ -4,7 +4,7 @@ Standalone design context extractor and preflight CLI for AI agents (Pi, Claude 
 
 `nodesign` allows any developer or AI agent framework to authenticate, inspect design sources (Figma, Zeplin), and extract typography, colors, layout specs, and frame renders into structured context or `--json` payloads.
 
-It also powers deterministic design preflight for `norpiv` workflows (`nodesign preflight`).
+It also powers deterministic design preflight for `norpiv` workflows (`nodesign preflight`). Preflight reports `ready` only when a direct screen/frame link resolves successfully; a link with unavailable credentials, denied access, or a failed lookup remains `ambiguous` with the provider failure in the result. Figma must return the requested node, and a Zeplin project dashboard cannot stand in for a screen. For complete Zeplin layers and assets, use a project/screen URL (or a shortlink that redirects to one); NoDesign reads the latest screen version.
 
 > **Experiment disclaimer:** you probably do not need `nodesign` if your agent already has a good Figma MCP or Zeplin MCP in the same runtime. `nodesign` exists as a portable CLI contract: one command agents can run anywhere, with normalized Figma/Zeplin output and preflight checks.
 
@@ -48,7 +48,7 @@ npx @raquezha/nodesign extract "<design-url>"
 npm install -g @raquezha/nodesign
 ```
 
-> **Note on Private Files:** `nodesign` automatically resolves credentials from `process.env`, local `.env`, `~/.pi-secrets/.env`, OS Keychain (macOS / Linux), or `~/.config/nodesign/config.json`. If no token is found for a private file, `nodesign` returns a clear `AUTH_REQUIRED` status.
+> **Note on Private Files:** `nodesign` automatically resolves credentials from `process.env`, local `.env`, `~/.pi-secrets/.env`, OS Keychain (macOS / Linux), or `~/.config/nodesign/config.json`. Figma tokens need `file_content:read` for design extraction; `auth status` may be unable to validate a token without the separate `current_user:read` scope. If no token is found for a private file, `nodesign` returns a clear `AUTH_REQUIRED` status.
 
 ---
 
@@ -81,7 +81,7 @@ Extract colors, typography, layout specs, and component hierarchy:
 
 ```bash
 nodesign extract "https://www.figma.com/design/KEY/FileTitle?node-id=1-2"
-nodesign extract "https://zpl.io/AOGOKp6" --manifest
+nodesign extract "https://app.zeplin.io/project/PROJECT_ID/screen/SCREEN_ID" --manifest
 nodesign extract "https://zpl.io/AOGOKp6" --json
 ```
 

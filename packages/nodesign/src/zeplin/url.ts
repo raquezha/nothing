@@ -67,31 +67,33 @@ export function parseZeplinLink(rawUrl: string): {
   return { type: "unknown", id: clean, projectId };
 }
 
-export async function resolveZeplinShortlink(
+export async function resolveZeplinShortlinkTarget(
   url: string,
   fetchFn: typeof fetch = globalThis.fetch
-): Promise<string | undefined> {
+): Promise<{ id: string; projectId?: string } | undefined> {
   const cleanUrl = url.trim().replace(/[.,;)\]>]+$/, "");
   if (!cleanUrl.startsWith("http")) return undefined;
 
   try {
     const res = await fetchFn(cleanUrl, { method: "HEAD", redirect: "manual" });
-    const location =
-      res.headers?.get?.("location") || res.headers?.get?.("Location");
-    if (location) {
-      const expanded = parseZeplinScreenId(location);
-      if (expanded && expanded !== cleanUrl && expanded.length > 5)
-        return expanded;
-    }
-
-    const getRes = await fetchFn(cleanUrl, { redirect: "follow" });
-    if (getRes.url && getRes.url !== cleanUrl) {
-      const expanded = parseZeplinScreenId(getRes.url);
-      if (expanded && expanded !== cleanUrl && expanded.length > 5)
-        return expanded;
+    const location = res.headers?.get?.("location") || res.headers?.get?.("Location");
+    const getRes = location ? undefined : await fetchFn(cleanUrl, { redirect: "follow" });
+    const target = location || getRes?.url;
+    if (target && target !== cleanUrl) {
+      const parsed = parseZeplinLink(target);
+      if (parsed.type === "screen" && parsed.id.length > 5) {
+        return { id: parsed.id, projectId: parsed.projectId };
+      }
     }
   } catch {}
   return undefined;
+}
+
+export async function resolveZeplinShortlink(
+  url: string,
+  fetchFn: typeof fetch = globalThis.fetch
+): Promise<string | undefined> {
+  return (await resolveZeplinShortlinkTarget(url, fetchFn))?.id;
 }
 
 export async function fetchSuggestedZeplinScreens(

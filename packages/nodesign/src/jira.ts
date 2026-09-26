@@ -117,7 +117,7 @@ export function inspectJiraContext(issueId: string): JiraInspectionResult {
     try {
       const acliText = execFileSync(
         "acli",
-        ["jira", "workitem", "view", issueId, "--json"],
+        ["jira", "workitem", "view", issueId, "--json", "--fields", "*all"],
         {
           encoding: "utf8",
           timeout: 5000,

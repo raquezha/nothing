@@ -180,10 +180,20 @@ export async function resolveFigmaLink(
         data.nodes[primaryNodeId]?.document ||
         data.nodes[primaryNodeId.replace(":", "-")]?.document ||
         data.nodes[encodeURIComponent(primaryNodeId)]?.document ||
-        (nodeId ? data.nodes[nodeId]?.document : undefined) ||
-        (Object.values(data.nodes)[0] as any)?.document;
+        (nodeId ? data.nodes[nodeId]?.document : undefined);
     } else {
       documentNode = data.document;
+    }
+    if (primaryNodeId && !documentNode) {
+      return {
+        status: "DESIGN_NOT_FOUND",
+        normalizedStatus: normalizeProviderStatus("DESIGN_NOT_FOUND"),
+        url: cleanUrl,
+        fileKey,
+        nodeId,
+        errorDescription: figmaErrorDescription("DESIGN_NOT_FOUND", primaryNodeId),
+        note: "Requested Figma node is absent from the API response",
+      };
     }
     const name = documentNode?.name || data.name;
     const extract = documentNode ? extractDetails(documentNode) : undefined;

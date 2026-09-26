@@ -60,6 +60,16 @@ try {
   assert.equal(parsedZeplinUri.status, "ready");
   assert.equal(parsedZeplinUri.link.provider, "zeplin");
 
+  // A direct link is not verified evidence until its screen is accessible.
+  assert.equal(determineEvidenceStatus([parsedZeplin.link], true, [{ status: "AUTH_REQUIRED" }]), "ambiguous");
+  assert.equal(determineEvidenceStatus([parsedZeplin.link], true, [{ status: "SUCCESS" }]), "ready");
+  assert.equal(determineEvidenceStatus([parsedZeplin.link], true), "ambiguous");
+  const frameLink = parseDesignLink("https://www.figma.com/design/KEY/Title?node-id=1-2").link;
+  assert.equal(determineEvidenceStatus([frameLink], true, [], [{ status: "DESIGN_NOT_FOUND" }]), "ambiguous");
+  assert.equal(determineEvidenceStatus([frameLink], true, [], [{ status: "SUCCESS" }]), "ready");
+  assert.equal(determineEvidenceStatus([frameLink, parsedZeplin.link], true, [{ status: "AUTH_REQUIRED" }], [{ status: "SUCCESS" }]), "ready");
+  assert.equal(determineEvidenceStatus([parseDesignLink("https://www.figma.com/design/KEY/Title").link, parsedZeplin.link], true, [{ status: "AUTH_REQUIRED" }], [{ status: "SUCCESS" }]), "ambiguous");
+
   // 5. Tindahang Tapat 3 experiment screens fixtures
   const screens = [
     {

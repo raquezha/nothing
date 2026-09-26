@@ -65,6 +65,17 @@ try {
   assert.equal(res404.suggestedFrames?.[0], "Checkout Redesign (node-id=10-20)");
 
 
+  const wrongNode = makeMockFetch({
+    "/v1/files/KEY/nodes": {
+      status: 200,
+      json: { name: "File Title", nodes: { "9:9": { document: { name: "Unrelated Frame" } } } },
+    },
+  });
+  const resWrongNode = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, wrongNode);
+  assert.equal(resWrongNode.status, "DESIGN_NOT_FOUND");
+  assert.equal(resWrongNode.normalizedStatus, "NODE_NOT_FOUND");
+  assert.equal(resWrongNode.extract, undefined);
+
   const mock429 = makeMockFetch({ "/v1/files/": { status: 429 } });
   const res429 = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", undefined, mock429);
   assert.equal(res429.status, "RATE_LIMITED");
@@ -121,6 +132,14 @@ try {
   assert(res200.renderedImage.endsWith("figma-KEY_1-2.png"));
   assert(res200.visualAnalysis);
   assert.equal(res200.visualAnalysis.layoutType, "MOBILE_VIEW");
+
+  const wrongImage = makeMockFetch({
+    "/v1/files/KEY/nodes": { status: 200, json: { nodes: { "1:2": { document: { name: "Target" } } } } },
+    "/v1/images/KEY": { status: 200, json: { images: { "9:9": "https://mock.cdn/wrong.png" } } },
+  });
+  const resWrongImage = await resolveFigmaLink("https://www.figma.com/design/KEY/Title?node-id=1-2", "token", renderDir, wrongImage);
+  assert.equal(resWrongImage.status, "SUCCESS");
+  assert.equal(resWrongImage.renderedImage, undefined);
 
 
 

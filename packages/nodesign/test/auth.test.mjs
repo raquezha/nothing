@@ -56,6 +56,9 @@ try {
   assert.equal(validFigmaInfo.user, "testuser");
   assert.equal(validFigmaInfo.email, "test@example.com");
 
+  assert.equal(await validateCredential("figma", "file-only", makeMockFetch({ "/v1/me": { status: 403 } })), "unreachable");
+  assert.equal(await validateCredential("figma", "bad", makeMockFetch({ "/v1/me": { status: 401 } })), "invalid");
+
   const invalidZeplin = await validateCredential("zeplin", "bad", makeMockFetch({ "/v1/users/me": { status: 401 } }));
   assert.equal(invalidZeplin, "invalid");
 

@@ -136,6 +136,37 @@ try {
   assert(existsSync(res200.savedAssets[0]));
   assert.equal(readFileSync(res200.savedAssets[0], "utf8"), '<svg width="24" height="24"></svg>');
 
+  // Published API: screen metadata and the latest screen version are separate resources.
+  const projectCalls = [];
+  const projectFetch = async (url) => {
+    projectCalls.push(String(url));
+    const version = String(url).endsWith("/versions/latest");
+    return {
+      status: 200,
+      ok: true,
+      json: async () => version
+        ? { width: 360, height: 640, image_url: "https://example.com/report.png", layers: [{ name: "Header" }], assets: [{ display_name: "Icon", contents: [{ format: "svg", url: "https://example.com/icon.svg" }] }] }
+        : { id: "5da6855838d13af07b398623", name: "Reports", image: { original_url: "https://example.com/report.png" } },
+      arrayBuffer: async () => Buffer.from("png-data"),
+      text: async () => "<svg></svg>",
+    };
+  };
+  const projectOutput = mkdtempSync(path.join(tmpdir(), "zeplin-version-assets-"));
+  tempDirs.push(projectOutput);
+  const projectScreen = await resolveZeplinScreen(
+    "https://app.zeplin.io/project/5cdb84af8438557f58b504f7/screen/5da6855838d13af07b398623",
+    "dummy-token", projectOutput, projectFetch,
+  );
+  assert.equal(projectScreen.status, "SUCCESS");
+  assert.equal(projectScreen.screen.width, 360);
+  assert.equal(projectScreen.extract.hierarchy[0].name, "Header");
+  assert.equal(projectScreen.assets[0].name, "Icon");
+  assert.equal(projectScreen.assets[0].format, "svg");
+  assert.equal(readFileSync(projectScreen.savedAssets[0], "utf8"), "<svg></svg>");
+  assert(projectScreen.renderedImage);
+  assert(projectCalls.some((url) => url.endsWith("/versions/latest")));
+  assert(!projectCalls.some((url) => url.includes("/v1/screens/")));
+
   const mockProj = makeMockFetch({
     "/screens/5cdb84af8438557f58b504f7": { status: 404 },
     "/components/5cdb84af8438557f58b504f7": { status: 404 },
@@ -153,23 +184,28 @@ try {
     },
   });
   const resProj = await resolveZeplinScreen("https://app.zeplin.io/project/5cdb84af8438557f58b504f7/dashboard", "dummy-token", undefined, mockProj);
-  assert.equal(resProj.status, "SUCCESS");
-  assert.equal(resProj.name, "Dashboard First Screen");
+  assert.equal(resProj.status, "DESIGN_NOT_FOUND");
+  assert.match(resProj.errorDescription, /project dashboard is not a screen/);
+  assert.equal(resProj.screen, undefined);
 
   // 6. Shortlink Resolution
+  const shortlinkCalls = [];
   const mockShortlinkFetch = async (url, options) => {
+    shortlinkCalls.push(String(url));
     if (url === "https://zpl.io/bo6k54G") {
       return {
         status: 302,
         ok: false,
-        headers: new Map([["location", "https://app.zeplin.io/project/5cdb/screen/5da6855838d13af07b398623"]]),
+        headers: new Map([["location", "https://app.zeplin.io/project/5cdb84af8438557f58b504f7/screen/5da6855838d13af07b398623"]]),
       };
     }
-    if (url.includes("/screens/5da6855838d13af07b398623")) {
+    if (url.includes("/projects/5cdb84af8438557f58b504f7/screens/5da6855838d13af07b398623")) {
       return {
         status: 200,
         ok: true,
-        json: async () => ({ id: "5da6855838d13af07b398623", name: "Expanded Shortlink Screen" }),
+        json: async () => url.endsWith("/versions/latest")
+          ? { width: 360, height: 640, layers: [{ name: "Title" }], assets: [] }
+          : { id: "5da6855838d13af07b398623", name: "Expanded Shortlink Screen" },
       };
     }
     return { status: 404, ok: false };
@@ -179,6 +215,8 @@ try {
   assert.equal(resShortlink.status, "SUCCESS");
   assert.equal(resShortlink.screenId, "5da6855838d13af07b398623");
   assert.equal(resShortlink.name, "Expanded Shortlink Screen");
+  assert.equal(resShortlink.extract.hierarchy[0].name, "Title");
+  assert(shortlinkCalls.some((url) => url.endsWith("/versions/latest")));
 
   console.log("nodesign zeplin test ok");
 } finally {

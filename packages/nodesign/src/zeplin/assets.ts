@@ -14,7 +14,8 @@ export async function renderZeplinScreen(
   outputDir: string,
   screen: ZeplinScreenSpec,
   extract: ZeplinExtractSpec,
-  fetchFn: typeof fetch
+  fetchFn: typeof fetch,
+  imageUrl?: string
 ): Promise<{
   renderedImage?: string;
   rendering?: RenderResult;
@@ -24,6 +25,9 @@ export async function renderZeplinScreen(
     {
       provider: "zeplin",
       fileKeyOrScreenId: screenId,
+      imageUrl,
+      width: screen.width,
+      height: screen.height,
       authToken,
       outputDir,
     },
@@ -61,45 +65,41 @@ export async function downloadZeplinAssets(
   screenId: string,
   outputDir: string | undefined,
   zHeaders: Record<string, string>,
-  fetchFn: typeof fetch
+  fetchFn: typeof fetch,
+  versionAssets?: any[]
 ): Promise<{ assets: ZeplinAssetSpec[]; savedAssets: string[] }> {
   const savedAssets: string[] = [];
   let assets: ZeplinAssetSpec[] = [];
 
   try {
-    const assetRes = await fetchFn(
+    const assetRes = versionAssets ? undefined : await fetchFn(
       `https://api.zeplin.dev/v1/screens/${screenId}/assets`,
-      {
-        headers: zHeaders,
-      }
+      { headers: zHeaders }
     );
+    const assetData = versionAssets || (assetRes?.ok ? await assetRes.json() : []);
+    assets = (assetData || []).map((a: any) => {
+      const content = a.contents?.find((c: any) => c.format === "svg") || a.contents?.[0];
+      return {
+        id: a.id || a.layer_source_id || a.display_name,
+        name: a.name || a.display_name,
+        format: content?.format || a.format || "svg",
+        url: content?.url || a.url || a.file_url || "",
+      };
+    });
 
-    if (assetRes.ok) {
-      const assetData = (await assetRes.json()) as any[];
-      assets = (assetData || []).map((a: any) => ({
-        id: a.id,
-        name: a.name,
-        format: a.format || "svg",
-        url: a.url || a.file_url || "",
-      }));
-
-      if (outputDir && assets.length > 0) {
-        if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
-        for (const asset of assets) {
-          if (!asset.url) continue;
-          const fileName = `${asset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.${
-            asset.format
-          }`;
-          const filePath = path.join(outputDir, fileName);
-          try {
-            const imgRes = await fetchFn(asset.url);
-            if (imgRes.ok) {
-              const content = await imgRes.text();
-              writeFileSync(filePath, content, "utf8");
-              savedAssets.push(filePath);
-            }
-          } catch {}
-        }
+    if (outputDir && assets.length > 0) {
+      if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+      for (const asset of assets) {
+        if (!asset.url) continue;
+        const fileName = `${asset.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.${asset.format.replace(/[^a-zA-Z0-9]/g, "") || "bin"}`;
+        const filePath = path.join(outputDir, fileName);
+        try {
+          const imgRes = await fetchFn(asset.url);
+          if (imgRes.ok) {
+            writeFileSync(filePath, asset.format === "svg" ? await imgRes.text() : Buffer.from(await imgRes.arrayBuffer()));
+            savedAssets.push(filePath);
+          }
+        } catch {}
       }
     }
   } catch {}

@@ -110,7 +110,9 @@ export async function handlePreflightCommand(
 
   const uiSensitive =
     inspection.androidUIStack !== "n/a" || designLinks.length > 0;
-  const evidenceStatus = determineEvidenceStatus(designLinks, uiSensitive);
+  const evidenceStatus = determineEvidenceStatus(
+    designLinks, uiSensitive, resolvedScreens, resolvedFigma
+  );
 
   const preflight: PreflightResult = {
     uiSensitive,

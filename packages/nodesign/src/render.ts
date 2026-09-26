@@ -6,6 +6,9 @@ export interface RenderOptions {
   provider: "figma" | "zeplin";
   fileKeyOrScreenId: string;
   nodeId?: string;
+  imageUrl?: string;
+  width?: number;
+  height?: number;
   authToken: string;
   outputDir: string;
   format?: "png" | "svg" | "jpg";
@@ -42,8 +45,7 @@ export async function renderDesignNode(
       const data = (await res.json()) as any;
       const imageUrl =
         data?.images?.[targetId] ||
-        data?.images?.[targetId.replace(":", "-")] ||
-        (data?.images ? (Object.values(data.images)[0] as string) : undefined);
+        data?.images?.[targetId.replace(":", "-")];
 
       if (!imageUrl) return undefined;
       const imgRes = await fetchFn(imageUrl);
@@ -79,14 +81,15 @@ export async function renderDesignNode(
         "Zeplin-Access-Token": cleanToken,
         Authorization: `Bearer ${cleanToken}`,
       };
-      const res = await fetchFn(
-        `https://api.zeplin.dev/v1/screens/${fileKeyOrScreenId}`,
-        {
-          headers: zHeaders,
-        }
-      );
-      if (!res.ok) return undefined;
-      const data = (await res.json()) as any;
+      let data: any = { image_url: options.imageUrl, width: options.width, height: options.height };
+      if (!options.imageUrl) {
+        const res = await fetchFn(
+          `https://api.zeplin.dev/v1/screens/${fileKeyOrScreenId}`,
+          { headers: zHeaders }
+        );
+        if (!res.ok) return undefined;
+        data = await res.json();
+      }
       const imageUrl =
         data.image?.original_url ||
         data.image?.png_url ||
