@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.1.4
+
+### Patch Changes
+
+- 251736b: Read system prompts and tool declarations from Pi's transcript so Antigravity models can call tools again. Surface backend finish reasons, and fix Firecrawl worker cleanup after successful searches.
+
 ## Unreleased
 
 ### Patch Changes
