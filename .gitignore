@@ -1,1 +1,23 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+out/
+*.log
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Ephemeral agent work directories
+.codex/
+.workflow/
+.notrace/
+.graphify/
+active_task.json
