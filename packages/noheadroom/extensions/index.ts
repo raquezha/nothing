@@ -36,6 +36,7 @@ interface HeadroomRuntimeState {
 	lastGuardSkipCandidateFingerprint: string | null;
 	seenCandidateContentFingerprints?: Set<string>;
 	seenCandidateContentOrder?: string[];
+	compressedCandidates?: Map<string, string>;
 	lastCompressionTime: number;
 	stats: HeadroomStats;
 }
@@ -67,6 +68,14 @@ export default function headroomExtension(pi: ExtensionAPI) {
 	const runtime = createRuntime(pi);
 
 	pi.on("session_start", (_event, ctx) => {
+		// A context transform is request-local; cached substitutions must not cross sessions.
+		runtime.state.compressedCandidates = new Map();
+		runtime.state.seenCandidateContentFingerprints = new Set();
+		runtime.state.seenCandidateContentOrder = [];
+		runtime.state.lastInputFingerprint = null;
+		runtime.state.lastOutputFingerprint = null;
+		runtime.state.lastGuardSkipCandidateFingerprint = null;
+		runtime.state.lastCompressionTime = 0;
 		if (isRemoteBlocked(runtime.config)) {
 			runtime.refreshStatus(ctx);
 			emitNotraceTelemetry(runtime);
@@ -135,6 +144,7 @@ function createRuntime(pi: ExtensionAPI): HeadroomRuntime {
 		lastGuardSkipCandidateFingerprint: null,
 		seenCandidateContentFingerprints: new Set(),
 		seenCandidateContentOrder: [],
+		compressedCandidates: new Map(),
 		lastCompressionTime: 0,
 		stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 },
 	};
@@ -270,36 +280,26 @@ async function handleContextCompression(
 ): Promise<{ messages?: AgentMessage[] } | undefined> {
 	if (runtime.state.processing) return undefined;
 
+	let replayed: AgentMessage[] | undefined;
 	const bypassUncompressed = () => {
 		if (runtime.state.stats.last) {
 			runtime.state.stats.last = undefined;
 			runtime.refreshStatus(ctx);
 		}
-		return undefined;
+		return replayed ? { messages: replayed } : undefined;
 	};
-
-	// Throttle: max 1 compression attempt per 3 seconds to kill infinite loops
-	const now = Date.now();
-	if (now - runtime.state.lastCompressionTime < 3000) {
-		return bypassUncompressed();
-	}
-
-	// Content-based guards to prevent infinite recursion
-	const inputFingerprint = generateFingerprint(event.messages);
-
-	// 1. If this input matches our previous output, we already compressed it. Stop.
-	if (runtime.state.lastOutputFingerprint === inputFingerprint) {
-		return undefined;
-	}
-
-	// 2. If this input matches our previous input, it didn't change. Stop.
-	if (runtime.state.lastInputFingerprint === inputFingerprint) {
-		return bypassUncompressed();
-	}
 
 	if (shouldSkipBeforePayload(runtime, ctx)) return bypassUncompressed();
 	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
+	replayed = replayCachedCandidates(runtime.state, event.messages, payload, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return bypassUncompressed();
+
+	// Pi's context transform is request-local; reuse validated text on later turns.
+	const now = Date.now();
+	if (now - runtime.state.lastCompressionTime < 3000) return bypassUncompressed();
+	const inputFingerprint = generateFingerprint(event.messages);
+	if (runtime.state.lastOutputFingerprint === inputFingerprint) return undefined;
+	if (runtime.state.lastInputFingerprint === inputFingerprint) return bypassUncompressed();
 
 	// 3. If eligible candidates haven't changed since the last skip/no-savings result,
 	// don't spend another proxy call just because surrounding conversation changed.
@@ -347,9 +347,17 @@ async function handleContextCompression(
 
 		// Store fingerprints to break the feedback loop
 		runtime.state.lastInputFingerprint = inputFingerprint;
-		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 		runtime.state.lastGuardSkipCandidateFingerprint = null;
 		recordSeenCandidateContent(runtime.state, payload, applied.messages);
+		if (replayed) {
+			for (const mapping of payload.mappings) {
+				if (runtime.state.compressedCandidates?.has(candidateKey(event.messages[mapping.sourceIndex], mapping.originalText))) {
+					applied.messages[mapping.sourceIndex] = replayed[mapping.sourceIndex];
+				}
+			}
+		}
+		recordCachedCandidates(runtime.state, payload, applied.messages);
+		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 		const appliedResult = {
 			...result,
 			tokensBefore: applied.appliedTokensBefore,
@@ -368,6 +376,44 @@ async function handleContextCompression(
 		return bypassUncompressed();
 	} finally {
 		runtime.state.processing = false;
+	}
+}
+
+function candidateKey(message: AgentMessage, text: string): string {
+	const source = message as AgentMessage & { toolCallId?: string; toolName?: string };
+	return stableHash(JSON.stringify([source.toolCallId, source.toolName, stableHash(text)]));
+}
+
+function replayCachedCandidates(
+	state: HeadroomRuntimeState, messages: AgentMessage[], payload: CompressionPayload, minMessageChars: number,
+): AgentMessage[] | undefined {
+	if (!state.compressedCandidates?.size) return undefined;
+	const mappings = payload.mappings.map((mapping) => ({
+		...mapping,
+		applyTo: mapping.applyTo && state.compressedCandidates?.has(candidateKey(messages[mapping.sourceIndex], mapping.originalText))
+			? mapping.applyTo : null,
+	}));
+	const compressed = mappings.map((mapping) => {
+		const text = mapping.applyTo && state.compressedCandidates?.get(candidateKey(messages[mapping.sourceIndex], mapping.originalText));
+		return text && mapping.message.role === "tool" ? { ...mapping.message, content: text } : mapping.message;
+	});
+	const applied = applyCompressionResult(messages, mappings, compressed, { minMessageChars });
+	return applied.ok ? applied.messages : undefined;
+}
+
+function recordCachedCandidates(state: HeadroomRuntimeState, payload: CompressionPayload, messages: AgentMessage[]): void {
+	state.compressedCandidates ??= new Map();
+	for (const mapping of payload.mappings) {
+		if (!mapping.applyTo) continue;
+		const applied = convertMessage(messages[mapping.sourceIndex]);
+		if (!applied || applied.role !== "tool") continue;
+		const text = extractOpenAIText(applied);
+		if (text === mapping.originalText) continue;
+		const key = candidateKey(messages[mapping.sourceIndex], mapping.originalText);
+		state.compressedCandidates.set(key, text);
+		if (state.compressedCandidates.size > MAX_SEEN_CANDIDATE_CONTENT_FINGERPRINTS) {
+			state.compressedCandidates.delete(state.compressedCandidates.keys().next().value!);
+		}
 	}
 }
 

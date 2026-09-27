@@ -13,7 +13,7 @@ Headroom intentionally protects file reads: changing source text can break exact
 - **Headroom Bridge, Pi Policy**: Headroom can optimize broad prompt/context payloads; `noheadroom` intentionally narrows what gets applied back to Pi so only `toolResult` content mutates.
 - **Tool Fidelity**: preserves tool names and arguments so Headroom's protected-tool policy remains effective.
 - **Strict Candidate Isolation**: applies only eligible text-only, non-error `toolResult` changes; rejects retrieval markers without a registered retrieval tool.
-- **Turn-by-Turn Loop Prevention**: caches eligible `toolResult` candidate fingerprints using tool identity, content shape, length, and stable content hashes to block useless proxy retries across new conversational turns while still retrying when actual tool output changes.
+- **Request-local Replay**: reuses validated compression for the same tool call and unchanged result on later model requests without re-calling the proxy. A new tool call with the same output remains raw to avoid re-read loops.
 - **Pi-Native Metadata Preservation**: original tool IDs and names are never modified in your real session.
 - **Visibility**: session-local compression estimates appear in the terminal and Pi footer; proxy `/stats` does not count extension `/v1/compress` requests as inference savings.
 - **Docker-First Architecture**: designed to work seamlessly with a local containerized backend.

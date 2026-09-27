@@ -121,7 +121,7 @@ async function testLoopPrevention() {
   const event3 = { messages: newMessages };
   const res3 = await handleContextCompression(runtime, event3, createMockCtx(newMessages));
   
-  assert(res3 === undefined, "Should skip when only surrounding conversation changes");
+  assert.equal(res3?.messages[2].content, res1.messages[2].content, "Replay same call's compression on new request");
   assert(client.calls === 1, "Should not call headroom for unchanged candidate content");
 
   // Pass 4: Actually changed toolResult content should still compress.
@@ -137,6 +137,34 @@ async function testLoopPrevention() {
   assert(client.calls === 2, "Should call headroom for changed candidate content");
 
   console.log("✓ Loop prevention test passed\n");
+}
+
+async function testRequestLocalReplay() {
+  const client = new MockClient();
+  const runtime = {
+    pi: mockPi, config: mockConfig, client,
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, lastCompressionTime: 0, stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 } },
+    refreshStatus: () => {}
+  };
+  const raw = [{ role: "user", content: "question" }, { role: "toolResult", toolCallId: "same-id", toolName: "bash", content: "log line\n".repeat(500) }];
+  const first = await handleContextCompression(runtime, { messages: raw }, createMockCtx(raw));
+  assert(first?.messages, "First turn should compress");
+  const later = [...raw, { role: "user", content: "follow-up" }];
+  const second = await handleContextCompression(runtime, { messages: later }, createMockCtx(later));
+  assert.equal(second?.messages[1].content, first.messages[1].content, "Later request should replay model-facing compression");
+  assert.equal(client.calls, 1, "Replay must not call proxy again");
+  assert.equal(runtime.state.stats.applied, 1, "Replay is not a new saving");
+  const changed = [{ ...raw[0] }, { ...raw[1], content: "different line\n".repeat(500) }, { role: "user", content: "changed" }];
+  runtime.state.lastCompressionTime = 0;
+  const third = await handleContextCompression(runtime, { messages: changed }, createMockCtx(changed));
+  assert.notEqual(third?.messages[1].content, first.messages[1].content, "Changed result must not use stale compression");
+  assert.equal(client.calls, 2);
+  runtime.state.lastCompressionTime = 0;
+  const mixed = [raw[0], raw[1], { role: "user", content: "one more result" }, { role: "toolResult", toolCallId: "new-id", toolName: "bash", content: "other log\n".repeat(500) }];
+  const fourth = await handleContextCompression(runtime, { messages: mixed }, createMockCtx(mixed));
+  assert.equal(fourth?.messages[1].content, first.messages[1].content, "Replay old result while compressing a new one");
+  assert.notEqual(fourth?.messages[3].content, mixed[3].content, "New result must be compressed too");
+  assert.equal(client.calls, 3);
 }
 
 async function testRepeatedReadContentLoop() {
@@ -223,7 +251,7 @@ async function testSeenCandidateMemoryCap() {
     refreshStatus: () => {}
   };
 
-  for (let i = 0; i < 270; i++) {
+  for (let i = 0; i < 520; i++) {
     const messages = [
       { role: "user", content: `read file ${i}` },
       { role: "toolResult", toolCallId: `read-${i}`, toolName: "bash", content: `unique-${i}-`.repeat(500) }
@@ -234,6 +262,7 @@ async function testSeenCandidateMemoryCap() {
 
   assert(runtime.state.seenCandidateContentFingerprints.size <= 512, "Seen content fingerprint set should be capped");
   assert(runtime.state.seenCandidateContentOrder.length <= 512, "Seen content FIFO order should be capped");
+  assert(runtime.state.compressedCandidates.size <= 512, "Replay cache should be capped");
   console.log("✓ Seen candidate memory cap test passed\n");
 }
 
@@ -281,7 +310,7 @@ async function testThrottle() {
   const msgs2 = [...msgs, { role: "user", content: "y" }];
   const res2 = await handleContextCompression(runtime, { messages: msgs2 }, createMockCtx(msgs2));
   
-  assert(res2 === undefined, "Should throttle fast repeats even if content changes");
+  assert.equal(res2?.messages[1].content, "X".repeat(2500), "Throttle must still replay cached results");
   assert(client.calls === 1, "Should not call headroom during throttle period");
 
   console.log("✓ Throttle test passed\n");
@@ -314,7 +343,7 @@ async function testZeroSavings() {
   runtime.state.lastCompressionTime = 0;
   const msgsNewTurn = [...msgs, { role: "user", content: "new question" }];
   const res3 = await handleContextCompression(runtime, { messages: msgsNewTurn }, createMockCtx(msgsNewTurn));
-  assert(res3 === undefined, "Should skip if only surrounding conversation changed");
+  assert.equal(res3, undefined, "No-savings result should remain raw on later turns");
   assert(client.calls === 1, "Should NOT call client when candidate fingerprint is unchanged");
 
   // Same length but different toolResult content must call Headroom again.
@@ -624,6 +653,7 @@ async function runAll() {
     await testOutputModes();
     testCCRMarkerRejection();
     await testLoopPrevention();
+    await testRequestLocalReplay();
     await testRepeatedReadContentLoop();
     await testMixedSeenAndNewCandidatesOnlyCountsNew();
     await testSeenCandidateMemoryCap();
