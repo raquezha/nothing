@@ -27,12 +27,12 @@ export class HeadroomHttpClient {
 	async health(signal?: AbortSignal): Promise<boolean> {
 		try {
 			const response = await fetch(`${this.baseUrl}/health`, {
+				redirect: "error",
 				signal: buildSignal(this.timeoutMs, signal),
 			});
 			if (!response.ok) return false;
 			const body = await readJsonObject(response);
-			if (!body) return true;
-			return body.status === "healthy" || body.status === "ok" || "optimize" in body || "stats" in body;
+			return Boolean(body && body.ready !== false && (body.status === "healthy" || body.status === "ok"));
 		} catch {
 			return false;
 		}
@@ -41,12 +41,15 @@ export class HeadroomHttpClient {
 	async probe(signal?: AbortSignal): Promise<boolean> {
 		try {
 			const response = await fetch(`${this.baseUrl}/v1/compress`, {
+				redirect: "error",
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ messages: [{ role: "user", content: "ping" }], model: "gpt-4o" }),
 				signal: buildSignal(5_000, signal),
 			});
-			return response.ok;
+			if (!response.ok) return false;
+			validateCompressionResponse(await response.json());
+			return true;
 		} catch {
 			return false;
 		}
@@ -54,6 +57,7 @@ export class HeadroomHttpClient {
 
 	async stats(signal?: AbortSignal): Promise<unknown> {
 		const response = await fetch(`${this.baseUrl}/stats`, {
+			redirect: "error",
 			signal: buildSignal(this.timeoutMs, signal),
 		});
 		if (!response.ok) {
@@ -64,12 +68,18 @@ export class HeadroomHttpClient {
 
 	async compress(messages: OpenAIMessage[], model: string | undefined, signal?: AbortSignal): Promise<CompressResult> {
 		const response = await fetch(`${this.baseUrl}/v1/compress`, {
+			redirect: "error",
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
 				"X-Headroom-Stack": "pi-extension",
 			},
-			body: JSON.stringify({ messages, model: model || "gpt-4o" }),
+			body: JSON.stringify({
+				messages,
+				model: model || "gpt-4o",
+				// 0.39.1's default is marker-free and inherits the backend's --lossless policy.
+				// lossy_inline would override that policy and enable lossy SmartCrusher.
+			}),
 			signal: buildSignal(this.timeoutMs, signal),
 		});
 
@@ -78,7 +88,7 @@ export class HeadroomHttpClient {
 			throw new Error(message || `Headroom /v1/compress failed with HTTP ${response.status}`);
 		}
 
-		const payload = (await response.json()) as ProxyCompressResponse;
+		const payload = validateCompressionResponse(await response.json());
 		return {
 			messages: payload.messages,
 			tokensBefore: payload.tokens_before,
@@ -90,6 +100,18 @@ export class HeadroomHttpClient {
 			compressed: true,
 		};
 	}
+}
+
+function validateCompressionResponse(value: unknown): ProxyCompressResponse {
+	const metrics = ["tokens_before", "tokens_after", "tokens_saved", "compression_ratio"];
+	const stringArray = (v: unknown) => Array.isArray(v) && v.every((item) => typeof item === "string");
+	if (!isRecord(value) || !Array.isArray(value.messages) ||
+		!metrics.every((key) => typeof value[key] === "number" && Number.isFinite(value[key]) && value[key] >= 0) ||
+		(value.transforms_applied !== undefined && !stringArray(value.transforms_applied)) ||
+		(value.ccr_hashes !== undefined && (!stringArray(value.ccr_hashes) || (value.ccr_hashes as string[]).length > 0))) {
+		throw new Error("Invalid or retrieval-dependent Headroom compression response");
+	}
+	return value as unknown as ProxyCompressResponse;
 }
 
 async function readJsonObject(response: Response): Promise<Record<string, unknown> | undefined> {

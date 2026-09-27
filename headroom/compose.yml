@@ -1,6 +1,6 @@
 services:
   headroom:
-    image: ghcr.io/chopratejas/headroom:0.27.0
+    image: ghcr.io/headroomlabs-ai/headroom:0.39.1
     container_name: nothing-headroom
     restart: unless-stopped
     ports:
@@ -9,7 +9,8 @@ services:
       HEADROOM_HOST: "0.0.0.0"
       HEADROOM_PORT: "8787"
       HEADROOM_TELEMETRY: "off"
+      HEADROOM_BEACON: "off"
       HEADROOM_SAVINGS_PATH: "/data/proxy_savings.json"
     volumes:
       - "${HOME}/.local/share/headroom:/data"
-    command: ["--host", "0.0.0.0", "--port", "8787", "--no-cache"]
+    command: ["--host", "0.0.0.0", "--port", "8787", "--mode", "cache", "--lossless", "--no-cache"]

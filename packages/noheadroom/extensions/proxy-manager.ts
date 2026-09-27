@@ -22,26 +22,32 @@ export async function startPersistentHeadroomProxy(
 			env: {
 				...process.env,
 				HEADROOM_TELEMETRY: process.env.HEADROOM_TELEMETRY || "off",
+				HEADROOM_BEACON: process.env.HEADROOM_BEACON || "off",
 			},
 		});
-		child.unref();
-		return { ok: true };
+		return await new Promise((resolve) => {
+			child.once("error", (error) => resolve({ ok: false, reason: error.message }));
+			child.once("spawn", () => {
+				child.unref();
+				resolve({ ok: true });
+			});
+		});
 	} catch (error) {
 		return { ok: false, reason: error instanceof Error ? error.message : String(error) };
 	}
 }
 
 export function buildProxyArgs(endpoint: ProxyEndpoint): string[] {
-	return ["proxy", "--host", endpoint.host, "--port", endpoint.port, "--mode", "token", "--no-cache"];
+	return ["proxy", "--host", endpoint.host, "--port", endpoint.port, "--mode", "cache", "--lossless", "--no-cache"];
 }
 
 export function parseLocalEndpoint(baseUrl: string): ProxyEndpoint | undefined {
 	try {
 		const url = new URL(baseUrl);
-		if (!["http:", "https:"].includes(url.protocol)) return undefined;
+		if (url.protocol !== "http:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) return undefined;
 		if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)) return undefined;
 		const host = url.hostname === "localhost" ? "127.0.0.1" : url.hostname.replace(/^\[(.*)]$/, "$1");
-		const port = url.port || "8787";
+		const port = url.port || "80";
 		return { host, port };
 	} catch {
 		return undefined;

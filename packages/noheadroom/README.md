@@ -1,28 +1,21 @@
 # noheadroom 🗜
 
-> **Reclaim your Pi context window.** A local-first context compression bridge for the Pi Coding Agent, powered by [Headroom](https://github.com/headroom-ai/headroom).
+> **Reclaim your Pi context window.** A local-first context compression bridge for the Pi Coding Agent, powered by [Headroom](https://github.com/headroomlabs-ai/headroom).
 
 `noheadroom` sits between Pi and your LLM, using Headroom to shrink massive tool outputs/results and logs before they become model input. Headroom itself is a general prompt/context compression engine that can transform broader request material. `noheadroom` deliberately applies a stricter Pi policy: user prompts and assistant messages may be sent as context for the compression request, but Pi only accepts mutations to `toolResult` content. User chat, assistant text, tool-call metadata, and tool IDs remain unchanged in real Pi history. Save tokens, keep more history, and prevent context-overflow in long sessions.
 
 ## 🚀 Why noheadroom?
 
-Upstream Headroom protects common agent tool names like `read` and `bash` by default. In a standard Pi workflow, this means large file reads often bypass compression entirely.
-
-`noheadroom` adapts the compression payload to bypass these exclusions while **fully preserving your Pi session metadata**.
-
-| Setup | Tool Name | Headroom Action | Savings |
-|---|---|---|---|
-| Vanilla | `read` | `excluded_tool` | 0% |
-| **noheadroom** | `read` | `smart_crusher` | **60-90%** |
+Headroom intentionally protects file reads: changing source text can break exact-match edits. `noheadroom` keeps those reads raw and compresses eligible large text-only tool results (for example, repetitive logs). It never changes the stored Pi session transcript.
 
 ## ✨ Features
 
 - **Headroom Bridge, Pi Policy**: Headroom can optimize broad prompt/context payloads; `noheadroom` intentionally narrows what gets applied back to Pi so only `toolResult` content mutates.
-- **Adaptive Payload Sanitization**: renames tool calls during compression to ensure Headroom actually shrinks them.
-- **Strict Candidate Isolation**: limits applied mutations strictly to `toolResult` messages, safely ignoring upstream proxy mangling of user/assistant history to prevent false-positive guard skips.
+- **Tool Fidelity**: preserves tool names and arguments so Headroom's protected-tool policy remains effective.
+- **Strict Candidate Isolation**: applies only eligible text-only, non-error `toolResult` changes; rejects retrieval markers without a registered retrieval tool.
 - **Turn-by-Turn Loop Prevention**: caches eligible `toolResult` candidate fingerprints using tool identity, content shape, length, and stable content hashes to block useless proxy retries across new conversational turns while still retrying when actual tool output changes.
 - **Pi-Native Metadata Preservation**: original tool IDs and names are never modified in your real session.
-- **Deep Visibility**: compression results appear in your terminal, the Pi footer, and as persistent entries in your session history.
+- **Visibility**: session-local compression estimates appear in the terminal and Pi footer; proxy `/stats` does not count extension `/v1/compress` requests as inference savings.
 - **Docker-First Architecture**: designed to work seamlessly with a local containerized backend.
 - **Local-First Privacy**: by default, context never leaves your machine.
 

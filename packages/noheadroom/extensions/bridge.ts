@@ -17,6 +17,9 @@ interface MessageWithContent {
 }
 
 const STANDARD_COMPRESSIBLE_ROLES = new Set(["user", "assistant", "toolResult"]);
+// File reads supply exact edit anchors; directives and recovered evidence must stay raw.
+const PROTECTED_TOOLS = new Set(["read", "read_file", "view", "edit", "write", "skill", "headroom_retrieve"]);
+const CCR_MARKER = /Retrieve\s+(?:more|original):\s*hash=|<<ccr:/i;
 
 export function buildCompressionPayload(messages: AgentMessage[], minMessageChars: number): CompressionPayload {
 	const mappings: CompressionMapping[] = [];
@@ -30,7 +33,13 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		const originalText = extractOpenAIText(converted);
 		// Mark candidates for compression.
 		// ONLY toolResults are candidates, preserving original Pi conversation fidelity.
-		let applyTo: "toolResult" | null = source.role === "toolResult" ? "toolResult" : null;
+		const textOnly = typeof source.content === "string" ||
+			(Array.isArray(source.content) && source.content.every(isTextContent));
+		let applyTo: "toolResult" | null = source.role === "toolResult" &&
+			textOnly && originalText.length >= minMessageChars &&
+			!("isError" in source && source.isError) &&
+			!PROTECTED_TOOLS.has((readStringProperty(source, "toolName") ?? "").toLowerCase())
+			? "toolResult" : null;
 
 		// Headroom Bypass Rules (Android Hat)
 		// We never want to compress `android layout` JSON dumps or critical adb dumps.
@@ -38,7 +47,7 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 			applyTo = null;
 		}
 		
-		if (applyTo && originalText.length >= minMessageChars) candidateCount++;
+		if (applyTo) candidateCount++;
 		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
 	}
 
@@ -53,9 +62,9 @@ export function applyCompressionResult(
 	originalMessages: AgentMessage[],
 	mappings: CompressionMapping[],
 	compressedMessages: OpenAIMessage[],
-	_options: ApplyCompressionOptions,
+	options: ApplyCompressionOptions,
 ): ApplyCompressionResult {
-	if (compressedMessages.length !== mappings.length) {
+	if (!Array.isArray(compressedMessages) || compressedMessages.length !== mappings.length) {
 		return { ok: false, reason: "message-count-changed" };
 	}
 
@@ -71,16 +80,17 @@ export function applyCompressionResult(
 		// We only validate and apply changes to explicit candidates.
 		// Headroom is allowed to mangle non-candidates (like assistant history) in its output,
 		// but we simply ignore those changes and keep the original Pi message intact.
-		if (!mapping.applyTo) continue;
+		if (!mapping.applyTo || mapping.originalText.length < options.minMessageChars) continue;
 
 		const validation = validateAlignedMessage(mapping.message, compressed);
 		if (!validation.ok) return validation;
 
-		let nextText = extractOpenAIText(compressed);
+		const nextText = extractOpenAIText(compressed);
 		if (nextText === mapping.originalText) continue;
-
-		// Naturalize Headroom's native CCR markers to provide Pi-native tooling hints (Upstream #846)
-		nextText = naturalizeHeadroomMarkers(nextText);
+		// No retrieval executor is registered. Hiding a hash does not recover evidence.
+		if (CCR_MARKER.test(nextText)) return { ok: false, reason: "unrecoverable-ccr-marker" };
+		if (!nextText.trim()) return { ok: false, reason: "empty-compressed-content" };
+		if (estimateTokens(nextText) >= estimateTokens(mapping.originalText)) continue;
 
 		const target = nextMessages[mapping.sourceIndex] as AnyMessage;
 		if (!hasContent(target) || !replaceTextContent(target, nextText)) {
@@ -175,10 +185,9 @@ function convertToolCall(toolCall: ToolCall): OpenAIToolCall {
 		id: toolCall.id,
 		type: "function",
 		function: {
-			// Headroom protects exact tool names (read, bash) in its DEFAULT_EXCLUDE_TOOLS.
-			// Keep upstream bridge behavior until tests prove a better name changes routing/fidelity.
-			name: "pi_tool_result",
-			arguments: JSON.stringify({ originalToolName: toolCall.name }),
+			// Preserve upstream tool protections as well as routing context.
+			name: toolCall.name,
+			arguments: JSON.stringify(toolCall.arguments),
 		},
 	};
 }
@@ -187,6 +196,9 @@ function validateAlignedMessage(
 	original: OpenAIMessage,
 	compressed: OpenAIMessage,
 ): { ok: true } | { ok: false; reason: string } {
+	if (!isRecord(compressed) || (original.role === "tool" && typeof compressed.content !== "string")) {
+		return { ok: false, reason: "invalid-compressed-message" };
+	}
 	if (original.role !== compressed.role) {
 		return { ok: false, reason: `role-changed:${original.role}->${compressed.role}` };
 	}
@@ -286,31 +298,4 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function estimateTokens(text: string): number {
 	// ponytail: cheap local estimate; exact tokenizer would add a heavy dependency for a footer number.
 	return text.length === 0 ? 0 : Math.max(1, Math.ceil(text.length / 4));
-}
-
-function naturalizeHeadroomMarkers(text: string): string {
-	// Translate Headroom's "[X items compressed to Y. Retrieve more: hash=...]" 
-	// into a Pi-native instruction to use offset/limit instead of hallucinating a retrieve command.
-	return text.replace(
-		/\[(.*?(?:compressed|omitted).*?)\.?\s*Retrieve more: hash=[a-f0-9]+\]/gi,
-		"[$1. Hint: Do not re-read the whole file. Use the 'read' tool with 'offset' and 'limit' to inspect specific sections.]"
-	);
-}
-
-export function injectCompressionAwareness(messages: AgentMessage[]): AgentMessage[] {
-	// If a system message already exists at the top, we append the hint to it.
-	// Otherwise, we inject a new system message at index 0.
-	const result = [...messages];
-	const hintText = "Environment Hint: Some tool results in this context have been automatically compressed by Headroom to optimize tokens. If you see '[X items compressed to Y]' or similar markers, do NOT attempt to re-read the entire file. Use the 'read' tool with 'offset' and 'limit' to query missing sections.";
-
-	const first = result[0] as unknown as Record<string, unknown>;
-	if (first && first.role === "system" && typeof first.content === "string") {
-		if (!first.content.includes("automatically compressed by Headroom")) {
-			result[0] = { ...first, content: `${first.content}\n\n${hintText}` } as unknown as AgentMessage;
-		}
-	} else {
-		result.unshift({ role: "system", content: hintText } as unknown as AgentMessage);
-	}
-
-	return result;
 }

@@ -1,7 +1,9 @@
 import assert from "node:assert";
 import { __test__ } from "./dist/index.js";
 import { applyCompressionResult, buildCompressionPayload } from "./dist/bridge.js";
-import { loadHeadroomConfig } from "./dist/config.js";
+import { isRemoteBlocked, loadHeadroomConfig } from "./dist/config.js";
+import { HeadroomHttpClient } from "./dist/client.js";
+import { buildProxyArgs, parseLocalEndpoint } from "./dist/proxy-manager.js";
 
 const { handleContextCompression, generateFingerprint } = __test__;
 
@@ -92,7 +94,7 @@ async function testLoopPrevention() {
   const initialMessages = [
     { role: "user", content: "hello" },
     { role: "assistant", content: null, tool_calls: [{ id: "c1", type: "function", function: { name: "read", arguments: "{}" } }] },
-    { role: "toolResult", toolCallId: "c1", toolName: "read", content: "A".repeat(5000) }
+    { role: "toolResult", toolCallId: "c1", toolName: "bash", content: "A".repeat(5000) }
   ];
 
   // Pass 1: Initial compression
@@ -127,7 +129,7 @@ async function testLoopPrevention() {
   const changedMessages = [
     { role: "user", content: "hello" },
     { role: "assistant", content: null, tool_calls: [{ id: "c2", type: "function", function: { name: "read", arguments: "{}" } }] },
-    { role: "toolResult", toolCallId: "c2", toolName: "read", content: "B".repeat(5000) }
+    { role: "toolResult", toolCallId: "c2", toolName: "bash", content: "B".repeat(5000) }
   ];
   runtime.state.lastCompressionTime = 0;
   const res4 = await handleContextCompression(runtime, { messages: changedMessages }, createMockCtx(changedMessages));
@@ -149,7 +151,7 @@ async function testRepeatedReadContentLoop() {
   const fullFile = "function important() { return 42; }\n".repeat(200);
   const first = [
     { role: "user", content: "read file" },
-    { role: "toolResult", toolCallId: "read-1", toolName:"read", content: fullFile }
+    { role: "toolResult", toolCallId: "read-1", toolName: "bash", content: fullFile }
   ];
 
   const compressed = await handleContextCompression(runtime, { messages: first }, createMockCtx(first));
@@ -160,7 +162,7 @@ async function testRepeatedReadContentLoop() {
   const reread = [
     ...compressed.messages,
     { role: "user", content: "read it again, previous result was incomplete" },
-    { role: "toolResult", toolCallId: "read-2", toolName:"read", content: fullFile }
+    { role: "toolResult", toolCallId: "read-2", toolName: "bash", content: fullFile }
   ];
   const skipped = await handleContextCompression(runtime, { messages: reread }, createMockCtx(reread));
   assert(skipped === undefined, "Should skip duplicate same-content reread");
@@ -170,7 +172,7 @@ async function testRepeatedReadContentLoop() {
   const changed = [
     ...compressed.messages,
     { role: "user", content: "read changed file" },
-    { role: "toolResult", toolCallId: "read-3", toolName:"read", content: fullFile.replace("42", "43") }
+    { role: "toolResult", toolCallId: "read-3", toolName: "bash", content: fullFile.replace("42", "43") }
   ];
   await handleContextCompression(runtime, { messages: changed }, createMockCtx(changed));
   assert(client.calls === 2, "Should still call Headroom when content actually changes");
@@ -190,7 +192,7 @@ async function testMixedSeenAndNewCandidatesOnlyCountsNew() {
   const oldFile = "old-file-line\n".repeat(1000);
   const first = [
     { role: "user", content: "read old" },
-    { role: "toolResult", toolCallId: "old-1", toolName:"read", content: oldFile }
+    { role: "toolResult", toolCallId: "old-1", toolName: "bash", content: oldFile }
   ];
   const compressed = await handleContextCompression(runtime, { messages: first }, createMockCtx(first));
   assert(compressed !== undefined, "Should compress first old result");
@@ -201,7 +203,7 @@ async function testMixedSeenAndNewCandidatesOnlyCountsNew() {
   const mixed = [
     ...compressed.messages,
     { role: "user", content: "read new" },
-    { role: "toolResult", toolCallId: "new-1", toolName:"read", content: newFile }
+    { role: "toolResult", toolCallId: "new-1", toolName: "bash", content: newFile }
   ];
   await handleContextCompression(runtime, { messages: mixed }, createMockCtx(mixed));
   const secondSaved = runtime.state.stats.tokensSaved - firstSaved;
@@ -224,7 +226,7 @@ async function testSeenCandidateMemoryCap() {
   for (let i = 0; i < 270; i++) {
     const messages = [
       { role: "user", content: `read file ${i}` },
-      { role: "toolResult", toolCallId: `read-${i}`, toolName:"read", content: `unique-${i}-`.repeat(500) }
+      { role: "toolResult", toolCallId: `read-${i}`, toolName: "bash", content: `unique-${i}-`.repeat(500) }
     ];
     runtime.state.lastCompressionTime = 0;
     await handleContextCompression(runtime, { messages }, createMockCtx(messages));
@@ -246,7 +248,7 @@ async function testFingerprintIncludesContent() {
 
   const makeMessages = (ch) => [
     { role: "user", content: "same prompt" },
-    { role: "toolResult", toolCallId: "c", toolName:"read", content: ch.repeat(5000) }
+    { role: "toolResult", toolCallId: "c", toolName: "bash", content: ch.repeat(5000) }
   ];
   const first = makeMessages("A");
   const second = makeMessages("B");
@@ -342,7 +344,7 @@ function testAssistantToolCallPreservation() {
         { type: "toolCall", id: "call_123", name: "edit", arguments: { path: "WORK.md", edits: [] } }
       ]
     },
-    { role: "toolResult", toolCallId: "call_123", toolName: "edit", content: "Successfully replaced 1 block. ".repeat(100) },
+    { role: "toolResult", toolCallId: "call_123", toolName: "bash", content: "Successfully replaced 1 block. ".repeat(100) },
     { role: "user", content: "what changed?" }
   ];
 
@@ -418,9 +420,7 @@ async function testEdgeCases() {
   ];
   runtime.state.lastCompressionTime = 0;
   const resMixed = await handleContextCompression(runtime, { messages: msgMixed }, createMockCtx(msgMixed));
-  assert(resMixed !== undefined, "Should handle mixed content blocks");
-  assert(Array.isArray(resMixed.messages[1].content), "Should preserve content block array structure");
-  assert(resMixed.messages[1].content.some(c => c.type === 'image'), "Should NOT lose the image block");
+  assert(resMixed === undefined, "Mixed content with images must stay raw");
 
   // Case 4: No compressible messages (System only)
   console.log(" - Case 4: System only (no candidates)...");
@@ -546,10 +546,83 @@ async function testOutputModes() {
   console.log("✓ Output modes passed\n");
 }
 
+function testSafeCandidates() {
+  const source = "raw source line\n".repeat(200);
+  for (const toolName of ["read", "read_file", "view", "edit", "write", "skill", "headroom_retrieve"]) {
+    assert.equal(buildCompressionPayload([{ role: "toolResult", toolCallId: "id", toolName, content: source }], 100).candidateCount, 0, `${toolName} must remain raw`);
+  }
+  for (const message of [
+    { role: "toolResult", toolCallId: "id", toolName: "bash", isError: true, content: source },
+    { role: "toolResult", toolCallId: "id", toolName: "bash", content: [{ type: "text", text: source }, { type: "image", data: "x", mimeType: "image/png" }] },
+    { role: "toolResult", toolCallId: "id", toolName: "bash", content: "short" }
+  ]) assert.equal(buildCompressionPayload([message], 100).candidateCount, 0);
+  const assistant = { role: "assistant", content: [{ type: "toolCall", id: "id", name: "bash", arguments: { command: "echo ok" } }] };
+  assert.equal(buildCompressionPayload([assistant, { role: "toolResult", toolCallId: "id", toolName: "bash", content: source }], 100).candidateCount, 1);
+  assert.equal(JSON.parse(buildCompressionPayload([assistant], 1).messages[0].tool_calls[0].function.arguments).command, "echo ok");
+  assert(isRemoteBlocked({ baseUrl: "file:///tmp/exfiltrate", allowRemote: false }));
+  assert.deepEqual(buildProxyArgs({ host: "127.0.0.1", port: "8788" }), ["proxy", "--host", "127.0.0.1", "--port", "8788", "--mode", "cache", "--lossless", "--no-cache"]);
+  assert.deepEqual(parseLocalEndpoint("http://127.0.0.1:8788"), { host: "127.0.0.1", port: "8788" });
+  assert.equal(parseLocalEndpoint("http://127.0.0.1:8788/other"), undefined);
+}
+
+async function testHttpContract() {
+  const originalFetch = globalThis.fetch;
+  let body;
+  const raw = "data line\n".repeat(300);
+  try {
+    globalThis.fetch = async (_url, init) => {
+      assert.equal(init.redirect, "error");
+      body = JSON.parse(init.body);
+      return Response.json({ messages: body.messages, tokens_before: 1000, tokens_after: 500, tokens_saved: 500, compression_ratio: 0.5, transforms_applied: [], ccr_hashes: [] });
+    };
+    const client = new HeadroomHttpClient({ baseUrl: "http://127.0.0.1:8788", timeoutMs: 1000 });
+    await client.compress([{ role: "tool", tool_call_id: "id", content: raw }], "gpt-4o");
+    assert.equal(body.config, undefined, "Do not override upstream marker-free default");
+    globalThis.fetch = async () => Response.json({ messages: [], tokens_before: 100, tokens_after: 0, tokens_saved: 100, compression_ratio: 0, ccr_hashes: ["deadbeef"] });
+    await assert.rejects(client.compress([], "gpt-4o"), /Invalid or retrieval-dependent/);
+    globalThis.fetch = async () => Response.json({ messages: [], tokens_before: 100, tokens_after: 0, tokens_saved: 100, compression_ratio: 0 });
+    assert.equal(await client.probe(), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+function testCCRMarkerRejection() {
+  console.log("Testing CCR marker rejection...");
+  const messages = [
+    {
+      role: "assistant",
+      content: [{ type: "toolCall", id: "c1", name: "bash", arguments: { command: "echo ok" } }]
+    },
+    { role: "toolResult", toolCallId: "c1", toolName: "bash", content: "Original raw source line\n".repeat(200) }
+  ];
+  const payload = buildCompressionPayload(messages, 1);
+  const compressedMessages = [
+    payload.messages[0],
+    {
+      role: "tool",
+      tool_call_id: "c1",
+      content: "File header\n<<ccr:61382440133d,string,513B>>\n[10 items compressed to 2. Retrieve original: hash=abcdef123456]\nFile footer"
+    }
+  ];
+  const applied = applyCompressionResult(messages, payload.mappings, compressedMessages, { minMessageChars: 1 });
+  assert.deepEqual(applied, { ok: false, reason: "unrecoverable-ccr-marker" }, "Do not silently discard retrieval references");
+  for (const content of ["[20 items compressed. Retrieve more: hash=abc123]", "Retrieve original: hash=abc123"]) {
+    const output = applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content }], { minMessageChars: 1 });
+    assert.deepEqual(output, { ok: false, reason: "unrecoverable-ccr-marker" });
+  }
+  assert.deepEqual(applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content: "" }], { minMessageChars: 1 }), { ok: false, reason: "empty-compressed-content" });
+  assert.deepEqual(applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content: null }], { minMessageChars: 1 }), { ok: false, reason: "invalid-compressed-message" });
+  console.log("✓ CCR marker rejection passed\n");
+}
+
 async function runAll() {
   try {
     testConfigMode();
+    testSafeCandidates();
+    await testHttpContract();
     await testOutputModes();
+    testCCRMarkerRejection();
     await testLoopPrevention();
     await testRepeatedReadContentLoop();
     await testMixedSeenAndNewCandidatesOnlyCountsNew();

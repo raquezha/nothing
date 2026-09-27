@@ -1,6 +1,6 @@
 # Headroom Backend 🗜
 
-> **Local context compression engine.** This directory contains the Docker and service configuration for the Headroom proxy used by the `nothing` setup. Powered by the original [Headroom](https://github.com/headroom-ai/headroom) project.
+> **Local context compression engine.** This directory contains the Docker and service configuration for the Headroom proxy used by the `nothing` setup. Powered by the original [Headroom](https://github.com/headroomlabs-ai/headroom) project.
 
 ## 🏗 Role
 
@@ -31,9 +31,10 @@ docker run -d \
   -p 127.0.0.1:8788:8787 \
   -v headroom-data:/data \
   -e HEADROOM_TELEMETRY=off \
+  -e HEADROOM_BEACON=off \
   -e HEADROOM_SAVINGS_PATH=/data/proxy_savings.json \
-  ghcr.io/chopratejas/headroom:0.27.0 \
-  --host 0.0.0.0 --port 8787 --no-cache
+  ghcr.io/headroomlabs-ai/headroom:0.39.1 \
+  --host 0.0.0.0 --port 8787 --mode cache --lossless --no-cache
 ```
 
 ### Verify Health
@@ -50,14 +51,14 @@ curl http://127.0.0.1:8788/health
 
 ## 🛠 Service Details
 
-- **Image**: `ghcr.io/chopratejas/headroom:0.27.0`
+- **Image**: `ghcr.io/headroomlabs-ai/headroom:0.39.1`
 - **Port**: `8788` (Internal `8787`)
 - **Data Persistence**: Stats are stored in `${HOME}/.local/share/headroom`.
-- **Mode**: `token` (optimized for maximum reduction).
+- **Mode**: `cache` with `--lossless` (marker-free, conservative compaction); `--no-cache` disables proxy response caching.
 
 ## 🔧 Configuration
 
-The proxy is configured via `headroom/compose.yml`. Environmental defaults are set to disable telemetry and point to a local data volume.
+The proxy is configured via `headroom/compose.yml`. Both local telemetry and the separately controlled anonymous beacon are disabled; data is stored locally. The `/v1/compress` endpoint is marker-free by default in 0.39.1.
 
 Pi extension settings should point to this backend:
 

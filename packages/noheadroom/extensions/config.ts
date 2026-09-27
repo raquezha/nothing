@@ -4,7 +4,7 @@ import * as path from "node:path";
 import type { HeadroomConfig, HeadroomMode } from "./types.js";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8788";
-const DEFAULT_MIN_CONTEXT_TOKENS = 20_000;
+const DEFAULT_MIN_CONTEXT_TOKENS = 10_000;
 const DEFAULT_MIN_MESSAGE_CHARS = 2_000;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -84,7 +84,8 @@ export function loadHeadroomConfig(
 export function isLocalHeadroomUrl(rawUrl: string): boolean {
 	try {
 		const url = new URL(rawUrl);
-		return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+		return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password &&
+			["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
 	} catch {
 		return false;
 	}

@@ -227,7 +227,7 @@ async function runRepeatedReads({ scenario, legacy, reads }) {
   const runtime = createRuntime();
   let messages = [
     { role: "user", content: scenario.prompt },
-    { role: "toolResult", toolCallId: `${scenario.name}-read-1`, toolName: "read", content: scenario.content },
+    { role: "toolResult", toolCallId: `${scenario.name}-read-1`, toolName: "bash", content: scenario.content },
   ];
 
   const first = await handleContextCompression(runtime, { messages }, createCtx(messages));
@@ -243,7 +243,7 @@ async function runRepeatedReads({ scenario, legacy, reads }) {
     const reread = [
       ...messages,
       { role: "user", content: "read it again, previous result was incomplete" },
-      { role: "toolResult", toolCallId: `${scenario.name}-read-${read}`, toolName: "read", content: scenario.content },
+      { role: "toolResult", toolCallId: `${scenario.name}-read-${read}`, toolName: "bash", content: scenario.content },
     ];
     const result = await handleContextCompression(runtime, { messages: reread }, createCtx(reread));
     messages = result?.messages ?? reread;
@@ -256,7 +256,7 @@ async function runBehaviorLoop({ scenario, legacy, maxReads }) {
   let reads = 1;
   let messages = [
     { role: "user", content: scenario.prompt },
-    { role: "toolResult", toolCallId: `${scenario.name}-read-1`, toolName: "read", content: scenario.content },
+    { role: "toolResult", toolCallId: `${scenario.name}-read-1`, toolName: "bash", content: scenario.content },
   ];
 
   while (reads <= maxReads) {
@@ -275,7 +275,7 @@ async function runBehaviorLoop({ scenario, legacy, maxReads }) {
     messages = [
       ...visibleMessages,
       { role: "user", content: "read it again, previous result was incomplete" },
-      { role: "toolResult", toolCallId: `${scenario.name}-read-${reads}`, toolName: "read", content: scenario.content },
+      { role: "toolResult", toolCallId: `${scenario.name}-read-${reads}`, toolName: "bash", content: scenario.content },
     ];
   }
 
@@ -307,7 +307,7 @@ const behaviorLoop = {
   fixed: await runBehaviorLoop({ scenario: behaviorScenario, legacy: false, maxReads: READS }),
 };
 
-console.log("# noheadroom loop hardening benchmark\n");
+console.log("# noheadroom mock loop hardening benchmark (eligible bash outputs, not protected read tool results)\n");
 console.log("## Direct repeated-read scaling\n");
 console.log("| Scenario | Bytes | Reads | Legacy calls | Fixed calls | Avoided duplicate calls |");
 console.log("|---|---:|---:|---:|---:|---:|");
