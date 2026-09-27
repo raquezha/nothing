@@ -7,7 +7,7 @@ import {
 	convertMessage,
 	extractOpenAIText,
 } from "./bridge.js";
-import { HeadroomHttpClient } from "./client.js";
+import { HeadroomHttpClient, HeadroomResponseError } from "./client.js";
 import { isRemoteBlocked, loadHeadroomConfig, saveHeadroomSettings } from "./config.js";
 import { startPersistentHeadroomProxy } from "./proxy-manager.js";
 import type { AgentMessage, CompressResult, CompressionPayload, HeadroomConfig, HeadroomMode, HeadroomStats } from "./types.js";
@@ -610,7 +610,8 @@ function announceGuardSkip(ctx: ExtensionContext, reason: string, result: Compre
 
 function recordCompressionError(runtime: HeadroomRuntime, ctx: ExtensionContext, error: unknown): void {
 	runtime.state.stats.lastError = getErrorMessage(error);
-	if (isAbortOrTimeoutError(error)) {
+	if (isAbortOrTimeoutError(error) || error instanceof HeadroomResponseError) {
+		// The proxy answered; invalid data is not a connectivity failure.
 		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
 		return;

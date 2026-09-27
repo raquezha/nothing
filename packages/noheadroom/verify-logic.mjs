@@ -2,7 +2,7 @@ import assert from "node:assert";
 import { __test__ } from "./dist/index.js";
 import { applyCompressionResult, buildCompressionPayload } from "./dist/bridge.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./dist/config.js";
-import { HeadroomHttpClient } from "./dist/client.js";
+import { HeadroomHttpClient, HeadroomResponseError } from "./dist/client.js";
 import { buildProxyArgs, parseLocalEndpoint } from "./dist/proxy-manager.js";
 
 const { handleContextCompression, generateFingerprint } = __test__;
@@ -137,6 +137,19 @@ async function testLoopPrevention() {
   assert(client.calls === 2, "Should call headroom for changed candidate content");
 
   console.log("✓ Loop prevention test passed\n");
+}
+
+async function testInvalidResponseKeepsProxyOnline() {
+  const messages = [{ role: "toolResult", toolCallId: "c", toolName: "bash", content: "log line\n".repeat(500) }];
+  const runtime = {
+    pi: mockPi, config: mockConfig,
+    client: { async compress() { throw new HeadroomResponseError("Invalid Headroom compression response"); } },
+    state: { enabled: true, proxyOnline: true, processing: false, lastInputFingerprint: null, lastOutputFingerprint: null, lastGuardSkipCandidateFingerprint: null, lastCompressionTime: 0, stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 } },
+    refreshStatus: () => {}
+  };
+  assert.equal(await handleContextCompression(runtime, { messages }, createMockCtx(messages)), undefined);
+  assert.equal(runtime.state.proxyOnline, true, "A valid HTTP response must not mark a healthy proxy offline");
+  assert.equal(runtime.state.offlineWarningShown, undefined);
 }
 
 async function testRequestLocalReplay() {
@@ -608,7 +621,9 @@ async function testHttpContract() {
     await client.compress([{ role: "tool", tool_call_id: "id", content: raw }], "gpt-4o");
     assert.equal(body.config, undefined, "Do not override upstream marker-free default");
     globalThis.fetch = async () => Response.json({ messages: [], tokens_before: 100, tokens_after: 0, tokens_saved: 100, compression_ratio: 0, ccr_hashes: ["deadbeef"] });
-    await assert.rejects(client.compress([], "gpt-4o"), /Invalid or retrieval-dependent/);
+    assert.deepEqual((await client.compress([], "gpt-4o")).ccrHashes, ["deadbeef"], "Hash metadata from untouched context is not proof of an applied marker");
+    globalThis.fetch = async () => Response.json({ messages: null, tokens_before: 100, tokens_after: 0, tokens_saved: 100, compression_ratio: 0 });
+    await assert.rejects(client.compress([], "gpt-4o"), /Invalid Headroom compression response/);
     globalThis.fetch = async () => Response.json({ messages: [], tokens_before: 100, tokens_after: 0, tokens_saved: 100, compression_ratio: 0 });
     assert.equal(await client.probe(), true);
   } finally {
@@ -650,6 +665,7 @@ async function runAll() {
     testConfigMode();
     testSafeCandidates();
     await testHttpContract();
+    await testInvalidResponseKeepsProxyOnline();
     await testOutputModes();
     testCCRMarkerRejection();
     await testLoopPrevention();

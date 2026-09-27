@@ -10,6 +10,8 @@ interface ProxyCompressResponse {
 	ccr_hashes?: string[];
 }
 
+export class HeadroomResponseError extends Error {}
+
 interface HeadroomClientOptions {
 	baseUrl: string;
 	timeoutMs: number;
@@ -108,8 +110,8 @@ function validateCompressionResponse(value: unknown): ProxyCompressResponse {
 	if (!isRecord(value) || !Array.isArray(value.messages) ||
 		!metrics.every((key) => typeof value[key] === "number" && Number.isFinite(value[key]) && value[key] >= 0) ||
 		(value.transforms_applied !== undefined && !stringArray(value.transforms_applied)) ||
-		(value.ccr_hashes !== undefined && (!stringArray(value.ccr_hashes) || (value.ccr_hashes as string[]).length > 0))) {
-		throw new Error("Invalid or retrieval-dependent Headroom compression response");
+		(value.ccr_hashes != null && !stringArray(value.ccr_hashes))) {
+		throw new HeadroomResponseError("Invalid Headroom compression response");
 	}
 	return value as unknown as ProxyCompressResponse;
 }
