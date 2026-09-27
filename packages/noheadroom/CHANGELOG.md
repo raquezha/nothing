@@ -1,5 +1,11 @@
 # @raquezha/noheadroom
 
+## 0.3.5
+
+### Patch Changes
+
+- 253fa0f: Allow compaction to proceed when a retrieval marker already existed in the original tool result, while continuing to reject markers introduced by the current compression response.
+
 ## 0.3.4
 
 ### Patch Changes
