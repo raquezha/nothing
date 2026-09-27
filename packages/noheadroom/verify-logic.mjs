@@ -655,6 +655,11 @@ function testCCRMarkerRejection() {
     const output = applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content }], { minMessageChars: 1 });
     assert.deepEqual(output, { ok: false, reason: "unrecoverable-ccr-marker" });
   }
+  const oldMarker = "<<ccr:61382440133d,string,513B>>\n";
+  const priorMarkerMessages = [messages[0], { ...messages[1], content: `${oldMarker}${messages[1].content}` }];
+  const priorMarkerPayload = buildCompressionPayload(priorMarkerMessages, 1);
+  const preserved = applyCompressionResult(priorMarkerMessages, priorMarkerPayload.mappings, [priorMarkerPayload.messages[0], { role: "tool", tool_call_id: "c1", content: `${oldMarker}shortened` }], { minMessageChars: 1 });
+  assert.equal(preserved.ok, true, "A marker already in history is not newly introduced by this response");
   assert.deepEqual(applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content: "" }], { minMessageChars: 1 }), { ok: false, reason: "empty-compressed-content" });
   assert.deepEqual(applyCompressionResult(messages, payload.mappings, [payload.messages[0], { role: "tool", tool_call_id: "c1", content: null }], { minMessageChars: 1 }), { ok: false, reason: "invalid-compressed-message" });
   console.log("✓ CCR marker rejection passed\n");

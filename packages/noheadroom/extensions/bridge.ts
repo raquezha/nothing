@@ -87,8 +87,11 @@ export function applyCompressionResult(
 
 		const nextText = extractOpenAIText(compressed);
 		if (nextText === mapping.originalText) continue;
-		// No retrieval executor is registered. Hiding a hash does not recover evidence.
-		if (CCR_MARKER.test(nextText)) return { ok: false, reason: "unrecoverable-ccr-marker" };
+		// No retrieval executor is registered. Reject only a marker created by this response:
+		// prior session history can already contain one and must not disable later safe compaction.
+		if (CCR_MARKER.test(nextText) && !CCR_MARKER.test(mapping.originalText)) {
+			return { ok: false, reason: "unrecoverable-ccr-marker" };
+		}
 		if (!nextText.trim()) return { ok: false, reason: "empty-compressed-content" };
 		if (estimateTokens(nextText) >= estimateTokens(mapping.originalText)) continue;
 
