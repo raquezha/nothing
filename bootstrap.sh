@@ -705,7 +705,6 @@ step "Install Pi configuration files"
 copy_file "$SCRIPT_DIR/config/settings.json" "$AGENT_DIR/settings.json" "settings.json"
 copy_file "$SCRIPT_DIR/config/mindsets.json" "$AGENT_DIR/mindsets.json" "mindsets.json"
 copy_file "$SCRIPT_DIR/config/themes/dracula-vibrant.json" "$AGENT_DIR/themes/dracula-vibrant.json" "themes/dracula-vibrant.json"
-spin_run "Installing Pi MCP adapter" pi install npm:pi-mcp-adapter@2.11.0
 spin_run "Installing Pi Pretty extension" pi install npm:@heyhuynhgiabuu/pi-pretty
 if [[ "$INSTALL_HEADROOM" == true ]]; then
   configure_headroom
