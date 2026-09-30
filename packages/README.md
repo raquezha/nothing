@@ -22,6 +22,7 @@ This folder contains the local package and skill bundles that make up the `nothi
 - Extension source entrypoints live under each package's `extensions/<name>/` directory for Pi auto-discovery.
 - Root `package-lock.json` owns workspace dependencies; do not add nested lockfiles.
 - When changing package behavior, entrypoints, dependencies, or published contents, add a Changeset.
+- Release versioning runs `npm run version` (`changeset version && npm install --package-lock-only`) so Version PRs keep workspace lock entries aligned with bumped `package.json` versions.
 
 ## Common commands
 

@@ -606,6 +606,18 @@ function verifyWorkflowFiles() {
   const publish = readFileSync(path.join(root, ".github/workflows/publish-packages.yml"), "utf8");
   assert(publish.includes("changesets/action@v1"), "publish workflow uses changesets action");
   assert(!publish.includes("pending_changesets"), "publish workflow does not deadlock on pending changesets");
+  assert(
+    /version:\s*npm run version/.test(publish),
+    "publish workflow runs npm version script so lockfile syncs after changeset bumps"
+  );
+
+  const rootPkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+  const versionScript = rootPkg.scripts?.version || "";
+  assert(versionScript.includes("changeset version"), "root version script runs changeset version");
+  assert(
+    versionScript.includes("npm install --package-lock-only"),
+    "root version script refreshes package-lock after version bumps"
+  );
 }
 
 function verifyRpivEvidenceClassificationRules() {

@@ -14,7 +14,7 @@
     "verify:notrace": "node scripts/verify-notrace.mjs",
     "compare:notrace": "node packages/notrace/bin/notrace-compare.mjs",
     "review:notrace": "node packages/notrace/bin/notrace-review.mjs",
-    "version": "changeset version",
+    "version": "changeset version && npm install --package-lock-only",
     "release": "changeset publish"
   },
   "devDependencies": {

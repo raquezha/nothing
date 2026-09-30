@@ -60,6 +60,8 @@ jobs:
         if: ${{ inputs.dry_run != 'true' }}
         uses: changesets/action@v1
         with:
+          # Keep package-lock.json workspace versions in sync with package.json bumps.
+          version: npm run version
           publish: npm run release
           title: "chore: version packages"
           commit: "chore: version packages"
