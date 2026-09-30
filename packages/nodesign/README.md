@@ -150,13 +150,13 @@ nodesign extract "<design-url>" --render --out .workflow/tasks/active/evidence
 
 `nodesign` checks and persists credentials in the following hierarchy:
 1. `FIGMA_TOKEN` / `ZEPLIN_TOKEN` environment variables
-2. `.env` file in current working directory
-3. `~/.pi-secrets/.env` (Central monorepo secrets file)
-4. `~/.config/nodesign/.env` (Package-level `.env` backup with `0600` permissions)
-5. OS Keychain (macOS Keychain via `security` / Linux Secret Service via `secret-tool`)
-6. User config file (`~/.config/nodesign/config.json` with restricted `0600` permissions)
+2. `~/.pi-secrets/.env` (Central monorepo secrets file; supports `export KEY=` lines)
+3. `~/.config/nodesign/.env` (Package-level `.env` backup with `0600` permissions)
+4. User config file (`~/.config/nodesign/config.json` with restricted `0600` permissions)
+5. OS Keychain (macOS Keychain via `security` / Linux Secret Service via `secret-tool`) — best-effort cache only
+6. `.env` file in current working directory (optional last-resort mirror; never shadows durable stores)
 
-`nodesign auth login` automatically dual-writes to the OS Keychain, `~/.pi-secrets/.env`, and `~/.config/nodesign/.env` to ensure credentials survive npm global upgrades and environment resets.
+`nodesign auth login` requires at least one verified file-backed durable write (`~/.pi-secrets/.env`, `~/.config/nodesign/.env`, or `config.json`). The OS keychain and project `.env` are optional mirrors and never count as the sole store, so tokens survive reboot, keychain lock, and leaving the repo.
 
 ---
 

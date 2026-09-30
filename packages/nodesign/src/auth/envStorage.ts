@@ -16,7 +16,11 @@ export function parseEnvText(text: string): Record<string, string> {
     if (!trimmed || trimmed.startsWith("#")) continue;
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
+    let key = trimmed.slice(0, eq).trim();
+    // Shell-sourced secrets often use `export KEY=value`; strip the prefix
+    // so resolve/verify look up KEY, not "export KEY".
+    if (key.startsWith("export ")) key = key.slice("export ".length).trim();
+    if (!key) continue;
     let value = trimmed.slice(eq + 1).trim();
     if (!value.startsWith('"') && !value.startsWith("'")) {
       const hashIndex = value.indexOf(" #");
@@ -32,42 +36,43 @@ export function updateEnvFileKey(
   filePath: string,
   key: string,
   value: string
-): void {
+): boolean {
   const dir = path.dirname(filePath);
   if (!existsSync(dir)) {
     try {
       mkdirSync(dir, { recursive: true });
-    } catch {}
+    } catch {
+      return false;
+    }
   }
 
   let text = "";
   if (existsSync(filePath)) {
     try {
       text = readFileSync(filePath, "utf8");
-    } catch {}
+    } catch {
+      return false;
+    }
   }
 
   const lines = text.length ? text.split("\n") : [];
   let replaced = false;
+  const escaped = value.replace(/"/g, '\\"');
   const newLines = lines.map((line) => {
     const trimmed = line.trim();
     if (trimmed.startsWith(`${key}=`) || trimmed.startsWith(`export ${key}=`)) {
       replaced = true;
       const prefix = trimmed.startsWith("export ") ? "export " : "";
-      return `${prefix}${key}="${value.replace(/"/g, '\\"')}"`;
+      return `${prefix}${key}="${escaped}"`;
     }
     return line;
   });
 
   if (!replaced) {
     if (newLines.length && newLines[newLines.length - 1] === "") {
-      newLines.splice(
-        newLines.length - 1,
-        0,
-        `${key}="${value.replace(/"/g, '\\"')}"`
-      );
+      newLines.splice(newLines.length - 1, 0, `${key}="${escaped}"`);
     } else {
-      newLines.push(`${key}="${value.replace(/"/g, '\\"')}"`);
+      newLines.push(`${key}="${escaped}"`);
     }
   }
 
@@ -77,12 +82,18 @@ export function updateEnvFileKey(
       newLines.join("\n") + (newLines[newLines.length - 1] === "" ? "" : "\n"),
       "utf8"
     );
-    chmodSync(filePath, 0o600);
-  } catch {}
+    try {
+      chmodSync(filePath, 0o600);
+    } catch {}
+    const verified = readEnvFile(filePath)[key];
+    return verified === value;
+  } catch {
+    return false;
+  }
 }
 
-export function deleteEnvFileKey(filePath: string, key: string): void {
-  if (!existsSync(filePath)) return;
+export function deleteEnvFileKey(filePath: string, key: string): boolean {
+  if (!existsSync(filePath)) return false;
   try {
     const text = readFileSync(filePath, "utf8");
     const lines = text.split("\n");
@@ -92,8 +103,12 @@ export function deleteEnvFileKey(filePath: string, key: string): void {
         !trimmed.startsWith(`${key}=`) && !trimmed.startsWith(`export ${key}=`)
       );
     });
+    if (newLines.length === lines.length) return false;
     writeFileSync(filePath, newLines.join("\n"), "utf8");
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function readEnvFile(file: string): Record<string, string> {

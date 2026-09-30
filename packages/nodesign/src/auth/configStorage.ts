@@ -13,22 +13,27 @@ export function configFilePath(): string {
   return path.join(homedir(), ".config", "nodesign", "config.json");
 }
 
-export function readConfig(): { figmaToken?: string; zeplinToken?: string } {
+function readRawConfig(): Record<string, unknown> {
   const file = configFilePath();
   if (!existsSync(file)) return {};
   try {
     const data = JSON.parse(readFileSync(file, "utf8"));
-    return {
-      ...(typeof data?.figmaToken === "string" && data.figmaToken
-        ? { figmaToken: data.figmaToken }
-        : {}),
-      ...(typeof data?.zeplinToken === "string" && data.zeplinToken
-        ? { zeplinToken: data.zeplinToken }
-        : {}),
-    };
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
   } catch {
     return {};
   }
+}
+
+export function readConfig(): { figmaToken?: string; zeplinToken?: string } {
+  const data = readRawConfig();
+  return {
+    ...(typeof data.figmaToken === "string" && data.figmaToken
+      ? { figmaToken: data.figmaToken }
+      : {}),
+    ...(typeof data.zeplinToken === "string" && data.zeplinToken
+      ? { zeplinToken: data.zeplinToken }
+      : {}),
+  };
 }
 
 export function getFromConfig(
@@ -45,14 +50,33 @@ export function writeConfigCredential(
   const file = configFilePath();
   const dir = path.dirname(file);
   mkdirSync(dir, { recursive: true });
-  const current = readConfig();
+  // Merge onto full raw config so update-check metadata is preserved.
   const next = {
-    ...current,
+    ...readRawConfig(),
     ...(provider === "figma" ? { figmaToken: token } : { zeplinToken: token }),
   };
   writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, "utf8");
   try {
     chmodSync(file, 0o600);
   } catch {}
+  const verified = getFromConfig(provider);
+  if (verified !== token) {
+    return { ok: false, source: "unavailable", location: file };
+  }
   return { ok: true, source: "config file", location: file };
+}
+
+export function clearConfigCredential(provider: CredentialProvider): boolean {
+  const file = configFilePath();
+  if (!existsSync(file)) return false;
+  const current = readRawConfig();
+  const key = provider === "figma" ? "figmaToken" : "zeplinToken";
+  if (typeof current[key] !== "string" || !current[key]) return false;
+  const next = { ...current };
+  delete next[key];
+  writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  try {
+    chmodSync(file, 0o600);
+  } catch {}
+  return true;
 }

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { checkUpdateNotice } from "../dist/index.js";
 
 function makeMockFetch(responses) {
@@ -15,7 +18,13 @@ function makeMockFetch(responses) {
   };
 }
 
+const tempHome = mkdtempSync(path.join(tmpdir(), "nodesign-update-home-"));
+const oldHome = process.env.HOME;
+
 try {
+  mkdirSync(path.join(tempHome, ".config", "nodesign"), { recursive: true });
+  process.env.HOME = tempHome;
+
   const mockFetchNew = makeMockFetch({
     "/@raquezha/nodesign/latest": {
       status: 200,
@@ -43,4 +52,8 @@ try {
 } catch (err) {
   console.error("nodesign update test failed:", err);
   process.exit(1);
+} finally {
+  if (oldHome === undefined) delete process.env.HOME;
+  else process.env.HOME = oldHome;
+  rmSync(tempHome, { recursive: true, force: true });
 }

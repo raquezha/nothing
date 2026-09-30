@@ -142,6 +142,11 @@ async function printAuthStatus(fetchFn: typeof fetch): Promise<void> {
         resolved.location ? ` (${resolved.location})` : ""
       }`
     );
+    if (resolved.source === "cwd .env") {
+      console.log(
+        `${color.cyan}│${color.reset}  ${color.yellow}Warning: cwd-only token; run ${color.bold}nodesign auth login${color.reset}${color.yellow} so it survives outside this directory.${color.reset}`
+      );
+    }
     if (info.user || info.email) {
       const identity = [info.user, info.email].filter(Boolean).join(" ");
       console.log(

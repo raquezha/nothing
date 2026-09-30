@@ -21,9 +21,15 @@ export interface ResolvedCredentials {
   zeplinSource?: CredentialSource;
 }
 
+export type DurableCredentialSource =
+  | "config file"
+  | "~/.pi-secrets/.env"
+  | "~/.config/nodesign/.env"
+  | "unavailable";
+
 export interface StoreCredentialResult {
   ok: boolean;
-  source: "OS keychain" | "config file" | "unavailable";
+  source: DurableCredentialSource;
   location?: string;
 }
 

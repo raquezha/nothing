@@ -10,12 +10,30 @@ const root = mkdtempSync(path.join(tmpdir(), "nodesign-cli-"));
 mkdirSync(path.join(root, "empty"), { recursive: true });
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const authHome = mkdtempSync(path.join(tmpdir(), "nodesign-auth-home-"));
+mkdirSync(path.join(authHome, ".pi-secrets"), { recursive: true });
+mkdirSync(path.join(authHome, ".config", "nodesign"), { recursive: true });
 
-function run(args) {
+function run(args, options = {}) {
   return spawnSync("node", ["bin/nodesign.js", ...args], {
-    cwd: packageDir,
+    cwd: options.cwd || packageDir,
     encoding: "utf8",
+    env: {
+      ...process.env,
+      ...(options.env || {}),
+    },
   });
+}
+
+function runAuth(args) {
+  const env = {
+    ...process.env,
+    HOME: authHome,
+    NODESIGN_KEYCHAIN_SERVICE: "nodesign-cli-test",
+  };
+  delete env.FIGMA_TOKEN;
+  delete env.ZEPLIN_TOKEN;
+  return run(args, { cwd: packageDir, env });
 }
 
 function makeMockFetch(responses) {
@@ -41,11 +59,11 @@ try {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Supported auth commands/);
 
-  result = run(["auth", "logout"]);
+  result = runAuth(["auth", "logout"]);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /cleared/);
 
-  result = run(["auth", "login", "zeplin", "zpl_test_token"]);
+  result = runAuth(["auth", "login", "zeplin", "zpl_test_token"]);
   // Token validation rejects dummy tokens; exit 1 is correct
   assert.equal(result.status, 1);
   assert.match(result.stdout, /rejected|unreachable|Saved to/);
@@ -193,4 +211,5 @@ try {
   console.log("nodesign cli test ok");
 } finally {
   rmSync(root, { recursive: true, force: true });
+  rmSync(authHome, { recursive: true, force: true });
 }
