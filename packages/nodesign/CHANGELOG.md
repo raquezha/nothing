@@ -1,5 +1,11 @@
 # @raquezha/nodesign
 
+## 0.2.2
+
+### Patch Changes
+
+- 25df88c: Require file-backed durable credential writes; prefer home stores over cwd `.env`; parse `export KEY=` env lines; treat keychain as best-effort only. Isolate CLI auth/update tests from real HOME.
+
 ## 0.2.1
 
 ### Patch Changes
