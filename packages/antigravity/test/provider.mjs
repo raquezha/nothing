@@ -5,8 +5,10 @@ import { streamAntigravity } from "../dist/antigravity/cloud-code-assist.js";
 
 const catalog = { models: {
   "gemini-3.5-flash-extra-low": { displayName: "Gemini 3.5 Flash (Low)", model: "MODEL_PLACEHOLDER_M187" },
-  "claude-opus-4-6-thinking": { displayName: "Claude Opus 4.6 (Thinking)", model: "MODEL_PLACEHOLDER_M26" },
-  "claude-sonnet-4-6": { displayName: "Claude Sonnet 4.6 (Thinking)", model: "MODEL_PLACEHOLDER_M35" },
+  "claude-opus-5-5-low": { displayName: "Claude Opus 5.5 (Low)", model: "MODEL_PLACEHOLDER_M26" },
+  "claude-sonnet-5-5-low": { displayName: "Claude Sonnet 5.5 (Low)", model: "MODEL_PLACEHOLDER_M35" },
+  "claude-opus-5-5-high": { displayName: "Claude Opus 5.5 (High)", model: "MODEL_PLACEHOLDER_M27" },
+  "claude-sonnet-5-5-high": { displayName: "Claude Sonnet 5.5 (High)", model: "MODEL_PLACEHOLDER_M36" },
   "gemini-3.7-flash-tiered": { model: "MODEL_PLACEHOLDER_M301" },
   "gemini-3.8-flash-tiered": { model: "MODEL_PLACEHOLDER_M322" },
 } };
@@ -15,6 +17,11 @@ assert.equal(oauth.findDynamicModel(catalog, "gemini-3.5-flash-low")?.id, "gemin
 assert.equal(oauth.findDynamicModel(catalog, "missing"), undefined);
 assert.equal(oauth.lastMatchedModelDebug, undefined, "no stale Gemini match on later requests");
 assert.match(oauth.lastAvailableModels, /gemini-3\.8-flash-tiered/, "include unlabeled catalog keys");
+assert.equal(getAntigravityRequestModelId("claude-sonnet-5-5", "high"), "claude-sonnet-5-5-high");
+assert.equal(getAntigravityRequestModelId("claude-sonnet-5-5", "low"), "claude-sonnet-5-5-low");
+assert.equal(getAntigravityRequestModelId("claude-opus-5-5", "high"), "claude-opus-5-5-high");
+assert.equal(getAntigravityRequestModelId("claude-sonnet-4-6", "high"), "claude-sonnet-5-5-high");
+assert.equal(getAntigravityRequestModelId("claude-opus-4-6", "low"), "claude-opus-5-5-low");
 for (const version of ["3.7", "3.8"]) {
   for (const effort of [undefined, "off", "low", "medium", "high", "xhigh"]) {
     assert.equal(getAntigravityRequestModelId(`gemini-${version}-flash`, effort), `gemini-${version}-flash-tiered`);
@@ -46,7 +53,7 @@ globalThis.fetch = async (url, init) => {
   return new Response(`data: {"response":{"candidates":[{"content":{"parts":[{"text":"OK"}]},"finishReason":"${finishReason}"}]}}\n\n`);
 };
 try {
-  for (const id of ["claude-sonnet-4-6", "claude-opus-4-6"]) {
+  for (const id of ["claude-sonnet-5-5", "claude-opus-5-5"]) {
     const result = await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === id), context, options).result();
     assert.equal(result.stopReason, "stop");
     assert.equal(sent.model, getAntigravityRequestModelId(id));

@@ -11,23 +11,50 @@ export type AntigravityRouting = {
 
 // Routing table mapping public selectable model IDs to their backend request models based on effort.
 export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
-	"claude-opus-4-6": {
+	"claude-opus-5-5": {
+		off: "claude-opus-5-5-low",
 		routing: {
-			minimal: "claude-opus-4-6-thinking",
-			low: "claude-opus-4-6-thinking",
-			medium: "claude-opus-4-6-thinking",
-			high: "claude-opus-4-6-thinking",
+			minimal: "claude-opus-5-5-low",
+			low: "claude-opus-5-5-low",
+			medium: "claude-opus-5-5-medium",
+			high: "claude-opus-5-5-high",
+			xhigh: "claude-opus-5-5-high",
 		},
-		defaultRequestId: "claude-opus-4-6-thinking",
+		defaultRequestId: "claude-opus-5-5-medium",
+	},
+	"claude-sonnet-5-5": {
+		off: "claude-sonnet-5-5-low",
+		routing: {
+			minimal: "claude-sonnet-5-5-low",
+			low: "claude-sonnet-5-5-low",
+			medium: "claude-sonnet-5-5-medium",
+			high: "claude-sonnet-5-5-high",
+			xhigh: "claude-sonnet-5-5-high",
+		},
+		defaultRequestId: "claude-sonnet-5-5-medium",
+	},
+	// Backward-compatibility aliases for 4.6
+	"claude-opus-4-6": {
+		off: "claude-opus-5-5-low",
+		routing: {
+			minimal: "claude-opus-5-5-low",
+			low: "claude-opus-5-5-low",
+			medium: "claude-opus-5-5-medium",
+			high: "claude-opus-5-5-high",
+			xhigh: "claude-opus-5-5-high",
+		},
+		defaultRequestId: "claude-opus-5-5-medium",
 	},
 	"claude-sonnet-4-6": {
+		off: "claude-sonnet-5-5-low",
 		routing: {
-			minimal: "claude-sonnet-4-6",
-			low: "claude-sonnet-4-6",
-			medium: "claude-sonnet-4-6",
-			high: "claude-sonnet-4-6",
+			minimal: "claude-sonnet-5-5-low",
+			low: "claude-sonnet-5-5-low",
+			medium: "claude-sonnet-5-5-medium",
+			high: "claude-sonnet-5-5-high",
+			xhigh: "claude-sonnet-5-5-high",
 		},
-		defaultRequestId: "claude-sonnet-4-6",
+		defaultRequestId: "claude-sonnet-5-5-medium",
 	},
 	"gemini-3.1-pro": {
 		off: "gemini-3.1-pro-low",
@@ -77,20 +104,20 @@ export const ANTIGRAVITY_ROUTING: Record<string, AntigravityRouting> = {
 
 export const ANTIGRAVITY_MODELS: ProviderModelConfig[] = [
 	{
-		id: "claude-opus-4-6",
-		name: "Claude Opus 4.6 (Antigravity)",
+		id: "claude-opus-5-5",
+		name: "Claude Opus 5.5 (Antigravity)",
 		reasoning: true,
-		thinkingLevelMap: { off: null, xhigh: "HIGH" } as any,
+		thinkingLevelMap: { off: null, low: "LOW", medium: "MEDIUM", high: "HIGH", xhigh: "HIGH" } as any,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 250000,
 		maxTokens: 64000,
 	},
 	{
-		id: "claude-sonnet-4-6",
-		name: "Claude Sonnet 4.6 (Antigravity)",
+		id: "claude-sonnet-5-5",
+		name: "Claude Sonnet 5.5 (Antigravity)",
 		reasoning: true,
-		thinkingLevelMap: { off: null, low: "THINKING", medium: "THINKING", high: "THINKING", xhigh: "THINKING" } as any,
+		thinkingLevelMap: { off: null, low: "LOW", medium: "MEDIUM", high: "HIGH", xhigh: "HIGH" } as any,
 		input: ["text", "image"],
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		contextWindow: 250000,

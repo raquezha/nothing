@@ -181,7 +181,7 @@ function buildRequest(model: any, context: any, projectId: string, options: any,
 	else generationConfig.maxOutputTokens = Math.min(8192, model.maxTokens || 8192);
 
 	// Thinking Config: Antigravity model IDs already encode their thinking variant in runtimeModel
-	// (e.g. claude-sonnet-4-6 or gemini-3.5-flash-low). Sending thinkingConfig explicitly is rejected by the API.
+	// (e.g. claude-sonnet-5-5-low or gemini-3.5-flash-low). Sending thinkingConfig explicitly is rejected by the API.
 	
 	if (Object.keys(generationConfig).length) request.generationConfig = generationConfig;
 	const tools = convertTools([...activeTools.values()], model.id.startsWith("claude-"));
