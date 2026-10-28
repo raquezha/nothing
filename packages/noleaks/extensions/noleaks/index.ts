@@ -216,8 +216,8 @@ export default function (pi: ExtensionAPI) {
           mode = val as any;
           saveConfig();
           ctx.ui.notify(`noleaks mode set to ${mode.toUpperCase()}`, "info");
-          if (ctx.hasUI) {
-            (ctx.ui as any).setExtensionStatus("noleaks", mode === "off" ? "🔓" : "🔒");
+          if (ctx.hasUI && typeof (ctx.ui as any).setStatus === "function") {
+            (ctx.ui as any).setStatus("noleaks", mode === "off" ? "🔓" : "🔒");
           }
           return;
         }
@@ -246,8 +246,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_start", async (_event, ctx) => {
-    if (ctx.hasUI && typeof (ctx.ui as any).setExtensionStatus === "function") {
-      (ctx.ui as any).setExtensionStatus("noleaks", mode === "off" ? "🔓" : "🔒");
+    if (ctx.hasUI && typeof (ctx.ui as any).setStatus === "function") {
+      (ctx.ui as any).setStatus("noleaks", mode === "off" ? "🔓" : "🔒");
     }
   });
 
