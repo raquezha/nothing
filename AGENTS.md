@@ -52,9 +52,10 @@ When changing a skill name, command, or directory:
 
 - **Bootstrap**: `./bootstrap.sh` resets workspace
 - **Hats**: `pi --nothing | --pm | --dev | --rpiv | --android | --meta`
-- **Modifiers**: `--caveman | --rtk | --cursor | --headroom | --leanctx | --notrace | --ponytail`
-- **Combo**: `pi --tkmx` (all modifiers)
-- **Reload shell**: `source dotfiles/shell_integration.sh`
+- **Modifiers**: `--ste | --caveman | --rtk | --cursor | --headroom | --leanctx | --notrace | --ponytail`
+- **Combo**: `pi --tkmx` (STE + RTK + Cursor + Headroom + antigravity + notrace + Ponytail; Caveman stays opt-in)
+- **STE**: `packages/nometa/extensions/ste` applies `dotfiles/ste.md` with `--ste` or `--tkmx`, preserving `APPEND_SYSTEM.md`; its clarity rules take precedence over Caveman.
+- **Activate after bootstrap**: Open a new terminal. Hats and modifiers apply in every project for your user.
 
 ## Config Sources
 - **Global AGENTS**: `~/AGENTS.md` (from `config/AGENTS.md`)

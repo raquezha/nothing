@@ -75,11 +75,10 @@ cd nothing
 
 > **Note**: `./bootstrap.sh` sets up global Pi discovery paths to ensure a clean, reproducible starting state. Pass `--no-reset-pi` if you want to retain existing global resources.
 
-### 2. Reload Shell
+### 2. Open a New Terminal
 
-```bash
-source ./dotfiles/shell_integration.sh
-```
+Bootstrap installs shell integration in your user shell configuration. In a new terminal, `pi --tkmx` uses STE in every project.
+No per-project setup is required. Existing terminals and running Pi sessions keep their old state until restarted.
 
 ---
 
@@ -123,12 +122,22 @@ Flags can be combined to refine agent output and resource usage:
 | Flag | Purpose |
 |---|---|
 | `--headroom` | Enables local prompt context compression |
-| `--caveman` | Terse, token-efficient communication mode |
+| `--caveman` | Terse, token-efficient communication mode (opt-in) |
+| `--ste` | Automatically applies concise, complete, unambiguous wording |
 | `--rtk` | Terminal output optimization |
 | `--cursor` | Local cursor provider extension |
 | `--notrace` | Records session retrospective artifacts and reports |
 | `--ponytail` | Enforces lazy senior-developer, minimal-diff constraints |
-| `--tkmx` | Full efficiency combination of performance and compression modifiers |
+| `--tkmx` | STE + RTK + Cursor + Headroom + antigravity + notrace + Ponytail |
+
+`--tkmx` uses STE instead of Caveman. Use `--caveman` separately when you want sentence fragments.
+If both are requested, STE clarity takes precedence. Ponytail still controls implementation scope and concise reporting.
+
+`--ste` loads the local STE extension automatically, using rules from `dotfiles/ste.md`.
+No download or skill activation is required. Existing `APPEND_SYSTEM.md` instructions remain intact.
+The rules draw from [this STE summary](https://github.com/danyuchn/asd-ste100-skill/blob/master/references/writing-rules.md).
+They preserve uncertainty and technical detail, with sentence lengths as guidance rather than hard limits.
+This is STE-inspired wording, not verified ASD-STE100 compliance. `--nothing` ignores these modifiers.
 
 ---
 

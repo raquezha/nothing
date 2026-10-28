@@ -14,6 +14,12 @@ This package is intentionally local-first inside `nothing`. For public handoff, 
 | `nohtml` | Convert markdown/transcripts/plain text into self-contained HTML pages. |
 | `pulse` | Quick health check of the agentic environment (Headroom, notrace, active workflow). |
 
+## Local STE extension
+
+`pi --ste` and `pi --tkmx` load `extensions/ste/index.ts` automatically.
+It adds `dotfiles/ste.md` rules without replacing existing `APPEND_SYSTEM.md` instructions.
+Bootstrap installs the shell integration for your user. Open a new terminal to use these flags in any project.
+
 ## Use from the full nothing setup
 
 ```bash

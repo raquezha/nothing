@@ -760,13 +760,13 @@ printf '\n:: next steps\n'
 printf '┌────────────┬──────────────────────────────────────────────────────────────────────────────┐\n'
 printf '│ %-10s │ %-76.76s │\n' "action" "command"
 printf '├────────────┼──────────────────────────────────────────────────────────────────────────────┤\n'
-printf '│ %-10s │ %-76.76s │\n' "reload" "source $SCRIPT_DIR/dotfiles/shell_integration.sh"
+printf '│ %-10s │ %-76.76s │\n' "activate" "Open a new terminal (applies in every project)"
 printf '│ %-10s │ %-76.76s │\n' "start" "pi"
 printf '│ %-10s │ %-76.76s │\n' "hats" "pi --nothing | --pm | --dev | --rpiv | --android | --meta"
 printf '│ %-10s │ %-76.76s │\n' "updates" "pi update refreshes Pi plus nothing-managed lazy caches"
 printf '│ %-10s │ %-76.76s │\n' "more hats" "pi --write | --notes | --research | --nochestra | --nochestra-worker"
-printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --caveman | --rtk | --cursor | --headroom | --leanctx | --notrace"
-printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (caveman + rtk + cursor + headroom + notrace + ponytail)"
+printf '│ %-10s │ %-76.76s │\n' "modifiers" "pi --rpiv --ste | --caveman | --rtk | --cursor | --headroom | --notrace"
+printf '│ %-10s │ %-76.76s │\n' "combo" "pi --tkmx (ste + rtk + cursor + headroom + antigravity + notrace + ponytail)"
 printf '│ %-10s │ %-76.76s │\n' "rpiv" "packages/workflows/norpiv/scripts/"
 printf '└────────────┴──────────────────────────────────────────────────────────────────────────────┘\n'
 printf '\n   note: --caveman, --rtk, --cursor, and --ponytail lazy-install local caches on first use.\n'

@@ -354,10 +354,17 @@ function verifyShellIntegration() {
 set -euo pipefail
 printf 'git %s\\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
 dest="\${@: -1}"
-mkdir -p "$dest/skills/caveman" "$dest/skills/caveman-stats" "$dest/skills/caveman-help"
-printf '%s\\n' '---' 'name: caveman' 'description: fake' '---' > "$dest/skills/caveman/SKILL.md"
-printf '%s\\n' '---' 'name: caveman-stats' 'description: fake' '---' > "$dest/skills/caveman-stats/SKILL.md"
-printf '%s\\n' '---' 'name: caveman-help' 'description: fake' '---' > "$dest/skills/caveman-help/SKILL.md"
+if [[ "$dest" == */ponytail ]]; then
+  mkdir -p "$dest/skills/ponytail" "$dest/pi-extension"
+  printf '%s\\n' '{"name":"ponytail","pi":{"extensions":["pi-extension/index.js"]}}' > "$dest/package.json"
+  printf '%s\\n' 'export default function(){}' > "$dest/pi-extension/index.js"
+  printf '%s\\n' '---' 'name: ponytail' 'description: fake' '---' > "$dest/skills/ponytail/SKILL.md"
+else
+  mkdir -p "$dest/skills/caveman" "$dest/skills/caveman-stats" "$dest/skills/caveman-help"
+  printf '%s\\n' '---' 'name: caveman' 'description: fake' '---' > "$dest/skills/caveman/SKILL.md"
+  printf '%s\\n' '---' 'name: caveman-stats' 'description: fake' '---' > "$dest/skills/caveman-stats/SKILL.md"
+  printf '%s\\n' '---' 'name: caveman-help' 'description: fake' '---' > "$dest/skills/caveman-help/SKILL.md"
+fi
 `);
     writeFileSync(fakeNpm, `#!/usr/bin/env bash
 set -euo pipefail
@@ -504,8 +511,58 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.some((arg) => arg.endsWith("/packages/noheadroom")), "--tkmx loads noheadroom extension");
     assert(args.some((arg) => arg.endsWith("/npm/rtk/node_modules/pi-rtk-optimizer")), "--tkmx loads RTK extension");
     assert(args.some((arg) => arg.endsWith("/npm/cursor/node_modules/pi-cursor-sdk")), "--tkmx loads Cursor SDK extension");
-    assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), "--tkmx loads caveman skill");
     assert(args.some((arg) => arg.endsWith("/packages/antigravity")), "--tkmx loads antigravity extension");
+
+    const stePromptPath = path.join(root, "dotfiles/ste.md");
+    const steExtensionPath = path.join(root, "packages/nometa/extensions/ste");
+    assert(args.includes(steExtensionPath), "--tkmx automatically loads the STE extension");
+    assert(!args.includes("--append-system-prompt"), "--tkmx preserves automatic APPEND_SYSTEM.md discovery");
+    assert(args.some((arg) => arg.endsWith("/repos/ponytail")), "--tkmx keeps Ponytail enabled");
+    assert(args.some((arg) => arg.endsWith("/packages/notrace")), "--tkmx keeps notrace enabled");
+    assert(!args.some((arg) => arg.includes("caveman")), "--tkmx does not load Caveman skills or stats");
+    const stePrompt = readFileSync(stePromptPath, "utf8");
+    assert(stePrompt.includes("STE clarity takes precedence") && stePrompt.includes("Ponytail's implementation and reporting rules"), "STE defines Caveman precedence and preserves Ponytail rules");
+    assert(stePrompt.includes("guidelines, not limits") && stePrompt.includes("uncertainty"), "STE preserves precision without rigid sentence limits");
+    assert(stePrompt.includes("not verified ASD-STE100 compliance"), "STE does not claim standard compliance");
+
+    writeFileSync(installLog, "");
+    for (const flags of ["--ste", "--ste --ste"]) {
+      writeFileSync(argsFile, "");
+      result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi ${flags} hello`], root, { env });
+      assert(result.status === 0, `${flags} runs with fake pi`);
+      args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+      assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "--extension", steExtensionPath, "hello"]), `${flags} loads STE once without overriding prompt discovery`);
+      assert(result.stdout.includes("ste"), `${flags} appears in the modifier banner`);
+    }
+    assert(readFileSync(installLog, "utf8") === "", "--ste needs no downloads or installs");
+
+    for (const flags of ["--ste --caveman", "--caveman --ste", "--ste --ponytail", "--tkmx --ste", "--caveman --tkmx"]) {
+      writeFileSync(argsFile, "");
+      result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi ${flags} --append-system-prompt "User guidance" hello`], root, { env });
+      assert(result.status === 0, `${flags} remains a valid combination`);
+      args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+      assert(args.filter((arg) => arg === steExtensionPath).length === 1, `${flags} loads STE exactly once`);
+      assert(args.includes("User guidance") && args.at(-1) === "hello", `${flags} preserves user prompt additions and message`);
+      if (flags.includes("--caveman")) {
+        assert(args.some((arg) => arg.endsWith("/repos/caveman/skills/caveman")), `${flags} keeps explicitly requested Caveman available`);
+      }
+    }
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing --ste hello`], root, { env });
+    args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+    assert(result.status === 0 && !args.includes(steExtensionPath), "--nothing ignores STE");
+    assert(result.stderr.includes("ignoring additive modifiers"), "--nothing warns that STE is ignored");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --ste first; pi second`], root, { env });
+    args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+    assert(result.status === 0 && !args.includes(steExtensionPath), "STE does not leak into the next plain pi invocation");
+
+    writeFileSync(argsFile, "");
+    result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; _NOTHING_REPO_DIR=${JSON.stringify(temp)}; pi --ste hello`], root, { env });
+    assert(result.status !== 0 && result.stderr.includes("missing prompt"), "STE fails clearly if its prompt file is missing");
+    assert(readFileSync(argsFile, "utf8") === "", "missing STE prompt prevents a silent unstyled launch");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --research hello`], root, { env });
@@ -572,9 +629,79 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
       writeFileSync(argsFile, "");
       result = run("zsh", ["-fc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi --nothing hello`], root, { env });
       assert(result.status === 0, "zsh shell integration runs --nothing with fake pi");
+      for (const flags of ["--ste", "--tkmx"]) {
+        writeFileSync(argsFile, "");
+        result = run("zsh", ["-fc", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; NOTHING_HEADROOM_SKIP_START=1 pi ${flags} hello`], root, { env });
+        args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+        assert(result.status === 0 && args.includes(steExtensionPath), `zsh ${flags} automatically loads STE`);
+        assert(!args.some((arg) => arg.includes("caveman")), `zsh ${flags} does not enable Caveman implicitly`);
+      }
+    }
+    const installShell = readFileSync(path.join(root, "bootstrap.sh"), "utf8").match(/^install_shell_integration\(\) \{\n[\s\S]*?^\}/m)?.[0];
+    assert(Boolean(installShell), "bootstrap exposes its shell installation step for isolated verification");
+    for (const shell of ["bash", "zsh"]) {
+      if (run("bash", ["-c", `command -v ${shell} >/dev/null`], root).status !== 0) continue;
+      const home = path.join(temp, `${shell}-home`);
+      run("mkdir", ["-p", home], root);
+      const startupEnv = { ...env, HOME: home, SHELL: `/bin/${shell}`, ZDOTDIR: home };
+      result = run("bash", ["-c", `SCRIPT_DIR=${JSON.stringify(root)}; DRY_RUN=false; run() { "$@"; }; ok() { :; }; ${installShell}; install_shell_integration; install_shell_integration`], temp, { env: startupEnv });
+      assert(result.status === 0, `bootstrap installs ${shell} startup wiring in an isolated HOME`);
+      const rc = readFileSync(path.join(home, shell === "zsh" ? ".zshrc" : ".bashrc"), "utf8");
+      assert(rc.split("&& source").length === 2, `bootstrap installs ${shell} wiring only once`);
+      writeFileSync(argsFile, "");
+      result = run(shell, ["-ic", "NOTHING_HEADROOM_SKIP_START=1 pi --tkmx hello"], temp, { env: startupEnv });
+      args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
+      assert(result.status === 0 && args.includes(steExtensionPath), `fresh ${shell} startup loads STE outside the repository without manual sourcing`);
+      assert(!args.some((arg) => arg.includes("caveman")), `fresh ${shell} --tkmx does not load Caveman`);
     }
   } catch (error) {
     fail(`shell integration verification failed: ${error.message}`);
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+async function verifyStePromptLoading() {
+  const { DefaultResourceLoader, SettingsManager } = await import("@earendil-works/pi-coding-agent");
+  const temp = mkdtempSync(path.join(tmpdir(), "nothing-ste-prompt-"));
+  try {
+    const agentDir = path.join(temp, "agent");
+    const cwd = path.join(temp, "unrelated-project");
+    run("mkdir", ["-p", agentDir, path.join(cwd, ".pi")], root);
+    writeFileSync(path.join(agentDir, "APPEND_SYSTEM.md"), "GLOBAL_INSTRUCTIONS");
+    writeFileSync(path.join(cwd, ".pi/APPEND_SYSTEM.md"), "PROJECT_INSTRUCTIONS");
+    const instructions = readFileSync(path.join(root, "dotfiles/ste.md"), "utf8");
+    for (const trusted of [false, true]) {
+      const loader = new DefaultResourceLoader({
+        cwd, agentDir,
+        settingsManager: SettingsManager.inMemory({}, { projectTrusted: trusted }),
+        additionalExtensionPaths: [path.join(root, "packages/nometa/extensions/ste")],
+        noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
+      });
+      await loader.reload();
+      const { extensions, errors } = loader.getExtensions();
+      assert(errors.length === 0, "Pi loads the real STE extension without errors");
+      const marker = trusted ? "PROJECT_INSTRUCTIONS" : "GLOBAL_INSTRUCTIONS";
+      const basePrompt = loader.getAppendSystemPrompt().join("\n\n");
+      assert(basePrompt.includes(marker), `STE preserves ${trusted ? "trusted project" : "global"} APPEND_SYSTEM.md discovery`);
+      assert(!trusted || !basePrompt.includes("GLOBAL_INSTRUCTIONS"), "STE preserves Pi's project-over-global prompt precedence");
+      const handler = extensions[0]?.handlers.get("before_agent_start")?.[0];
+      assert(typeof handler === "function", "STE registers automatic per-run instructions");
+      if (!handler) continue;
+      const event = { type: "before_agent_start", prompt: "test", systemPrompt: basePrompt, systemPromptOptions: { cwd } };
+      for (let turn = 0; turn < 2; turn++) {
+        const result = await handler(event, {});
+        assert(result.systemPrompt.includes(marker) && result.systemPrompt.includes(instructions), "STE keeps existing instructions and adds all rules on each run");
+        assert(result.systemPrompt.split(instructions).length === 2, "STE rules appear exactly once per run on older Pi");
+      }
+      const sections = { ponytail: "PONYTAIL_RULES" };
+      await handler({ ...event, systemPromptOptions: { cwd, sections } }, {});
+      assert(sections.ste === instructions && sections.ponytail === "PONYTAIL_RULES", "STE uses its own section on newer Pi without replacing Ponytail");
+      const forced = await handler({ ...event, systemPrompt: "FORCED_INSTRUCTIONS", systemPromptOptions: { cwd, sections: {}, forceSystemPrompt: "FORCED_INSTRUCTIONS" } }, {});
+      assert(forced.systemPrompt.includes("FORCED_INSTRUCTIONS") && forced.systemPrompt.includes(instructions), "STE survives explicit prompt overrides from other extensions");
+    }
+  } catch (error) {
+    fail(`STE prompt verification failed: ${error.message}`);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
@@ -600,6 +727,7 @@ function verifyBootstrapDryRun() {
   assert(output.includes("--notes"), "bootstrap documents notes hat");
   assert(output.includes("--research"), "bootstrap documents research hat");
   assert(output.includes("pi update"), "bootstrap documents managed cache refresh command");
+  assert(output.includes("Open a new terminal (applies in every project)"), "bootstrap documents global shell activation without per-project setup");
 
   const guarded = run("bash", [path.join(root, "bootstrap.sh"), "--skip-tools"], root);
   const guardedOutput = `${guarded.stdout}${guarded.stderr}`;
@@ -668,6 +796,7 @@ verifyNpmLockIntegrity();
 verifyPackageLockWorkspaceVersions();
 verifyPackageManifests();
 verifyShellIntegration();
+await verifyStePromptLoading();
 verifyBootstrapDryRun();
 verifyWorkflowFiles();
 

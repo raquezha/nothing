@@ -55,6 +55,7 @@ pi() {
   local BASE_MINDSET=""
   local COMBO_PRESET=""
   local MOD_CAVEMAN=false
+  local MOD_STE=false
   local MOD_RTK=false
   local MOD_CURSOR=false
   local MOD_HEADROOM=false
@@ -503,14 +504,17 @@ EOF
           shift
         fi
         ;;
+      --ste)
+        MOD_STE=true
+        shift
+        ;;
       --tkmx)
         COMBO_PRESET="tkmx"
         MOD_ANTIGRAVITY=true
         MOD_CURSOR=true
         MOD_NOTRACE=true
         MOD_PONYTAIL=true
-        MOD_CAVEMAN=true
-        MOD_CAVEMAN_INTENSITY="ultra"
+        MOD_STE=true
         MOD_RTK=true
         MOD_HEADROOM=true
         shift
@@ -569,7 +573,7 @@ EOF
   fi
 
   if [[ "$BASE_MINDSET" == "nothing" ]]; then
-    if [[ "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
+    if [[ "$MOD_CAVEMAN" == true || "$MOD_STE" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true ]]; then
       nothing_warn "--nothing requested; ignoring additive modifiers"
     fi
   else
@@ -619,10 +623,25 @@ EOF
 
   add_extension "noleaks"
 
-  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
+  if [[ "$MOD_STE" == true && "$BASE_MINDSET" != "nothing" ]]; then
+    local ste_prompt="$NOTHING_DIR/dotfiles/ste.md"
+    local ste_extension="$NOTHING_DIR/packages/nometa/extensions/ste"
+    if [[ ! -f "$ste_prompt" ]]; then
+      nothing_warn "--ste requested but missing prompt: $ste_prompt"
+      return 1
+    fi
+    if [[ ! -f "$ste_extension/index.ts" ]]; then
+      nothing_warn "--ste requested but missing extension: $ste_extension"
+      return 1
+    fi
+    add_extension "$ste_extension"
+  fi
+
+  if [[ -n "$BASE_MINDSET" || "$MOD_CAVEMAN" == true || "$MOD_STE" == true || "$MOD_RTK" == true || "$MOD_CURSOR" == true || "$MOD_HEADROOM" == true || "$MOD_LEANCTX" == true || "$MOD_ANTIGRAVITY" == true || "$MOD_NOTRACE" == true || "$MOD_PONYTAIL" == true || ${#EXTRA_SKILLS[@]} -gt 0 || ${#EXTRA_EXTENSIONS[@]} -gt 0 ]]; then
     local label="${COMBO_PRESET:-${BASE_MINDSET:-vanilla}}"
     local -a mods=()
     [[ "$MOD_CAVEMAN" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("caveman")
+    [[ "$MOD_STE" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("ste")
     [[ "$MOD_RTK" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("rtk")
     [[ "$MOD_CURSOR" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("cursor")
     [[ "$MOD_HEADROOM" == true && "$BASE_MINDSET" != "nothing" ]] && mods+=("headroom")
