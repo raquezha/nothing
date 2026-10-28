@@ -1,5 +1,11 @@
 # @raquezha/noleaks
 
+## 0.0.7
+
+### Patch Changes
+
+- 23c8a30: Fix `setExtensionStatus` TypeError by using the official Pi `ctx.ui.setStatus` API for status indicators.
+
 ## 0.0.6
 
 ### Patch Changes
