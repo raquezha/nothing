@@ -1,0 +1,46 @@
+{
+  "name": "@raquezha/nopaste",
+  "version": "0.1.0",
+  "description": "OS-agnostic image and clipboard bridge for Pi Coding Agent (local & SSH across macOS and Linux)",
+  "main": "dist/nopaste/index.js",
+  "types": "dist/nopaste/index.d.ts",
+  "type": "module",
+  "bin": {
+    "nopaste": "bin/nopaste.mjs"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "node test/nopaste.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.74.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "pi-agent",
+    "clipboard",
+    "image",
+    "ssh",
+    "paste",
+    "pi-package"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "extensions",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "extensions"
+    ]
+  }
+}

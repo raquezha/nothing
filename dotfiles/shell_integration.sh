@@ -622,6 +622,7 @@ EOF
   fi
 
   add_extension "noleaks"
+  add_extension "nopaste"
 
   if [[ "$MOD_STE" == true && "$BASE_MINDSET" != "nothing" ]]; then
     local ste_prompt="$NOTHING_DIR/dotfiles/ste.md"
@@ -678,4 +679,14 @@ EOF
   fi
 
   command pi "${NOTHING_FLAGS[@]}" "${EXTRA_SKILLS[@]}" "${EXTRA_EXTENSIONS[@]}" "${ARGS[@]}"
+}
+
+# A bare interactive SSH login gets a session-scoped nopaste tunnel. Commands,
+# file transfers, options, and non-interactive use keep stock ssh behavior.
+ssh() {
+  if [[ $# -eq 1 && "$1" != -* && -t 0 && -t 1 ]] && command -v nopaste >/dev/null 2>&1; then
+    command nopaste ssh "$1" --
+    return $?
+  fi
+  command ssh "$@"
 }

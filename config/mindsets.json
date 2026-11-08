@@ -21,7 +21,8 @@
       ],
       "extensions": [
         "notrace",
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "pm": {
@@ -36,7 +37,8 @@
         "nometa/pulse"
       ],
       "extensions": [
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "dev": {
@@ -57,7 +59,8 @@
       ],
       "extensions": [
         "notrace",
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "rpiv": {
@@ -77,7 +80,8 @@
       ],
       "extensions": [
         "notrace",
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "meta": {
@@ -87,7 +91,8 @@
       ],
       "extensions": [
         "noleaks",
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "write": {
@@ -95,7 +100,8 @@
         "nosearch"
       ],
       "extensions": [
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "notes": {
@@ -103,11 +109,13 @@
         "nosearch",
         "norpiv/distill"
       ],
-      "extensions": []
+      "extensions": [
+        "nopaste"
+      ]
     },
     "research": {
       "skills": ["nosearch", "noresearch/research", "norpiv/distill"],
-      "extensions": ["notrace", "noleaks", "antigravity"]
+      "extensions": ["notrace", "noleaks", "antigravity", "nopaste"]
     },
     "nochestra": {
       "skills": [
@@ -116,7 +124,8 @@
       "extensions": [
         "nochestra",
         "notrace",
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     },
     "nochestra-worker": {
@@ -140,7 +149,8 @@
     "antigravity": {
       "skills": [],
       "extensions": [
-        "antigravity"
+        "antigravity",
+        "nopaste"
       ]
     }
   }

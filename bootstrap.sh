@@ -321,6 +321,11 @@ install_rqz_sync() {
   fi
 }
 
+install_nopaste_cli() {
+  local bin_dir="$HOME/.local/bin"
+  link_item "$SCRIPT_DIR/packages/nopaste/bin/nopaste.mjs" "$bin_dir/nopaste" "nopaste"
+}
+
 install_repo_git_hooks() {
   local hooks_dir="$SCRIPT_DIR/.githooks"
   if [[ ! -d "$SCRIPT_DIR/.git" ]]; then
@@ -522,6 +527,7 @@ build_local_packages() {
     "nofooter:dist/nofooter.js"
     "noleaks:dist/noleaks/index.js"
     "noheadroom:dist/index.js"
+    "nopaste:dist/nopaste/index.js"
     "nosearch:dist/nosearch.js"
     "notrace:dist/notrace/index.js"
   )
@@ -552,7 +558,7 @@ build_local_packages() {
 }
 
 chmod_bundled_scripts() {
-  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/bin" -type f \( -name '*.sh' -o -name '*.cjs' -o -name 'rqz-sync' \) -exec chmod +x {} \;
+  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/bin" -type f \( -name '*.sh' -o -name '*.cjs' -o -name '*.mjs' -o -name 'rqz-sync' \) -exec chmod +x {} \;
 }
 
 configure_headroom() {
@@ -734,6 +740,9 @@ install_shell_integration
 
 step "Install rqz-sync helper"
 install_rqz_sync
+
+step "Install nopaste helper"
+install_nopaste_cli
 
 step "Install global AGENTS.md guardrails"
 install_global_agents_md

@@ -300,7 +300,7 @@ function verifyResearchWorkflowHelper() {
 
 function verifyPackageLockWorkspaceVersions() {
   const lock = JSON.parse(readFileSync(path.join(root, "package-lock.json"), "utf8"));
-  const workspaces = ["packages/antigravity", "packages/nofooter", "packages/noheadroom", "packages/noleaks", "packages/nodesign", "packages/workflows/norpiv", "packages/workflows/nochestra", "packages/nosearch", "packages/notrace"];
+  const workspaces = ["packages/antigravity", "packages/nofooter", "packages/noheadroom", "packages/noleaks", "packages/nodesign", "packages/nopaste", "packages/workflows/norpiv", "packages/workflows/nochestra", "packages/nosearch", "packages/notrace"];
   for (const workspace of workspaces) {
     const pkg = JSON.parse(readFileSync(path.join(root, workspace, "package.json"), "utf8"));
     const lockPkg = lock.packages?.[workspace];
@@ -315,6 +315,7 @@ function verifyPackageManifests() {
     "packages/noleaks/package.json": { extensions: ["extensions"] },
     "packages/noheadroom/package.json": { extensions: ["extensions"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
+    "packages/nopaste/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
     "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
     "packages/workflows/nochestra/package.json": { extensions: ["extensions"] },
@@ -421,12 +422,13 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
     assert(args.includes("--no-mcp"), "--nothing disables mcp");
     assert(!args.includes("--skill"), "--nothing does not add local skills");
     assert(args.includes("--extension") && args.some((arg) => arg.endsWith("/packages/noleaks")), "--nothing keeps the explicit noleaks guard loaded");
+    assert(args.some((arg) => arg.endsWith("/packages/nopaste")), "--nothing keeps image paste available");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi hello`], root, { env });
     assert(result.status === 0, "plain pi remains factory/default under shell integration");
     args = existsSync(argsFile) ? readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean) : [];
-    assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "hello"]), "plain pi receives only the explicit noleaks guard plus user args");
+    assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "--extension", path.join(root, "packages/nopaste"), "hello"]), "plain pi receives noleaks and nopaste plus user args");
 
     writeFileSync(argsFile, "");
     result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi auth check`], root, { env });
@@ -531,7 +533,7 @@ printf 'docker %s\n' "$*" >> "$PI_FAKE_INSTALL_LOG"
       result = run("bash", ["-c", `source ${JSON.stringify(path.join(root, "dotfiles/shell_integration.sh"))}; pi ${flags} hello`], root, { env });
       assert(result.status === 0, `${flags} runs with fake pi`);
       args = readFileSync(argsFile, "utf8").trim().split(/\n/).filter(Boolean);
-      assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "--extension", steExtensionPath, "hello"]), `${flags} loads STE once without overriding prompt discovery`);
+      assert(JSON.stringify(args) === JSON.stringify(["--extension", path.join(root, "packages/noleaks"), "--extension", path.join(root, "packages/nopaste"), "--extension", steExtensionPath, "hello"]), `${flags} loads STE once without overriding prompt discovery`);
       assert(result.stdout.includes("ste"), `${flags} appears in the modifier banner`);
     }
     assert(readFileSync(installLog, "utf8") === "", "--ste needs no downloads or installs");
@@ -736,6 +738,11 @@ function verifyBootstrapDryRun() {
   assert(guardedOutput.includes("Use --yes only if you really mean it"), "bootstrap documents explicit bypass for automation");
 }
 
+function verifyNopaste() {
+  const result = run("node", [path.join(root, "packages/nopaste/test/nopaste.test.mjs")], root);
+  assert(result.status === 0, result.status === 0 ? "nopaste package tests pass" : `nopaste package tests failed: ${result.stderr || result.stdout}`);
+}
+
 function verifyWorkflowFiles() {
   const refreshScript = readFileSync(path.join(root, "scripts/android-skills-refresh.sh"), "utf8");
   assert(refreshScript.includes("android update"), "Android refresh script explicitly updates Android CLI");
@@ -798,6 +805,7 @@ verifyPackageManifests();
 verifyShellIntegration();
 await verifyStePromptLoading();
 verifyBootstrapDryRun();
+verifyNopaste();
 verifyWorkflowFiles();
 
 if (failures.length) {
