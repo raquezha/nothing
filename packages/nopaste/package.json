@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nopaste",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OS-agnostic image and clipboard bridge for Pi Coding Agent (local & SSH across macOS and Linux)",
   "main": "dist/nopaste/index.js",
   "types": "dist/nopaste/index.d.ts",
