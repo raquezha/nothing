@@ -558,7 +558,8 @@ build_local_packages() {
 }
 
 chmod_bundled_scripts() {
-  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/bin" -type f \( -name '*.sh' -o -name '*.cjs' -o -name '*.mjs' -o -name 'rqz-sync' \) -exec chmod +x {} \;
+  run find "$SCRIPT_DIR/packages" "$SCRIPT_DIR/scripts" "$SCRIPT_DIR/bin" -type f \( -name '*.sh' -o -name '*.cjs' -o -name 'rqz-sync' \) -exec chmod +x {} \;
+  run chmod +x "$SCRIPT_DIR/packages/nopaste/bin/nopaste.mjs"
 }
 
 configure_headroom() {
