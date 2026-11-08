@@ -17,7 +17,7 @@ async function main() {
     const token = randomBytes(32).toString("hex");
     const service = await serveClipboard(token);
     const remoteSocket = `/tmp/nopaste-${randomUUID()}.sock`;
-    const remoteCommand = `trap 'rm -f ${remoteSocket}' EXIT; export NOPASTE_SOCKET=${quote(remoteSocket)} NOPASTE_TOKEN=${quote(token)}; ${remoteArgs.length ? remoteArgs.map(quote).join(" ") : 'exec "$SHELL" -il'}`;
+    const remoteCommand = `config_dir="$HOME/.cache/nopaste"; config="$config_dir/tunnel.json"; mkdir -p "$config_dir"; chmod 700 "$config_dir"; export NOPASTE_SOCKET=${quote(remoteSocket)} NOPASTE_TOKEN=${quote(token)}; umask 077; printf '{"socket":"%s","token":"%s","pid":%s}\\n' "$NOPASTE_SOCKET" "$NOPASTE_TOKEN" "$$" > "$config"; trap 'rm -f ${remoteSocket} "$config"' EXIT; ${remoteArgs.length ? remoteArgs.map(quote).join(" ") : '"$SHELL" -il'}`;
     try {
       const code = await new Promise((resolve, reject) => {
         const ssh = spawn("ssh", ["-tt", "-o", "ExitOnForwardFailure=yes", "-o", "StreamLocalBindMask=0177", "-R", `${remoteSocket}:${service.socket}`, host, `"$SHELL" -ic ${quote(remoteCommand)}`], { stdio: "inherit" });

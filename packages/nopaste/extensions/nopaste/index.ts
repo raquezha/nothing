@@ -1,20 +1,39 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readClipboardImage, type Image } from "./clipboard.js";
 import { fetchClipboard } from "./server.js";
+
+type Tunnel = { socket: string; token: string };
+
+export function tunnel(configPath = join(homedir(), ".cache", "nopaste", "tunnel.json")): Tunnel | undefined {
+  if (process.env.NOPASTE_SOCKET && process.env.NOPASTE_TOKEN) return { socket: process.env.NOPASTE_SOCKET, token: process.env.NOPASTE_TOKEN };
+  try {
+    const value = JSON.parse(readFileSync(configPath, "utf8"));
+    if (typeof value.socket !== "string" || typeof value.token !== "string" || !Number.isSafeInteger(value.pid) || !existsSync(value.socket)) throw new Error("Invalid nopaste tunnel config");
+    process.kill(value.pid, 0);
+    // shortcut: one active SSH clipboard client per Mac user, add per-client routing when concurrent clients matter.
+    return { socket: value.socket, token: value.token };
+  } catch {
+    if (existsSync(configPath)) { try { unlinkSync(configPath); } catch {} }
+  }
+}
 
 export default function (pi: ExtensionAPI) {
   const pending = new Map<string, Image>();
 
   async function paste(ctx: ExtensionContext, prompt = "") {
     try {
-      if ((process.env.SSH_CONNECTION || process.env.NOPASTE_SOCKET || process.env.NOPASTE_TOKEN) && (!process.env.NOPASTE_SOCKET || !process.env.NOPASTE_TOKEN)) {
+      const activeTunnel = tunnel();
+      if (process.env.SSH_CONNECTION && !activeTunnel) {
         ctx.ui.notify("SSH clipboard unavailable: reconnect with a bare interactive ssh login", "warning");
         return;
       }
       // A configured tunnel is the only remote clipboard; never silently read the host clipboard instead.
-      const image = process.env.NOPASTE_SOCKET && process.env.NOPASTE_TOKEN
-        ? await fetchClipboard(process.env.NOPASTE_SOCKET, process.env.NOPASTE_TOKEN)
+      const image = activeTunnel
+        ? await fetchClipboard(activeTunnel.socket, activeTunnel.token)
         : await readClipboardImage();
       if (!image) { ctx.ui.notify("No supported image in clipboard (PNG, JPEG, GIF, WebP, or copied image file)", "warning"); return; }
       if (prompt.trim()) {
@@ -37,8 +56,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("paste", { description: "Attach clipboard image to the draft", handler: (args, ctx) => paste(ctx, args) });
   pi.registerShortcut("alt+v", { description: "Attach clipboard image without overriding Pi Ctrl+V", handler: (ctx) => paste(ctx) });
   pi.registerCommand("nopaste-status", { description: "Show clipboard source", handler: async (_args, ctx) => {
-    const tunnel = Boolean(process.env.NOPASTE_SOCKET && process.env.NOPASTE_TOKEN);
-    ctx.ui.notify(tunnel
+    const activeTunnel = tunnel();
+    ctx.ui.notify(activeTunnel
       ? "SSH clipboard tunnel configured (Linux/Mac client)"
       : process.env.SSH_CONNECTION
         ? "SSH clipboard tunnel missing: reconnect with a bare interactive ssh login"

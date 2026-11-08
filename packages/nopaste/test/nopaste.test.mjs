@@ -2,12 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import http from "node:http";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import extension from "../dist/nopaste/index.js";
+import extension, { tunnel } from "../dist/nopaste/index.js";
 import { imageType, checkedImage, MAX_IMAGE_BYTES } from "../dist/nopaste/clipboard.js";
 import { fetchClipboard, serveClipboard } from "../dist/nopaste/server.js";
 
@@ -88,6 +88,23 @@ test("draft markers attach bytes only when present and stale markers are strippe
   }
 });
 
+test("persistent Herdr process can resolve the active SSH tunnel config", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "nopaste-test-"));
+  const socket = join(dir, "clipboard.sock");
+  const config = join(dir, "tunnel.json");
+  const server = http.createServer((_req, res) => res.writeHead(204).end());
+  await new Promise((resolve) => server.listen(socket, resolve));
+  try {
+    await writeFile(config, JSON.stringify({ socket, token: "token", pid: process.pid }), { mode: 0o600 });
+    assert.deepEqual(tunnel(config), { socket, token: "token" });
+    await rm(socket, { force: true });
+    assert.equal(tunnel(config), undefined);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("SSH status reports a missing clipboard tunnel", async () => {
   const commands = new Map();
   const pi = { registerCommand: (name, options) => commands.set(name, options.handler), registerShortcut: () => {}, on: () => {} };
@@ -123,7 +140,8 @@ test("bare SSH wrapper opens an interactive remote shell with tunnel variables",
     const args = await readFile(argsFile, "utf8");
     assert.match(args, /NOPASTE_SOCKET=/);
     assert.match(args, /NOPASTE_TOKEN=/);
-    assert.match(args, /exec \"\$SHELL\" -il/);
+    assert.match(args, /\"\$SHELL\" -il/);
+    assert.match(args, /tunnel\.json/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
