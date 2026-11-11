@@ -73,6 +73,7 @@ firecrawl_search_main() {
     firecrawl_error "--limit expects a non-negative integer."
   fi
 
+  # v2 default limit is 10 (was 5); keep the previous default when unset.
   PAYLOAD="$(jq -n \
     --arg query "$QUERY" \
     --arg limit "$LIMIT" \
@@ -82,12 +83,12 @@ firecrawl_search_main() {
     '{
       query: $query
     }
-    + (if $limit == "" then {} else {limit: ($limit | tonumber)} end)
+    + (if $limit == "" then {limit: 5} else {limit: ($limit | tonumber)} end)
     + (if $lang == "" then {} else {lang: $lang} end)
     + (if $country == "" then {} else {country: $country} end)
     + (if $scrape then {scrapeOptions: {formats: ["markdown"], onlyMainContent: true}} else {} end)')"
 
-  RESPONSE="$(firecrawl_request "/v1/search" "$PAYLOAD")"
+  RESPONSE="$(firecrawl_request "/v2/search" "$PAYLOAD")"
 
   if [[ "$JSON" == true ]]; then
     jq . <<<"$RESPONSE"
@@ -106,7 +107,8 @@ firecrawl_search_main() {
 
   RESULTS="$(jq -r '
     def items:
-      if (.data? | type) == "array" then .data
+      if ((.data? // {}) | (.web? | type == "array")) then .data.web
+      elif (.data? | type) == "array" then .data
       elif ((.data? // {}) | (.results? | type == "array")) then .data.results
       elif (.results? | type) == "array" then .results
       else [] end;

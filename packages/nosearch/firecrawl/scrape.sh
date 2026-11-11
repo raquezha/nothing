@@ -98,7 +98,7 @@ firecrawl_scrape_main() {
     + (if $waitFor == "" then {} else {waitFor: ($waitFor | tonumber)} end)
     + (if $timeout == "" then {} else {timeout: ($timeout | tonumber)} end)')"
 
-  RESPONSE="$(firecrawl_request "/v1/scrape" "$PAYLOAD")"
+  RESPONSE="$(firecrawl_request "/v2/scrape" "$PAYLOAD")"
 
   if [[ "$JSON" == true ]]; then
     jq . <<<"$RESPONSE"

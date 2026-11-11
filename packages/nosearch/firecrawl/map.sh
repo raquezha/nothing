@@ -100,14 +100,20 @@ firecrawl_map_main() {
     + (if $limit == "" then {} else {limit: ($limit | tonumber)} end)
     + (if $sitemap == "" then {} else {sitemap: $sitemap} end)')"
 
-  RESPONSE="$(firecrawl_request "/v1/map" "$PAYLOAD")"
+  RESPONSE="$(firecrawl_request "/v2/map" "$PAYLOAD")"
 
   if [[ "$JSON" == true ]]; then
     jq . <<<"$RESPONSE"
     exit 0
   fi
 
+  # v2 returns link objects ({url,title,description}); still accept plain strings.
   LINKS="$(jq -r '
+    def link_url:
+      if type == "string" then .
+      elif type == "object" then (.url // empty)
+      else empty end;
+
     if (.links? | type) == "array" then
       .links[]
     elif ((.data? // {}) | (.links? | type == "array")) then
@@ -115,6 +121,7 @@ firecrawl_map_main() {
     else
       empty
     end
+    | link_url
   ' <<<"$RESPONSE")"
 
   if [[ -n "$LINKS" ]]; then
