@@ -7,6 +7,8 @@ description: Scrape, map, and search the web with Firecrawl REST helpers. Use wh
 
 Use this skill when Firecrawl is the better fit than plain web search.
 
+Helpers call Firecrawl REST **v2** (`/v2/scrape`, `/v2/map`, `/v2/search`). The v1 API shuts down December 10, 2026.
+
 ## When to use
 - scrape a known URL into markdown
 - map a site to discover crawlable URLs
@@ -21,6 +23,7 @@ Use this skill when Firecrawl is the better fit than plain web search.
    - `./search.sh <query>`
 4. Use `--json` when the raw API response is more useful than the friendly view.
 5. Keep requests narrow; only add scrape/limit flags when needed.
+6. Search defaults to `limit: 5` (v1 default) unless `--limit` is set; map prints link URLs from v2 link objects.
 
 ## Rules
 - Never print or hardcode the token.
