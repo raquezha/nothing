@@ -11,6 +11,7 @@ const catalog = { models: {
   "claude-sonnet-5-5-high": { displayName: "Claude Sonnet 5.5 (High)", model: "MODEL_PLACEHOLDER_M36" },
   "gemini-3.8-flash-tiered": { model: "MODEL_PLACEHOLDER_M322" },
   "gemini-4-argon": { displayName: "Gemini 4 Argon", model: "MODEL_PLACEHOLDER_M400" },
+  "gemini-4-hydrogen": { displayName: "Gemini 4 Hydrogen", model: "MODEL_PLACEHOLDER_M410" },
 } };
 for (const id of Object.keys(catalog.models)) assert.equal(oauth.findDynamicModel(catalog, id)?.id, id);
 assert.equal(oauth.findDynamicModel(catalog, "gemini-3.5-flash-low")?.id, "gemini-3.5-flash-extra-low");
@@ -32,6 +33,14 @@ assert.equal(getAntigravityRequestModelId("gemini-4-argon", "low"), "gemini-4-ar
 assert.equal(getAntigravityRequestModelId("gemini-4-argon", "medium"), "gemini-4-argon-medium");
 assert.equal(getAntigravityRequestModelId("gemini-4-argon", "off"), "gemini-4-argon-low");
 assert.equal(oauth.findDynamicModel(catalog, "gemini-4-argon-medium")?.id, "gemini-4-argon");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "high"), "gemini-4-hydrogen-high");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "low"), "gemini-4-hydrogen-low");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "medium"), "gemini-4-hydrogen-medium");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "xhigh"), "gemini-4-hydrogen-xhigh");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "max"), "gemini-4-hydrogen-xhigh");
+assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "off"), "gemini-4-hydrogen-low");
+assert.equal(oauth.findDynamicModel(catalog, "gemini-4-hydrogen-medium")?.id, "gemini-4-hydrogen");
+assert.equal(oauth.findDynamicModel(catalog, "gemini-4-hydrogen-xhigh")?.id, "gemini-4-hydrogen");
 
 const parameters = { type: "object", properties: {
   const: { type: "string", const: "ok" },
@@ -67,9 +76,9 @@ try {
     assert.deepEqual(schema.properties.choices.items.anyOf[0], { type: "STRING", enum: ["yes"] });
     assert.match(oauth.lastMatchedModelDebug, /Claude/);
   }
-  for (const id of ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-4-argon"]) {
+  for (const id of ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-4-argon", "gemini-4-hydrogen"]) {
     await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === id), context, options).result();
-    assert.equal(sent.model, id === "gemini-3.5-flash" ? "gemini-3.5-flash-extra-low" : id === "gemini-4-argon" ? "gemini-4-argon" : `${id}-tiered`);
+    assert.equal(sent.model, id === "gemini-3.5-flash" ? "gemini-3.5-flash-extra-low" : id === "gemini-4-argon" || id === "gemini-4-hydrogen" ? id : `${id}-tiered`);
     assert.equal(sent.request.tools[0].functionDeclarations[0].parametersJsonSchema.properties.const.const, "ok");
   }
   const updatedContext = { messages: [...context.messages, { role: "system", content: "Now call next", toolsRemoved: [{ name: "check" }], toolsAdded: [{ name: "next", parameters }] }] };

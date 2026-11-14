@@ -38,6 +38,7 @@ npm install -g @raquezha/antigravity
   - `gemini-3.5-flash`
   - `gemini-3.1-pro`
   - `gemini-4-argon`
+  - `gemini-4-hydrogen`
   - `claude-sonnet-5-5`
   - `claude-opus-5-5`
   - `gpt-oss-120b`
@@ -47,6 +48,7 @@ npm install -g @raquezha/antigravity
   - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-low`, `gemini-3.5-flash-medium`, or `gemini-3.5-flash-high`
   - `gemini-3.1-pro` -> routes internally to `gemini-3.1-pro-low` or `gemini-pro-agent`
   - `gemini-4-argon` -> routes internally by reasoning level to `gemini-4-argon-low`, `gemini-4-argon-medium`, or `gemini-4-argon-high` (falls back to unified `gemini-4-argon`)
+  - `gemini-4-hydrogen` -> routes internally by reasoning level to `gemini-4-hydrogen-low`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-high`, or `gemini-4-hydrogen-xhigh` (falls back to unified `gemini-4-hydrogen`; default effort is `high`)
   - `claude-sonnet-5-5` -> routes internally by reasoning level to `claude-sonnet-5-5-low`, `claude-sonnet-5-5-medium`, or `claude-sonnet-5-5-high`
   - `claude-opus-5-5` -> routes internally by reasoning level to `claude-opus-5-5-low`, `claude-opus-5-5-medium`, or `claude-opus-5-5-high`
   - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`

@@ -215,7 +215,7 @@ export function findDynamicModel(value: any, requestedId: string): DynamicModelI
 		(key) => typeof models[key]?.displayName === "string" && normalize(models[key].displayName) === normalize(requestedId),
 	);
 	if (!id) {
-		const baseId = requestedId.replace(/-(low|medium|high|extra-low)$/, "");
+		const baseId = requestedId.replace(/-(low|medium|high|xhigh|max|extra-low)$/, "");
 		if (Object.hasOwn(models, baseId)) {
 			id = baseId;
 		} else {

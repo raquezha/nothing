@@ -235,7 +235,7 @@ function friendlyAntigravityError(status: number | undefined, text: string): str
 		return `Antigravity denied this request. Next: re-login or try another model. Backend said: ${msg}`;
 	}
 	if (status === 404) {
-		if (/Requested entity was not found/i.test(msg)) return "This model is not available right now. Next: switch to gemini-3.8-flash, gemini-3.5-flash, gemini-3.1-pro, or another working model.";
+		if (/Requested entity was not found/i.test(msg)) return "This model is not available right now. Next: switch to gemini-3.8-flash, gemini-4-hydrogen, gemini-3.5-flash, gemini-3.1-pro, or another working model.";
 		return `Antigravity could not find the requested resource. Next: retry or switch models. Backend said: ${msg}`;
 	}
 	if (status === 408) {
