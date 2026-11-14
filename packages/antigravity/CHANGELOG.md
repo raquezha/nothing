@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.1.6
+
+### Patch Changes
+
+- 877224b: Add Gemini 4 Hydrogen (`gemini-4-hydrogen`) with low/medium/high/xhigh effort routing and base-model catalog fallback.
+
 ## 0.1.5
 
 ### Patch Changes

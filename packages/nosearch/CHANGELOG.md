@@ -1,5 +1,11 @@
 # @raquezha/nosearch
 
+## 0.0.14
+
+### Patch Changes
+
+- 4582090: Migrate Firecrawl scrape/map/search helpers from the retiring v1 API to v2.
+
 ## 0.0.13
 
 ### Patch Changes
