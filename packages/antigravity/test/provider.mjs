@@ -55,6 +55,7 @@ const options = { apiKey: JSON.stringify({ token: "test", projectId: "test" }) }
 const originalFetch = globalThis.fetch;
 let sent;
 let rejectRequest = false;
+let quotaReached = false;
 let finishReason = "STOP";
 globalThis.fetch = async (url, init) => {
   if (url.includes("loadCodeAssist")) return Response.json({ project: "test" });
@@ -64,6 +65,7 @@ globalThis.fetch = async (url, init) => {
   assert.match(sent.request.systemInstruction.parts.at(-1).text, /Call check for OK/);
   assert.equal(sent.request.tools[0].functionDeclarations[0].name, sent.request.systemInstruction.parts.at(-1).text.includes("Now call next") ? "next" : "check");
   if (rejectRequest) return Response.json({ error: { message: 'Invalid JSON payload. Unknown name "unsupported"' } }, { status: 400 });
+  if (quotaReached) return Response.json({ error: { message: "Project quota policy blocked this request" } }, { status: 429 });
   return new Response(`data: {"response":{"candidates":[{"content":{"parts":[{"text":"OK"}]},"finishReason":"${finishReason}"}]}}\n\n`);
 };
 try {
@@ -90,6 +92,11 @@ try {
   assert.equal(result.stopReason, "error");
   assert.match(result.errorMessage, /Unknown name "unsupported"/);
   rejectRequest = false;
+  quotaReached = true;
+  const quota = await streamAntigravity(ANTIGRAVITY_MODELS[0], context, options).result();
+  assert.equal(quota.stopReason, "error");
+  assert.match(quota.errorMessage, /Backend said: Project quota policy blocked this request/);
+  quotaReached = false;
   finishReason = "MALFORMED_FUNCTION_CALL";
   const malformed = await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), context, options).result();
   assert.equal(malformed.stopReason, "error");

@@ -246,8 +246,8 @@ function friendlyAntigravityError(status: number | undefined, text: string): str
 	}
 	if (status === 429) {
 		const wait = msg.match(/Resets? in ([^.\n]+)/i)?.[1]?.trim();
-		if (/Individual quota reached/i.test(msg)) return `Quota reached. Please wait ${wait || "for reset"}. Next: switch models or try again after reset.`;
-		if (/quota/i.test(msg)) return `Quota reached.${wait ? ` Please wait ${wait}.` : ""} Next: switch models or retry later.`;
+		if (/Individual quota reached/i.test(msg)) return `Quota reached. Please wait ${wait || "for reset"}. Next: switch models or try again after reset. Backend said: ${msg}`;
+		if (/quota/i.test(msg)) return `Quota reached.${wait ? ` Please wait ${wait}.` : ""} Next: switch models or retry later. Backend said: ${msg}`;
 		return `Rate limited by Antigravity. Next: wait a bit and retry.${wait ? ` Reset: ${wait}.` : ""}`;
 	}
 	if (status === 500) {
