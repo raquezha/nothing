@@ -53,12 +53,14 @@ Implement UI from Figma or Zeplin deterministically across **Web**, **Android Je
 
 ### Gate 4: Rendered Visual & Bounds Verification ("Build Succeeded" Is Not Proof)
 
-1. Render the actual UI across target viewports/configurations:
+1. Render the actual UI across target viewports/configurations and **element-complete routes** (including syntax-highlighted code blocks, horizontally overflowing containers, tables, inline icons, and sticky nav):
    - **Web**: Capture full-viewport and full-page screenshots at `1440px` (Desktop), `768px` (Tablet), and `390px` (Mobile) via headless Chrome CDP (`Emulation.setDeviceMetricsOverride`).
    - **Android / Compose**: Render `@Preview` functions via the Compose Preview runner (`android preview render --component-tree`), Paparazzi, or Roborazzi, and inspect both the PNG and the component bounds JSON.
-2. Visually inspect the rendered PNGs against the Figma reference:
-   - Check icon/SVG proportions, typography hierarchy, date/heading spacing, hover states, and responsive wrapping.
-3. Fix every discrepancy and re-capture before marking the task complete.
+2. Run **computed-DOM & contrast assertions** inside the live render:
+   - Verify icon-to-text proportions (`icon.height <= adjacentTextLineHeight`) after any typography resize.
+   - Verify syntax/foreground contrast against `getComputedStyle(container).backgroundColor` (so a light syntax theme never collides with a dark surface override).
+   - Verify scrollable rounded containers clip cleanly (`overflow: hidden` on the rounded parent, `overflow-x: auto` on the inner child) so scrollbars don't square off bottom corners.
+3. **Open and visually inspect the rendered PNGs after the final edit** (script exit `0` is "captured", not "verified"). Fix every discrepancy and re-capture before marking the task complete.
 
 ---
 
