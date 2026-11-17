@@ -3,6 +3,9 @@ import { ANTIGRAVITY_MODELS, getAntigravityRequestModelId } from "../dist/antigr
 import * as oauth from "../dist/antigravity/oauth.js";
 import { streamAntigravity } from "../dist/antigravity/cloud-code-assist.js";
 
+assert.equal(oauth.DEFAULT_ENDPOINT, "https://daily-cloudcode-pa.googleapis.com");
+assert.equal(oauth.ENDPOINT_FALLBACKS[0], oauth.DEFAULT_ENDPOINT);
+
 const catalog = { models: {
   "gemini-3.5-flash-extra-low": { displayName: "Gemini 3.5 Flash (Low)", model: "MODEL_PLACEHOLDER_M187" },
   "claude-opus-5-5-low": { displayName: "Claude Opus 5.5 (Low)", model: "MODEL_PLACEHOLDER_M26" },
@@ -62,6 +65,8 @@ globalThis.fetch = async (url, init) => {
   if (url.includes("fetchAvailableModels")) return Response.json(catalog);
   assert.ok(url.includes("streamGenerateContent"));
   sent = JSON.parse(init.body);
+  const systemParts = sent.request.systemInstruction.parts.map((part) => part.text).join("\n");
+  assert.doesNotMatch(systemParts, /Google DeepMind|You are Antigravity,/);
   assert.match(sent.request.systemInstruction.parts.at(-1).text, /Call check for OK/);
   assert.equal(sent.request.tools[0].functionDeclarations[0].name, sent.request.systemInstruction.parts.at(-1).text.includes("Now call next") ? "next" : "check");
   if (rejectRequest) return Response.json({ error: { message: 'Invalid JSON payload. Unknown name "unsupported"' } }, { status: 400 });
@@ -96,6 +101,9 @@ try {
   const quota = await streamAntigravity(ANTIGRAVITY_MODELS[0], context, options).result();
   assert.equal(quota.stopReason, "error");
   assert.match(quota.errorMessage, /Backend said: Project quota policy blocked this request/);
+  assert.match(quota.errorMessage, /endpoint=/);
+  assert.equal(oauth.readDiagnostics().lastStatus, 429);
+  assert.equal(oauth.readDiagnostics().lastError, quota.errorMessage);
   quotaReached = false;
   finishReason = "MALFORMED_FUNCTION_CALL";
   const malformed = await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), context, options).result();

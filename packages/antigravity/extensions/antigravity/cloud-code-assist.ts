@@ -23,9 +23,10 @@ import {
 } from "./oauth.js";
 import { getAntigravityRequestModelId, PROVIDER_ID } from "./models.js";
 
+// Do not impersonate Google DeepMind / official Antigravity branding here.
+// Free-tier Cloud Code Assist rejects that persona with RESOURCE_EXHAUSTED.
 const ANTIGRAVITY_SYSTEM_INSTRUCTION =
-	"You are Antigravity, a powerful agentic AI coding assistant designed by Google DeepMind. " +
-	"You are pair programming with a user to solve coding tasks. Be concise, practical, and tool-aware.";
+	"You are a coding assistant. Be concise, practical, and tool-aware.";
 
 const ANTIGRAVITY_NO_PREAMBLE_INSTRUCTION =
 	'CRITICAL: NEVER output rule checks, formatting guidelines, constraint checklists (e.g. "No emdashes"), or your thinking/personality preambles in the final response. Output only the final response.';
@@ -443,7 +444,6 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 
 				if (!response || !response.ok) {
 					const friendly = friendlyAntigravityError(response?.status, lastText);
-					if (response?.status === 429 && /Quota reached\./i.test(friendly)) throw new Error(friendly);
 					throw new Error(`Antigravity API error (${response?.status ?? "no response"}, endpoint=${lastEndpoint || "unknown"}, project=${projectId}, runtimeModel=${runtimeModel}, matched=${lastMatchedModelDebug || "none"}, available=${lastAvailableModels || "unknown"}): ${friendly}`);
 				}
 

@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 
 export type OAuthCredentials = {
 	refresh: string;
@@ -20,12 +23,15 @@ export type AntigravityApiKey = {
 	projectId: string;
 };
 
-export const DEFAULT_ENDPOINT = "https://cloudcode-pa.googleapis.com";
+// Prefer the same production daily host the official `agy` CLI uses.
+export const DEFAULT_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com";
 export const ENDPOINT_FALLBACKS = [
 	DEFAULT_ENDPOINT,
+	"https://cloudcode-pa.googleapis.com",
 	"https://daily-cloudcode-pa.sandbox.googleapis.com",
 ];
 export const REDIRECT_URI = "http://localhost:51121/oauth-callback";
+export const DIAGNOSTICS_PATH = join(homedir(), ".pi", "agent", "antigravity-diagnostics.json");
 
 export function antigravityEnv(name: string): string | undefined {
 	return process.env[`ANTIGRAVITY_${name}`] || process.env[`NOAGY_${name}`];
@@ -51,27 +57,75 @@ export const SCOPES = [
 export const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 export const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-// Shared diagnostics variables
+export type AntigravityDiagnostics = {
+	lastStatus?: number;
+	lastEndpoint?: string;
+	lastError?: string;
+	lastProjectId?: string;
+	lastResolvedRuntimeModel?: string;
+	lastAvailableModels?: string;
+	lastMatchedModelDebug?: string;
+	updatedAt?: string;
+};
+
+// In-memory diagnostics plus a disk snapshot so /antigravity.doctor works across
+// duplicate extension module instances in the same Pi process.
 export let lastStatus: number | undefined;
-export function setLastStatus(status: number | undefined) { lastStatus = status; }
-
 export let lastEndpoint: string | undefined;
-export function setLastEndpoint(endpoint: string | undefined) { lastEndpoint = endpoint; }
-
 export let lastError: string | undefined;
-export function setLastError(error: string | undefined) { lastError = error; }
-
 export let lastProjectId: string | undefined;
-export function setLastProjectId(projectId: string | undefined) { lastProjectId = projectId; }
-
 export let lastResolvedRuntimeModel: string | undefined;
-export function setLastResolvedRuntimeModel(model: string | undefined) { lastResolvedRuntimeModel = model; }
-
 export let lastAvailableModels: string | undefined;
-export function setLastAvailableModels(models: string | undefined) { lastAvailableModels = models; }
-
 export let lastMatchedModelDebug: string | undefined;
-export function setLastMatchedModelDebug(debug: string | undefined) { lastMatchedModelDebug = debug; }
+
+function persistDiagnostics(): void {
+	try {
+		mkdirSync(dirname(DIAGNOSTICS_PATH), { recursive: true });
+		const snapshot: AntigravityDiagnostics = {
+			lastStatus,
+			lastEndpoint,
+			lastError,
+			lastProjectId,
+			lastResolvedRuntimeModel,
+			lastAvailableModels,
+			lastMatchedModelDebug,
+			updatedAt: new Date().toISOString(),
+		};
+		writeFileSync(DIAGNOSTICS_PATH, JSON.stringify(snapshot));
+	} catch {
+		// best-effort only
+	}
+}
+
+function readDiskDiagnostics(): AntigravityDiagnostics {
+	try {
+		return JSON.parse(readFileSync(DIAGNOSTICS_PATH, "utf8")) as AntigravityDiagnostics;
+	} catch {
+		return {};
+	}
+}
+
+export function readDiagnostics(): AntigravityDiagnostics {
+	const disk = readDiskDiagnostics();
+	return {
+		lastStatus: lastStatus ?? disk.lastStatus,
+		lastEndpoint: lastEndpoint ?? disk.lastEndpoint,
+		lastError: lastError ?? disk.lastError,
+		lastProjectId: lastProjectId ?? disk.lastProjectId,
+		lastResolvedRuntimeModel: lastResolvedRuntimeModel ?? disk.lastResolvedRuntimeModel,
+		lastAvailableModels: lastAvailableModels ?? disk.lastAvailableModels,
+		lastMatchedModelDebug: lastMatchedModelDebug ?? disk.lastMatchedModelDebug,
+		updatedAt: disk.updatedAt,
+	};
+}
+
+export function setLastStatus(status: number | undefined) { lastStatus = status; persistDiagnostics(); }
+export function setLastEndpoint(endpoint: string | undefined) { lastEndpoint = endpoint; persistDiagnostics(); }
+export function setLastError(error: string | undefined) { lastError = error; persistDiagnostics(); }
+export function setLastProjectId(projectId: string | undefined) { lastProjectId = projectId; persistDiagnostics(); }
+export function setLastResolvedRuntimeModel(model: string | undefined) { lastResolvedRuntimeModel = model; persistDiagnostics(); }
+export function setLastAvailableModels(models: string | undefined) { lastAvailableModels = models; persistDiagnostics(); }
+export function setLastMatchedModelDebug(debug: string | undefined) { lastMatchedModelDebug = debug; persistDiagnostics(); }
 
 export function nowRequestId(): string {
 	return `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -179,12 +233,12 @@ async function listCloudAICompanionProjects(token: string): Promise<string | und
 				headers: antigravityHeaders(token),
 				body: JSON.stringify({}),
 			});
-			lastStatus = res.status;
-			lastEndpoint = endpoint;
+			setLastStatus(res.status);
+			setLastEndpoint(endpoint);
 			if (!res.ok) continue;
 			return extractProjectId(await res.json());
 		} catch (error) {
-			lastError = safeError(error);
+			setLastError(safeError(error));
 		}
 	}
 	return undefined;
@@ -205,10 +259,10 @@ function summarizeModelCandidate(value: any): string {
 export type DynamicModelInfo = { id: string };
 
 export function findDynamicModel(value: any, requestedId: string): DynamicModelInfo | undefined {
-	lastMatchedModelDebug = undefined;
+	setLastMatchedModelDebug(undefined);
 	const models = value?.models;
 	if (!models || typeof models !== "object" || Array.isArray(models)) return undefined;
-	lastAvailableModels = Object.keys(models).sort().join(",");
+	setLastAvailableModels(Object.keys(models).sort().join(","));
 	// The map key is the request ID. The nested MODEL_PLACEHOLDER_* value is not.
 	const normalize = (label: string) => label.toLowerCase().replace(/[^a-z0-9]/g, "");
 	let id = Object.hasOwn(models, requestedId) ? requestedId : Object.keys(models).find(
@@ -225,13 +279,13 @@ export function findDynamicModel(value: any, requestedId: string): DynamicModelI
 		}
 	}
 	if (!id) return undefined;
-	lastMatchedModelDebug = summarizeModelCandidate(models[id]);
+	setLastMatchedModelDebug(summarizeModelCandidate(models[id]));
 	return { id };
 }
 
 export async function fetchAvailableRuntimeModel(token: string, projectId: string, requestedRuntimeModel: string): Promise<DynamicModelInfo | undefined> {
-	lastMatchedModelDebug = undefined;
-	lastAvailableModels = undefined;
+	setLastMatchedModelDebug(undefined);
+	setLastAvailableModels(undefined);
 	const bodies = [{ project: projectId }, {}, { cloudaicompanionProject: projectId }];
 	for (const endpoint of endpointCandidates()) {
 		for (const candidateBody of bodies) {
@@ -241,13 +295,13 @@ export async function fetchAvailableRuntimeModel(token: string, projectId: strin
 					headers: antigravityHeaders(token),
 					body: JSON.stringify(candidateBody),
 				});
-				lastStatus = res.status;
-				lastEndpoint = endpoint;
+				setLastStatus(res.status);
+				setLastEndpoint(endpoint);
 				if (!res.ok) continue;
 				const data = await res.json();
 				return findDynamicModel(data, requestedRuntimeModel);
 			} catch (error) {
-				lastError = safeError(error);
+				setLastError(safeError(error));
 			}
 		}
 	}
@@ -266,14 +320,14 @@ export async function loadCodeAssist(token: string): Promise<string | undefined>
 				headers: antigravityHeaders(token),
 				body,
 			});
-			lastStatus = res.status;
-			lastEndpoint = endpoint;
+			setLastStatus(res.status);
+			setLastEndpoint(endpoint);
 			if (!res.ok) continue;
 			const project = extractProjectId(await res.json());
 			if (project) return project;
 			return await listCloudAICompanionProjects(token);
 		} catch (error) {
-			lastError = safeError(error);
+			setLastError(safeError(error));
 		}
 	}
 	return undefined;

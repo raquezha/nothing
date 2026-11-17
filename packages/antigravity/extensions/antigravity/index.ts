@@ -8,13 +8,8 @@ import {
 	loginAntigravity,
 	refreshAntigravityToken,
 	getApiKey,
-	lastStatus,
-	lastEndpoint,
-	lastError,
-	lastProjectId,
-	lastResolvedRuntimeModel,
-	lastAvailableModels,
-	lastMatchedModelDebug,
+	readDiagnostics,
+	DIAGNOSTICS_PATH,
 	DEFAULT_ENDPOINT,
 } from "./oauth.js";
 import { streamAntigravity } from "./cloud-code-assist.js";
@@ -37,15 +32,19 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("antigravity.doctor", {
 		description: "Show sanitized Antigravity provider diagnostics",
 		handler: async (_args, ctx) => {
+			const d = readDiagnostics();
 			const lines = [
 				`provider=${PROVIDER_ID}`,
-				`lastResolvedRuntimeModel=${lastResolvedRuntimeModel || "none"}`,
-				`availableModels=${lastAvailableModels || "none"}`,
-				`matchedModel=${lastMatchedModelDebug || "none"}`,
-				`lastEndpoint=${lastEndpoint || "none"}`,
-				`lastStatus=${lastStatus ?? "none"}`,
-				`lastProjectId=${lastProjectId || "none"}`,
-				`lastError=${lastError || "none"}`,
+				`extensionPath=${import.meta.url}`,
+				`diagnosticsPath=${DIAGNOSTICS_PATH}`,
+				`updatedAt=${d.updatedAt || "none"}`,
+				`lastResolvedRuntimeModel=${d.lastResolvedRuntimeModel || "none"}`,
+				`availableModels=${d.lastAvailableModels || "none"}`,
+				`matchedModel=${d.lastMatchedModelDebug || "none"}`,
+				`lastEndpoint=${d.lastEndpoint || "none"}`,
+				`lastStatus=${d.lastStatus ?? "none"}`,
+				`lastProjectId=${d.lastProjectId || "none"}`,
+				`lastError=${d.lastError || "none"}`,
 				"transport=native-streamSimple",
 				"runtimeCli=not-used",
 			];

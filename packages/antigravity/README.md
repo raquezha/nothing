@@ -52,7 +52,7 @@ npm install -g @raquezha/antigravity
   - `claude-sonnet-5-5` -> routes internally by reasoning level to `claude-sonnet-5-5-low`, `claude-sonnet-5-5-medium`, or `claude-sonnet-5-5-high`
   - `claude-opus-5-5` -> routes internally by reasoning level to `claude-opus-5-5-low`, `claude-opus-5-5-medium`, or `claude-opus-5-5-high`
   - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`
-- Default endpoint: `https://cloudcode-pa.googleapis.com` (fallback: `https://daily-cloudcode-pa.sandbox.googleapis.com`)
+- Default endpoint: `https://daily-cloudcode-pa.googleapis.com` (fallbacks: `https://cloudcode-pa.googleapis.com`, then `https://daily-cloudcode-pa.sandbox.googleapis.com`)
 
 Catalog map keys are runtime IDs; nested `MODEL_PLACEHOLDER_*` values are not. Discovery uses exact keys first, then matching display names for renamed routes. Catalog presence does not guarantee quota or entitlement: a 429 requires waiting for the reported reset or checking your subscription, not another model alias.
 
@@ -60,7 +60,9 @@ After updating this checkout, run `/reload` in Pi to load the extension changes.
 
 ## Diagnostics
 
-`/antigravity.doctor` prints sanitized routing information, including unlabeled catalog IDs, with no stale match from a previous request. It must not print OAuth tokens, refresh tokens, authorization headers, prompts, or credential files.
+`/antigravity.doctor` prints sanitized routing information from a disk-backed diagnostics snapshot (`~/.pi/agent/antigravity-diagnostics.json`), including unlabeled catalog IDs, with no stale match from a previous request. It must not print OAuth tokens, refresh tokens, authorization headers, prompts, or credential files.
+
+Do not inject Google DeepMind / official Antigravity persona text into `systemInstruction`. Free-tier Cloud Code Assist rejects that branding with `RESOURCE_EXHAUSTED`.
 
 Claude uses the backend's legacy tool-schema field; literal `const` constraints are converted to single-value enums. Request-format errors retain the backend's rejected-field message for diagnosis.
 
