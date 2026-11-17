@@ -319,7 +319,7 @@ function verifyPackageManifests() {
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
     "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
     "packages/workflows/nochestra/package.json": { extensions: ["extensions"] },
-    "packages/nodesign/package.json": {},
+    "packages/nodesign/package.json": { skills: ["figma-standard", "nodesign-ui"] },
   };
 
   for (const [file, piManifest] of Object.entries(expected)) {
