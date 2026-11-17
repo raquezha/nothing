@@ -1,5 +1,12 @@
 # @raquezha/antigravity
 
+## 0.1.7
+
+### Patch Changes
+
+- a7412ca: Show the Google backend message for Antigravity quota responses so temporary limits and real quota exhaustion are distinguishable.
+- 43128eb: Stop injecting Google DeepMind Antigravity persona text that free-tier Cloud Code Assist rejects as RESOURCE_EXHAUSTED, prefer the official daily endpoint, and persist doctor diagnostics across extension module instances.
+
 ## 0.1.6
 
 ### Patch Changes
