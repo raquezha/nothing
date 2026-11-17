@@ -235,6 +235,15 @@ nodesign preflight --json --path . --task jira:ANDROID-123
 
 ---
 
+## Bundled Agent Skills (`figma-standard` & `nodesign-ui`)
+
+`@raquezha/nodesign` ships two harness-agnostic agent skills in the package root (auto-discovered by Pi via `"pi.skills"`, and compatible with Antigravity, Claude Code, and Cursor):
+
+1. **[`figma-standard`](./figma-standard/SKILL.md)**: Build, standardize, and refactor Figma files bottom-up (`Foundations` $\rightarrow$ `Components` $\rightarrow$ `Screens` $\rightarrow$ DTCG `*.tokens.json`) using the **NoDesign Token Standard proposal** (`com.nodesign`) and zero-MCP local Figma hacks (local `settings.json` inspection, HTML-first preview, batched `html.to.design` imports, and one-shot local Figma plugins).
+2. **[`nodesign-ui`](./nodesign-ui/SKILL.md)**: Implement UI from Figma or Zeplin deterministically across **Web (Astro/React/HTML/CSS)**, **Android Jetpack Compose**, **Kotlin Multiplatform (`commonMain`)**, and **iOS SwiftUI** using the 4-gate bottom-up pipeline (`Preflight & Spec Lock` $\rightarrow$ `Foundations` $\rightarrow$ `Components` $\rightarrow$ `Screens` $\rightarrow$ `3-Breakpoint Visual & Bounds Verification`).
+
+---
+
 ## Development & Test
 
 ```bash
