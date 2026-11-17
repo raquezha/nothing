@@ -1,5 +1,12 @@
 # @raquezha/norpiv
 
+## 0.3.11
+
+### Patch Changes
+
+- Updated dependencies [d637447]
+  - @raquezha/nodesign@0.3.0
+
 ## 0.3.10
 
 ### Patch Changes
