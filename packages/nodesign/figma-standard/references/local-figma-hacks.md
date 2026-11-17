@@ -35,6 +35,14 @@ for p in [
 
 > **Duplicate Tab Guard:** If the target file appears in more than one open tab in `windowsState`, ask the user to close the extra tab before running a plugin shortcut so the run lands in the right tab.
 
+### macOS CDP Fallback (Chrome Web Session)
+
+Signed `Figma.app` builds on macOS disable Electron's `--remote-debugging-port` flag. If you need CDP access to inspect the live canvas on macOS, open the Figma URL in Google Chrome with a dedicated debug profile instead of patching the signed desktop binary:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-figma-cdp "https://www.figma.com/file/<FILE_KEY>"
+```
+
 ---
 
 ## 2. The HTML-First + `html.to.design` Batched Import Hack
