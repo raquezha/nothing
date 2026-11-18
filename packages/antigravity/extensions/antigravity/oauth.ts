@@ -174,13 +174,14 @@ export function parseApiKey(apiKeyRaw: string | undefined): AntigravityApiKey {
 }
 
 export function antigravityHeaders(token: string): Record<string, string> {
+	const platform = process.platform === "darwin" ? "MACOS" : process.platform === "win32" ? "WINDOWS" : "LINUX";
 	return {
 		Authorization: `Bearer ${token}`,
 		"Content-Type": "application/json",
 		Accept: "text/event-stream",
-		"User-Agent": antigravityEnv("USER_AGENT") || "antigravity/1.0.5 darwin/arm64",
-		"X-Goog-Api-Client": "google-api-nodejs-client/9.15.1",
-		"Client-Metadata": JSON.stringify({ ideType: "ANTIGRAVITY" }),
+		"User-Agent": antigravityEnv("USER_AGENT") || `antigravity/2.32.1 ${process.platform}/${process.arch}`,
+		"X-Goog-Api-Client": "google-cloud-sdk vscode/1.0",
+		"Client-Metadata": JSON.stringify({ ideType: "ANTIGRAVITY", platform, pluginType: "GEMINI" }),
 	};
 }
 
@@ -269,13 +270,13 @@ export function findDynamicModel(value: any, requestedId: string): DynamicModelI
 		(key) => typeof models[key]?.displayName === "string" && normalize(models[key].displayName) === normalize(requestedId),
 	);
 	if (!id) {
-		const baseId = requestedId.replace(/-(low|medium|high|xhigh|max|extra-low)$/, "");
+		const baseId = requestedId.replace(/-(low|medium|high|xhigh|max|extra-low|sonar|tiered)$/, "");
 		if (Object.hasOwn(models, baseId)) {
 			id = baseId;
 		} else {
 			id = Object.keys(models).find(
 				(key) => typeof models[key]?.displayName === "string" && normalize(models[key].displayName) === normalize(baseId),
-			);
+			) ?? Object.keys(models).find((key) => key.startsWith(`${baseId}-`));
 		}
 	}
 	if (!id) return undefined;

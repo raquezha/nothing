@@ -5,6 +5,14 @@ import { streamAntigravity } from "../dist/antigravity/cloud-code-assist.js";
 
 assert.equal(oauth.DEFAULT_ENDPOINT, "https://daily-cloudcode-pa.googleapis.com");
 assert.equal(oauth.ENDPOINT_FALLBACKS[0], oauth.DEFAULT_ENDPOINT);
+const clientHeaders = oauth.antigravityHeaders("test");
+assert.match(clientHeaders["User-Agent"], /^antigravity\/2\.32\.1 /);
+assert.equal(clientHeaders["X-Goog-Api-Client"], "google-cloud-sdk vscode/1.0");
+assert.deepEqual(JSON.parse(clientHeaders["Client-Metadata"]), {
+  ideType: "ANTIGRAVITY",
+  platform: process.platform === "darwin" ? "MACOS" : process.platform === "win32" ? "WINDOWS" : "LINUX",
+  pluginType: "GEMINI",
+});
 
 const catalog = { models: {
   "gemini-3.5-flash-extra-low": { displayName: "Gemini 3.5 Flash (Low)", model: "MODEL_PLACEHOLDER_M187" },
@@ -36,14 +44,13 @@ assert.equal(getAntigravityRequestModelId("gemini-4-argon", "low"), "gemini-4-ar
 assert.equal(getAntigravityRequestModelId("gemini-4-argon", "medium"), "gemini-4-argon-medium");
 assert.equal(getAntigravityRequestModelId("gemini-4-argon", "off"), "gemini-4-argon-low");
 assert.equal(oauth.findDynamicModel(catalog, "gemini-4-argon-medium")?.id, "gemini-4-argon");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "high"), "gemini-4-hydrogen-high");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "low"), "gemini-4-hydrogen-low");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "medium"), "gemini-4-hydrogen-medium");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "xhigh"), "gemini-4-hydrogen-xhigh");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "max"), "gemini-4-hydrogen-xhigh");
-assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", "off"), "gemini-4-hydrogen-low");
-assert.equal(oauth.findDynamicModel(catalog, "gemini-4-hydrogen-medium")?.id, "gemini-4-hydrogen");
-assert.equal(oauth.findDynamicModel(catalog, "gemini-4-hydrogen-xhigh")?.id, "gemini-4-hydrogen");
+for (const effort of [undefined, "off", "low", "medium", "high", "xhigh", "max"]) {
+  assert.equal(getAntigravityRequestModelId("gemini-4-hydrogen", effort), "gemini-4-hydrogen-sonar");
+}
+assert.equal(oauth.findDynamicModel(catalog, "gemini-4-hydrogen")?.id, "gemini-4-hydrogen");
+const sonarCatalog = { models: { "gemini-4-hydrogen-sonar": { model: "MODEL_PLACEHOLDER_M578" } } };
+assert.equal(oauth.findDynamicModel(sonarCatalog, "gemini-4-hydrogen")?.id, "gemini-4-hydrogen-sonar");
+assert.equal(oauth.findDynamicModel(sonarCatalog, "gemini-4-hydrogen-high")?.id, "gemini-4-hydrogen-sonar");
 
 const parameters = { type: "object", properties: {
   const: { type: "string", const: "ok" },
@@ -92,6 +99,11 @@ try {
   await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), updatedContext, options).result();
   assert.match(sent.request.systemInstruction.parts.at(-1).text, /Now call next/);
   assert.deepEqual(sent.request.tools[0].functionDeclarations.map(tool => tool.name), ["next"]);
+  const filteredContext = { messages: [{ role: "system", sections: { preamble: "omit preamble", docs: "omit docs", rules: "keep rules" }, toolsAdded: [{ name: "check", parameters }] }, { role: "user", content: "OK" }] };
+  await streamAntigravity(ANTIGRAVITY_MODELS.find(m => m.id === "gemini-3.8-flash"), filteredContext, options).result();
+  const filteredSystem = sent.request.systemInstruction.parts.map((part) => part.text).join("\n");
+  assert.doesNotMatch(filteredSystem, /omit preamble|omit docs/);
+  assert.match(filteredSystem, /keep rules/);
   rejectRequest = true;
   const result = await streamAntigravity(ANTIGRAVITY_MODELS[0], context, options).result();
   assert.equal(result.stopReason, "error");

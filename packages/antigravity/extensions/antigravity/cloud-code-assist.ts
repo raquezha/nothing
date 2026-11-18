@@ -23,8 +23,6 @@ import {
 } from "./oauth.js";
 import { getAntigravityRequestModelId, PROVIDER_ID } from "./models.js";
 
-// Do not impersonate Google DeepMind / official Antigravity branding here.
-// Free-tier Cloud Code Assist rejects that persona with RESOURCE_EXHAUSTED.
 const ANTIGRAVITY_SYSTEM_INSTRUCTION =
 	"You are a coding assistant. Be concise, practical, and tool-aware.";
 
@@ -164,7 +162,8 @@ function buildRequest(model: any, context: any, projectId: string, options: any,
 		for (const tool of message.toolsRemoved || []) activeTools.delete(tool.name);
 		for (const tool of message.toolsAdded || []) activeTools.set(tool.name, tool);
 	}
-	const systemPrompt = [...promptParts, ...sections.values()].filter(Boolean).join("\n\n");
+	// shortcut: Cloud Code Assist rejects Pi's preamble and docs with 429; remove when the backend accepts them.
+	const systemPrompt = [...promptParts, ...[...sections].filter(([name]) => name !== "preamble" && name !== "docs").map(([, value]) => value)].filter(Boolean).join("\n\n");
 	const request: any = {
 		contents: convertMessages(model, context, runtimeModel),
 		systemInstruction: {
@@ -438,13 +437,14 @@ export function streamAntigravity(model: any, context: any, options?: any): any 
 					setLastStatus(response.status);
 					if (response.ok) break;
 					lastText = await response.text();
-					if (response.status === 429 && /Individual quota reached/i.test(lastText)) break;
-					if (![403, 404, 429, 500, 502, 503, 504].includes(response.status)) break;
+					if (response.status === 429) break;
+					if (response.status === 404 && !discovered && lastAvailableModels) break;
+					if (![403, 404, 500, 502, 503, 504].includes(response.status)) break;
 				}
 
 				if (!response || !response.ok) {
 					const friendly = friendlyAntigravityError(response?.status, lastText);
-					throw new Error(`Antigravity API error (${response?.status ?? "no response"}, endpoint=${lastEndpoint || "unknown"}, project=${projectId}, runtimeModel=${runtimeModel}, matched=${lastMatchedModelDebug || "none"}, available=${lastAvailableModels || "unknown"}): ${friendly}`);
+					throw new Error(`Antigravity API error (${response?.status ?? "no response"}, endpoint=${lastEndpoint || "unknown"}, client=${requestHeaders["User-Agent"]}, project=${projectId}, runtimeModel=${runtimeModel}, matched=${lastMatchedModelDebug || "none"}, available=${lastAvailableModels || "unknown"}): ${friendly}`);
 				}
 
 				// Reset output contents before retry

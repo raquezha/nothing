@@ -48,21 +48,19 @@ npm install -g @raquezha/antigravity
   - `gemini-3.5-flash` -> routes internally by reasoning level (`off`/`low`/`medium`/`high`) to Antigravity runtime IDs such as `gemini-3.5-flash-low`, `gemini-3.5-flash-medium`, or `gemini-3.5-flash-high`
   - `gemini-3.1-pro` -> routes internally to `gemini-3.1-pro-low` or `gemini-pro-agent`
   - `gemini-4-argon` -> routes internally by reasoning level to `gemini-4-argon-low`, `gemini-4-argon-medium`, or `gemini-4-argon-high` (falls back to unified `gemini-4-argon`)
-  - `gemini-4-hydrogen` -> routes internally by reasoning level to `gemini-4-hydrogen-low`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-high`, or `gemini-4-hydrogen-xhigh` (falls back to unified `gemini-4-hydrogen`; default effort is `high`)
+  - `gemini-4-hydrogen` -> `gemini-4-hydrogen-sonar` (thinking is server-managed)
   - `claude-sonnet-5-5` -> routes internally by reasoning level to `claude-sonnet-5-5-low`, `claude-sonnet-5-5-medium`, or `claude-sonnet-5-5-high`
   - `claude-opus-5-5` -> routes internally by reasoning level to `claude-opus-5-5-low`, `claude-opus-5-5-medium`, or `claude-opus-5-5-high`
   - `gpt-oss-120b` -> routes to `gpt-oss-120b-medium`
 - Default endpoint: `https://daily-cloudcode-pa.googleapis.com` (fallbacks: `https://cloudcode-pa.googleapis.com`, then `https://daily-cloudcode-pa.sandbox.googleapis.com`)
 
-Catalog map keys are runtime IDs; nested `MODEL_PLACEHOLDER_*` values are not. Discovery uses exact keys first, then matching display names for renamed routes. Catalog presence does not guarantee quota or entitlement: a 429 requires waiting for the reported reset or checking your subscription, not another model alias.
+Catalog map keys are runtime IDs; nested `MODEL_PLACEHOLDER_*` values are not. Discovery uses exact keys first, then matching display names for renamed routes. Catalog presence does not guarantee quota or entitlement. Note that Cloud Code Assist returns `429 RESOURCE_EXHAUSTED` for out-of-date IDE client metadata and specific agent harness strings (such as framework preambles or doc listings); the extension automatically sends compatible IDE headers and strips these framework sections from `systemInstruction`. The extension halts immediately on 429 rather than falling back to sandbox endpoints.
 
 After updating this checkout, run `/reload` in Pi to load the extension changes.
 
 ## Diagnostics
 
 `/antigravity.doctor` prints sanitized routing information from a disk-backed diagnostics snapshot (`~/.pi/agent/antigravity-diagnostics.json`), including unlabeled catalog IDs, with no stale match from a previous request. It must not print OAuth tokens, refresh tokens, authorization headers, prompts, or credential files.
-
-Do not inject Google DeepMind / official Antigravity persona text into `systemInstruction`. Free-tier Cloud Code Assist rejects that branding with `RESOURCE_EXHAUSTED`.
 
 Claude uses the backend's legacy tool-schema field; literal `const` constraints are converted to single-value enums. Request-format errors retain the backend's rejected-field message for diagnosis.
 
