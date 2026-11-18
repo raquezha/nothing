@@ -1,5 +1,11 @@
 # @raquezha/antigravity
 
+## 0.1.8
+
+### Patch Changes
+
+- 80db77e: Fix false 429 quota errors by updating Antigravity client metadata, routing Hydrogen to `gemini-4-hydrogen-sonar`, and excluding framework preamble and documentation sections from backend system instructions.
+
 ## 0.1.7
 
 ### Patch Changes
