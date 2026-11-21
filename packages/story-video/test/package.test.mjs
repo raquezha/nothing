@@ -84,6 +84,14 @@ try {
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(fs.readdirSync(`${previewOutput}.preview`).length, 3, "preview writes three keyframes");
 
+  const boundaryScene = path.join(temp, "preview-boundary.html");
+  fs.writeFileSync(boundaryScene, '<body style="margin:0"><div id="frame" style="width:100vw;height:100vh"></div><script>window.renderAt=(seconds)=>document.getElementById("frame").style.background=seconds>=0.2?"#d14":"#146"</script>');
+  const boundaryOutput = path.join(temp, "preview-boundary.mp4");
+  const boundaryPreview = run(["render", "--scene", boundaryScene, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", boundaryOutput, "--preview"]);
+  assert.equal(boundaryPreview.status, 0, boundaryPreview.stderr);
+  const expectedLastFrame = (await captureTimes({ scene: boundaryScene, width: 64, height: 64 }, [0.1])).get(0.1);
+  assert.deepEqual(fs.readFileSync(`${boundaryOutput}.preview/keyframe_02.png`), expectedLastFrame, "preview final frame is encoded in the video");
+
   const oldPreview = path.join(temp, "old.preview");
   const stagedPreview = path.join(temp, "staged.preview");
   fs.mkdirSync(oldPreview);
@@ -103,6 +111,9 @@ try {
   const invalid = run(renderArgs(path.join(temp, "bad.mp4")).map((arg) => arg === "64" ? "0" : arg));
   assert.notEqual(invalid.status, 0, "invalid dimensions fail");
   assert.notEqual(run([...renderArgs(path.join(temp, "unknown.mp4")), "--unknown", "value"]).status, 0, "unknown arguments fail");
+  const wrongExtension = run(renderArgs(path.join(temp, "wrong.webm")));
+  assert.notEqual(wrongExtension.status, 0, "non-MP4 output fails");
+  assert.match(wrongExtension.stderr, /--output must end in .mp4/);
   const fixtureBefore = fs.readFileSync(fixture, "utf8");
   assert.notEqual(run(renderArgs(fixture)).status, 0, "scene cannot be overwritten");
   assert.equal(fs.readFileSync(fixture, "utf8"), fixtureBefore, "scene overwrite is prevented");

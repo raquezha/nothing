@@ -7,7 +7,7 @@ story-video render --scene scene.html --duration 12 --fps 60 --width 1280 --heig
 story-video render --scene scene.html --duration 12 --fps 60 --width 1280 --height 720 --output video.mp4 --preview
 ```
 
-Scenes must expose `window.renderAt(seconds)` and use local assets only. `--preview` writes beginning, middle, and final keyframes to `video.mp4.preview`.
+Scenes must expose `window.renderAt(seconds)` and use local assets only. `--output` must end in `.mp4`. `--preview` writes beginning, middle, and last encoded-frame keyframes to `video.mp4.preview`.
 
 macOS requires installed Google Chrome and Swift/AVFoundation. Linux requires a system Chrome or Chromium executable and `ffmpeg` with `libx264` plus `ffprobe`. The Linux backend is machine-proven on Chrome and FFmpeg with `libx264`; use `STORY_VIDEO_CHROME` to select another browser explicitly. The CLI never uses a Playwright-cache FFmpeg binary or adds `--no-sandbox`.
 

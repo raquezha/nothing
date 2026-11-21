@@ -52,6 +52,7 @@ function parse(args) {
   const scene = path.resolve(values.scene);
   const output = path.resolve(values.output);
   if (scene === output) fail("--scene and --output must be different files.");
+  if (path.extname(output).toLowerCase() !== ".mp4") fail("--output must end in .mp4.");
   return { scene, duration, fps, width, height, frameCount, output, preview: values.preview };
 }
 
@@ -74,7 +75,7 @@ async function renderPreview(options) {
   const finalDir = `${options.output}.preview`;
   const tempDir = await fs.mkdtemp(path.join(path.dirname(options.output), `.${path.basename(options.output)}.preview-`));
   try {
-    const times = [0, options.duration / 2, options.duration];
+    const times = [0, options.duration / 2, (options.frameCount - 1) / options.fps];
     await captureTimes(options, times, (png, index) => fs.writeFile(path.join(tempDir, `keyframe_${String(index).padStart(2, "0")}.png`), png));
     await publishPreview(tempDir, finalDir);
     console.log(`Wrote ${times.length} keyframes to ${finalDir}`);
