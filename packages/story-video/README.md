@@ -13,4 +13,6 @@ macOS requires installed Google Chrome and Swift/AVFoundation. Linux requires a 
 
 The full renderer writes frames and an MP4 into an isolated sibling directory. It replaces the requested output only after encoding succeeds.
 
+`examples/non-figma-scene.html` is a reconstructed, non-product scene for render and readability checks.
+
 For direct local skill loading, pass `packages/story-video/story-video` to your agent's skill option.

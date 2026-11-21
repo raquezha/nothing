@@ -28,6 +28,9 @@ function renderArgs(output, extra = []) {
 assert.deepEqual(pkg.pi?.skills, ["story-video"]);
 assert.equal(pkg.bin?.["story-video"], "bin/story-video.mjs");
 assert.ok(fs.existsSync(path.join(root, "story-video", "SKILL.md")));
+assert.ok(fs.existsSync(path.join(root, "story-video", "references", "style-and-review.md")));
+assert.ok(fs.existsSync(path.join(root, "examples", "non-figma-scene.html")));
+assert.ok(pkg.files.includes("examples"), "package must include the non-Figma example");
 assert.equal(findBrowser({ platform: "linux", exists: (candidate) => candidate === "/usr/bin/chromium" }), "/usr/bin/chromium");
 assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
 assert.throws(() => findBrowser({ platform: "linux", exists: () => false }), /Browser dependency missing/);

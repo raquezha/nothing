@@ -8,6 +8,7 @@
   },
   "files": [
     "bin",
+    "examples",
     "lib",
     "scripts",
     "story-video",

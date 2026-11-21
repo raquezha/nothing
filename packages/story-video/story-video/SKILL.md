@@ -17,3 +17,5 @@ Keep scene assets local. Use `renderAt(seconds)` for deterministic scenes. Use `
 macOS requires installed Google Chrome and Swift/AVFoundation. Linux requires system Chrome or Chromium plus `ffmpeg`, `ffprobe`, and `libx264`. Set `STORY_VIDEO_CHROME` to select a browser. The renderer does not use Playwright-cache FFmpeg or add `--no-sandbox`.
 
 It fails without required dependencies and does not replace an existing export after a failed render.
+
+See [style and review defaults](references/style-and-review.md) before approving a video.

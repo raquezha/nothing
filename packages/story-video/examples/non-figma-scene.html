@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f5f0e8; color: #253245; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { width: 100vw; height: 100vh; display: grid; place-items: center; background: radial-gradient(circle at 82% 18%, #d8eaf0 0 12%, transparent 34%), #f5f0e8; }
+  article { width: 820px; padding: 56px; border-radius: 28px; background: #fffdf9; box-shadow: 0 24px 64px #25324524; }
+  .eyebrow { color: #6f7884; font-size: 18px; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { margin: 18px 0 14px; font-size: 64px; line-height: 1.04; }
+  p { margin: 0; color: #526071; font-size: 26px; line-height: 1.45; }
+  .result { display: flex; align-items: center; gap: 18px; margin-top: 42px; padding: 24px; border-radius: 18px; background: #edf7f0; color: #1c5d43; font-size: 25px; font-weight: 650; }
+  .dot { width: 20px; height: 20px; border-radius: 50%; background: #2e9b6a; }
+  footer { margin-top: 34px; color: #7c8795; font-size: 17px; }
+  @media (max-width: 600px) {
+    article { width: 100%; padding: 32px; border-radius: 20px; }
+    h1 { font-size: 42px; }
+    p { font-size: 21px; }
+    .result { margin-top: 30px; padding: 18px; font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+<main><article id="card">
+  <div class="eyebrow" id="step">Step 1 of 1</div>
+  <h1 id="title">Preparing local frames</h1>
+  <p id="body">A reconstructed non-Figma scene for renderer verification.</p>
+  <div class="result" id="result"><span class="dot"></span><span>Frames ready for encoding</span></div>
+  <footer>Reconstructed demonstration, not a product recording.</footer>
+</article></main>
+<script>
+  const card = document.getElementById("card");
+  const result = document.getElementById("result");
+  const title = document.getElementById("title");
+  const body = document.getElementById("body");
+  window.renderAt = (seconds) => {
+    const progress = Math.max(0, Math.min(1, seconds / 3));
+    card.style.opacity = "1";
+    card.style.transform = `translateY(${Math.round((1 - progress) * 22)}px)`;
+    result.style.opacity = String(Math.max(0, Math.min(1, (seconds - 1.4) / 0.5)));
+    title.textContent = seconds >= 1.4 ? "A clear result, held long enough to read" : "Preparing local frames";
+    body.textContent = seconds >= 1.4 ? "One focal action, a restrained cue, and room for the result." : "A reconstructed non-Figma scene for renderer verification.";
+  };
+  window.renderAt(0);
+</script>
+</body>
+</html>
