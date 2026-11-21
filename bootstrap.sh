@@ -506,7 +506,7 @@ ensure_npm_global_prefix() {
   run npm config set prefix "$user_prefix"
   case ":$PATH:" in
     *":$user_prefix/bin:"*) ;;
-    *) warn "Ensure $user_prefix/bin is on PATH before running global npm commands." ;;
+    *) export PATH="$user_prefix/bin:$PATH" ;;
   esac
 }
 
