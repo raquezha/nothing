@@ -5,6 +5,7 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
@@ -25,6 +26,14 @@ function renderArgs(output, extra = []) {
 assert.deepEqual(pkg.pi?.skills, ["story-video"]);
 assert.equal(pkg.bin?.["story-video"], "bin/story-video.mjs");
 assert.ok(fs.existsSync(path.join(root, "story-video", "SKILL.md")));
+assert.equal(findBrowser({ platform: "linux", exists: (candidate) => candidate === "/usr/bin/chromium" }), "/usr/bin/chromium");
+assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
+assert.throws(() => findBrowser({ platform: "linux", exists: () => false }), /Browser dependency missing/);
+const ffmpegRun = (command) => command === "ffmpeg" ? { status: 0, stdout: " V.... libx264", stderr: "" } : { status: 0, stdout: "", stderr: "" };
+assert.deepEqual(resolveEncoder({ platform: "linux", run: ffmpegRun }), { kind: "ffmpeg", command: "ffmpeg" });
+assert.throws(() => resolveEncoder({ platform: "linux", run: () => ({ status: 0, stdout: "", stderr: "" }) }), /libx264/);
+assert.throws(() => resolveEncoder({ platform: "linux", run: () => ({ error: { code: "ENOENT" } }) }), /ffmpeg/);
+assert.throws(() => validateDimensions("linux", 63, 64), /even/);
 
 const help = run(["--help"]);
 assert.equal(help.status, 0, help.stderr);

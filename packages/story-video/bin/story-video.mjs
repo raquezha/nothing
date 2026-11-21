@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
@@ -79,7 +80,7 @@ async function renderPreview(options) {
   }
 }
 
-async function renderVideo(options) {
+async function renderVideo(options, encoder) {
   const runDir = await fs.mkdtemp(path.join(path.dirname(options.output), `.${path.basename(options.output)}.run-`));
   const framesDir = path.join(runDir, "frames");
   const temporaryOutput = path.join(runDir, "video.mp4");
@@ -87,8 +88,11 @@ async function renderVideo(options) {
     await fs.mkdir(framesDir);
     const times = Array.from({ length: options.frameCount }, (_, index) => index / options.fps);
     await captureTimes(options, times, (png, index) => fs.writeFile(path.join(framesDir, `frame_${String(index).padStart(6, "0")}.png`), png));
-    const encoder = fileURLToPath(new URL("../scripts/encode.swift", import.meta.url));
-    await run("swift", [encoder, framesDir, temporaryOutput, String(options.frameCount), String(options.width), String(options.height), String(options.fps)]);
+    const args = encoder.kind === "swift"
+      ? [fileURLToPath(new URL("../scripts/encode.swift", import.meta.url)), framesDir, temporaryOutput, String(options.frameCount), String(options.width), String(options.height), String(options.fps)]
+      : ["-y", "-framerate", String(options.fps), "-start_number", "0", "-i", path.join(framesDir, "frame_%06d.png"), "-frames:v", String(options.frameCount), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", String(options.fps), temporaryOutput];
+    await run(encoder.command, args);
+    if ((await fs.stat(temporaryOutput)).size === 0) throw new Error("Encoder produced no output.");
     await fs.rename(temporaryOutput, options.output);
     console.log(`Wrote ${options.output}`);
   } finally {
@@ -106,8 +110,14 @@ async function main() {
     if (error.code === "ENOENT") fail(`Output directory does not exist: ${path.dirname(options.output)}`);
     throw error;
   }
+  const browserPath = findBrowser();
+  console.log(`Using browser: ${browserPath}`);
+  options.browserPath = browserPath;
   if (options.preview) await renderPreview(options);
-  else await renderVideo(options);
+  else {
+    validateDimensions(process.platform, options.width, options.height);
+    await renderVideo(options, resolveEncoder());
+  }
 }
 
 main().catch((error) => {

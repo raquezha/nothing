@@ -1,16 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-const defaultChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-
-function chromePath() {
-  const candidate = process.env.STORY_VIDEO_CHROME || defaultChrome;
-  if (!fs.existsSync(candidate)) {
-    throw new Error(`Chrome was not found at ${candidate}. Set STORY_VIDEO_CHROME to an installed Chrome executable.`);
-  }
-  return candidate;
-}
+import { findBrowser } from "./platform.mjs";
 
 function localAssets(pageUrl) {
   return Array.from(document.querySelectorAll("img[src], video[src], audio[src], source[src], script[src], link[href]"), (element) => {
@@ -19,7 +10,7 @@ function localAssets(pageUrl) {
   });
 }
 
-export async function captureTimes({ scene, width, height }, times, onCapture) {
+export async function captureTimes({ scene, width, height, browserPath }, times, onCapture) {
   let chromium;
   try {
     ({ chromium } = await import("playwright-core"));
@@ -33,7 +24,7 @@ export async function captureTimes({ scene, width, height }, times, onCapture) {
   }
 
   const failures = [];
-  const browser = await chromium.launch({ executablePath: chromePath(), headless: true });
+  const browser = await chromium.launch({ executablePath: browserPath ?? findBrowser(), headless: true });
   try {
     const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await context.newPage();

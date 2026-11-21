@@ -14,4 +14,6 @@ story-video render --scene scene.html --duration 12 --fps 60 --width 1280 --heig
 
 Keep scene assets local. Use `renderAt(seconds)` for deterministic scenes. Use `--preview` before full rendering. Inspect keyframes and the final encoded clip before approval.
 
-The renderer uses installed Google Chrome and macOS Swift/AVFoundation. It fails without either dependency and does not replace an existing export after a failed render.
+macOS is the only tested platform. It requires installed Google Chrome and Swift/AVFoundation. Linux uses system Chrome or Chromium plus `ffmpeg` with `libx264`, but needs machine-proof validation before approval. Set `STORY_VIDEO_CHROME` to select a browser. The renderer does not use Playwright-cache FFmpeg or add `--no-sandbox`.
+
+It fails without required dependencies and does not replace an existing export after a failed render.
