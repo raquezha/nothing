@@ -1,0 +1,14 @@
+<!doctype html>
+<html>
+<body style="margin:0">
+  <div id="frame" style="width:100vw;height:100vh"></div>
+  <script>
+    window.renderAt = (seconds) => {
+      const frame = document.getElementById("frame");
+      frame.style.background = seconds < 0.1 ? "#d14" : "#146";
+      frame.dataset.time = String(seconds);
+    };
+    window.renderAt(0);
+  </script>
+</body>
+</html>
