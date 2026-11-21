@@ -1,0 +1,37 @@
+{
+  "name": "@raquezha/story-video",
+  "version": "0.1.0",
+  "description": "Deterministic local story-video rendering tools for coding agents",
+  "type": "module",
+  "bin": {
+    "story-video": "bin/story-video.mjs"
+  },
+  "files": [
+    "bin",
+    "examples",
+    "lib",
+    "scripts",
+    "story-video",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/package.test.mjs"
+  },
+  "keywords": [
+    "agent-skills",
+    "video",
+    "pi-package"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "skills": [
+      "story-video"
+    ]
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.1"
+  }
+}
