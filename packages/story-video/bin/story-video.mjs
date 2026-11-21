@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateFrames } from "../lib/frames.mjs";
 import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
+import { publishFfmpegOutput } from "../lib/probe.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
@@ -97,14 +98,8 @@ async function renderVideo(options, encoder) {
       : ["-y", "-framerate", String(options.fps), "-start_number", "0", "-i", path.join(framesDir, "frame_%06d.png"), "-frames:v", String(options.frameCount), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", String(options.fps), temporaryOutput];
     await run(encoder.command, args);
     if ((await fs.stat(temporaryOutput)).size === 0) throw new Error("Encoder produced no output.");
-    if (encoder.kind === "ffmpeg") {
-      const probe = JSON.parse(await run(encoder.probe, ["-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=width,height,nb_read_frames", "-of", "json", temporaryOutput]));
-      const stream = probe.streams?.[0];
-      if (stream?.width !== options.width || stream?.height !== options.height || Number(stream.nb_read_frames) !== options.frameCount) {
-        throw new Error("FFmpeg output did not contain the expected dimensions and frame count.");
-      }
-    }
-    await fs.rename(temporaryOutput, options.output);
+    if (encoder.kind === "ffmpeg") await publishFfmpegOutput(run, encoder.probe, temporaryOutput, options.output, options);
+    else await fs.rename(temporaryOutput, options.output);
     console.log(`Wrote ${options.output}`);
   } finally {
     await fs.rm(runDir, { recursive: true, force: true });

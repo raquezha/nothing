@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateFrames } from "../lib/frames.mjs";
 import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
+import { publishFfmpegOutput } from "../lib/probe.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
@@ -53,6 +54,17 @@ try {
   assert.deepEqual(direct.get(0.1), sequential.get(0.1));
   assert.deepEqual(direct.get(0), outOfOrder.get(0));
   assert.deepEqual(direct.get(0.1), outOfOrder.get(0.1));
+
+  const priorProbe = path.join(temp, "prior-probe.mp4");
+  const shortProbe = path.join(temp, "short-probe.mp4");
+  fs.writeFileSync(priorProbe, "previous");
+  fs.writeFileSync(shortProbe, "incomplete");
+  await assert.rejects(
+    publishFfmpegOutput(async () => JSON.stringify({ streams: [{ width: 64, height: 64, nb_read_frames: "1" }] }), "ffprobe", shortProbe, priorProbe, { width: 64, height: 64, frameCount: 2 }),
+    /expected dimensions and frame count/
+  );
+  assert.equal(fs.readFileSync(priorProbe, "utf8"), "previous", "rejected FFprobe frame count preserves export");
+  assert.equal(fs.readFileSync(shortProbe, "utf8"), "incomplete", "rejected FFprobe output is not published");
 
   const partialFrames = path.join(temp, "partial-frames");
   fs.mkdirSync(partialFrames);
