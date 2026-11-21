@@ -496,17 +496,16 @@ ensure_npm_global_prefix() {
   local prefix user_prefix
   prefix="$(npm config get prefix 2>/dev/null || true)"
   prefix="${prefix/#\~/$HOME}"
-  if [[ -z "$prefix" || "$prefix" == "undefined" || -w "$prefix" ]]; then
-    return
+  if [[ -z "$prefix" || "$prefix" == "undefined" || ! -w "$prefix" ]]; then
+    local user_prefix="$HOME/.local"
+    warn "npm global prefix is not writable ($prefix); using user prefix $user_prefix"
+    run mkdir -p "$user_prefix"
+    run npm config set prefix "$user_prefix"
+    prefix="$user_prefix"
   fi
-
-  user_prefix="$HOME/.local"
-  warn "npm global prefix is not writable ($prefix); using user prefix $user_prefix"
-  run mkdir -p "$user_prefix"
-  run npm config set prefix "$user_prefix"
   case ":$PATH:" in
-    *":$user_prefix/bin:"*) ;;
-    *) export PATH="$user_prefix/bin:$PATH" ;;
+    *":$prefix/bin:"*) ;;
+    *) export PATH="$prefix/bin:$PATH" ;;
   esac
 }
 
