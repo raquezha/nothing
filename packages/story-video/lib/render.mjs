@@ -38,6 +38,7 @@ export async function captureTimes({ scene, width, height }, times, onCapture) {
     const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     page.on("pageerror", (error) => failures.push(`Page error: ${error.message}`));
+    page.on("requestfailed", (request) => failures.push(`Asset request failed: ${request.url()} (${request.failure()?.errorText ?? "unknown error"})`));
     page.on("console", (message) => {
       if (message.type() === "error") failures.push(`Console error: ${message.text()}`);
     });
@@ -48,6 +49,7 @@ export async function captureTimes({ scene, width, height }, times, onCapture) {
       return route.abort();
     });
     await page.goto(pathToFileURL(scenePath).href, { waitUntil: "load" });
+    await page.waitForLoadState("networkidle");
     await page.evaluate(async () => document.fonts?.ready);
     for (const asset of await page.evaluate(localAssets, page.url())) {
       if (!asset.startsWith("file:") || !fs.existsSync(fileURLToPath(asset))) {

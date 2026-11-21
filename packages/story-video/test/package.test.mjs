@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -51,6 +53,22 @@ try {
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(fs.readdirSync(`${previewOutput}.preview`).length, 3, "preview writes three keyframes");
 
+  const oldPreview = path.join(temp, "old.preview");
+  const stagedPreview = path.join(temp, "staged.preview");
+  fs.mkdirSync(oldPreview);
+  fs.mkdirSync(stagedPreview);
+  fs.writeFileSync(path.join(oldPreview, "state"), "old");
+  await assert.rejects(
+    publishPreview(stagedPreview, oldPreview, {
+      ...fsPromises,
+      rename: async (from, to) => {
+        if (from === stagedPreview) throw new Error("simulated rename failure");
+        return fsPromises.rename(from, to);
+      },
+    })
+  );
+  assert.equal(fs.readFileSync(path.join(oldPreview, "state"), "utf8"), "old", "failed preview publish restores the prior preview");
+
   const invalid = run(renderArgs(path.join(temp, "bad.mp4")).map((arg) => arg === "64" ? "0" : arg));
   assert.notEqual(invalid.status, 0, "invalid dimensions fail");
   assert.notEqual(run([...renderArgs(path.join(temp, "unknown.mp4")), "--unknown", "value"]).status, 0, "unknown arguments fail");
@@ -62,6 +80,10 @@ try {
   fs.writeFileSync(missingScene, '<img src="missing.png"><script>window.renderAt=()=>{}</script>');
   const missingAsset = run(["render", "--scene", missingScene, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", path.join(temp, "missing.mp4"), "--preview"]);
   assert.notEqual(missingAsset.status, 0, "missing local assets fail");
+  const missingCssScene = path.join(temp, "missing-css-asset.html");
+  fs.writeFileSync(missingCssScene, '<div style="width:64px;height:64px;background-image:url(missing.png)"></div><script>window.renderAt=()=>{}</script>');
+  const missingCssAsset = run(["render", "--scene", missingCssScene, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", path.join(temp, "missing-css.mp4"), "--preview"]);
+  assert.notEqual(missingCssAsset.status, 0, "missing CSS assets fail");
 
   const priorBrowser = path.join(temp, "prior-browser.mp4");
   fs.writeFileSync(priorBrowser, "previous");

@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
 const usage = `Usage:
@@ -70,8 +71,7 @@ async function renderPreview(options) {
   try {
     const times = [0, options.duration / 2, options.duration];
     await captureTimes(options, times, (png, index) => fs.writeFile(path.join(tempDir, `keyframe_${String(index).padStart(2, "0")}.png`), png));
-    await fs.rm(finalDir, { recursive: true, force: true });
-    await fs.rename(tempDir, finalDir);
+    await publishPreview(tempDir, finalDir);
     console.log(`Wrote ${times.length} keyframes to ${finalDir}`);
   } catch (error) {
     await fs.rm(tempDir, { recursive: true, force: true });
