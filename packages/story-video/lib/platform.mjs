@@ -34,7 +34,10 @@ export function resolveEncoder({ platform = process.platform, run = spawnSync } 
     if (result.status !== 0 || !`${result.stdout ?? ""}${result.stderr ?? ""}`.includes("libx264")) {
       throw new Error("Encoder dependency missing: install an ffmpeg build with the libx264 encoder.");
     }
-    return { kind: "ffmpeg", command: "ffmpeg" };
+    if (!commandResult("ffprobe", ["-version"], run)) {
+      throw new Error("Encoder dependency missing: install ffprobe with ffmpeg.");
+    }
+    return { kind: "ffmpeg", command: "ffmpeg", probe: "ffprobe" };
   }
   throw new Error(`Unsupported platform: ${platform}. story-video supports macOS and Linux.`);
 }

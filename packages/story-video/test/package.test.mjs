@@ -5,6 +5,7 @@ import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateFrames } from "../lib/frames.mjs";
 import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
@@ -30,8 +31,9 @@ assert.equal(findBrowser({ platform: "linux", exists: (candidate) => candidate =
 assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
 assert.throws(() => findBrowser({ platform: "linux", exists: () => false }), /Browser dependency missing/);
 const ffmpegRun = (command) => command === "ffmpeg" ? { status: 0, stdout: " V.... libx264", stderr: "" } : { status: 0, stdout: "", stderr: "" };
-assert.deepEqual(resolveEncoder({ platform: "linux", run: ffmpegRun }), { kind: "ffmpeg", command: "ffmpeg" });
+assert.deepEqual(resolveEncoder({ platform: "linux", run: ffmpegRun }), { kind: "ffmpeg", command: "ffmpeg", probe: "ffprobe" });
 assert.throws(() => resolveEncoder({ platform: "linux", run: () => ({ status: 0, stdout: "", stderr: "" }) }), /libx264/);
+assert.throws(() => resolveEncoder({ platform: "linux", run: (command) => command === "ffmpeg" ? { status: 0, stdout: "libx264", stderr: "" } : { error: { code: "ENOENT" } } }), /ffprobe/);
 assert.throws(() => resolveEncoder({ platform: "linux", run: () => ({ error: { code: "ENOENT" } }) }), /ffmpeg/);
 assert.throws(() => validateDimensions("linux", 63, 64), /even/);
 
@@ -51,6 +53,11 @@ try {
   assert.deepEqual(direct.get(0.1), sequential.get(0.1));
   assert.deepEqual(direct.get(0), outOfOrder.get(0));
   assert.deepEqual(direct.get(0.1), outOfOrder.get(0.1));
+
+  const partialFrames = path.join(temp, "partial-frames");
+  fs.mkdirSync(partialFrames);
+  fs.writeFileSync(path.join(partialFrames, "frame_000000.png"), "frame");
+  await assert.rejects(validateFrames(partialFrames, 2), /Missing frame 1/);
 
   const output = path.join(temp, "video.mp4");
   const rendered = run(renderArgs(output));

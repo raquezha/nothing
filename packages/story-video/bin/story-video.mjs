@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateFrames } from "../lib/frames.mjs";
 import { findBrowser, resolveEncoder, validateDimensions } from "../lib/platform.mjs";
 import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
@@ -56,11 +57,13 @@ function parse(args) {
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
     let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
     child.on("error", () => reject(new Error(`${command} is required for encoding.`)));
     child.on("close", (code) => {
-      if (code === 0) resolve();
+      if (code === 0) resolve(stdout);
       else reject(new Error(stderr.trim() || `${command} exited with status ${code}.`));
     });
   });
@@ -88,11 +91,19 @@ async function renderVideo(options, encoder) {
     await fs.mkdir(framesDir);
     const times = Array.from({ length: options.frameCount }, (_, index) => index / options.fps);
     await captureTimes(options, times, (png, index) => fs.writeFile(path.join(framesDir, `frame_${String(index).padStart(6, "0")}.png`), png));
+    await validateFrames(framesDir, options.frameCount);
     const args = encoder.kind === "swift"
       ? [fileURLToPath(new URL("../scripts/encode.swift", import.meta.url)), framesDir, temporaryOutput, String(options.frameCount), String(options.width), String(options.height), String(options.fps)]
       : ["-y", "-framerate", String(options.fps), "-start_number", "0", "-i", path.join(framesDir, "frame_%06d.png"), "-frames:v", String(options.frameCount), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-r", String(options.fps), temporaryOutput];
     await run(encoder.command, args);
     if ((await fs.stat(temporaryOutput)).size === 0) throw new Error("Encoder produced no output.");
+    if (encoder.kind === "ffmpeg") {
+      const probe = JSON.parse(await run(encoder.probe, ["-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries", "stream=width,height,nb_read_frames", "-of", "json", temporaryOutput]));
+      const stream = probe.streams?.[0];
+      if (stream?.width !== options.width || stream?.height !== options.height || Number(stream.nb_read_frames) !== options.frameCount) {
+        throw new Error("FFmpeg output did not contain the expected dimensions and frame count.");
+      }
+    }
     await fs.rename(temporaryOutput, options.output);
     console.log(`Wrote ${options.output}`);
   } finally {
