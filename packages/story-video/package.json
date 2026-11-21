@@ -8,6 +8,8 @@
   },
   "files": [
     "bin",
+    "lib",
+    "scripts",
     "story-video",
     "README.md"
   ],
@@ -27,5 +29,8 @@
     "skills": [
       "story-video"
     ]
+  },
+  "dependencies": {
+    "playwright-core": "^1.65.1"
   }
 }

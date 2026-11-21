@@ -1,15 +1,116 @@
 #!/usr/bin/env node
 
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { captureTimes } from "../lib/render.mjs";
+
 const usage = `Usage:
   story-video render --scene <file> --duration <seconds> --fps <frames-per-second> \\
     --width <pixels> --height <pixels> --output <file> [--preview]
 
-The render backend is introduced in the next implementation slice.`;
+--preview writes three PNG keyframes to <output>.preview.
+Scenes must define window.renderAt(seconds) and use only local assets.`;
 
-if (process.argv.length === 2 || process.argv.includes("--help") || process.argv.includes("-h")) {
-  console.log(usage);
-  process.exit(0);
+function fail(message) {
+  throw new Error(`${message}\n\n${usage}`);
 }
 
-console.error(usage);
-process.exit(1);
+function parse(args) {
+  if (args.length === 0 || args.includes("--help") || args.includes("-h")) return { help: true };
+  if (args.shift() !== "render") fail("Expected the render command.");
+  const values = { preview: false };
+  while (args.length) {
+    const flag = args.shift();
+    if (flag === "--preview") {
+      values.preview = true;
+      continue;
+    }
+    const name = flag.slice(2);
+    if (!flag.startsWith("--") || !["scene", "duration", "fps", "width", "height", "output"].includes(name) || args.length === 0) {
+      fail(`Invalid argument: ${flag}`);
+    }
+    values[name] = args.shift();
+  }
+  for (const key of ["scene", "duration", "fps", "width", "height", "output"]) {
+    if (!values[key]) fail(`Missing --${key}.`);
+  }
+  const duration = Number(values.duration);
+  const fps = Number(values.fps);
+  const width = Number(values.width);
+  const height = Number(values.height);
+  if (!Number.isFinite(duration) || duration <= 0) fail("--duration must be a positive number.");
+  if (!Number.isInteger(fps) || fps <= 0) fail("--fps must be a positive integer.");
+  if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) fail("--width and --height must be positive integers.");
+  const frameCount = duration * fps;
+  if (!Number.isInteger(frameCount)) fail("--duration multiplied by --fps must be a whole number of frames.");
+  const scene = path.resolve(values.scene);
+  const output = path.resolve(values.output);
+  if (scene === output) fail("--scene and --output must be different files.");
+  return { scene, duration, fps, width, height, frameCount, output, preview: values.preview };
+}
+
+function run(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", () => reject(new Error(`${command} is required for encoding.`)));
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `${command} exited with status ${code}.`));
+    });
+  });
+}
+
+async function renderPreview(options) {
+  const finalDir = `${options.output}.preview`;
+  const tempDir = await fs.mkdtemp(path.join(path.dirname(options.output), `.${path.basename(options.output)}.preview-`));
+  try {
+    const times = [0, options.duration / 2, options.duration];
+    await captureTimes(options, times, (png, index) => fs.writeFile(path.join(tempDir, `keyframe_${String(index).padStart(2, "0")}.png`), png));
+    await fs.rm(finalDir, { recursive: true, force: true });
+    await fs.rename(tempDir, finalDir);
+    console.log(`Wrote ${times.length} keyframes to ${finalDir}`);
+  } catch (error) {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function renderVideo(options) {
+  const runDir = await fs.mkdtemp(path.join(path.dirname(options.output), `.${path.basename(options.output)}.run-`));
+  const framesDir = path.join(runDir, "frames");
+  const temporaryOutput = path.join(runDir, "video.mp4");
+  try {
+    await fs.mkdir(framesDir);
+    const times = Array.from({ length: options.frameCount }, (_, index) => index / options.fps);
+    await captureTimes(options, times, (png, index) => fs.writeFile(path.join(framesDir, `frame_${String(index).padStart(6, "0")}.png`), png));
+    const encoder = fileURLToPath(new URL("../scripts/encode.swift", import.meta.url));
+    await run("swift", [encoder, framesDir, temporaryOutput, String(options.frameCount), String(options.width), String(options.height), String(options.fps)]);
+    await fs.rename(temporaryOutput, options.output);
+    console.log(`Wrote ${options.output}`);
+  } finally {
+    await fs.rm(runDir, { recursive: true, force: true });
+  }
+}
+
+async function main() {
+  const options = parse(process.argv.slice(2));
+  if (options.help) return console.log(usage);
+  try {
+    const parent = await fs.stat(path.dirname(options.output));
+    if (!parent.isDirectory()) fail(`Output directory does not exist: ${path.dirname(options.output)}`);
+  } catch (error) {
+    if (error.code === "ENOENT") fail(`Output directory does not exist: ${path.dirname(options.output)}`);
+    throw error;
+  }
+  if (options.preview) await renderPreview(options);
+  else await renderVideo(options);
+}
+
+main().catch((error) => {
+  console.error(`story-video: ${error.message}`);
+  process.exit(1);
+});
