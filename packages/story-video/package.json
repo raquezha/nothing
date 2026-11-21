@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/story-video",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deterministic local story-video rendering tools for coding agents",
   "type": "module",
   "bin": {
