@@ -107,7 +107,8 @@
     "notes": {
       "skills": [
         "nosearch",
-        "norpiv/distill"
+        "norpiv/distill",
+        "story-video"
       ],
       "extensions": [
         "nopaste"
