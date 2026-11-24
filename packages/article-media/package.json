@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/article-media",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Deterministic local article media rendering and validation tools (PNG, SVG, MP4) for coding agents",
   "type": "module",
   "bin": {

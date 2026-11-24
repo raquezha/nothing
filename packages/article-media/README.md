@@ -8,6 +8,8 @@ Deterministic local media rendering and validation (**PNG**, **SVG**, **MP4**, a
 
 Built on `playwright-core` and your system Chrome with zero external network requests, zero Playwright-cached FFmpeg binaries, and zero `--no-sandbox` shortcuts.
 
+`article-media` is completely style-agnostic: any local HTML, CSS, SVG, Canvas, or WebGL scene works, whether it is a brutalist poster, a 3D/shader experiment, a data visualization, or an editorial card.
+
 ---
 
 ## Why `@raquezha/article-media`?

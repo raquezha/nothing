@@ -1,5 +1,11 @@
 # @raquezha/article-media
 
+## 0.2.1
+
+### Patch Changes
+
+- Clarify style-agnostic creative scope in `README.md` and `style-and-review.md`.
+
 ## 0.2.0
 
 ### Minor Changes
