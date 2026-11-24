@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>article-media mobile + Figma canvas sample</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 1200px;
+      height: 675px;
+      overflow: hidden;
+      background: #ececea;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      color: #2a2a28;
+      -webkit-font-smoothing: antialiased;
+    }
+    #capture {
+      width: 1200px;
+      height: 675px;
+      padding: 32px;
+      background: #ececea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .window {
+      width: 100%;
+      height: 100%;
+      background: #f5f5f3;
+      border: 1px solid #dededb;
+      border-radius: 14px;
+      box-shadow: 0 20px 50px rgba(42, 42, 40, 0.12);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chrome {
+      height: 44px;
+      padding: 0 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #dededb;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 0 0 auto;
+    }
+    .dots { display: flex; gap: 8px; }
+    .dot { width: 11px; height: 11px; border-radius: 50%; }
+    .red { background: #ff5f57; }
+    .yellow { background: #febc2e; }
+    .green { background: #28c840; }
+    .win-title { font-size: 13px; font-weight: 600; }
+    .win-meta { margin-left: auto; font-size: 12px; color: #73736f; }
+    .workspace {
+      flex: 1 1 auto;
+      display: grid;
+      grid-template-columns: 220px 1fr 250px;
+      min-height: 0;
+    }
+    .sidebar {
+      background: #ffffff;
+      border-right: 1px solid #dededb;
+      padding: 16px 14px;
+      font-size: 12px;
+    }
+    .inspector {
+      background: #ffffff;
+      border-left: 1px solid #dededb;
+      padding: 16px 14px;
+      font-size: 12px;
+    }
+    .panel-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #73736f;
+      margin-bottom: 10px;
+    }
+    .tree-item {
+      padding: 6px 8px;
+      border-radius: 6px;
+      margin-bottom: 3px;
+      color: #2a2a28;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tree-item.active {
+      background: #e8f4ff;
+      color: #0969da;
+      font-weight: 600;
+    }
+    .canvas {
+      position: relative;
+      background-color: #f3f3f0;
+      background-image: radial-gradient(#d8d8d2 1px, transparent 1px);
+      background-size: 16px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .frame-tag {
+      position: absolute;
+      top: 30px;
+      left: 170px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #0d99ff;
+    }
+    .phone {
+      width: 266px;
+      background: #fdfdfc;
+      border: 2px solid #0d99ff;
+      border-radius: 26px;
+      padding: 14px;
+      box-shadow: 0 14px 36px rgba(42, 42, 40, 0.1);
+      position: relative;
+    }
+    .handle {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #ffffff;
+      border: 1.5px solid #0d99ff;
+    }
+    .h-tl { top: -5px; left: -5px; }
+    .h-tr { top: -5px; right: -5px; }
+    .h-bl { bottom: -5px; left: -5px; }
+    .h-br { bottom: -5px; right: -5px; }
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #2a2a28;
+      margin-bottom: 14px;
+      padding: 0 4px;
+    }
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .app-title { font-size: 17px; font-weight: 700; }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #bde8cf;
+      color: #1f4d34;
+    }
+    .metric-card {
+      background: #ffffff;
+      border: 1px solid #e6e6e2;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+    .metric-card.selected {
+      outline: 1.5px solid #0d99ff;
+      outline-offset: 2px;
+    }
+    .m-label { font-size: 11px; color: #73736f; margin-bottom: 4px; }
+    .m-value { font-size: 18px; font-weight: 700; }
+    .m-bar {
+      margin-top: 8px;
+      height: 6px;
+      border-radius: 999px;
+      background: #ececea;
+      overflow: hidden;
+    }
+    .m-fill { height: 100%; width: 78%; background: #0d99ff; border-radius: 999px; }
+    .btn {
+      margin-top: 8px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      background: #2a2a28;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .spec-pill {
+      position: absolute;
+      right: 54px;
+      top: 230px;
+      background: #0d99ff;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .token-row {
+      padding: 8px 10px;
+      border: 1px solid #ececea;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #fdfdfc;
+    }
+    .token-name { font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 600; }
+    .token-val { font-size: 11px; color: #73736f; margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .swatch { width: 10px; height: 10px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); display: inline-block; }
+  </style>
+</head>
+<body>
+  <main id="capture">
+    <section class="window" aria-label="Figma Mobile Screen Canvas Sample">
+      <header class="chrome">
+        <span class="dots"><span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span></span>
+        <svg width="14" height="20" viewBox="0 0 38 57" fill="none" aria-hidden="true">
+          <path d="M19 28.5A9.5 9.5 0 1 1 28.5 19 9.5 9.5 0 0 1 19 28.5Z" fill="#1ABCFE"/>
+          <path d="M9.5 47.5A9.5 9.5 0 0 1 19 38v9.5a9.5 9.5 0 0 1-9.5 0Z" fill="#0ACF83"/>
+          <path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19Z" fill="#FF7262"/>
+          <path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5Z" fill="#F24E1E"/>
+          <path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5Z" fill="#A259FF"/>
+        </svg>
+        <span class="win-title">Figma: Spaces / Mobile Screens</span>
+        <span class="win-meta">390 x 844 · Tokenized</span>
+      </header>
+      <div class="workspace">
+        <aside class="sidebar">
+          <div class="panel-label">Layers</div>
+          <div class="tree-item"><span>StatusBar</span><span>390x44</span></div>
+          <div class="tree-item"><span>Header / Title</span><span>auto</span></div>
+          <div class="tree-item active"><span>Card / WeeklySync</span><span>selected</span></div>
+          <div class="tree-item"><span>Card / TokenParity</span><span>24/24</span></div>
+          <div class="tree-item"><span>Button / Primary</span><span>44px</span></div>
+        </aside>
+        <div class="canvas">
+          <span class="frame-tag">Spaces · Mobile (390px)</span>
+          <div class="phone">
+            <span class="handle h-tl"></span><span class="handle h-tr"></span>
+            <span class="handle h-bl"></span><span class="handle h-br"></span>
+            <div class="status-bar"><span>9:41</span><span>5G 100%</span></div>
+            <div class="app-header">
+              <span class="app-title">Spaces</span>
+              <span class="badge">Synced</span>
+            </div>
+            <div class="metric-card selected">
+              <div class="m-label">Weekly Report</div>
+              <div class="m-value">19 Screens</div>
+              <div class="m-bar"><div class="m-fill"></div></div>
+            </div>
+            <div class="metric-card">
+              <div class="m-label">Design Tokens</div>
+              <div class="m-value">146 Bound</div>
+            </div>
+            <div class="btn">Export to Compose + SwiftUI</div>
+          </div>
+          <span class="spec-pill">pad 12px · r 12px</span>
+        </div>
+        <aside class="inspector">
+          <div class="panel-label">Bound Tokens</div>
+          <div class="token-row">
+            <div class="token-name">surface/background</div>
+            <div class="token-val"><span class="swatch" style="background:#fdfdfc;"></span>#FDFDFC</div>
+          </div>
+          <div class="token-row">
+            <div class="token-name">content/primary</div>
+            <div class="token-val"><span class="swatch" style="background:#2a2a28;"></span>#2A2A28</div>
+          </div>
+          <div class="token-row">
+            <div class="token-name">accent/selection</div>
+            <div class="token-val"><span class="swatch" style="background:#0d99ff;"></span>#0D99FF</div>
+          </div>
+          <div class="token-row">
+            <div class="token-name">layout/radius/card</div>
+            <div class="token-val">12px (bound)</div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

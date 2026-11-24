@@ -1,17 +1,19 @@
 {
-  "name": "@raquezha/story-video",
-  "version": "0.1.1",
-  "description": "Deterministic local story-video rendering tools for coding agents",
+  "name": "@raquezha/article-media",
+  "version": "0.2.0",
+  "description": "Deterministic local article media rendering and validation tools (PNG, SVG, MP4) for coding agents",
   "type": "module",
   "bin": {
+    "article-media": "bin/article-media.mjs",
     "story-video": "bin/story-video.mjs"
   },
   "files": [
+    "assets",
     "bin",
     "examples",
     "lib",
     "scripts",
-    "story-video",
+    "article-media",
     "README.md"
   ],
   "scripts": {
@@ -19,7 +21,10 @@
   },
   "keywords": [
     "agent-skills",
+    "article-media",
     "video",
+    "screenshot",
+    "svg",
     "pi-package"
   ],
   "license": "MIT",
@@ -28,7 +33,7 @@
   },
   "pi": {
     "skills": [
-      "story-video"
+      "article-media"
     ]
   },
   "dependencies": {

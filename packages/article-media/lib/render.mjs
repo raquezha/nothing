@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { findBrowser } from "./platform.mjs";
+import { browserLaunchArgs, findBrowser } from "./platform.mjs";
 
 function localAssets(pageUrl) {
   return Array.from(document.querySelectorAll("img[src], video[src], audio[src], source[src], script[src], link[href]"), (element) => {
@@ -10,12 +10,12 @@ function localAssets(pageUrl) {
   });
 }
 
-export async function captureTimes({ scene, width, height, browserPath }, times, onCapture) {
+export async function withIsolatedScene({ scene, width, height, deviceScaleFactor = 1, browserPath }, fn) {
   let chromium;
   try {
     ({ chromium } = await import("playwright-core"));
   } catch {
-    throw new Error("playwright-core is required to render story videos.");
+    throw new Error("playwright-core is required to render article media.");
   }
 
   const scenePath = path.resolve(scene);
@@ -24,9 +24,20 @@ export async function captureTimes({ scene, width, height, browserPath }, times,
   }
 
   const failures = [];
-  const browser = await chromium.launch({ executablePath: browserPath ?? findBrowser(), headless: true });
+  const browser = await chromium.launch({
+    executablePath: browserPath ?? findBrowser(),
+    headless: true,
+    args: browserLaunchArgs(),
+  });
   try {
-    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      deviceScaleFactor,
+      colorScheme: "light",
+      locale: "en-US",
+      timezoneId: "UTC",
+      reducedMotion: "reduce",
+    });
     const page = await context.newPage();
     page.on("pageerror", (error) => failures.push(`Page error: ${error.message}`));
     page.on("requestfailed", (request) => failures.push(`Asset request failed: ${request.url()} (${request.failure()?.errorText ?? "unknown error"})`));
@@ -48,6 +59,14 @@ export async function captureTimes({ scene, width, height, browserPath }, times,
       }
     }
     if (failures.length) throw new Error(failures.join("\n"));
+    return await fn({ page, context, failures });
+  } finally {
+    await browser.close();
+  }
+}
+
+export async function captureTimes({ scene, width, height, browserPath }, times, onCapture) {
+  return withIsolatedScene({ scene, width, height, deviceScaleFactor: 1, browserPath }, async ({ page, context, failures }) => {
     if (!await page.evaluate(() => typeof window.renderAt === "function")) {
       throw new Error("Scene must define window.renderAt(seconds).");
     }
@@ -56,15 +75,20 @@ export async function captureTimes({ scene, width, height, browserPath }, times,
     const captured = new Map();
     for (let index = 0; index < times.length; index++) {
       const seconds = times[index];
-      await page.evaluate(async (time) => window.renderAt(time), seconds);
+      await page.evaluate(async (time) => {
+        await window.renderAt(time);
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      }, seconds);
       if (failures.length) throw new Error(failures.join("\n"));
-      const { data } = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true });
+      const { data } = await cdp.send("Page.captureScreenshot", {
+        format: "png",
+        fromSurface: true,
+        captureBeyondViewport: false,
+      });
       const png = Buffer.from(data, "base64");
       if (onCapture) await onCapture(png, index, seconds);
       else captured.set(seconds, png);
     }
     return captured;
-  } finally {
-    await browser.close();
-  }
+  });
 }

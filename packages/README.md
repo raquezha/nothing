@@ -7,6 +7,7 @@ This folder contains the local package and skill bundles that make up the `nothi
 | Folder | Package | Type | Status | What it provides |
 |---|---|---|---|---|
 | `antigravity/` | `@raquezha/antigravity` | Pi extension | Experimental | Google Antigravity-compatible provider with OAuth login and `/antigravity.doctor`. |
+| `article-media/` | `@raquezha/article-media` | CLI + skill | Usable | Deterministic local PNG, SVG, and MP4 rendering and validation (`story-video` compatible). |
 | `nofooter/` | `@raquezha/nofooter` | Pi extension | Usable | Powerline-style Pi footer/theme with token, cost, context, model, provider, and Git branch status. |
 | `nodesign/` | `@raquezha/nodesign` | CLI package | Usable | Standalone design context extractor CLI for AI agents (Figma, Zeplin), Personal Access Token (PAT) auth CLI, code generator, and preflight brief formatter. |
 | `noleaks/` | `@raquezha/noleaks` | Pi extension | Usable defense-in-depth | Credentials guard and DLP shield that blocks sensitive files and redacts secret-looking output. |

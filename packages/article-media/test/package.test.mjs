@@ -12,7 +12,8 @@ import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const cli = path.join(root, "bin", "story-video.mjs");
+const cli = path.join(root, "bin", "article-media.mjs");
+const legacyCli = path.join(root, "bin", "story-video.mjs");
 const fixture = path.join(root, "test", "fixture.html");
 const encoder = path.join(root, "scripts", "encode.swift");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
@@ -22,17 +23,22 @@ function run(args, options = {}) {
 }
 
 function renderArgs(output, extra = []) {
-  return ["render", "--scene", fixture, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", output, ...extra];
+  return ["video", "--scene", fixture, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", output, ...extra];
 }
 
-assert.deepEqual(pkg.pi?.skills, ["story-video"]);
+assert.deepEqual(pkg.pi?.skills, ["article-media"]);
+assert.equal(pkg.bin?.["article-media"], "bin/article-media.mjs");
 assert.equal(pkg.bin?.["story-video"], "bin/story-video.mjs");
-assert.ok(fs.existsSync(path.join(root, "story-video", "SKILL.md")));
-assert.ok(fs.existsSync(path.join(root, "story-video", "references", "style-and-review.md")));
+assert.ok(fs.existsSync(path.join(root, "article-media", "SKILL.md")));
+assert.ok(fs.existsSync(path.join(root, "article-media", "references", "style-and-review.md")));
 assert.ok(fs.existsSync(path.join(root, "examples", "non-figma-scene.html")));
-assert.ok(pkg.files.includes("examples"), "package must include the non-Figma example");
+assert.ok(fs.existsSync(path.join(root, "examples", "terminal-zoom-typing.html")));
+assert.ok(fs.existsSync(path.join(root, "examples", "comparison-card.html")));
+assert.ok(fs.existsSync(path.join(root, "examples", "mobile-figma-canvas.html")));
+assert.ok(pkg.files.includes("examples"), "package must include examples");
 assert.equal(findBrowser({ platform: "linux", exists: (candidate) => candidate === "/usr/bin/chromium" }), "/usr/bin/chromium");
-assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
+assert.equal(findBrowser({ platform: "linux", environment: { ARTICLE_MEDIA_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
+assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/legacy/chrome" }, exists: (candidate) => candidate === "/legacy/chrome" }), "/legacy/chrome");
 assert.throws(() => findBrowser({ platform: "linux", exists: () => false }), /Browser dependency missing/);
 const ffmpegRun = (command) => command === "ffmpeg" ? { status: 0, stdout: " V.... libx264", stderr: "" } : { status: 0, stdout: "", stderr: "" };
 assert.deepEqual(resolveEncoder({ platform: "linux", run: ffmpegRun }), { kind: "ffmpeg", command: "ffmpeg", probe: "ffprobe" });
@@ -112,8 +118,13 @@ try {
   assert.notEqual(invalid.status, 0, "invalid dimensions fail");
   assert.notEqual(run([...renderArgs(path.join(temp, "unknown.mp4")), "--unknown", "value"]).status, 0, "unknown arguments fail");
   const wrongExtension = run(renderArgs(path.join(temp, "wrong.webm")));
-  assert.notEqual(wrongExtension.status, 0, "non-MP4 output fails");
-  assert.match(wrongExtension.stderr, /--output must end in .mp4/);
+  assert.notEqual(wrongExtension.status, 0, "unsupported video extension fails");
+  assert.match(wrongExtension.stderr, /--output must end in \.mp4 or \.gif/);
+
+  const gifOut = path.join(temp, "demo.gif");
+  const gifRes = run(["video", "--scene", fixture, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", gifOut]);
+  assert.equal(gifRes.status, 0, gifRes.stderr);
+  assert.match(fs.readFileSync(gifOut).subarray(0, 6).toString("ascii"), /^GIF8[79]a$/, "GIF render writes valid GIF header");
   const fixtureBefore = fs.readFileSync(fixture, "utf8");
   assert.notEqual(run(renderArgs(fixture)).status, 0, "scene cannot be overwritten");
   assert.equal(fs.readFileSync(fixture, "utf8"), fixtureBefore, "scene overwrite is prevented");
@@ -146,8 +157,49 @@ try {
   const truncated = spawnSync("swift", [encoder, frames, priorFrames, "2", "64", "64", "10"], { encoding: "utf8" });
   assert.notEqual(truncated.status, 0, "truncated frame input fails");
   assert.equal(fs.readFileSync(priorFrames, "utf8"), "previous", "truncated frames preserve export");
+
+  // Image mode tests
+  const imgScene = path.join(temp, "img.html");
+  fs.writeFileSync(imgScene, '<!doctype html><html><body style="margin:0"><div id="capture" style="width:120px;height:80px;background:#bfddf0;">ok</div></body></html>');
+  const imgOut = path.join(temp, "img.png");
+  const imgRes = run(["image", "--scene", imgScene, "--width", "120", "--height", "80", "--output", imgOut]);
+  assert.equal(imgRes.status, 0, imgRes.stderr);
+  const imgBytes = fs.readFileSync(imgOut);
+  assert.equal(imgBytes.readUInt32BE(16), 240, "image width is 2x");
+  assert.equal(imgBytes.readUInt32BE(20), 160, "image height is 2x");
+
+  // SVG mode tests (valid, missing embedded weight, external URL)
+  const goodSvg = path.join(temp, "good.svg");
+  fs.writeFileSync(goodSvg, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" width="100" height="50"><rect width="100" height="50" fill="#fdfdfc"/><text x="10" y="30" font-family="sans-serif">ok</text></svg>');
+  const svgPreviewOut = path.join(temp, "svg-preview.png");
+  const svgOk = run(["svg", "--input", goodSvg, "--check", "--preview", svgPreviewOut]);
+  assert.equal(svgOk.status, 0, svgOk.stderr);
+  assert.ok(fs.statSync(svgPreviewOut).size > 0, "svg --preview writes PNG");
+
+  const badFontSvg = path.join(temp, "bad-font.svg");
+  fs.writeFileSync(badFontSvg, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" width="100" height="50"><text x="10" y="30" font-family="Inter" font-weight="700">oops</text></svg>');
+  const svgBadFont = run(["svg", "--input", badFontSvg, "--check"]);
+  assert.notEqual(svgBadFont.status, 0, "missing embedded WOFF2 weight fails svg --check");
+
+  const extSvg = path.join(temp, "ext.svg");
+  fs.writeFileSync(extSvg, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50" width="100" height="50"><image href="https://example.com/a.png"/></svg>');
+  assert.notEqual(run(["svg", "--input", extSvg, "--check"]).status, 0, "external URL fails svg --check");
+
+  // Batch mode test
+  const manifestPath = path.join(temp, "media.json");
+  fs.writeFileSync(manifestPath, JSON.stringify([
+    { kind: "image", scene: "img.html", width: 120, height: 80, output: "batch-img.png" },
+    { kind: "svg", input: "good.svg" },
+  ]));
+  const batchRes = run(["batch", "--manifest", manifestPath]);
+  assert.equal(batchRes.status, 0, batchRes.stderr);
+  assert.ok(fs.existsSync(path.join(temp, "batch-img.png")));
+
+  // Legacy story-video alias test
+  const legacyHelp = spawnSync(process.execPath, [legacyCli, "--help"], { encoding: "utf8" });
+  assert.equal(legacyHelp.status, 0, legacyHelp.stderr);
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }
 
-console.log("story-video package contract ok");
+console.log("article-media package contract ok");
