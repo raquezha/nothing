@@ -264,9 +264,9 @@ try {
   }
 
   const wavFile = path.join(temp, "tone.wav");
-  writeSineWav(wavFile, 0.3);
+  writeSineWav(wavFile, 2.0);
   const audioMp4 = path.join(temp, "video-with-audio.mp4");
-  const audioRender = run(renderArgs(audioMp4, ["--audio", wavFile]));
+  const audioRender = run(["video", "--scene", fixture, "--duration", "1.6", "--fps", "15", "--width", "64", "--height", "64", "--audio", wavFile, "--output", audioMp4]);
   assert.equal(audioRender.status, 0, audioRender.stderr);
   assert.ok(fs.statSync(audioMp4).size > 0, "video with --audio writes MP4");
   if (process.platform === "darwin") {

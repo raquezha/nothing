@@ -1,5 +1,11 @@
 # @raquezha/nocapture
 
+## 0.5.1
+
+### Patch Changes
+
+- Fix multi-track AVAssetWriter interleaving on macOS for `--audio` videos longer than 1 second using concurrent `requestMediaDataWhenReady` pull queues.
+
 ## 0.5.0
 
 ### Minor Changes

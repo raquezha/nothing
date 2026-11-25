@@ -148,72 +148,90 @@ writer.startSession(atSourceTime: .zero)
 
 let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 let bitmapInfo = CGBitmapInfo.byteOrder32Little.rawValue | CGImageAlphaInfo.premultipliedFirst.rawValue
-for index in 0..<frameCount {
-    let deadline = Date().addingTimeInterval(30)
-    while !input.isReadyForMoreMediaData {
-        guard writer.status == .writing else { fail("writer stopped before frame \(index): \(writer.error?.localizedDescription ?? "unknown error")") }
-        guard Date() < deadline else { fail("writer did not become ready for frame \(index) within 30 seconds") }
-        Thread.sleep(forTimeInterval: 0.01)
-    }
-    let url = frameURL(index)
-    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-          let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-          let pool = adaptor.pixelBufferPool else {
-        fail("could not decode frame \(index)")
-    }
-    var pixelBufferOut: CVPixelBuffer?
-    guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBufferOut) == kCVReturnSuccess,
-          let pixelBuffer = pixelBufferOut else {
-        fail("could not allocate pixel buffer for frame \(index)")
-    }
-    CVPixelBufferLockBaseAddress(pixelBuffer, [])
-    guard let base = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+
+let group = DispatchGroup()
+let videoQueue = DispatchQueue(label: "nocapture.encode.video")
+var videoFrameIndex = 0
+var videoFinished = false
+
+group.enter()
+input.requestMediaDataWhenReady(on: videoQueue) {
+    while input.isReadyForMoreMediaData && !videoFinished {
+        if writer.status != .writing {
+            fail("writer stopped before frame \(videoFrameIndex): \(writer.error?.localizedDescription ?? "unknown error")")
+        }
+        if videoFrameIndex >= frameCount {
+            videoFinished = true
+            input.markAsFinished()
+            group.leave()
+            break
+        }
+        let index = videoFrameIndex
+        let url = frameURL(index)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let pool = adaptor.pixelBufferPool else {
+            fail("could not decode frame \(index)")
+        }
+        var pixelBufferOut: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pixelBufferOut) == kCVReturnSuccess,
+              let pixelBuffer = pixelBufferOut else {
+            fail("could not allocate pixel buffer for frame \(index)")
+        }
+        CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard let base = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+            fail("could not access pixel buffer for frame \(index)")
+        }
+        guard let context = CGContext(
+            data: base,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+            fail("could not create drawing context for frame \(index)")
+        }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
-        fail("could not access pixel buffer for frame \(index)")
-    }
-    guard let context = CGContext(
-        data: base,
-        width: width,
-        height: height,
-        bitsPerComponent: 8,
-        bytesPerRow: CVPixelBufferGetBytesPerRow(pixelBuffer),
-        space: colorSpace,
-        bitmapInfo: bitmapInfo
-    ) else {
-        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
-        fail("could not create drawing context for frame \(index)")
-    }
-    context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-    CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
-    guard adaptor.append(pixelBuffer, withPresentationTime: CMTime(value: CMTimeValue(index), timescale: fps)) else {
-        fail("could not append frame \(index): \(writer.error?.localizedDescription ?? "unknown error")")
+        guard adaptor.append(pixelBuffer, withPresentationTime: CMTime(value: CMTimeValue(index), timescale: fps)) else {
+            fail("could not append frame \(index): \(writer.error?.localizedDescription ?? "unknown error")")
+        }
+        videoFrameIndex += 1
     }
 }
 
-input.markAsFinished()
-
 if let audioWriterInput = audioWriterInput, let audioReader = audioReader, let audioReaderOutput = audioReaderOutput {
-    while true {
-        let deadline = Date().addingTimeInterval(30)
-        while !audioWriterInput.isReadyForMoreMediaData {
-            guard writer.status == .writing else {
+    let audioQueue = DispatchQueue(label: "nocapture.encode.audio")
+    var audioFinished = false
+    group.enter()
+    audioWriterInput.requestMediaDataWhenReady(on: audioQueue) {
+        while audioWriterInput.isReadyForMoreMediaData && !audioFinished {
+            if writer.status != .writing {
                 fail("writer stopped while encoding audio: \(writer.error?.localizedDescription ?? "unknown error")")
             }
-            guard Date() < deadline else { fail("audio writer did not become ready within 30 seconds") }
-            Thread.sleep(forTimeInterval: 0.005)
-        }
-        if let sampleBuffer = audioReaderOutput.copyNextSampleBuffer() {
-            guard audioWriterInput.append(sampleBuffer) else {
-                fail("could not append audio samples: \(writer.error?.localizedDescription ?? "unknown error")")
+            if let sampleBuffer = audioReaderOutput.copyNextSampleBuffer() {
+                guard audioWriterInput.append(sampleBuffer) else {
+                    fail("could not append audio samples: \(writer.error?.localizedDescription ?? "unknown error")")
+                }
+            } else {
+                if audioReader.status == .failed {
+                    fail("audio reader failed: \(audioReader.error?.localizedDescription ?? "unknown error")")
+                }
+                audioFinished = true
+                audioWriterInput.markAsFinished()
+                group.leave()
+                break
             }
-        } else {
-            if audioReader.status == .failed {
-                fail("audio reader failed: \(audioReader.error?.localizedDescription ?? "unknown error")")
-            }
-            audioWriterInput.markAsFinished()
-            break
         }
     }
+}
+
+guard group.wait(timeout: .now() + 180) == .success else {
+    fail("media encoding timed out after 180 seconds")
 }
 
 let semaphore = DispatchSemaphore(value: 0)
