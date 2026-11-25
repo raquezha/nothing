@@ -39,12 +39,6 @@ assert.ok(fs.existsSync(path.join(root, "examples", "terminal-zoom-typing.html")
 assert.ok(fs.existsSync(path.join(root, "examples", "comparison-card.html")));
 assert.ok(fs.existsSync(path.join(root, "examples", "mobile-figma-canvas.html")));
 assert.ok(pkg.files.includes("examples"), "package must include examples");
-assert.ok(pkg.files.includes("templates"), "package must include templates");
-assert.ok(fs.existsSync(path.join(root, "templates", "comparison.html")));
-assert.ok(fs.existsSync(path.join(root, "templates", "mobile.html")));
-assert.ok(fs.existsSync(path.join(root, "templates", "terminal.html")));
-assert.ok(fs.existsSync(path.join(root, "templates", "tutorial.html")));
-assert.ok(fs.existsSync(path.join(root, "templates", "goodies.svg")));
 assert.equal(findBrowser({ platform: "linux", exists: (candidate) => candidate === "/usr/bin/chromium" }), "/usr/bin/chromium");
 assert.equal(findBrowser({ platform: "linux", environment: { ARTICLE_MEDIA_CHROME: "/custom/chrome" }, exists: (candidate) => candidate === "/custom/chrome" }), "/custom/chrome");
 assert.equal(findBrowser({ platform: "linux", environment: { STORY_VIDEO_CHROME: "/legacy/chrome" }, exists: (candidate) => candidate === "/legacy/chrome" }), "/legacy/chrome");
@@ -207,34 +201,6 @@ try {
   // Legacy story-video alias test
   const legacyHelp = spawnSync(process.execPath, [legacyCli, "--help"], { encoding: "utf8" });
   assert.equal(legacyHelp.status, 0, legacyHelp.stderr);
-
-  // Template & init tests
-  const listRes = run(["init", "--list"]);
-  assert.equal(listRes.status, 0, listRes.stderr);
-  assert.ok(listRes.stdout.includes("comparison"));
-  assert.ok(listRes.stdout.includes("mobile"));
-  assert.ok(listRes.stdout.includes("terminal"));
-  assert.ok(listRes.stdout.includes("tutorial"));
-
-  const scaffoldOut = path.join(temp, "my-comparison.html");
-  const initRes = run(["init", "--template", "comparison", "--output", scaffoldOut]);
-  assert.equal(initRes.status, 0, initRes.stderr);
-  assert.ok(fs.existsSync(scaffoldOut));
-  const content = fs.readFileSync(scaffoldOut, "utf8");
-  assert.ok(content.includes('id="capture"'));
-  assert.ok(content.includes('nc-brush'));
-
-  const noForceRes = run(["init", "--template", "comparison", "--output", scaffoldOut]);
-  assert.notEqual(noForceRes.status, 0, "must fail without --force on existing file");
-
-  const forceRes = run(["init", "--template", "comparison", "--output", scaffoldOut, "--force"]);
-  assert.equal(forceRes.status, 0, forceRes.stderr);
-
-  // Test rendering the scaffolded template with nocapture image
-  const scaffoldPng = path.join(temp, "scaffold.png");
-  const renderScaffold = run(["image", "--scene", scaffoldOut, "--width", "1200", "--height", "675", "--output", scaffoldPng]);
-  assert.equal(renderScaffold.status, 0, renderScaffold.stderr);
-  assert.ok(fs.existsSync(scaffoldPng));
 
   // Audio muxing tests (--audio is strictly BYO audio input; nocapture never synthesizes audio)
   assert.ok(help.stdout.includes("--audio"), "help must document --audio");

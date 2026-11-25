@@ -9,8 +9,6 @@ Use the shared `@raquezha/nocapture` CLI instead of writing one-off capture or e
 
 ```bash
 nocapture --help
-nocapture init --list
-nocapture init --template comparison --output scene.html
 nocapture image --scene scene.html --width 1200 --height 675 --output out.png
 nocapture svg --input diagram.svg --check --preview preview.png
 nocapture video --scene scene.html --duration 5.5 --fps 60 --width 1280 --height 720 --output out.mp4 --preview

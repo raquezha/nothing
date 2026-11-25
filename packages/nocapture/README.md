@@ -46,11 +46,7 @@ npm install -g @raquezha/nocapture
 
 ### 30-Second Example
 
-1. Scaffold an HTML template with built-in design tokens and SVG goodies:
-
-```bash
-npx @raquezha/nocapture init --template comparison --output scene.html
-```
+1. Create a plain HTML scene (e.g. `scene.html` with `#capture` container).
 
 2. Capture a 2x retina PNG (`2400x1350`) with overflow, font, and SHA-256 repeatability checks:
 
@@ -61,27 +57,6 @@ npx @raquezha/nocapture image --scene scene.html --width 1200 --height 675 --out
 ---
 
 ## Commands
-
-### 0. Scaffold HTML Templates (`init`)
-
-```bash
-# List available templates
-nocapture init --list
-
-# Scaffold a specific template
-nocapture init --template comparison --output comparison.html
-nocapture init --template mobile --output mobile.html
-nocapture init --template terminal --output terminal.html
-nocapture init --template tutorial --output tutorial.html
-```
-
-Available templates:
-- `comparison`: Side by side or stacked before vs after cards with badge pills, hand-drawn arrow, and sparkles.
-- `mobile`: Realistic smartphone mockup with dynamic island, status bar, home indicator, and feed cards.
-- `terminal`: Dark macOS/Linux terminal window with window controls, prompt tokens, and typed command animation.
-- `tutorial`: Step by step explainer with camera zoom cues, speech callout bubble, and code stage.
-
-Every template includes the 4-part architectural contract: CSS token variables, fixed canvas layout, hand-drawn vector goodies sprite, and deterministic `window.renderAt(seconds)` timeline scrubber.
 
 ### 1. Deterministic 2x PNG (`image`)
 
