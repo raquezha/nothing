@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Comparison Template</title>
+  <style>
+    :root {
+      --nc-bg: #f8f9fa;
+      --nc-surface: #ffffff;
+      --nc-fg: #111827;
+      --nc-muted: #6b7280;
+      --nc-border: #e5e7eb;
+      --nc-danger: #ef4444;
+      --nc-danger-bg: #fef2f2;
+      --nc-success: #10b981;
+      --nc-success-bg: #ecfdf5;
+      --nc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --nc-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--nc-bg);
+      color: var(--nc-fg);
+      font-family: var(--nc-font);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    #capture {
+      width: 1200px;
+      height: 675px;
+      padding: 48px;
+      background: var(--nc-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header {
+      position: relative;
+      z-index: 2;
+    }
+
+    .title {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: inline-block;
+      position: relative;
+    }
+
+    .brush-underline {
+      position: absolute;
+      left: 0;
+      bottom: -10px;
+      width: 100%;
+      height: 14px;
+      color: #3b82f6;
+    }
+
+    .subtitle {
+      margin-top: 14px;
+      font-size: 18px;
+      color: var(--nc-muted);
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 80px 1fr;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card {
+      background: var(--nc-surface);
+      border: 1px solid var(--nc-border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+      min-height: 380px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .card.before {
+      border-top: 4px solid var(--nc-danger);
+    }
+
+    .card.after {
+      border-top: 4px solid var(--nc-success);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      width: fit-content;
+      margin-bottom: 20px;
+    }
+
+    .badge.before {
+      background: var(--nc-danger-bg);
+      color: var(--nc-danger);
+    }
+
+    .badge.after {
+      background: var(--nc-success-bg);
+      color: var(--nc-success);
+    }
+
+    .card-body {
+      flex: 1;
+      font-family: var(--nc-mono);
+      font-size: 15px;
+      line-height: 1.6;
+      background: #fafafa;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--nc-border);
+      white-space: pre-wrap;
+    }
+
+    .middle-arrow {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #94a3b8;
+    }
+
+    .sparkle-icon {
+      position: absolute;
+      top: -16px;
+      right: -16px;
+      width: 32px;
+      height: 32px;
+      color: #eab308;
+    }
+
+    .mascot {
+      position: absolute;
+      bottom: 12px;
+      right: 36px;
+      width: 48px;
+      height: 48px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Inline SVG Goodies Sprite -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+    <defs>
+      <g id="nc-cat">
+        <path d="M 6 34 C 4 20 8 10 16 10 C 20 10 24 16 26 20 C 30 14 36 10 40 10 C 48 10 52 20 50 34 C 48 44 40 48 28 48 C 16 48 8 44 6 34 Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M 12 12 L 10 3 L 20 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 44 12 L 46 3 L 36 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="24" r="2.5" fill="currentColor"/>
+        <circle cx="36" cy="24" r="2.5" fill="currentColor"/>
+        <path d="M 28 28 L 26 31 L 30 31 Z" fill="currentColor"/>
+        <path d="M 28 31 C 26 34 23 35 21 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 28 31 C 30 34 33 35 35 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 14 26 L 4 24 M 14 29 L 3 30 M 14 32 L 5 35" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M 42 26 L 52 24 M 42 29 L 53 30 M 42 32 L 51 35" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </g>
+      <g id="nc-brush">
+        <path d="M 2 12 C 30 6 80 14 140 8 C 170 5 195 10 198 11 C 180 15 120 18 60 16 C 30 15 10 14 2 12 Z" fill="currentColor"/>
+      </g>
+      <g id="nc-sparkle">
+        <path d="M 16 0 C 16 8 18 14 24 16 C 18 18 16 24 16 32 C 16 24 14 18 8 16 C 14 14 16 8 16 0 Z" fill="currentColor"/>
+      </g>
+      <g id="nc-arrow">
+        <path d="M 4 28 C 18 8 46 4 72 16 C 80 20 86 26 90 32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        <path d="M 76 32 L 92 34 L 94 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </defs>
+  </svg>
+
+  <div id="capture">
+    <div class="header" data-start="0" data-persist>
+      <h1 class="title">
+        Architecture Comparison
+        <svg class="brush-underline" viewBox="0 0 200 20" preserveAspectRatio="none"><use href="#nc-brush"/></svg>
+      </h1>
+      <p class="subtitle">Replacing loose handoffs with deterministic runtime checks</p>
+    </div>
+
+    <div class="comparison-grid">
+      <!-- Left Card: Before -->
+      <div class="card before" data-start="0.2" data-enter="slide-up" data-persist>
+        <div class="badge before">Before: Manual Drift</div>
+        <div class="card-body">// Fragile screen grabs
+const img = await grabScreen();
+assert(img.matchesFigma()); // Fails randomly!</div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="middle-arrow" data-start="0.8" data-enter="fade" data-persist>
+        <svg width="64" height="40" viewBox="0 0 100 40"><use href="#nc-arrow"/></svg>
+      </div>
+
+      <!-- Right Card: After -->
+      <div class="card after" data-start="1.2" data-enter="slide-up" data-persist>
+        <svg class="sparkle-icon" viewBox="0 0 32 32"><use href="#nc-sparkle"/></svg>
+        <div class="badge after">After: nocapture v0.4</div>
+        <div class="card-body">// Pure deterministic render
+nocapture init --template comparison
+// Zero drift, bit-identical SHA-256 output</div>
+      </div>
+    </div>
+
+    <!-- Cat Mascot -->
+    <div class="mascot" data-start="1.8" data-enter="fade" data-persist>
+      <svg width="48" height="48" viewBox="0 0 56 56"><use href="#nc-cat"/></svg>
+    </div>
+  </div>
+
+  <script>
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function smoothstep(t) { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); }
+    function applyTimeline(root, seconds) {
+      const elements = root.querySelectorAll ? root.querySelectorAll("[data-start], [data-camera-cues]") : [];
+      for (const el of elements) {
+        const start = parseFloat(el.getAttribute("data-start")) || 0;
+        const hasDuration = el.hasAttribute("data-duration");
+        const duration = hasDuration ? parseFloat(el.getAttribute("data-duration")) : Infinity;
+        const persist = el.hasAttribute("data-persist");
+        const end = start + duration;
+        if (seconds < start || (seconds > end && !persist)) {
+          el.style.opacity = "0";
+          el.style.pointerEvents = "none";
+          continue;
+        }
+        el.style.pointerEvents = "auto";
+        const activeSec = seconds - start;
+        const enterType = el.getAttribute("data-enter");
+        let opacity = 1, transform = "";
+        if (enterType && activeSec < 0.3) {
+          const p = smoothstep(activeSec / 0.3);
+          opacity = p;
+          if (enterType === "slide-up") transform = "translate3d(0, " + ((1 - p) * 16).toFixed(2) + "px, 0)";
+        }
+        el.style.opacity = opacity.toFixed(4);
+        if (transform) el.style.transform = transform;
+      }
+    }
+    window.renderAt = function(seconds) {
+      applyTimeline(document.body, seconds);
+    };
+  </script>
+</body>
+</html>

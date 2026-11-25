@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
+  <defs>
+    <!-- Hand-drawn cat mascot -->
+    <g id="nc-cat">
+      <path d="M 6 34 C 4 20 8 10 16 10 C 20 10 24 16 26 20 C 30 14 36 10 40 10 C 48 10 52 20 50 34 C 48 44 40 48 28 48 C 16 48 8 44 6 34 Z" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <!-- Ears -->
+      <path d="M 12 12 L 10 3 L 20 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 44 12 L 46 3 L 36 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- Eyes -->
+      <circle cx="20" cy="24" r="2.5" fill="currentColor"/>
+      <circle cx="36" cy="24" r="2.5" fill="currentColor"/>
+      <!-- Nose & mouth -->
+      <path d="M 28 28 L 26 31 L 30 31 Z" fill="currentColor"/>
+      <path d="M 28 31 C 26 34 23 35 21 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 28 31 C 30 34 33 35 35 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <!-- Whiskers -->
+      <path d="M 14 26 L 4 24 M 14 29 L 3 30 M 14 32 L 5 35" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 42 26 L 52 24 M 42 29 L 53 30 M 42 32 L 51 35" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </g>
+
+    <!-- Hand-drawn brush underline -->
+    <g id="nc-brush">
+      <path d="M 2 12 C 30 6 80 14 140 8 C 170 5 195 10 198 11 C 180 15 120 18 60 16 C 30 15 10 14 2 12 Z" fill="currentColor"/>
+    </g>
+
+    <!-- Hand-drawn sparkle / 4-point star -->
+    <g id="nc-sparkle">
+      <path d="M 16 0 C 16 8 18 14 24 16 C 18 18 16 24 16 32 C 16 24 14 18 8 16 C 14 14 16 8 16 0 Z" fill="currentColor"/>
+    </g>
+
+    <!-- Hand-drawn curved arrow -->
+    <g id="nc-arrow">
+      <path d="M 4 28 C 18 8 46 4 72 16 C 80 20 86 26 90 32" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 76 32 L 92 34 L 94 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Hand-drawn sketchy circle -->
+    <g id="nc-circle">
+      <path d="M 50 8 C 76 6 94 22 92 48 C 90 74 70 92 46 92 C 20 92 6 72 8 46 C 10 18 32 6 54 8 C 68 9 86 18 88 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- Hand-drawn badge pill / starburst -->
+    <g id="nc-badge">
+      <rect x="2" y="2" width="96" height="36" rx="18" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="2.5" stroke-dasharray="4 2"/>
+    </g>
+  </defs>
+</svg>

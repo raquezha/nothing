@@ -10,6 +10,8 @@ Built on `playwright-core` and your system Chrome with zero external network req
 
 `nocapture` is completely style-agnostic: any local HTML, CSS, SVG, Canvas, or WebGL scene works, whether it is a brutalist poster, a 3D/shader experiment, a data visualization, or an editorial card.
 
+Read the backstory on [raquezha.net/writing/no-capture](https://raquezha.net/writing/no-capture) or browse the source on [GitHub](https://github.com/raquezha/nothing/tree/main/packages/nocapture).
+
 ---
 
 ## Why `@raquezha/nocapture` (and when to use other tools)
@@ -36,36 +38,50 @@ Run directly with `npx`, or install globally:
 
 ```bash
 # Run without installing
-npx @raquezha/article-media --help
+npx @raquezha/nocapture --help
 
 # Or install globally
-npm install -g @raquezha/article-media
+npm install -g @raquezha/nocapture
 ```
 
 ### 30-Second Example
 
-1. Create a local HTML scene with a `#capture` container:
-
-```html
-<!doctype html>
-<html>
-  <body style="margin:0">
-    <div id="capture" style="width:800px;height:400px;display:grid;place-items:center;background:#fdfdfc;font-family:sans-serif;">
-      <h1>Hello, deterministic media</h1>
-    </div>
-  </body>
-</html>
-```
-
-2. Capture a 2x retina PNG (`1600x800`) with overflow, font, and SHA-256 repeatability checks:
+1. Scaffold an HTML template with built-in design tokens and SVG goodies:
 
 ```bash
-npx @raquezha/article-media image --scene scene.html --width 800 --height 400 --output card.png
+npx @raquezha/nocapture init --template comparison --output scene.html
+```
+
+2. Capture a 2x retina PNG (`2400x1350`) with overflow, font, and SHA-256 repeatability checks:
+
+```bash
+npx @raquezha/nocapture image --scene scene.html --width 1200 --height 675 --output comparison.png
 ```
 
 ---
 
 ## Commands
+
+### 0. Scaffold HTML Templates (`init`)
+
+```bash
+# List available templates
+nocapture init --list
+
+# Scaffold a specific template
+nocapture init --template comparison --output comparison.html
+nocapture init --template mobile --output mobile.html
+nocapture init --template terminal --output terminal.html
+nocapture init --template tutorial --output tutorial.html
+```
+
+Available templates:
+- `comparison`: Side by side or stacked before vs after cards with badge pills, hand-drawn arrow, and sparkles.
+- `mobile`: Realistic smartphone mockup with dynamic island, status bar, home indicator, and feed cards.
+- `terminal`: Dark macOS/Linux terminal window with window controls, prompt tokens, and typed command animation.
+- `tutorial`: Step by step explainer with camera zoom cues, speech callout bubble, and code stage.
+
+Every template includes the 4-part architectural contract: CSS token variables, fixed canvas layout, hand-drawn vector goodies sprite, and deterministic `window.renderAt(seconds)` timeline scrubber.
 
 ### 1. Deterministic 2x PNG (`image`)
 

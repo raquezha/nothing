@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mobile Template</title>
+  <style>
+    :root {
+      --nc-bg: #e2e8f0;
+      --nc-phone-border: #1e293b;
+      --nc-screen-bg: #ffffff;
+      --nc-fg: #0f172a;
+      --nc-muted: #64748b;
+      --nc-accent: #6366f1;
+      --nc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--nc-bg);
+      color: var(--nc-fg);
+      font-family: var(--nc-font);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    #capture {
+      width: 1200px;
+      height: 800px;
+      background: var(--nc-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phone-frame {
+      width: 375px;
+      height: 720px;
+      background: var(--nc-screen-bg);
+      border: 12px solid var(--nc-phone-border);
+      border-radius: 48px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .status-bar {
+      height: 44px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 10;
+    }
+
+    .dynamic-island {
+      width: 100px;
+      height: 24px;
+      background: #000000;
+      border-radius: 12px;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
+
+    .app-screen {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .feed-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feed-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--nc-accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .feed-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .feed-desc {
+      font-size: 13px;
+      color: var(--nc-muted);
+      line-height: 1.4;
+    }
+
+    .home-bar {
+      width: 120px;
+      height: 4px;
+      background: #000000;
+      border-radius: 2px;
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .side-annotation {
+      position: absolute;
+      right: 120px;
+      top: 240px;
+      width: 240px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .annotation-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .annotation-desc {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="capture">
+    <!-- Phone Mockup -->
+    <div class="phone-frame" data-start="0" data-persist>
+      <div class="dynamic-island"></div>
+      <div class="status-bar">
+        <span>9:41</span>
+        <span>5G</span>
+      </div>
+
+      <div class="app-screen">
+        <div class="feed-card" data-start="0.3" data-enter="slide-up" data-persist>
+          <div class="feed-header">
+            <div class="avatar">RQ</div>
+            <div class="feed-title">Deterministic UI</div>
+          </div>
+          <div class="feed-desc">Rendered with nocapture frame stepper. No emulator latency.</div>
+        </div>
+
+        <div class="feed-card" data-start="0.8" data-enter="slide-up" data-persist>
+          <div class="feed-header">
+            <div class="avatar" style="background:#10b981;">02</div>
+            <div class="feed-title">Fluid Motion</div>
+          </div>
+          <div class="feed-desc">Scrubbable timeline keyed to sub-frame accuracy.</div>
+        </div>
+      </div>
+
+      <div class="home-bar"></div>
+    </div>
+
+    <!-- Callout on the right -->
+    <div class="side-annotation" data-start="1.4" data-enter="slide-up" data-persist>
+      <div class="annotation-title">Native Mockup</div>
+      <div class="annotation-desc">HTML and CSS mobile frame with dynamic island and status bar tokens.</div>
+    </div>
+  </div>
+
+  <script>
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function smoothstep(t) { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); }
+    function applyTimeline(root, seconds) {
+      const elements = root.querySelectorAll ? root.querySelectorAll("[data-start]") : [];
+      for (const el of elements) {
+        const start = parseFloat(el.getAttribute("data-start")) || 0;
+        const persist = el.hasAttribute("data-persist");
+        if (seconds < start && !persist) {
+          el.style.opacity = "0";
+          continue;
+        }
+        el.style.opacity = "1";
+        const enter = el.getAttribute("data-enter");
+        if (enter === "slide-up" && seconds >= start && seconds < start + 0.3) {
+          const p = smoothstep((seconds - start) / 0.3);
+          el.style.opacity = p.toFixed(4);
+          el.style.transform = "translate3d(0, " + ((1 - p) * 16).toFixed(2) + "px, 0)";
+        }
+      }
+    }
+    window.renderAt = function(seconds) {
+      applyTimeline(document.body, seconds);
+    };
+  </script>
+</body>
+</html>

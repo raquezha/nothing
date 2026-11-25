@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tutorial Template</title>
+  <style>
+    :root {
+      --nc-bg: #f8fafc;
+      --nc-surface: #ffffff;
+      --nc-fg: #0f172a;
+      --nc-muted: #64748b;
+      --nc-accent: #2563eb;
+      --nc-border: #cbd5e1;
+      --nc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --nc-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--nc-bg);
+      color: var(--nc-fg);
+      font-family: var(--nc-font);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    #capture {
+      width: 1200px;
+      height: 675px;
+      padding: 48px;
+      background: var(--nc-bg);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #dbeafe;
+      color: var(--nc-accent);
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .stage {
+      flex: 1;
+      margin: 24px 0;
+      background: var(--nc-surface);
+      border: 1px solid var(--nc-border);
+      border-radius: 16px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+      position: relative;
+      transform-origin: center center;
+    }
+
+    .stage-title {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .code-box {
+      font-family: var(--nc-mono);
+      font-size: 16px;
+      line-height: 1.6;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .callout {
+      position: absolute;
+      right: 48px;
+      bottom: 48px;
+      background: #fef08a;
+      color: #713f12;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .callout-arrow {
+      position: absolute;
+      top: -12px;
+      left: 24px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 12px solid #fef08a;
+    }
+  </style>
+</head>
+<body>
+  <div id="capture">
+    <div class="header">
+      <div class="step-badge" data-start="0" data-persist>Step 1 of 3</div>
+    </div>
+
+    <!-- Stage container with camera zoom cue -->
+    <div class="stage" id="stage" data-camera-cues='[{"t":0,"s":1,"x":0,"y":0},{"t":1.5,"s":1.1,"x":-20,"y":-10}]' data-start="0" data-persist>
+      <h2 class="stage-title">Scaffold with nocapture</h2>
+      <div class="code-box" data-start="0.4" data-enter="fade" data-persist>
+$ nocapture init --template tutorial
+✓ Scaffolding completed in 12ms</div>
+
+      <div class="callout" data-start="1.2" data-enter="zoom" data-persist>
+        <div class="callout-arrow"></div>
+        <span>Zero configuration needed!</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function smoothstep(t) { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); }
+    function applyTimeline(root, seconds) {
+      const stage = root.querySelector("#stage");
+      if (stage) {
+        const cues = JSON.parse(stage.getAttribute("data-camera-cues") || "[]");
+        if (cues.length === 2) {
+          const p = smoothstep(clamp((seconds - cues[0].t) / (cues[1].t - cues[0].t), 0, 1));
+          const s = cues[0].s + (cues[1].s - cues[0].s) * p;
+          const x = cues[0].x + (cues[1].x - cues[0].x) * p;
+          const y = cues[0].y + (cues[1].y - cues[0].y) * p;
+          stage.style.transform = "scale(" + s.toFixed(4) + ") translate3d(" + x.toFixed(2) + "px, " + y.toFixed(2) + "px, 0)";
+        }
+      }
+
+      const elements = root.querySelectorAll ? root.querySelectorAll("[data-start]") : [];
+      for (const el of elements) {
+        const start = parseFloat(el.getAttribute("data-start")) || 0;
+        const persist = el.hasAttribute("data-persist");
+        if (seconds < start && !persist) {
+          el.style.opacity = "0";
+          continue;
+        }
+        el.style.opacity = "1";
+        const enter = el.getAttribute("data-enter");
+        if (enter === "zoom" && seconds >= start && seconds < start + 0.3) {
+          const p = smoothstep((seconds - start) / 0.3);
+          el.style.opacity = p.toFixed(4);
+          el.style.transform = "scale(" + (0.8 + 0.2 * p).toFixed(4) + ")";
+        }
+      }
+    }
+    window.renderAt = function(seconds) {
+      applyTimeline(document.body, seconds);
+    };
+  </script>
+</body>
+</html>

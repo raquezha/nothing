@@ -1,5 +1,14 @@
 # @raquezha/nocapture
 
+## 0.4.0
+
+### Minor Changes
+
+- Add `nocapture init` command to scaffold plain HTML templates (`comparison`, `mobile`, `terminal`, and `tutorial`).
+- Add inline vector goodies sprite with hand-drawn cat mascot, brush underlines, sparkles, arrows, and badge pills.
+- Add pure deterministic timeline runtime in `lib/timeline.mjs` supporting camera cues, typing animations, number counters, and enter or exit transitions.
+- Deduplicate CLI shims so `article-media` and `story-video` point cleanly to `nocapture`.
+
 ## 0.3.0
 
 ### Minor Changes

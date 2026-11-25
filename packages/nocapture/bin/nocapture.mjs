@@ -6,15 +6,18 @@ import { runBatch } from "../lib/batch.mjs";
 import { renderImage } from "../lib/image.mjs";
 import { findBrowser } from "../lib/platform.mjs";
 import { checkSvg, previewSvg } from "../lib/svg.mjs";
+import { listTemplates, scaffoldTemplate } from "../lib/templates.mjs";
 import { runVideoJob } from "../lib/video.mjs";
 
 const usage = `Usage:
-  article-media image --scene <file> --width <px> --height <px> --output <file.png> [--scale <n>] [--selector <css>] [--allow-overflow]
-  article-media svg --input <file.svg> [--check] [--preview <file.png>] [--scale <n>]
-  article-media video --scene <file> --duration <seconds> --fps <fps> --width <px> --height <px> --output <file.mp4|file.gif> [--preview]
-  article-media batch --manifest <file.json>
+  nocapture init [--template <name>] [--output <file.html>] [--list] [--force]
+  nocapture image --scene <file> --width <px> --height <px> --output <file.png> [--scale <n>] [--selector <css>] [--allow-overflow]
+  nocapture svg --input <file.svg> [--check] [--preview <file.png>] [--scale <n>]
+  nocapture video --scene <file> --duration <seconds> --fps <fps> --width <px> --height <px> --output <file.mp4|file.gif> [--preview]
+  nocapture batch --manifest <file.json>
 
-Options:
+Commands:
+  init    Scaffold a standalone HTML template (comparison, mobile, terminal, tutorial).
   image   Deterministic 2x PNG capture with SHA-256 repeatability and overflow checks.
   svg     Validate SVG dimensions, external URLs, and embedded WOFF2 fonts (optional PNG preview).
   video   Render window.renderAt(seconds) scenes to MP4 or GIF (with --preview for 3 keyframes).
@@ -58,6 +61,25 @@ async function main() {
     return console.log(usage);
   }
   const command = args.shift();
+
+  if (command === "init") {
+    const values = parseFlags(args, ["template", "output"], ["list", "force"]);
+    if (values.list) {
+      console.log("Available templates:\n");
+      for (const t of listTemplates()) {
+        console.log(`  ${t.name.padEnd(12)} ${t.width}x${t.height}  ${t.description}`);
+      }
+      return;
+    }
+    const template = values.template || "comparison";
+    const result = await scaffoldTemplate({
+      template,
+      output: values.output,
+      force: values.force,
+    });
+    console.log(`Scaffolded ${result.template} template to ${result.output} (${result.width}x${result.height})`);
+    return;
+  }
 
   if (command === "image") {
     const values = parseFlags(args, ["scene", "width", "height", "output", "scale", "selector"], ["allow-overflow"]);
@@ -127,6 +149,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(`article-media: ${error.message}`);
+  console.error(`nocapture: ${error.message}`);
   process.exit(1);
 });
