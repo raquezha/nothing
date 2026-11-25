@@ -1,35 +1,31 @@
-# @raquezha/article-media
+# @raquezha/nocapture
 
-![article-media showcase](assets/showcase.gif)
+![nocapture showcase](assets/showcase.gif)
 
-> **60fps terminal zoom + typing** rendered deterministically from [examples/terminal-zoom-typing.html](examples/terminal-zoom-typing.html) using `article-media video` ([MP4 version](assets/showcase.mp4)).
+> **60fps terminal zoom + typing** rendered deterministically from [examples/terminal-zoom-typing.html](examples/terminal-zoom-typing.html) using `nocapture video` ([MP4 version](assets/showcase.mp4)).
 
-Deterministic local media rendering and validation (**PNG**, **SVG**, **MP4**, and **GIF**) for technical articles, changelogs, and documentation.
+Deterministic local media rendering and validation (**PNG**, **SVG**, **MP4**, and **GIF**) for writers and developers who want to focus on ideas and let AI agents handle deterministic captures.
 
 Built on `playwright-core` and your system Chrome with zero external network requests, zero Playwright-cached FFmpeg binaries, and zero `--no-sandbox` shortcuts.
 
-`article-media` is completely style-agnostic: any local HTML, CSS, SVG, Canvas, or WebGL scene works, whether it is a brutalist poster, a 3D/shader experiment, a data visualization, or an editorial card.
+`nocapture` is completely style-agnostic: any local HTML, CSS, SVG, Canvas, or WebGL scene works, whether it is a brutalist poster, a 3D/shader experiment, a data visualization, or an editorial card.
 
 ---
 
-## Why `@raquezha/article-media`?
+## Why `@raquezha/nocapture` (and when to use other tools)
 
-When developers or AI agents generate article visuals with ad-hoc scripts, the same bugs keep showing up:
+Screen recorders like [OpenScreen](https://github.com/getopenscreen/openscreen) and Screen Studio are great when you want to record a real live desktop session, webcam, or audio walkthrough. CLI screenshot tools like Simon Willison's [`shot-scraper`](https://github.com/simonw/shot-scraper) are great for automating screenshots of live URLs in Python.
 
-- **Silent network and font drift:** Diagrams look fine on macOS, then fall back to system fonts on Linux or Safari because weights weren't embedded.
-- **Half-painted animations:** `page.screenshot()` fires before CSS transforms or web fonts settle.
-- **Non-repeatable renders:** Wall-clock CSS timers produce different frames every run.
-- **Broken exports:** Failed FFmpeg or encoder runs overwrite the previous working file.
+Try those if they fit your workflow. `nocapture` exists for a different job: **no manual screen recording, no retakes, and no acting out demos**. You (or your AI agent) write a local HTML/SVG scene, and `nocapture` renders deterministic **PNG**, **SVG**, **MP4**, and **GIF** assets straight from code. If one label has a typo, you edit one line and re-run instead of recording the whole take over again.
 
-`@raquezha/article-media` turns article visuals into deterministic build artifacts:
-
-| Capability | `article-media` | Raw Playwright / FFmpeg | `shot-scraper` |
+| Capability | `nocapture` | OpenScreen / Screen Studio | `shot-scraper` |
 | :--- | :---: | :---: | :---: |
-| 2x PNG with SHA-256 repeatability gate | Yes | DIY | No |
+| Built for live desktop recording | No | Yes | No |
+| 2x PNG with SHA-256 repeatability gate | Yes | No | No |
 | SVG embedded WOFF2 font + URL audit | Yes | No | No |
-| Clock-driven MP4 & GIF (`renderAt(t)`) | Yes | DIY | Real-time only |
-| macOS AVFoundation + Linux `libx264` pipe | Yes | DIY | No |
-| Atomic output (failed run keeps prior file) | Yes | DIY | No |
+| Clock-driven MP4 & GIF (`renderAt(t)`) | Yes | Live timeline | Real-time only |
+| macOS AVFoundation + Linux `libx264` pipe | Yes | Desktop app | No |
+| Atomic output (failed run keeps prior file) | Yes | No | No |
 | Bundled AI Agent Skill (`SKILL.md`) | Yes | No | No |
 
 ---
@@ -151,24 +147,28 @@ article-media batch --manifest media.json
 
 ---
 
-## Using With AI Coding Agents
+## Using With AI Coding Agents & Team Distribution
 
-`@raquezha/article-media` ships a bundled [Agent Skill](article-media/SKILL.md) (`"pi": { "skills": ["article-media"] }`) that teaches agents the 5-step workflow plus video and zoom framing rules:
+`@raquezha/nocapture` ships a bundled [Agent Skill](nocapture/SKILL.md) (`"pi": { "skills": ["nocapture"] }`) that teaches agents the 5-step workflow plus video and zoom framing rules:
 
 1. Define a one-sentence claim and choose SVG, PNG, or MP4/GIF.
 2. Author a self-contained local scene (never fake historical product screenshots).
-3. Run `article-media` with deterministic checks.
+3. Run `nocapture` with deterministic checks.
 4. Visually inspect the rendered PNG or `--preview` keyframes before approving (including a peak-zoom frame before full video encodes, readable typing cadence, and measured DOM click targets).
 5. Publish and mirror assets without leaving temp files behind.
 
-To make the skill discoverable in Antigravity across all projects, symlink it into your global skills directory:
+### Share across your team
+
+- **Claude (Team / Enterprise Admin):** Upload the `nocapture/` skill folder (`SKILL.md` + `references/`) as an organization-wide Skill in Admin Settings so everyone gets it automatically without local setup.
+- **ChatGPT (Team / Enterprise):** Create a workspace-shared **Custom GPT** with `nocapture/SKILL.md` as Instructions and `nocapture/references/style-and-review.md` as Knowledge (plus a quickstart note for `npx @raquezha/nocapture`).
+- **Coding agents (Pi, Antigravity, Claude Code, Cursor):** Bundle the skill in npm or symlink it globally / per workspace:
 
 ```bash
 mkdir -p ~/.gemini/config/skills
-ln -sfn "$(pwd)/article-media" ~/.gemini/config/skills/article-media
+ln -sfn "$(pwd)/nocapture" ~/.gemini/config/skills/nocapture
 ```
 
-Or link it per workspace under `.agents/skills/article-media`.
+Or link it per workspace under `.agents/skills/nocapture`.
 
 ---
 

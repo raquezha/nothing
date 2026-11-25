@@ -12,7 +12,8 @@ import { publishPreview } from "../lib/publish.mjs";
 import { captureTimes } from "../lib/render.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const cli = path.join(root, "bin", "article-media.mjs");
+const cli = path.join(root, "bin", "nocapture.mjs");
+const legacyArticleMediaCli = path.join(root, "bin", "article-media.mjs");
 const legacyCli = path.join(root, "bin", "story-video.mjs");
 const fixture = path.join(root, "test", "fixture.html");
 const encoder = path.join(root, "scripts", "encode.swift");
@@ -26,11 +27,13 @@ function renderArgs(output, extra = []) {
   return ["video", "--scene", fixture, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--output", output, ...extra];
 }
 
-assert.deepEqual(pkg.pi?.skills, ["article-media"]);
+assert.deepEqual(pkg.pi?.skills, ["nocapture"]);
+assert.equal(pkg.bin?.nocapture, "bin/nocapture.mjs");
 assert.equal(pkg.bin?.["article-media"], "bin/article-media.mjs");
 assert.equal(pkg.bin?.["story-video"], "bin/story-video.mjs");
-assert.ok(fs.existsSync(path.join(root, "article-media", "SKILL.md")));
-assert.ok(fs.existsSync(path.join(root, "article-media", "references", "style-and-review.md")));
+assert.ok(fs.existsSync(legacyArticleMediaCli));
+assert.ok(fs.existsSync(path.join(root, "nocapture", "SKILL.md")));
+assert.ok(fs.existsSync(path.join(root, "nocapture", "references", "style-and-review.md")));
 assert.ok(fs.existsSync(path.join(root, "examples", "non-figma-scene.html")));
 assert.ok(fs.existsSync(path.join(root, "examples", "terminal-zoom-typing.html")));
 assert.ok(fs.existsSync(path.join(root, "examples", "comparison-card.html")));

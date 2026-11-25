@@ -108,7 +108,7 @@
       "skills": [
         "nosearch",
         "norpiv/distill",
-        "article-media"
+        "nocapture"
       ],
       "extensions": [
         "nopaste"

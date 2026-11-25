@@ -1,4 +1,11 @@
-# @raquezha/article-media
+# @raquezha/nocapture
+
+## 0.3.0
+
+### Minor Changes
+
+- Rename `@raquezha/article-media` to `@raquezha/nocapture` (`nocapture` CLI + `nocapture` Agent Skill) while keeping `article-media` and `story-video` as backwards-compatible `bin` aliases.
+- Document alternatives (`OpenScreen`, `Screen Studio`, `shot-scraper`) and team distribution across Claude, ChatGPT, and coding agents.
 
 ## 0.2.1
 

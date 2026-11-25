@@ -1,9 +1,10 @@
 {
-  "name": "@raquezha/article-media",
-  "version": "0.2.1",
-  "description": "Deterministic local article media rendering and validation tools (PNG, SVG, MP4) for coding agents",
+  "name": "@raquezha/nocapture",
+  "version": "0.3.0",
+  "description": "Deterministic local PNG, SVG, MP4, and GIF rendering and validation for lazy writers and coding agents",
   "type": "module",
   "bin": {
+    "nocapture": "bin/nocapture.mjs",
     "article-media": "bin/article-media.mjs",
     "story-video": "bin/story-video.mjs"
   },
@@ -13,7 +14,7 @@
     "examples",
     "lib",
     "scripts",
-    "article-media",
+    "nocapture",
     "README.md"
   ],
   "scripts": {
@@ -21,6 +22,7 @@
   },
   "keywords": [
     "agent-skills",
+    "nocapture",
     "article-media",
     "video",
     "screenshot",
@@ -33,7 +35,7 @@
   },
   "pi": {
     "skills": [
-      "article-media"
+      "nocapture"
     ]
   },
   "dependencies": {

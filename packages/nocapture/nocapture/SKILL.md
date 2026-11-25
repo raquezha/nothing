@@ -1,18 +1,18 @@
 ---
-name: article-media
-description: Create, validate, and review deterministic local article media (PNG, SVG, MP4) with the article-media CLI. Use whenever an article needs a diagram, comparison image, video loop, or media verification.
+name: nocapture
+description: Create, validate, and review deterministic local article media (PNG, SVG, MP4, GIF) with the nocapture CLI. Use whenever an article needs a diagram, comparison image, video loop, or media verification.
 ---
 
-# Article Media
+# NoCapture (`nocapture`)
 
-Use the shared `@raquezha/article-media` CLI instead of writing one-off capture or encoding scripts inside a project.
+Use the shared `@raquezha/nocapture` CLI instead of writing one-off capture or encoding scripts inside a project.
 
 ```bash
-article-media --help
-article-media image --scene scene.html --width 1200 --height 675 --output out.png
-article-media svg --input diagram.svg --check --preview preview.png
-article-media video --scene scene.html --duration 5.5 --fps 60 --width 1280 --height 720 --output out.mp4 --preview
-article-media batch --manifest media.json
+nocapture --help
+nocapture image --scene scene.html --width 1200 --height 675 --output out.png
+nocapture svg --input diagram.svg --check --preview preview.png
+nocapture video --scene scene.html --duration 5.5 --fps 60 --width 1280 --height 720 --output out.mp4 --preview
+nocapture batch --manifest media.json
 ```
 
 ## 5-Step Repeatable Workflow
