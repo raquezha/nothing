@@ -13,14 +13,14 @@ const usage = `Usage:
   nocapture init [--template <name>] [--output <file.html>] [--list] [--force]
   nocapture image --scene <file> --width <px> --height <px> --output <file.png> [--scale <n>] [--selector <css>] [--allow-overflow]
   nocapture svg --input <file.svg> [--check] [--preview <file.png>] [--scale <n>]
-  nocapture video --scene <file> --duration <seconds> --fps <fps> --width <px> --height <px> --output <file.mp4|file.gif> [--preview]
+  nocapture video --scene <file> --duration <seconds> --fps <fps> --width <px> --height <px> --output <file.mp4|file.gif> [--audio <file>] [--preview]
   nocapture batch --manifest <file.json>
 
 Commands:
   init    Scaffold a standalone HTML template (comparison, mobile, terminal, tutorial).
   image   Deterministic 2x PNG capture with SHA-256 repeatability and overflow checks.
   svg     Validate SVG dimensions, external URLs, and embedded WOFF2 fonts (optional PNG preview).
-  video   Render window.renderAt(seconds) scenes to MP4 or GIF (with --preview for 3 keyframes).
+  video   Render window.renderAt(seconds) scenes to MP4 or GIF (optional --audio muxing and --preview keyframes).
   batch   Execute a JSON array of image, svg, and video jobs.`;
 
 function fail(message) {
@@ -125,7 +125,7 @@ async function main() {
   }
 
   if (command === "video" || command === "render") {
-    const values = parseFlags(args, ["scene", "duration", "fps", "width", "height", "output"], ["preview"]);
+    const values = parseFlags(args, ["scene", "duration", "fps", "width", "height", "output", "audio"], ["preview"]);
     for (const key of ["scene", "duration", "fps", "width", "height", "output"]) {
       if (!values[key]) fail(`Missing --${key}.`);
     }

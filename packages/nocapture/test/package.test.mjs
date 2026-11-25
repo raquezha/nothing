@@ -235,6 +235,60 @@ try {
   const renderScaffold = run(["image", "--scene", scaffoldOut, "--width", "1200", "--height", "675", "--output", scaffoldPng]);
   assert.equal(renderScaffold.status, 0, renderScaffold.stderr);
   assert.ok(fs.existsSync(scaffoldPng));
+
+  // Audio muxing tests (--audio is strictly BYO audio input; nocapture never synthesizes audio)
+  assert.ok(help.stdout.includes("--audio"), "help must document --audio");
+
+  function writeSineWav(filePath, durationSec = 0.3, sampleRate = 44100, freqHz = 440) {
+    const numSamples = Math.floor(durationSec * sampleRate);
+    const dataSize = numSamples * 2;
+    const buf = Buffer.alloc(44 + dataSize);
+    buf.write("RIFF", 0);
+    buf.writeUInt32LE(36 + dataSize, 4);
+    buf.write("WAVE", 8);
+    buf.write("fmt ", 12);
+    buf.writeUInt32LE(16, 16);
+    buf.writeUInt16LE(1, 20); // PCM
+    buf.writeUInt16LE(1, 22); // mono
+    buf.writeUInt32LE(sampleRate, 24);
+    buf.writeUInt32LE(sampleRate * 2, 28);
+    buf.writeUInt16LE(2, 32);
+    buf.writeUInt16LE(16, 34);
+    buf.write("data", 36);
+    buf.writeUInt32LE(dataSize, 40);
+    for (let i = 0; i < numSamples; i++) {
+      const sample = Math.round(Math.sin((2 * Math.PI * freqHz * i) / sampleRate) * 12000);
+      buf.writeInt16LE(sample, 44 + i * 2);
+    }
+    fs.writeFileSync(filePath, buf);
+  }
+
+  const wavFile = path.join(temp, "tone.wav");
+  writeSineWav(wavFile, 0.3);
+  const audioMp4 = path.join(temp, "video-with-audio.mp4");
+  const audioRender = run(renderArgs(audioMp4, ["--audio", wavFile]));
+  assert.equal(audioRender.status, 0, audioRender.stderr);
+  assert.ok(fs.statSync(audioMp4).size > 0, "video with --audio writes MP4");
+  if (process.platform === "darwin") {
+    const trackProbe = spawnSync(
+      "swift",
+      [
+        "-e",
+        `import AVFoundation; import Foundation; let u = URL(fileURLWithPath: CommandLine.arguments[1]); let a = AVURLAsset(url: u); print("v=\\(a.tracks(withMediaType: .video).count),a=\\(a.tracks(withMediaType: .audio).count)")`,
+        audioMp4,
+      ],
+      { encoding: "utf8" }
+    );
+    assert.equal(trackProbe.status, 0, trackProbe.stderr);
+    assert.equal(trackProbe.stdout.trim(), "v=1,a=1", "muxed MP4 contains both video and audio tracks");
+  }
+
+  const gifWithAudio = run(["video", "--scene", fixture, "--duration", "0.2", "--fps", "10", "--width", "64", "--height", "64", "--audio", wavFile, "--output", path.join(temp, "bad-audio.gif")]);
+  assert.notEqual(gifWithAudio.status, 0, "GIF with --audio must fail");
+  assert.match(gifWithAudio.stderr, /only supported for \.mp4/);
+
+  const missingAudio = run(renderArgs(path.join(temp, "missing-audio.mp4"), ["--audio", path.join(temp, "nope.wav")]));
+  assert.notEqual(missingAudio.status, 0, "missing --audio file must fail");
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }

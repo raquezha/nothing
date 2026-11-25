@@ -50,19 +50,40 @@ async function renderLinuxPipe(options, encoder, times, temporaryOutput, isGif) 
         "-loop", "0",
         temporaryOutput,
       ]
-    : [
-        "-y",
-        "-f", "image2pipe",
-        "-vcodec", "png",
-        "-framerate", String(options.fps),
-        "-i", "-",
-        "-frames:v", String(options.frameCount),
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        "-r", String(options.fps),
-        temporaryOutput,
-      ];
+    : options.audio
+      ? [
+          "-y",
+          "-f", "image2pipe",
+          "-vcodec", "png",
+          "-framerate", String(options.fps),
+          "-i", "-",
+          "-i", options.audio,
+          "-map", "0:v:0",
+          "-map", "1:a:0",
+          "-frames:v", String(options.frameCount),
+          "-c:v", "libx264",
+          "-pix_fmt", "yuv420p",
+          "-c:a", "aac",
+          "-b:a", "128k",
+          "-af", `apad=whole_dur=${options.duration}`,
+          "-t", String(options.duration),
+          "-movflags", "+faststart",
+          "-r", String(options.fps),
+          temporaryOutput,
+        ]
+      : [
+          "-y",
+          "-f", "image2pipe",
+          "-vcodec", "png",
+          "-framerate", String(options.fps),
+          "-i", "-",
+          "-frames:v", String(options.frameCount),
+          "-c:v", "libx264",
+          "-pix_fmt", "yuv420p",
+          "-movflags", "+faststart",
+          "-r", String(options.fps),
+          temporaryOutput,
+        ];
 
   const child = spawn(encoder.command, args, { stdio: ["pipe", "pipe", "pipe"] });
   let stderr = "";
@@ -111,6 +132,7 @@ async function renderVideo(options, encoder) {
         String(options.width),
         String(options.height),
         String(options.fps),
+        ...(!isGif && options.audio ? [options.audio] : []),
       ];
       await runProcess(encoder.command, args);
     }
@@ -140,6 +162,21 @@ export async function runVideoJob(rawOptions) {
   const ext = path.extname(output).toLowerCase();
   if (ext !== ".mp4" && ext !== ".gif") throw new Error("--output must end in .mp4 or .gif.");
 
+  let audio;
+  if (rawOptions.audio !== undefined && rawOptions.audio !== null && rawOptions.audio !== "") {
+    if (ext === ".gif") throw new Error("--audio is only supported for .mp4 output (GIF does not support audio).");
+    audio = path.resolve(String(rawOptions.audio));
+    const audioStat = await fs.stat(audio).catch((err) => {
+      if (err.code === "ENOENT") throw new Error(`Audio file does not exist: ${audio}`);
+      throw err;
+    });
+    if (!audioStat.isFile()) throw new Error(`Audio path is not a file: ${audio}`);
+    const audioExt = path.extname(audio).toLowerCase();
+    if (![".wav", ".mp3", ".m4a", ".aac", ".caf", ".aiff", ".flac", ".ogg"].includes(audioExt)) {
+      throw new Error(`Unsupported --audio format (${audioExt || "none"}). Expected .wav, .mp3, .m4a, or .aac.`);
+    }
+  }
+
   const parent = await fs.stat(path.dirname(output)).catch((err) => {
     if (err.code === "ENOENT") throw new Error(`Output directory does not exist: ${path.dirname(output)}`);
     throw err;
@@ -147,7 +184,7 @@ export async function runVideoJob(rawOptions) {
   if (!parent.isDirectory()) throw new Error(`Output directory does not exist: ${path.dirname(output)}`);
 
   const browserPath = rawOptions.browserPath ?? findBrowser();
-  const options = { scene, duration, fps, width, height, frameCount, output, preview: Boolean(rawOptions.preview), browserPath };
+  const options = { scene, duration, fps, width, height, frameCount, output, audio, preview: Boolean(rawOptions.preview), browserPath };
   if (options.preview) {
     await renderPreview(options);
   } else {

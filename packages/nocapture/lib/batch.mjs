@@ -48,6 +48,7 @@ export async function runBatch(manifestPath, { renderVideoJob, browserPath }) {
         fps: item.fps,
         width: item.width,
         height: item.height,
+        audio: item.audio ? path.resolve(baseDir, item.audio) : undefined,
         preview: Boolean(item.preview),
         browserPath,
       });

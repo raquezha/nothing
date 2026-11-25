@@ -1,5 +1,11 @@
 # @raquezha/nocapture
 
+## 0.5.0
+
+### Minor Changes
+
+- Add deterministic `--audio <file>` MP4 muxing (`AVFoundation` AAC on macOS, `ffmpeg` AAC on Linux) plus refined `comparison` template spacing and vector product logos.
+
 ## 0.4.0
 
 ### Minor Changes

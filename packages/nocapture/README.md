@@ -131,17 +131,26 @@ Render keyframes first, then encode the full `.mp4` or `.gif`:
 
 ```bash
 # Step 1: Inspect start, middle, and end keyframes (<output>.preview/)
-article-media video \
+nocapture video \
   --scene examples/terminal-zoom-typing.html \
   --duration 6 --fps 60 --width 1280 --height 720 \
   --output demo.mp4 --preview
 
 # Step 2: Encode full 60fps MP4 or 24fps GIF
-article-media video \
+nocapture video \
   --scene examples/terminal-zoom-typing.html \
   --duration 6 --fps 60 --width 1280 --height 720 \
   --output demo.mp4
+
+# Optional: Mux an external audio track (.wav, .m4a, .mp3, .aac) into MP4
+nocapture video \
+  --scene tutorial.html \
+  --duration 6 --fps 60 --width 1280 --height 720 \
+  --audio voiceover.m4a \
+  --output tutorial.mp4
 ```
+
+`--audio` strictly muxes an input file you provide (recorded voiceover, TTS track, or UI click Foley) trimmed to `--duration`. `nocapture` never synthesizes audio itself: garbage in, deterministic garbage out.
 
 Backwards compatibility: `story-video render ...` forwards directly to `article-media video ...`.
 

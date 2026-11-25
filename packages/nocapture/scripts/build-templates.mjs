@@ -24,7 +24,7 @@ function applyTimeline(root, seconds) {
             s = cues[0].s ?? 1; x = cues[0].x ?? 0; y = cues[0].y ?? 0;
           } else if (seconds >= cues[cues.length - 1].t) {
             const last = cues[cues.length - 1];
-            s = last.s ?? 1; x = last.x ?? 0; y = last.y ?? 0;
+            s = last.s ?? 1; x = last.y ?? 0; y = last.y ?? 0;
           } else {
             for (let i = 0; i < cues.length - 1; i++) {
               const c1 = cues[i], c2 = cues[i + 1];
@@ -97,7 +97,7 @@ window.renderAt = function(seconds) {
 };
 `;
 
-// 1. COMPARISON TEMPLATE
+// 1. COMPARISON TEMPLATE (Editorial 3-tier layout, zero dead space)
 const comparisonHtml = `<!doctype html>
 <html lang="en">
 <head>
@@ -109,6 +109,7 @@ const comparisonHtml = `<!doctype html>
     :root {
       --nc-bg: #fdfdfc;
       --nc-surface: #ffffff;
+      --nc-dark-surface: #141414;
       --nc-ink: #2a2a28;
       --nc-muted: #727271;
       --nc-border: #dededb;
@@ -135,21 +136,22 @@ const comparisonHtml = `<!doctype html>
     #capture {
       width: 1200px;
       height: 675px;
-      padding: 36px 48px;
+      padding: 28px 44px;
       background-color: var(--nc-bg);
       background-image: radial-gradient(#d8d8d2 1px, transparent 1px);
-      background-size: 20px 20px;
+      background-size: 18px 18px;
       display: flex;
       flex-direction: column;
+      justify-content: space-between;
       position: relative;
     }
 
     /* Top Grid Header */
     .header-row {
       display: grid;
-      grid-template-columns: 1fr 60px 1fr;
+      grid-template-columns: 1fr 100px 1fr;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 14px;
     }
 
     .badge-wrap {
@@ -160,7 +162,7 @@ const comparisonHtml = `<!doctype html>
 
     .pill-badge {
       display: inline-block;
-      padding: 6px 16px;
+      padding: 5px 16px;
       border-radius: 8px;
       font-size: 15px;
       font-weight: 700;
@@ -178,25 +180,22 @@ const comparisonHtml = `<!doctype html>
       line-height: 1;
     }
 
-    .center-doodle {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
     /* Comparison Columns */
     .grid-body {
       flex: 1;
       display: grid;
-      grid-template-columns: 1fr 60px 1fr;
+      grid-template-columns: 1fr 100px 1fr;
       align-items: stretch;
       gap: 0;
+      position: relative;
     }
 
     .column {
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 18px;
+      position: relative;
     }
 
     .divider-col {
@@ -217,24 +216,36 @@ const comparisonHtml = `<!doctype html>
     /* Mini macOS window card */
     .window-card {
       background: var(--nc-surface);
-      border: 1.5px solid var(--nc-ink);
-      border-radius: 12px;
-      box-shadow: 3px 4px 0 rgba(42, 42, 40, 0.12);
+      border: 1.4px solid var(--nc-ink);
+      border-radius: 10px;
+      box-shadow: 2px 3px 0 rgba(42, 42, 40, 0.1);
       overflow: hidden;
       display: flex;
       flex-direction: column;
       position: relative;
+      transition: transform 0.2s ease;
+    }
+
+    .window-card.dark {
+      background: var(--nc-dark-surface);
+      border-color: #2e2e2c;
+      color: #fdfdfc;
     }
 
     .chrome {
-      height: 36px;
-      padding: 0 14px;
+      height: 34px;
+      padding: 0 12px;
       background: #f7f7f5;
       border-bottom: 1.2px solid var(--nc-border);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
+    .dark .chrome {
+      background: #1c1c1a;
+      border-bottom-color: #2a2a28;
+    }
+
     .dots { display: flex; gap: 6px; }
     .dot { width: 9px; height: 9px; border-radius: 50%; }
     .dot.r { background: #ff5f57; }
@@ -242,45 +253,80 @@ const comparisonHtml = `<!doctype html>
     .dot.g { background: #28c840; }
 
     .win-title {
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
       color: var(--nc-ink);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
+    .dark .win-title { color: #a8a8a3; }
+    .win-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
     .win-status {
       margin-left: auto;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 600;
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 4px;
     }
     .status-warn { background: #fee2e2; color: #991b1b; }
     .status-ok { background: #dcfce7; color: #166534; }
+    .status-dim { background: #f4f4f1; color: #727271; }
+    .dark .status-ok { background: #1f3a2c; color: #4ade80; }
 
     .card-content {
-      padding: 16px 18px;
+      padding: 13px 16px;
       font-family: var(--nc-font-mono);
-      font-size: 13.5px;
-      line-height: 1.6;
+      font-size: 13px;
+      line-height: 1.55;
       color: var(--nc-ink);
       white-space: pre-wrap;
     }
+    .dark .card-content {
+      color: #e8e8e3;
+    }
 
-    /* Callout & doodles */
+    /* Hand annotations (outside overflow:hidden so they never clip!) */
     .hand-note {
       position: absolute;
       font-family: var(--nc-font-hand);
-      font-size: 20px;
+      font-size: 21px;
       color: #9a5b4a;
       pointer-events: none;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .middle-badge {
+      z-index: 5;
+      background: var(--nc-surface);
+      border: 1.4px solid var(--nc-ink);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 2px 2px 0 var(--nc-ink);
     }
 
     .bottom-bar {
-      margin-top: 18px;
+      margin-top: 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-family: var(--nc-font-hand);
-      font-size: 20px;
+      font-size: 21px;
       color: var(--nc-muted);
     }
     .shapes-row {
@@ -298,69 +344,124 @@ const comparisonHtml = `<!doctype html>
     <div class="header-row">
       <div class="badge-wrap" data-start="0" data-persist>
         <span class="pill-badge before">Before</span>
-        <span class="hand-caption">weekly copy paste drift</span>
+        <span class="hand-caption">weekly copy paste hell</span>
         <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-spiral"/></svg>
       </div>
       <div></div>
       <div class="badge-wrap" data-start="0" data-persist>
         <span class="pill-badge after">After</span>
-        <span class="hand-caption">deterministic code media, boom</span>
+        <span class="hand-caption">company email & wiki, boom</span>
         <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-sparkle"/></svg>
       </div>
     </div>
 
-    <!-- Main comparison grid -->
+    <!-- Main comparison grid with 3 balanced tiers -->
     <div class="grid-body">
-      <!-- Left: Before stack -->
+      <!-- Unclipped hand-drawn annotation pointing to Laptop card -->
+      <div class="hand-note" style="top: 6px; left: 370px; transform: rotate(3deg);" data-start="0.3" data-persist>
+        <span>where is the doc?!</span>
+        <svg width="32" height="20" viewBox="0 0 84 34"><use href="#nc-arrow"/></svg>
+      </div>
+
+      <!-- Left: Before stack (3 tiers) -->
       <div class="column">
-        <div class="window-card" data-start="0.1" data-enter="slide-up" data-persist>
+        <!-- Card 1: Laptop -->
+        <div class="window-card" style="transform: rotate(-1deg);" data-start="0.1" data-enter="slide-up" data-persist>
           <div class="chrome">
             <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
-            <span class="win-title">My Laptop — ~/docs</span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-laptop"/></svg>
+              My Laptop — ~/docs
+            </span>
             <span class="win-status status-warn">forgot to share</span>
           </div>
-          <div class="card-content">// Manual screen captures
-meeting-notes-final.md       local only
-deck-sprint-review.pdf       out of date</div>
+          <div class="card-content">meeting-notes-final.md              local only
+deck-sprint-review.pdf              out of date</div>
         </div>
 
-        <div class="window-card" data-start="0.3" data-enter="slide-up" data-persist style="position:relative;">
+        <!-- Card 2: Telegram Ping Pong -->
+        <div class="window-card" style="transform: rotate(1deg);" data-start="0.3" data-enter="slide-up" data-persist>
           <div class="chrome">
             <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
-            <span class="win-title">Telegram Ping Pong</span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-telegram"/></svg>
+              Telegram Ping Pong
+            </span>
             <span class="win-status status-warn">stale copy</span>
           </div>
           <div class="card-content">"hey can you resend last week's notes?"
 notes_v3_final.docx · sop.md · deck.pdf</div>
-          <span class="hand-note" style="top:-22px; right:12px; transform:rotate(-4deg);">where is the doc?!</span>
         </div>
-      </div>
 
-      <!-- Center divider & connector arrow -->
-      <div class="divider-col">
-        <div class="divider-line"></div>
-        <div data-start="0.6" data-enter="zoom" data-persist style="z-index:2; background:var(--nc-bg); padding:8px 0;">
-          <svg width="60" height="34" viewBox="0 0 84 34"><use href="#nc-arrow"/></svg>
-        </div>
-      </div>
-
-      <!-- Right: After stack -->
-      <div class="column">
-        <div class="window-card" data-start="0.4" data-enter="slide-up" data-persist>
+        <!-- Card 3: GitLab + MS Loop -->
+        <div class="window-card" style="transform: rotate(-0.5deg);" data-start="0.5" data-enter="slide-up" data-persist>
           <div class="chrome">
             <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
-            <span class="win-title">Outline Wiki — docs.company.internal</span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-gitlab"/></svg>
+              GitLab + MS Loop
+            </span>
+            <span class="win-status status-dim">out of date</span>
+          </div>
+          <div class="card-content">stale repo docs, clunky UX
+permissions fragmented across 4 logins</div>
+        </div>
+      </div>
+
+      <!-- Center divider & middle badge with connecting arrows -->
+      <div class="divider-col">
+        <div class="divider-line"></div>
+        <div data-start="0.4" data-persist style="z-index:3; margin-bottom: 24px;">
+          <svg width="44" height="24" viewBox="0 0 84 34"><use href="#nc-arrow"/></svg>
+        </div>
+        <div class="middle-badge" data-start="0.6" data-enter="zoom" data-persist>
+          <svg width="15" height="15" viewBox="0 0 24 24"><use href="#nc-logo-docker"/></svg>
+          <span>docker up</span>
+        </div>
+        <div data-start="0.8" data-persist style="z-index:3; margin-top: 24px;">
+          <svg width="44" height="24" viewBox="0 0 84 34" style="transform: rotate(180deg) scaleX(-1);"><use href="#nc-arrow"/></svg>
+        </div>
+      </div>
+
+      <!-- Right: After stack (3 tiers) -->
+      <div class="column">
+        <!-- Card 1: Outlook / SSO -->
+        <div class="window-card" style="transform: rotate(0.8deg);" data-start="0.2" data-enter="slide-up" data-persist>
+          <div class="chrome">
+            <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-mail"/></svg>
+              Outlook — Company Email
+            </span>
+            <span class="win-status status-ok">GitLab SSO</span>
+          </div>
+          <div class="card-content">OIDC SSO: you@company.com
+Zero new passwords · One click access</div>
+        </div>
+
+        <!-- Card 2: Outline Wiki Hub -->
+        <div class="window-card" style="transform: rotate(-0.8deg);" data-start="0.4" data-enter="slide-up" data-persist>
+          <div class="chrome">
+            <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-outline"/></svg>
+              Outline Wiki — docs.company.internal
+            </span>
             <span class="win-status status-ok">synced</span>
           </div>
           <div class="card-content"># 2026-11-25 Weekly Meeting
-Shared workspace · Markdown · Share links
+Android · Cloud · iOS · QA
 own server · team permissions · local disk</div>
         </div>
 
-        <div class="window-card" data-start="0.7" data-enter="slide-up" data-persist>
+        <!-- Card 3: Claude & ChatGPT MCP Client (High-contrast obsidian card) -->
+        <div class="window-card dark" style="transform: rotate(1.2deg);" data-start="0.6" data-enter="slide-up" data-persist>
           <div class="chrome">
             <span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
-            <span class="win-title">Claude & ChatGPT — MCP Client</span>
+            <span class="win-title">
+              <svg class="win-logo" width="14" height="14" viewBox="0 0 24 24"><use href="#nc-logo-claude"/></svg>
+              Claude &amp; ChatGPT — MCP Client
+            </span>
             <span class="win-status status-ok">MCP API</span>
           </div>
           <div class="card-content">&gt; outline.update_doc("weekly-2026-11-25")
@@ -372,16 +473,16 @@ own server · team permissions · local disk</div>
     <!-- Bottom footer with doodles -->
     <div class="bottom-bar">
       <div class="shapes-row">
-        <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-coffee"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24"><use href="#nc-coffee"/></svg>
         <span>docs scattered everywhere</span>
-        <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-heart"/></svg>
-        <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-diamond"/></svg>
-        <svg width="24" height="24" viewBox="0 0 24 24"><use href="#nc-circle"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24"><use href="#nc-heart"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24"><use href="#nc-diamond"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24"><use href="#nc-circle"/></svg>
       </div>
 
       <div class="shapes-row">
         <span>try it!</span>
-        <svg width="28" height="24" viewBox="0 0 26 24"><use href="#nc-cat"/></svg>
+        <svg width="26" height="22" viewBox="0 0 26 24"><use href="#nc-cat"/></svg>
       </div>
     </div>
   </div>
@@ -1141,4 +1242,4 @@ fs.writeFileSync(path.join(templatesDir, "comparison.html"), comparisonHtml, "ut
 fs.writeFileSync(path.join(templatesDir, "mobile.html"), mobileHtml, "utf8");
 fs.writeFileSync(path.join(templatesDir, "terminal.html"), terminalHtml, "utf8");
 fs.writeFileSync(path.join(templatesDir, "tutorial.html"), tutorialHtml, "utf8");
-console.log("Rebuilt all 4 templates with full editorial craft successfully!");
+console.log("Rebuilt all 4 templates with 3-tier balanced layout successfully!");
