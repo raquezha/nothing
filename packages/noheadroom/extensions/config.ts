@@ -4,7 +4,7 @@ import * as path from "node:path";
 import type { HeadroomConfig, HeadroomMode } from "./types.js";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8788";
-const DEFAULT_MIN_CONTEXT_TOKENS = 10_000;
+const DEFAULT_MIN_CONTEXT_TOKENS = 0;
 const DEFAULT_MIN_MESSAGE_CHARS = 2_000;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -54,30 +54,30 @@ export function loadHeadroomConfig(
 	env: NodeJS.ProcessEnv = process.env,
 	settings: HeadroomSettings = env === process.env ? loadHeadroomSettings() : {},
 ): HeadroomConfig {
-	const envBaseUrl = env.PI_HEADROOM_URL || env.HEADROOM_URL || env.HEADROOM_BASE_URL || DEFAULT_BASE_URL;
-	const baseUrl = normalizeBaseUrl(parseString(settings.baseUrl ?? settings.url, envBaseUrl));
+	const envBaseUrl = env.PI_HEADROOM_URL || env.HEADROOM_URL || env.HEADROOM_BASE_URL;
+	const baseUrl = normalizeBaseUrl(parseString(envBaseUrl, settings.baseUrl ?? settings.url ?? DEFAULT_BASE_URL));
 	return {
-		enabled: parseBoolean(settings.enabled, parseBoolean(env.PI_HEADROOM_ENABLED, true)),
+		enabled: parseBoolean(env.PI_HEADROOM_ENABLED, parseBoolean(settings.enabled, true)),
 		baseUrl,
-		allowRemote: parseBoolean(settings.allowRemote, parseBoolean(env.PI_HEADROOM_ALLOW_REMOTE, false)),
-		autoStart: parseBoolean(settings.autoStart, parseBoolean(env.PI_HEADROOM_AUTO_START, true)),
+		allowRemote: parseBoolean(env.PI_HEADROOM_ALLOW_REMOTE, parseBoolean(settings.allowRemote, false)),
+		autoStart: parseBoolean(env.PI_HEADROOM_AUTO_START, parseBoolean(settings.autoStart, true)),
 		mode: parseMode(
-			settings.mode,
 			env.PI_HEADROOM_MODE,
-			parseBoolean(settings.silent, parseBoolean(env.PI_HEADROOM_SILENT, false)) ? "silent" : "normal",
+			settings.mode,
+			parseBoolean(env.PI_HEADROOM_SILENT, parseBoolean(settings.silent, false)) ? "silent" : "normal",
 		),
-		command: parseString(settings.command, env.PI_HEADROOM_COMMAND?.trim() || "headroom"),
+		command: parseString(env.PI_HEADROOM_COMMAND?.trim(), settings.command || "headroom"),
 		minContextTokens: parseInteger(
-			settings.minContextTokens,
-			parseInteger(env.PI_HEADROOM_MIN_CONTEXT_TOKENS, DEFAULT_MIN_CONTEXT_TOKENS, 0),
+			env.PI_HEADROOM_MIN_CONTEXT_TOKENS,
+			parseInteger(settings.minContextTokens, DEFAULT_MIN_CONTEXT_TOKENS, 0),
 			0,
 		),
 		minMessageChars: parseInteger(
-			settings.minMessageChars,
-			parseInteger(env.PI_HEADROOM_MIN_MESSAGE_CHARS, DEFAULT_MIN_MESSAGE_CHARS, 1),
+			env.PI_HEADROOM_MIN_MESSAGE_CHARS,
+			parseInteger(settings.minMessageChars, DEFAULT_MIN_MESSAGE_CHARS, 1),
 			1,
 		),
-		timeoutMs: parseInteger(settings.timeoutMs, parseInteger(env.PI_HEADROOM_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 100), 100),
+		timeoutMs: parseInteger(env.PI_HEADROOM_TIMEOUT_MS, parseInteger(settings.timeoutMs, DEFAULT_TIMEOUT_MS, 100), 100),
 	};
 }
 

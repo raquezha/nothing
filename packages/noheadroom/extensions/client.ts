@@ -75,6 +75,7 @@ export class HeadroomHttpClient {
 			headers: {
 				"Content-Type": "application/json",
 				"X-Headroom-Stack": "pi-extension",
+				"x-client": "pi",
 			},
 			body: JSON.stringify({
 				messages,

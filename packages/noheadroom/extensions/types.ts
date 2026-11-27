@@ -95,6 +95,18 @@ export interface CompressionMapping {
 	message: OpenAIMessage;
 	applyTo: "toolResult" | null;
 	originalText: string;
+	note?: string;
+}
+
+export interface HeadroomDecisionEntry {
+	toolCallId: string;
+	key: string;
+	kind: "compressed" | "passthrough";
+	text?: string;
+	tokensBefore?: number;
+	tokensSaved?: number;
+	transformsApplied?: string[];
+	timestamp: number;
 }
 
 export interface CompressionPayload {

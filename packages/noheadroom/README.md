@@ -11,12 +11,13 @@ Headroom intentionally protects file reads: changing source text can break exact
 ## ✨ Features
 
 - **Headroom Bridge, Pi Policy**: Headroom can optimize broad prompt/context payloads; `noheadroom` intentionally narrows what gets applied back to Pi so only `toolResult` content mutates.
-- **Tool Fidelity**: preserves tool names and arguments so Headroom's protected-tool policy remains effective.
-- **Strict Candidate Isolation**: applies only eligible text-only, non-error `toolResult` changes; rejects retrieval markers without a registered retrieval tool.
-- **Request-local Replay**: reuses validated compression for the same tool call and unchanged result on later model requests without re-calling the proxy. A new tool call with the same output remains raw to avoid re-read loops.
-- **Pi-Native Metadata Preservation**: original tool IDs and names are never modified in your real session.
-- **Visibility**: session-local compression estimates appear in the terminal and Pi footer; proxy `/stats` does not count extension `/v1/compress` requests as inference savings.
-- **Docker-First Architecture**: designed to work seamlessly with a local containerized backend.
+- **Tool Fidelity & Safety**: Protected tools (`read`, `read_file`, `view`, `edit`, `write`, `skill`, etc.) and Android UI layout dumps always stay raw to protect exact code-editing anchors.
+- **Prompt Cache Stability**: Hooks Pi's `context_with_system` to leave the leading system message intact and prevent prompt cache invalidation. Past answered tool results stay frozen while the provider cache is warm.
+- **Session Durability & Replay**: Stores compression decisions into custom session branch entries (`noheadroom.decision`). Replaying across `/resume` or process restarts matches byte-for-byte with 0 proxy calls.
+- **Truncation Note Isolation**: Isolates Pi's trailing `\n\n[Showing lines X-Y of Z...]` note before compression and restores it verbatim after, preserving log classifier accuracy and full output paths.
+- **Chat Transcript Rendering**: Slash commands (`/headroom`, `/headroom stats`) render rich Dracula-themed status cards directly in the session transcript without polluting LLM token context.
+- **Bundled Agent Skill**: Ships `"skills": ["headroom"]` so agents know how to inspect health, toggle modes, and manage the backend.
+- **Docker-First Architecture**: designed to work seamlessly with a local containerized backend (`127.0.0.1:8788`).
 - **Local-First Privacy**: by default, context never leaves your machine.
 
 ## 📦 Installation
@@ -52,10 +53,11 @@ pi install npm:@raquezha/noheadroom
 
 Inside Pi, use the `/headroom` command:
 
-- `/headroom` — Session statistics and status summary.
+- `/headroom` or `/headroom status` — Render the session compression status and savings report.
 - `/headroom on` | `off` — Toggle compression live.
 - `/headroom health` — Check if the backend is alive.
-- `/headroom stats` — Inspect raw backend metrics.
+- `/headroom stats` — Inspect raw backend metrics from the proxy.
+- `/headroom mode <normal|quiet|silent>` — Switch notification verbosity.
 
 ## 🔧 Configuration
 

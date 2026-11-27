@@ -38,6 +38,7 @@
   "files": [
     "dist",
     "extensions",
+    "headroom",
     "README.md",
     "LICENSE",
     "UPSTREAM-README.md"
@@ -45,6 +46,9 @@
   "pi": {
     "extensions": [
       "extensions"
+    ],
+    "skills": [
+      "headroom"
     ]
   }
 }

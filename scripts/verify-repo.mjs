@@ -313,7 +313,7 @@ function verifyPackageManifests() {
     "packages/antigravity/package.json": { extensions: ["extensions"] },
     "packages/nofooter/package.json": { extensions: ["extensions"] },
     "packages/noleaks/package.json": { extensions: ["extensions"] },
-    "packages/noheadroom/package.json": { extensions: ["extensions"] },
+    "packages/noheadroom/package.json": { extensions: ["extensions"], skills: ["headroom"] },
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nopaste/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },

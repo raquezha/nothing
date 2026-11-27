@@ -16,6 +16,7 @@ const STATUS_KEY = "headroom";
 const SUBCOMMANDS = ["status", "on", "off", "health", "stats", "mode"] as const;
 const MODES = ["normal", "quiet", "silent"] as const;
 const NOTRACE_TELEMETRY_CHANNEL = "notrace.telemetry.extension";
+export const DECISION_ENTRY_TYPE = "noheadroom.decision";
 // Bounded FIFO, not config: this is a safety valve for duplicate-compression loops.
 // 512 hashes covers roughly 256 compressed candidates because we store original + compressed text hashes.
 // That is far beyond the reread-loop case while keeping memory bounded for long sessions.
@@ -65,6 +66,7 @@ interface CompressionEntryDetails {
 
 export default function headroomExtension(pi: ExtensionAPI) {
 	registerCompressionRenderer(pi);
+	registerReportRenderer(pi);
 	const runtime = createRuntime(pi);
 
 	pi.on("session_start", (_event, ctx) => {
@@ -76,6 +78,11 @@ export default function headroomExtension(pi: ExtensionAPI) {
 		runtime.state.lastOutputFingerprint = null;
 		runtime.state.lastGuardSkipCandidateFingerprint = null;
 		runtime.state.lastCompressionTime = 0;
+
+		// Rehydrate stored compression decisions from session branch for prompt cache durability
+		const branch = ctx.sessionManager?.getBranch?.() ?? [];
+		loadDecisionsFromBranch(runtime, branch);
+
 		if (isRemoteBlocked(runtime.config)) {
 			runtime.refreshStatus(ctx);
 			emitNotraceTelemetry(runtime);
@@ -91,7 +98,12 @@ export default function headroomExtension(pi: ExtensionAPI) {
 		void ensureProxyInBackground(runtime, ctx);
 	});
 
-	pi.on("context", (event, ctx) => handleContextCompression(runtime, event, ctx));
+	// Use context_with_system so Pi does not regenerate the leading system prompt
+	// and shift prompt cache offsets across model calls.
+	const onHook = (pi as any).on.bind(pi);
+	onHook("context_with_system", (event: ContextEvent, ctx: ExtensionContext) =>
+		handleContextCompression(runtime, event, ctx),
+	);
 
 	pi.registerCommand("headroom", {
 		description: "Headroom token compression. Usage: /headroom [on|off|status|health|stats|mode <normal|quiet|silent>]",
@@ -273,6 +285,30 @@ function registerCompressionRenderer(pi: ExtensionAPI): void {
 	});
 }
 
+export const REPORT_ENTRY_TYPE = "noheadroom.report";
+
+function registerReportRenderer(pi: ExtensionAPI): void {
+	if (typeof (pi as any).registerEntryRenderer !== "function") return;
+	(pi as any).registerEntryRenderer(REPORT_ENTRY_TYPE, (entry: { data?: unknown }, _options: unknown, theme: { fg: (color: string, text: string) => string; bg: (color: string, text: string) => string; bold: (text: string) => string }) => {
+		const data = entry.data as { title?: string; report: string } | undefined;
+		const box = new Box(1, 1, (text) => theme.bg("customMessageBg", text));
+		const header = `${theme.fg("success", "⚡ noheadroom")} ${theme.bold(data?.title || "Status")}`;
+		const body = data?.report ? `\n${data.report}` : "";
+		box.addChild(new Text(`${header}${body}`, 0, 0));
+		return box;
+	});
+}
+
+function displayReport(runtime: HeadroomRuntime, ctx: ExtensionContext, title: string, report: string): void {
+	if (typeof runtime.pi.appendEntry === "function" && ctx.hasUI) {
+		runtime.pi.appendEntry(REPORT_ENTRY_TYPE, { title, report });
+	} else if (!ctx.hasUI) {
+		process.stdout.write(`\n⚡ noheadroom ${title}\n${report}\n`);
+	} else {
+		ctx.ui.notify(report, "info");
+	}
+}
+
 async function handleContextCompression(
 	runtime: HeadroomRuntime,
 	event: ContextEvent,
@@ -290,9 +326,20 @@ async function handleContextCompression(
 	};
 
 	if (shouldSkipBeforePayload(runtime, ctx)) return bypassUncompressed();
-	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars);
+	const branch = ctx.sessionManager?.getBranch?.() ?? [];
+	const cacheCold = isCacheCold(branch);
+	const payload = buildCompressionPayload(event.messages, runtime.config.minMessageChars, cacheCold);
 	replayed = replayCachedCandidates(runtime.state, event.messages, payload, runtime.config.minMessageChars);
 	if (payload.candidateCount === 0) return bypassUncompressed();
+
+	// Don't re-ask Headroom to compress candidates that are already in our cache
+	for (const mapping of payload.mappings) {
+		if (mapping.applyTo && runtime.state.compressedCandidates?.has(candidateKey(event.messages[mapping.sourceIndex], mapping.originalText))) {
+			mapping.applyTo = null;
+		}
+	}
+	const uncachedCandidateCount = payload.mappings.filter((m) => m.applyTo).length;
+	if (uncachedCandidateCount === 0) return bypassUncompressed();
 
 	// Pi's context transform is request-local; reuse validated text on later turns.
 	const now = Date.now();
@@ -327,6 +374,21 @@ async function handleContextCompression(
 			// until the actual compressible candidate material changes.
 			runtime.state.lastInputFingerprint = inputFingerprint;
 			runtime.state.lastGuardSkipCandidateFingerprint = candidateFingerprint;
+			for (const mapping of payload.mappings) {
+				if (mapping.applyTo) {
+					const applied = convertMessage(event.messages[mapping.sourceIndex]);
+					if (applied && applied.role === "tool") {
+						try {
+							runtime.pi.appendEntry?.(DECISION_ENTRY_TYPE, {
+								toolCallId: applied.tool_call_id,
+								key: candidateKey(event.messages[mapping.sourceIndex], mapping.originalText),
+								kind: "passthrough",
+								timestamp: Date.now(),
+							});
+						} catch {}
+					}
+				}
+			}
 			return bypassUncompressed();
 		}
 
@@ -356,8 +418,6 @@ async function handleContextCompression(
 				}
 			}
 		}
-		recordCachedCandidates(runtime.state, payload, applied.messages);
-		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 		const appliedResult = {
 			...result,
 			tokensBefore: applied.appliedTokensBefore,
@@ -365,6 +425,8 @@ async function handleContextCompression(
 			tokensSaved: applied.appliedTokensSaved,
 			compressionRatio: applied.appliedCompressionRatio,
 		};
+		recordCachedCandidates(runtime, payload, applied.messages, appliedResult);
+		runtime.state.lastOutputFingerprint = generateFingerprint(applied.messages);
 
 		recordAppliedCompression(runtime.state.stats, appliedResult, applied.appliedMessages);
 		emitNotraceTelemetry(runtime);
@@ -388,11 +450,13 @@ function replayCachedCandidates(
 	state: HeadroomRuntimeState, messages: AgentMessage[], payload: CompressionPayload, minMessageChars: number,
 ): AgentMessage[] | undefined {
 	if (!state.compressedCandidates?.size) return undefined;
-	const mappings = payload.mappings.map((mapping) => ({
-		...mapping,
-		applyTo: mapping.applyTo && state.compressedCandidates?.has(candidateKey(messages[mapping.sourceIndex], mapping.originalText))
-			? mapping.applyTo : null,
-	}));
+	const mappings = payload.mappings.map((mapping) => {
+		const isCached = Boolean(state.compressedCandidates?.has(candidateKey(messages[mapping.sourceIndex], mapping.originalText)));
+		return {
+			...mapping,
+			applyTo: isCached ? ("toolResult" as const) : null,
+		};
+	});
 	const compressed = mappings.map((mapping) => {
 		const text = mapping.applyTo && state.compressedCandidates?.get(candidateKey(messages[mapping.sourceIndex], mapping.originalText));
 		return text && mapping.message.role === "tool" ? { ...mapping.message, content: text } : mapping.message;
@@ -401,7 +465,13 @@ function replayCachedCandidates(
 	return applied.ok ? applied.messages : undefined;
 }
 
-function recordCachedCandidates(state: HeadroomRuntimeState, payload: CompressionPayload, messages: AgentMessage[]): void {
+function recordCachedCandidates(
+	runtime: HeadroomRuntime,
+	payload: CompressionPayload,
+	messages: AgentMessage[],
+	result?: CompressResult,
+): void {
+	const state = runtime.state;
 	state.compressedCandidates ??= new Map();
 	for (const mapping of payload.mappings) {
 		if (!mapping.applyTo) continue;
@@ -414,7 +484,62 @@ function recordCachedCandidates(state: HeadroomRuntimeState, payload: Compressio
 		if (state.compressedCandidates.size > MAX_SEEN_CANDIDATE_CONTENT_FINGERPRINTS) {
 			state.compressedCandidates.delete(state.compressedCandidates.keys().next().value!);
 		}
+		// Persist decision into session branch so /resume and restarts replay byte-for-byte
+		try {
+			runtime.pi.appendEntry?.(DECISION_ENTRY_TYPE, {
+				toolCallId: applied.tool_call_id,
+				key,
+				kind: "compressed",
+				text,
+				tokensBefore: result?.tokensBefore,
+				tokensSaved: result?.tokensSaved,
+				transformsApplied: result?.transformsApplied,
+				timestamp: Date.now(),
+			});
+		} catch {
+			// Non-fatal if appendEntry is unavailable in the environment
+		}
 	}
+}
+
+export function loadDecisionsFromBranch(runtime: HeadroomRuntime, entries: readonly unknown[]): void {
+	if (!Array.isArray(entries)) return;
+	for (const entry of entries) {
+		if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== DECISION_ENTRY_TYPE) continue;
+		const data = entry.data;
+		if (!isRecord(data)) continue;
+		if (data.kind === "compressed" && typeof data.key === "string" && typeof data.text === "string") {
+			runtime.state.compressedCandidates ??= new Map();
+			const alreadyLoaded = runtime.state.compressedCandidates.has(data.key);
+			runtime.state.compressedCandidates.set(data.key, data.text);
+			if (!alreadyLoaded) {
+				if (typeof data.tokensSaved === "number" && Number.isFinite(data.tokensSaved) && data.tokensSaved > 0) {
+					runtime.state.stats.tokensSaved += data.tokensSaved;
+				}
+				runtime.state.stats.applied++;
+			}
+		}
+	}
+}
+
+export function isCacheCold(entries: readonly unknown[]): boolean {
+	if (!Array.isArray(entries) || entries.length === 0) return false;
+	const lastCompaction = entries.findLastIndex(
+		(entry) => isRecord(entry) && entry.type === "compaction",
+	);
+	if (lastCompaction === -1) return false;
+	const lastAssistant = entries.findLastIndex(
+		(entry) =>
+			isRecord(entry) &&
+			entry.type === "message" &&
+			isRecord(entry.message) &&
+			entry.message.role === "assistant",
+	);
+	return lastCompaction > lastAssistant;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
 }
 
 function allCandidateContentSeen(state: HeadroomRuntimeState, payload: CompressionPayload): boolean {
@@ -518,8 +643,13 @@ function shouldSkipBeforePayload(runtime: HeadroomRuntime, ctx: ExtensionContext
 		runtime.refreshStatus(ctx);
 		return true;
 	}
-	const usage = ctx.getContextUsage();
-	return usage?.tokens !== null && usage?.tokens !== undefined && usage.tokens < runtime.config.minContextTokens;
+	if (runtime.config.minContextTokens > 0) {
+		const usage = ctx.getContextUsage();
+		if (usage?.tokens !== null && usage?.tokens !== undefined && usage.tokens < runtime.config.minContextTokens) {
+			return true;
+		}
+	}
+	return false;
 }
 
 function recordGuardSkip(stats: HeadroomStats, reason: string): void {
@@ -653,9 +783,13 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
 		emitNotraceTelemetry(runtime);
+		const msg = healthy
+			? "Headroom compression enabled. Proxy will keep running after Pi exits."
+			: proxyStartHint(runtime.config);
+		displayReport(runtime, ctx, "Enabled", msg);
 		ctx.ui.notify(
 			healthy
-				? "Headroom compression enabled. Proxy will keep running after Pi exits."
+				? "Headroom compression enabled"
 				: proxyStartHint(runtime.config),
 			healthy ? "info" : "warning",
 		);
@@ -665,23 +799,30 @@ async function handleCommand(runtime: HeadroomRuntime, command: Subcommand, ctx:
 		runtime.state.enabled = false;
 		emitNotraceTelemetry(runtime);
 		runtime.refreshStatus(ctx);
-		ctx.ui.notify("Headroom compression disabled for this Pi session. The proxy process is left running.", "info");
+		const msg = "Headroom compression disabled for this Pi session. The proxy process is left running.";
+		displayReport(runtime, ctx, "Disabled", msg);
+		ctx.ui.notify("Headroom compression disabled for this Pi session", "info");
 		return;
 	}
 	if (command === "health") {
 		runtime.state.proxyStartAttempted = false;
 		const healthy = await runtime.ensureProxy(ctx);
 		emitNotraceTelemetry(runtime);
+		const msg = healthy
+			? `Headroom proxy online: ${runtime.config.baseUrl}`
+			: proxyStartHint(runtime.config);
+		displayReport(runtime, ctx, "Health Check", msg);
 		ctx.ui.notify(
-			healthy ? `Headroom proxy online: ${runtime.config.baseUrl}` : proxyStartHint(runtime.config),
+			healthy ? `Headroom proxy online: ${runtime.config.baseUrl}` : "Headroom proxy offline",
 			healthy ? "info" : "warning",
 		);
 		return;
 	}
 	if (command === "stats") {
-		await showProxyStats(ctx, runtime.client, runtime.config);
+		await showProxyStats(runtime, ctx);
 		return;
 	}
+	displayReport(runtime, ctx, "Status Report", renderStatus(runtime.config, runtime.state));
 	ctx.ui.notify(renderStatus(runtime.config, runtime.state), "info");
 }
 
@@ -698,7 +839,9 @@ async function handleModeChange(runtime: HeadroomRuntime, rawMode: string, ctx: 
 	runtime.config.mode = mode;
 	saveHeadroomSettings({ mode });
 	emitNotraceTelemetry(runtime);
-	ctx.ui.notify(`Headroom output mode set to "${mode}" and saved to settings.`, "info");
+	const msg = `Headroom output mode set to "${mode}" and saved to settings.`;
+	displayReport(runtime, ctx, "Mode Changed", msg);
+	ctx.ui.notify(msg, "info");
 }
 
 function refreshStatus(ctx: ExtensionContext, config: HeadroomConfig, state: HeadroomRuntimeState): void {
@@ -721,33 +864,47 @@ function createStatusPainter(theme: unknown): (color: HeadroomStatusColor, text:
 	return (_color, text) => text;
 }
 
+function formatTokens(tokens: number): string {
+	if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}m`;
+	if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
+	return String(tokens);
+}
+
 function renderFooterStatus(ctx: ExtensionContext, config: HeadroomConfig, state: HeadroomRuntimeState): string {
 	const paint = createStatusPainter(ctx.ui.theme);
 	if (!state.enabled) return paint("dim", "○ Headroom off");
 	if (isRemoteBlocked(config)) return paint("warning", "⚠") + paint("dim", " Headroom remote blocked");
 	if (state.proxyStarting) return paint("dim", "⏳ Headroom starting");
 	if (state.proxyOnline === false) return paint("dim", "○ Headroom not running");
+	if (state.stats.tokensSaved > 0) {
+		const saved = formatTokens(state.stats.tokensSaved);
+		const count = state.stats.applied;
+		return paint("success", "⚡") + paint("dim", ` Headroom -${saved} tok (${count} result${count === 1 ? "" : "s"})`);
+	}
 	if (state.proxyOnline === null && !state.stats.last) return paint("dim", "○ Headroom idle");
-	return paint("success", "✓") + paint("dim", " Headroom active");
+	return paint("success", "✓") + paint("dim", " Headroom ready");
 }
 
 async function showProxyStats(
+	runtime: HeadroomRuntime,
 	ctx: ExtensionContext,
-	client: HeadroomHttpClient,
-	config: HeadroomConfig,
 ): Promise<void> {
-	if (isRemoteBlocked(config)) {
-		ctx.ui.notify(renderRemoteBlocked(config), "warning");
+	if (isRemoteBlocked(runtime.config)) {
+		const msg = renderRemoteBlocked(runtime.config);
+		displayReport(runtime, ctx, "Remote Blocked", msg);
+		ctx.ui.notify(msg, "warning");
 		return;
 	}
 	try {
-		const stats = await client.stats(ctx.signal);
-		ctx.ui.notify(
-			`Headroom proxy stats (${config.baseUrl}):\n${JSON.stringify(stats, null, 2).slice(0, 4000)}`,
-			"info",
-		);
+		const stats = await runtime.client.stats(ctx.signal);
+		const formatted = typeof stats === "object" && stats !== null
+			? JSON.stringify(stats, null, 2)
+			: String(stats);
+		displayReport(runtime, ctx, `Proxy Stats (${runtime.config.baseUrl})`, formatted);
+		ctx.ui.notify(`Headroom proxy stats fetched (${runtime.config.baseUrl})`, "info");
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		displayReport(runtime, ctx, "Proxy Stats Error", message);
 		ctx.ui.notify(`Could not read Headroom stats: ${message}`, "warning");
 	}
 }
@@ -834,4 +991,10 @@ export const __test__ = {
 	renderFooterStatus,
 	generateFingerprint,
 	handleContextCompression,
+	isCacheCold,
+	loadDecisionsFromBranch,
+	DECISION_ENTRY_TYPE,
+	REPORT_ENTRY_TYPE,
+	handleCommand,
+	handleModeChange,
 };

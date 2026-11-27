@@ -1,11 +1,11 @@
 import assert from "node:assert";
 import { __test__ } from "./dist/index.js";
-import { applyCompressionResult, buildCompressionPayload } from "./dist/bridge.js";
+import { applyCompressionResult, buildCompressionPayload, splitTrailingNote } from "./dist/bridge.js";
 import { isRemoteBlocked, loadHeadroomConfig } from "./dist/config.js";
 import { HeadroomHttpClient, HeadroomResponseError } from "./dist/client.js";
 import { buildProxyArgs, parseLocalEndpoint } from "./dist/proxy-manager.js";
 
-const { handleContextCompression, generateFingerprint } = __test__;
+const { handleContextCompression, generateFingerprint, isCacheCold, loadDecisionsFromBranch, DECISION_ENTRY_TYPE, REPORT_ENTRY_TYPE, handleCommand, handleModeChange } = __test__;
 
 // --- Mocking ---
 
@@ -665,6 +665,387 @@ function testCCRMarkerRejection() {
   console.log("✓ CCR marker rejection passed\n");
 }
 
+function testTrailingNotePreservation() {
+  console.log("Testing Trailing Note Preservation...");
+  const rawText = "log line\n".repeat(500);
+  const note = "\n\n[Showing lines 1-500 of 500 (50.0KB limit). Full output: /tmp/pi-bash-1234.log]";
+  const textWithNote = rawText + note;
+
+  const split = splitTrailingNote(textWithNote);
+  assert.equal(split.body, rawText);
+  assert.equal(split.note, note);
+
+  const messages = [
+    { role: "assistant", content: [{ type: "toolCall", id: "c_trunc", name: "bash", arguments: {} }] },
+    { role: "toolResult", toolCallId: "c_trunc", toolName: "bash", content: textWithNote }
+  ];
+  const payload = buildCompressionPayload(messages, 1);
+  assert.equal(payload.candidateCount, 1);
+  assert.equal(payload.mappings[1].note, note);
+  // Headroom sees payload with note stripped to avoid router:mixed
+  assert.equal(payload.messages[1].content, rawText);
+
+  const compressedMessages = [
+    payload.messages[0],
+    { role: "tool", tool_call_id: "c_trunc", content: "compressed log summary" }
+  ];
+  const applied = applyCompressionResult(messages, payload.mappings, compressedMessages, { minMessageChars: 1 });
+  assert(applied.ok === true);
+  // The applied message restores the trailing note verbatim
+  assert.equal(applied.messages[1].content, "compressed log summary" + note);
+
+  console.log("✓ Trailing note preservation passed\n");
+}
+
+function testCacheColdAndPromptCacheStability() {
+  console.log("Testing Cache Cold & Prompt Cache Stability...");
+
+  const assistantEntry = { type: "message", message: { role: "assistant" } };
+  const userEntry = { type: "message", message: { role: "user" } };
+  const compactionEntry = { type: "compaction", summary: "summary" };
+
+  assert.equal(isCacheCold([]), false, "Empty branch is not cold");
+  assert.equal(isCacheCold([userEntry, assistantEntry]), false, "No compaction is warm");
+  assert.equal(isCacheCold([compactionEntry, assistantEntry]), false, "Assistant after compaction is warm");
+  assert.equal(isCacheCold([assistantEntry, compactionEntry, userEntry]), true, "Compaction after assistant is cold");
+  assert.equal(isCacheCold([compactionEntry]), true, "Compaction with no answer is cold");
+
+  // Warm prompt cache freezes already-answered past tool results
+  const conversation = [
+    { role: "user", content: "q1" },
+    { role: "assistant", content: [{ type: "toolCall", id: "c_past", name: "bash", arguments: {} }] },
+    { role: "toolResult", toolCallId: "c_past", toolName: "bash", content: "past log line\n".repeat(500) },
+    { role: "assistant", content: "Here is your answer to q1" },
+    { role: "user", content: "q2" },
+    { role: "assistant", content: [{ type: "toolCall", id: "c_new", name: "bash", arguments: {} }] },
+    { role: "toolResult", toolCallId: "c_new", toolName: "bash", content: "new log line\n".repeat(500) }
+  ];
+
+  // When cache is warm, c_past is answered and must stay frozen (applyTo = null) to preserve provider prompt cache
+  const warmPayload = buildCompressionPayload(conversation, 1, false);
+  const pastMapping = warmPayload.mappings.find((m) => m.sourceIndex === 2);
+  const newMapping = warmPayload.mappings.find((m) => m.sourceIndex === 6);
+  assert.equal(pastMapping.applyTo, null, "Past answered tool result must stay frozen when cache is warm");
+  assert.equal(newMapping.applyTo, "toolResult", "New pending tool result must be candidate for compression");
+
+  // When cache is cold (after compaction), past tool result is reopened
+  const coldPayload = buildCompressionPayload(conversation, 1, true);
+  const pastColdMapping = coldPayload.mappings.find((m) => m.sourceIndex === 2);
+  assert.equal(pastColdMapping.applyTo, "toolResult", "Past tool result can be compressed when cache is cold");
+
+  console.log("✓ Cache cold & prompt cache stability passed\n");
+}
+
+async function testSessionBranchDecisionsPersistence() {
+  console.log("Testing Session Branch Decision Persistence...");
+
+  const appendedEntries = [];
+  const recordingPi = {
+    ...mockPi,
+    appendEntry: (customType, data) => {
+      appendedEntries.push({ type: "custom", customType, data });
+    }
+  };
+
+  const client = new MockClient();
+  const runtime = {
+    pi: recordingPi,
+    config: mockConfig,
+    client,
+    state: {
+      enabled: true,
+      proxyOnline: true,
+      processing: false,
+      lastInputFingerprint: null,
+      lastOutputFingerprint: null,
+      lastGuardSkipCandidateFingerprint: null,
+      compressedCandidates: new Map(),
+      lastCompressionTime: 0,
+      stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 }
+    },
+    refreshStatus: () => {}
+  };
+
+  const messages = [
+    { role: "user", content: "run job" },
+    { role: "assistant", content: [{ type: "toolCall", id: "call_persist", name: "bash", arguments: {} }] },
+    { role: "toolResult", toolCallId: "call_persist", toolName: "bash", content: "output log line\n".repeat(500) }
+  ];
+
+  const res = await handleContextCompression(runtime, { messages }, createMockCtx(messages));
+  assert(res !== undefined, "Compression should succeed");
+  assert.equal(appendedEntries.length, 1, "Should persist compression decision via pi.appendEntry");
+  assert.equal(appendedEntries[0].customType, DECISION_ENTRY_TYPE);
+  assert.equal(appendedEntries[0].data.kind, "compressed");
+  assert.equal(appendedEntries[0].data.toolCallId, "call_persist");
+
+  // Simulate new session reload /resume: rehydrate runtime from branch
+  const newRuntime = {
+    pi: recordingPi,
+    config: mockConfig,
+    client: new MockClient(), // fresh client with 0 calls
+    state: {
+      enabled: true,
+      proxyOnline: true,
+      processing: false,
+      lastInputFingerprint: null,
+      lastOutputFingerprint: null,
+      lastGuardSkipCandidateFingerprint: null,
+      compressedCandidates: new Map(),
+      lastCompressionTime: 0,
+      stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 }
+    },
+    refreshStatus: () => {}
+  };
+
+  loadDecisionsFromBranch(newRuntime, appendedEntries);
+  assert.equal(newRuntime.state.compressedCandidates.size, 1, "Candidate should be rehydrated from branch");
+  assert.equal(newRuntime.state.stats.applied, 1, "Stats applied count restored");
+  assert(newRuntime.state.stats.tokensSaved > 0, "Stats tokensSaved restored");
+
+  // Subsequent call in rehydrated session replays byte-for-byte with 0 proxy calls
+  const replayRes = await handleContextCompression(newRuntime, { messages }, createMockCtx(messages));
+  assert.equal(newRuntime.client.calls, 0, "Replayed decision must NOT call proxy");
+  assert.equal(replayRes?.messages[2].content, res.messages[2].content, "Byte-for-byte identical replay");
+
+  console.log("✓ Session branch decision persistence passed\n");
+}
+
+async function testEdgeCasesAndInvariants() {
+  console.log("Testing Edge Cases & Invariants...");
+
+  // 1. Truncation note edge case: total length >= 2000, but body < 2000
+  const shortBody = "small log message\n";
+  const giantNote = "\n\n[" + "x".repeat(2500) + "]";
+  const textWithGiantNote = shortBody + giantNote;
+  assert(textWithGiantNote.length >= 2000, "Fixture must be >= 2000 total");
+  const payloadSmallBody = buildCompressionPayload(
+    [{ role: "toolResult", toolCallId: "c_small_body", toolName: "bash", content: textWithGiantNote }],
+    2000
+  );
+  assert.equal(payloadSmallBody.candidateCount, 0, "Body alone under minMessageChars must NOT be a compression candidate");
+  assert.equal(payloadSmallBody.mappings[0].applyTo, null);
+
+  // 2. Trailing note without note present
+  const plainText = "plain text line\n".repeat(200);
+  const plainSplit = splitTrailingNote(plainText);
+  assert.equal(plainSplit.body, plainText);
+  assert.equal(plainSplit.note, "");
+
+  // 3. Branch rehydration: malformed / corrupted data & deduplication
+  const runtimeBranch = {
+    pi: mockPi,
+    config: mockConfig,
+    client: new MockClient(),
+    state: {
+      enabled: true,
+      proxyOnline: true,
+      processing: false,
+      lastInputFingerprint: null,
+      lastOutputFingerprint: null,
+      lastGuardSkipCandidateFingerprint: null,
+      compressedCandidates: new Map(),
+      lastCompressionTime: 0,
+      stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 }
+    },
+    refreshStatus: () => {}
+  };
+
+  const corruptedBranch = [
+    null,
+    undefined,
+    "not-an-entry",
+    { type: "message" },
+    { type: "custom", customType: "other" },
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: null },
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: "string-data" },
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: { kind: "unknown" } },
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: { kind: "compressed", key: "k1", text: "t1", tokensSaved: NaN } },
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: { kind: "compressed", key: "k1", text: "t1", tokensSaved: -100 } },
+    // Valid entry:
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: { kind: "compressed", key: "valid_key", text: "compressed_text", tokensSaved: 500 } },
+    // Duplicate of valid entry (must not double-count stats):
+    { type: "custom", customType: DECISION_ENTRY_TYPE, data: { kind: "compressed", key: "valid_key", text: "compressed_text", tokensSaved: 500 } }
+  ];
+
+  loadDecisionsFromBranch(runtimeBranch, corruptedBranch);
+  assert.equal(runtimeBranch.state.compressedCandidates.size, 2, "Only valid string keys retained");
+  assert.equal(runtimeBranch.state.compressedCandidates.get("valid_key"), "compressed_text");
+  assert.equal(runtimeBranch.state.stats.applied, 2, "Applied count increments once per unique key");
+  assert.equal(runtimeBranch.state.stats.tokensSaved, 500, "Tokens saved must not double count on duplicate branch entries");
+
+  // 4. isCacheCold with malformed / non-array inputs
+  assert.equal(isCacheCold(null), false);
+  assert.equal(isCacheCold(undefined), false);
+  assert.equal(isCacheCold(["string", 123, null, {}]), false);
+  assert.equal(isCacheCold([{ type: "other" }]), false);
+
+  // 5. Mixed turn: Candidate 1 cached, Candidate 2 uncached
+  let clientCompressCalledWith = null;
+  const selectiveClient = {
+    async compress(messages) {
+      clientCompressCalledWith = messages;
+      return {
+        compressed: true,
+        messages: messages.map(m => m.role === "tool" ? { ...m, content: "comp_" + m.content.substring(0, 10) } : m),
+        tokensBefore: 2000,
+        tokensAfter: 200,
+        tokensSaved: 1800,
+        compressionRatio: 0.1,
+        transformsApplied: ["mock"],
+        ccrHashes: []
+      };
+    }
+  };
+
+  const mixedRuntime = {
+    pi: mockPi,
+    config: mockConfig,
+    client: selectiveClient,
+    state: {
+      enabled: true,
+      proxyOnline: true,
+      processing: false,
+      lastInputFingerprint: null,
+      lastOutputFingerprint: null,
+      lastGuardSkipCandidateFingerprint: null,
+      compressedCandidates: new Map(),
+      lastCompressionTime: 0,
+      stats: { attempts: 0, applied: 0, guardSkips: 0, tokensSaved: 0 }
+    },
+    refreshStatus: () => {}
+  };
+
+  // Seed Candidate 1 in compressedCandidates
+  const cand1Text = "cand1 original content line\n".repeat(200);
+  const cand1Key = __test__.generateFingerprint ? "seeded" : "key";
+  const msg1 = { role: "toolResult", toolCallId: "c1", toolName: "bash", content: cand1Text };
+  const seededMessages = [
+    { role: "assistant", content: [{ type: "toolCall", id: "c1", name: "bash", arguments: {} }] },
+    msg1
+  ];
+  // Compress c1 first
+  const resC1 = await handleContextCompression(mixedRuntime, { messages: seededMessages }, createMockCtx(seededMessages));
+  assert(resC1 !== undefined, "Turn 1 c1 compressed");
+  const c1CompressedText = resC1.messages[1].content;
+
+  // Turn 2: c1 (cached) and c2 (new)
+  mixedRuntime.state.lastCompressionTime = 0;
+  const cand2Text = "cand2 brand new content line\n".repeat(200);
+  const turn2Messages = [
+    { role: "assistant", content: [{ type: "toolCall", id: "c1", name: "bash", arguments: {} }] },
+    msg1,
+    { role: "assistant", content: [{ type: "toolCall", id: "c2", name: "bash", arguments: {} }] },
+    { role: "toolResult", toolCallId: "c2", toolName: "bash", content: cand2Text }
+  ];
+
+  const resTurn2 = await handleContextCompression(mixedRuntime, { messages: turn2Messages }, createMockCtx(turn2Messages));
+  assert(resTurn2 !== undefined, "Turn 2 should compress uncached candidate");
+  // Candidate 1 must be replayed from cache
+  assert.equal(resTurn2.messages[1].content, c1CompressedText, "Candidate 1 replayed from cache");
+  // Candidate 2 must be compressed
+  assert.notEqual(resTurn2.messages[3].content, cand2Text, "Candidate 2 was compressed");
+
+  console.log("✓ Edge cases & invariants passed\n");
+}
+
+async function testSlashCommands() {
+  console.log("Testing Slash Commands...");
+
+  const appendedEntries = [];
+  const notifications = [];
+  const trackingPi = {
+    ...mockPi,
+    appendEntry: (customType, data) => {
+      appendedEntries.push({ customType, data });
+    }
+  };
+
+  const mockSlashCtx = {
+    ...createMockCtx([]),
+    ui: {
+      notify: (msg, type) => { notifications.push({ msg, type }); },
+      setStatus: () => {},
+      theme: { fg: (_c, t) => t, bold: (t) => t, bg: (_c, t) => t }
+    },
+    hasUI: true
+  };
+
+  const client = {
+    async health() { return true; },
+    async probe() { return true; },
+    async stats() { return { uptime: 1234, version: "0.39.1", active: true }; }
+  };
+
+  const runtime = {
+    pi: trackingPi,
+    config: { ...mockConfig, mode: "normal", baseUrl: "http://127.0.0.1:8788", command: "headroom" },
+    client,
+    state: {
+      enabled: true,
+      proxyOnline: true,
+      processing: false,
+      lastInputFingerprint: null,
+      lastOutputFingerprint: null,
+      lastGuardSkipCandidateFingerprint: null,
+      compressedCandidates: new Map(),
+      lastCompressionTime: 0,
+      stats: { attempts: 5, applied: 2, guardSkips: 1, tokensSaved: 1500 }
+    },
+    refreshStatus: () => {},
+    updateHealth: async () => true,
+    ensureProxy: async () => true
+  };
+
+  // 1. /headroom (status)
+  appendedEntries.length = 0;
+  notifications.length = 0;
+  await handleCommand(runtime, "status", mockSlashCtx);
+  assert.equal(appendedEntries.length, 1, "/headroom status should append a report entry");
+  assert.equal(appendedEntries[0].customType, REPORT_ENTRY_TYPE);
+  assert.equal(appendedEntries[0].data.title, "Status Report");
+  assert(appendedEntries[0].data.report.includes("Headroom token compression"));
+  assert(appendedEntries[0].data.report.includes("1,500"));
+  assert(notifications.length > 0, "Should also notify for status");
+
+  // 2. /headroom health
+  appendedEntries.length = 0;
+  await handleCommand(runtime, "health", mockSlashCtx);
+  assert.equal(appendedEntries.length, 1);
+  assert.equal(appendedEntries[0].data.title, "Health Check");
+  assert(appendedEntries[0].data.report.includes("online"));
+
+  // 3. /headroom stats
+  appendedEntries.length = 0;
+  await handleCommand(runtime, "stats", mockSlashCtx);
+  assert.equal(appendedEntries.length, 1);
+  assert(appendedEntries[0].data.title.includes("Proxy Stats"));
+  assert(appendedEntries[0].data.report.includes("0.39.1"));
+
+  // 4. /headroom off
+  appendedEntries.length = 0;
+  await handleCommand(runtime, "off", mockSlashCtx);
+  assert.equal(runtime.state.enabled, false);
+  assert.equal(appendedEntries.length, 1);
+  assert.equal(appendedEntries[0].data.title, "Disabled");
+
+  // 5. /headroom on
+  appendedEntries.length = 0;
+  await handleCommand(runtime, "on", mockSlashCtx);
+  assert.equal(runtime.state.enabled, true);
+  assert.equal(appendedEntries.length, 1);
+  assert.equal(appendedEntries[0].data.title, "Enabled");
+
+  // 6. /headroom mode quiet
+  appendedEntries.length = 0;
+  await handleModeChange(runtime, "quiet", mockSlashCtx);
+  assert.equal(runtime.config.mode, "quiet");
+  assert.equal(appendedEntries.length, 1);
+  assert.equal(appendedEntries[0].data.title, "Mode Changed");
+
+  console.log("✓ Slash commands passed\n");
+}
+
 async function runAll() {
   try {
     testConfigMode();
@@ -683,6 +1064,11 @@ async function runAll() {
     await testZeroSavings();
     testAssistantToolCallPreservation();
     await testEdgeCases();
+    testTrailingNotePreservation();
+    testCacheColdAndPromptCacheStability();
+    await testSessionBranchDecisionsPersistence();
+    await testEdgeCasesAndInvariants();
+    await testSlashCommands();
     console.log("ALL LOGIC VERIFIED ✓");
   } catch (e) {
     console.error("TEST FAILED ✗");

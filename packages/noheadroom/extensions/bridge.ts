@@ -20,10 +20,37 @@ const STANDARD_COMPRESSIBLE_ROLES = new Set(["user", "assistant", "toolResult"])
 // File reads supply exact edit anchors; directives and recovered evidence must stay raw.
 const PROTECTED_TOOLS = new Set(["read", "read_file", "view", "edit", "write", "skill", "headroom_retrieve"]);
 const CCR_MARKER = /Retrieve\s+(?:more|original):\s*hash=|<<ccr:/i;
+// Pi ends truncated output with a one-line note such as
+// "[Showing lines 580-1501 of 1501 (50.0KB limit). Full output: /tmp/pi-bash-….log]".
+// With it attached, Headroom's content router treats the text as mixed and skips it,
+// so the note is kept aside during compression and re-appended verbatim.
+const TRAILING_NOTE = /\n\n\[[^\n]*\]\n?$/;
 
-export function buildCompressionPayload(messages: AgentMessage[], minMessageChars: number): CompressionPayload {
+export function splitTrailingNote(text: string): { body: string; note: string } {
+	const match = TRAILING_NOTE.exec(text);
+	return match ? { body: text.slice(0, match.index), note: match[0] } : { body: text, note: "" };
+}
+
+export function buildCompressionPayload(
+	messages: AgentMessage[],
+	minMessageChars: number,
+	cacheCold = false,
+): CompressionPayload {
 	const mappings: CompressionMapping[] = [];
 	let candidateCount = 0;
+
+	// Results sent before the latest assistant message were part of an earlier turn
+	// and may already sit in the provider prompt cache. Unless cache is cold, freeze them.
+	let answered = false;
+	const answeredToolCalls = new Set<string>();
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const m = messages[i] as AnyMessage;
+		if (m.role === "assistant") answered = true;
+		if (answered && m.role === "toolResult") {
+			const id = readStringProperty(m, "toolCallId");
+			if (id) answeredToolCalls.add(id);
+		}
+	}
 
 	for (let sourceIndex = 0; sourceIndex < messages.length; sourceIndex++) {
 		const source = messages[sourceIndex] as AnyMessage;
@@ -31,6 +58,7 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		if (!converted) continue;
 
 		const originalText = extractOpenAIText(converted);
+		const toolCallId = readStringProperty(source, "toolCallId") ?? "";
 		// Mark candidates for compression.
 		// ONLY toolResults are candidates, preserving original Pi conversation fidelity.
 		const textOnly = typeof source.content === "string" ||
@@ -38,7 +66,8 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 		let applyTo: "toolResult" | null = source.role === "toolResult" &&
 			textOnly && originalText.length >= minMessageChars &&
 			!("isError" in source && source.isError) &&
-			!PROTECTED_TOOLS.has((readStringProperty(source, "toolName") ?? "").toLowerCase())
+			!PROTECTED_TOOLS.has((readStringProperty(source, "toolName") ?? "").toLowerCase()) &&
+			(cacheCold || !answeredToolCalls.has(toolCallId))
 			? "toolResult" : null;
 
 		// Headroom Bypass Rules (Android Hat)
@@ -47,8 +76,21 @@ export function buildCompressionPayload(messages: AgentMessage[], minMessageChar
 			applyTo = null;
 		}
 		
-		if (applyTo) candidateCount++;
-		mappings.push({ sourceIndex, message: converted, applyTo, originalText });
+		let note = "";
+		let messageForPayload = converted;
+		if (applyTo) {
+			const split = splitTrailingNote(originalText);
+			if (split.body.length < minMessageChars) {
+				applyTo = null;
+			} else {
+				if (split.note) {
+					note = split.note;
+					messageForPayload = { ...converted, content: split.body };
+				}
+				candidateCount++;
+			}
+		}
+		mappings.push({ sourceIndex, message: messageForPayload, applyTo, originalText, note });
 	}
 
 	return {
@@ -85,7 +127,8 @@ export function applyCompressionResult(
 		const validation = validateAlignedMessage(mapping.message, compressed);
 		if (!validation.ok) return validation;
 
-		const nextText = extractOpenAIText(compressed);
+		const rawNextText = extractOpenAIText(compressed);
+		const nextText = rawNextText + (mapping.note ?? "");
 		if (nextText === mapping.originalText) continue;
 		// No retrieval executor is registered. Reject only a marker created by this response:
 		// prior session history can already contain one and must not disable later safe compaction.

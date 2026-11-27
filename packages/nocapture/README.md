@@ -149,7 +149,18 @@ article-media batch --manifest media.json
 
 ## Using With AI Coding Agents & Team Distribution
 
-`@raquezha/nocapture` ships a bundled [Agent Skill](nocapture/SKILL.md) (`"pi": { "skills": ["nocapture"] }`) that teaches agents the 5-step workflow plus video and zoom framing rules:
+The real superpower of `nocapture` is that **you chat with your agent, and the agent builds verified media for you.**
+
+In practice, teammates don't sit in terminal memorizing CLI flags like `--duration 6 --fps 60 --width 1280 --height 720`. They will be in Claude, Antigravity, ChatGPT, or Cursor, prompting:
+
+> *"Make a 60fps video showing our new PR flow and check it."*
+
+You don't need to build or maintain an internal wrapper tool:
+- **No setup overhead:** `npm i -g @raquezha/nocapture` needs only Node and Chrome. On macOS, there is zero FFmpeg or native build setup needed.
+- **Zero boilerplate:** The agent writes the HTML/CSS scene on demand, tailored to whatever was asked.
+- **The agent is the wrapper:** `@raquezha/nocapture` bundles a native [Agent Skill](nocapture/SKILL.md) (`"pi": { "skills": ["nocapture"] }`) that teaches agents the exact 5-step workflow out of the box.
+
+### The 5-Step Agent Workflow
 
 1. Define a one-sentence claim and choose SVG, PNG, or MP4/GIF.
 2. Author a self-contained local scene (never fake historical product screenshots).
