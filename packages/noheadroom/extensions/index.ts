@@ -524,17 +524,25 @@ export function loadDecisionsFromBranch(runtime: HeadroomRuntime, entries: reado
 
 export function isCacheCold(entries: readonly unknown[]): boolean {
 	if (!Array.isArray(entries) || entries.length === 0) return false;
-	const lastCompaction = entries.findLastIndex(
-		(entry) => isRecord(entry) && entry.type === "compaction",
-	);
-	if (lastCompaction === -1) return false;
-	const lastAssistant = entries.findLastIndex(
-		(entry) =>
+	let lastCompaction = -1;
+	let lastAssistant = -1;
+	for (let i = entries.length - 1; i >= 0; i--) {
+		const entry = entries[i];
+		if (lastCompaction === -1 && isRecord(entry) && entry.type === "compaction") {
+			lastCompaction = i;
+		}
+		if (
+			lastAssistant === -1 &&
 			isRecord(entry) &&
 			entry.type === "message" &&
 			isRecord(entry.message) &&
-			entry.message.role === "assistant",
-	);
+			entry.message.role === "assistant"
+		) {
+			lastAssistant = i;
+		}
+		if (lastCompaction !== -1 && lastAssistant !== -1) break;
+	}
+	if (lastCompaction === -1) return false;
 	return lastCompaction > lastAssistant;
 }
 
