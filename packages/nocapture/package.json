@@ -1,6 +1,6 @@
 {
   "name": "@raquezha/nocapture",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Deterministic local PNG, SVG, MP4, and GIF rendering and validation for lazy writers and coding agents",
   "type": "module",
   "bin": {
