@@ -17,6 +17,7 @@
         "norpiv/sync",
         "norpiv/update-docs",
         "norpiv/post-merge-prune",
+        "norpiv/whatsup",
         "nometa/pulse"
       ],
       "extensions": [
@@ -34,6 +35,7 @@
         "norpiv/grill-with-docs",
         "norpiv/plan",
         "norpiv/sync",
+        "norpiv/whatsup",
         "nometa/pulse"
       ],
       "extensions": [
@@ -55,6 +57,7 @@
         "norpiv/sync",
         "norpiv/update-docs",
         "norpiv/post-merge-prune",
+        "norpiv/whatsup",
         "nometa/pulse"
       ],
       "extensions": [
@@ -76,6 +79,7 @@
         "norpiv/sync",
         "norpiv/update-docs",
         "norpiv/post-merge-prune",
+        "norpiv/whatsup",
         "nometa/pulse"
       ],
       "extensions": [
@@ -143,6 +147,7 @@
         "norpiv/sync",
         "norpiv/update-docs",
         "norpiv/post-merge-prune",
+        "norpiv/whatsup",
         "nometa/pulse"
       ],
       "extensions": []
