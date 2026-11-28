@@ -1,5 +1,11 @@
 # @raquezha/norpiv
 
+## 0.4.0
+
+### Minor Changes
+
+- a8fa8ce: Add whatsup skill for instant context rehydration and strengthen invariant preservation in plan and verify workflows.
+
 ## 0.3.11
 
 ### Patch Changes
