@@ -12,23 +12,38 @@ description: >
 Instant 10-second rehydration of workflow status, branch context, and immediate next step.
 
 ## Guardrails
-- READ: `.workflow/active.json`, active `WORK.md` (`[META]`, `[BRIEF]`, `[PLAN]`, `[LOG]`), and git status (`git branch --show-current`, `git status -s`).
+- READ: `.workflow/active.json` first, then compatibility `.workflow/active_task.json` only if needed, active `WORK.md` (`[META]`, `[BRIEF]`, `[PLAN]`, `[LOG]`), and git status (`git branch --show-current`, `git status -s`).
 - WRITE: None. STRICTLY read-only.
 - NEVER: mutate code, write files, transition trackers, or run destructive git commands.
-- OUTPUT FORMAT: Exactly 4 concise bullets. No fluff, no transcript regurgitation.
+- OUTPUT FORMAT: Exactly 4 concise bullets. No fluff, no transcripts.
 
 ## Workflow
-1. Read `.workflow/active.json`.
-   - If missing or no active task: report that no task is active and suggest `/triage <source>:<id>` or `/pulse`.
-2. Read the active task's `WORK.md`:
+1. **Read Active Pointer**:
+   - Check `.workflow/active.json` first, then legacy `.workflow/active_task.json` if needed.
+   - If missing or points to no task: report that no task is active and suggest `/triage <source>:<id>` or `/pulse`.
+2. **Read Active `WORK.md`**:
    - Parse `[META]` (branch, status, phase).
-   - Parse `[BRIEF]` (task type, source id, core objective).
-   - Parse `[PLAN]` (find checked slices vs first unchecked slice).
-   - Parse `[LOG]` (find the most recent 1-2 completed actions/commits).
-3. Check Git State:
-   - Run `git branch --show-current` (verify against `WORK.md` `[META]`).
-   - Run `git status -s` (note if there are uncommitted changes).
-4. Output the 4-bullet re-orientation.
+   - Parse `[BRIEF]` (task type, source id, title/outcome).
+   - Parse `[PLAN]` (count total slices, checked `[x]` slices, first unchecked `[ ]` slice).
+   - Parse `[LOG]` (extract last 1-2 completed milestones/commits and any active PR/MR link).
+3. **Check Git State**:
+   - Run `git branch --show-current`: Compare with `WORK.md` `[META] Branch`.
+   - Run `git status -s`: Check for uncommitted modified/untracked files.
+4. **Determine Next Single Action by Phase & State**:
+   - If `triaged` -> `Run /frame`
+   - If `framed` -> `Run /grill-with-docs`
+   - If `grilled` -> `Run /plan`
+   - If `planned` -> `Run /implement for <Slice N>`
+   - If `implementing`:
+     - If uncommitted changes exist in working tree -> `Run /verify for <Slice N> or commit changes`
+     - If clean working tree -> `Run /implement for <Slice N>`
+   - If `verified` or all slices `[x]` complete -> `Run /sync to update tracker, or merge PR and /post-merge-prune`
+5. **Output the 4-Bullet Re-orientation**:
+   - Format:
+     - **Where we are**: `[source:id]` (`<title/type>`) on `<current-branch>` `[PR #XXX]` • Phase: `<phase>` *(add ⚠️ Branch mismatch warning if git branch != task branch)*
+     - **What just happened**: `<last completed action/slice from [LOG] with timestamp/commit>`
+     - **In-flight**: `<current unchecked slice from [PLAN]>` + `<git working tree status: clean | N uncommitted files>`
+     - **Next single action**: `<exact command to run next>`
 
 ## Output Contract
 Output exactly:
