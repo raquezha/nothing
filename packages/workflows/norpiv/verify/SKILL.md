@@ -16,10 +16,12 @@ The final gate for a slice or task. Verify truth before reporting progress.
 - NEVER: transition tracker state if verification fails.
 - NEVER: delete `.workflow` task folders without explicit user approval.
 - EVIDENCE ISOLATION: Resolve task evidence from active task workspace `.workflow/tasks/<task-id>/evidence/` or task state. Do not scan arbitrary repository files as task evidence.
+- INVARIANT & REGRESSION CERTIFICATION: `/verify` MUST explicitly evaluate and certify preserved system invariants and verify that caller/blast-radius regression checks passed. Never report "Objective met: yes" without explicit invariant confirmation and blast-radius coverage.
 
 ## Workflow
 1. Compare code changes against `[BRIEF]` and the current `[PLAN]` slice.
-2. Run stated verification commands and available quality gates.
+2. Run stated verification commands and available quality gates (both positive functional checks and regression checks).
+3. **Certify Invariants & Blast Radius**: Verify that documented preserved invariants remain unbroken and that affected callers, consumers, or shared modules did not regress.
 4. Check for AI artifacts: placeholder comments, fake APIs, dead code, inconsistent naming.
 5. Confirm commits and PR/MR metadata satisfy the repository's own hooks, CI, and release policies. Do not invent or enforce extra RPIV-specific formatting here.
 6. If passing, mark the slice checkbox complete in `[PLAN]` and append verification evidence to `[LOG]` (Format: `YYYY-MM-DD hh:mm AM/PM`).
@@ -28,7 +30,9 @@ The final gate for a slice or task. Verify truth before reporting progress.
 ## Output contract
 End with:
 - **Objective met**: yes/no
-- **Verification used**
+- **Invariants certified**: confirmation that domain and system contracts hold
+- **Blast radius checked**: callers, shared components, or suites verified
+- **Verification used**: commands and results
 - **Slice status**
 - **Tracker sync needed**: yes/no
 - **Next step**
