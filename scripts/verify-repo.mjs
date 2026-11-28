@@ -317,7 +317,7 @@ function verifyPackageManifests() {
     "packages/notrace/package.json": { extensions: ["extensions"] },
     "packages/nopaste/package.json": { extensions: ["extensions"] },
     "packages/nosearch/package.json": { extensions: ["extensions"], skills: ["brave-search", "firecrawl"] },
-    "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill"] },
+    "packages/workflows/norpiv/package.json": { skills: ["refine", "triage", "frame", "grill-with-docs", "plan", "implement", "verify", "sync", "update-docs", "post-merge-prune", "distill", "whatsup"] },
     "packages/workflows/nochestra/package.json": { extensions: ["extensions"] },
     "packages/nodesign/package.json": { skills: ["figma-standard", "nodesign-ui"] },
   };

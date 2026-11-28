@@ -20,6 +20,7 @@
     "triage",
     "update-docs",
     "verify",
+    "whatsup",
     "README.md"
   ],
   "keywords": [
@@ -47,7 +48,8 @@
       "sync",
       "update-docs",
       "post-merge-prune",
-      "distill"
+      "distill",
+      "whatsup"
     ]
   },
   "dependencies": {
